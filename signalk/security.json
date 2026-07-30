@@ -1,0 +1,17 @@
+{
+  "allow_readonly": false,
+  "expiration": "NEVER",
+  "secretKey": "",
+  "users": [
+    {
+      "username": "captain",
+      "type": "admin",
+      "password": ""
+    }
+  ],
+  "devices": [],
+  "immutableConfig": false,
+  "acls": [],
+  "allowDeviceAccessRequests": true,
+  "allowNewUserRegistration": true
+}
