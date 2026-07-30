@@ -1,0 +1,32 @@
+# Symphony — Specs
+
+- Vessel name: Symphony
+- USCG Official Number: 694176
+- HIN: XSA38104K585
+- MMSI: 368391180
+- Call sign: WDP8516
+- Port of call: Seattle, WA
+- LOA: 37' 11"
+- LWL: 33.00 ft
+- Beam: 12.5 ft
+- Max draft: 6.00 ft
+- Freeboard: 2.7 ft
+- Molded depth: 8.7 ft
+- Mast height from DWL: 54.5 ft
+- Displacement: 26,500 lb
+- Gross tonnage: 15
+- Net tonnage: 13
+- Hull material: FRP
+- Hull type: Long keel
+- Rig type: Cutter
+- Designer: Harwood Ives
+- Builder: Anderson Yachts Ltd.
+- Production run: 1976–1989
+- Year built: 1985
+- Built at: Taiwan
+- Engine: Yanmar 3QM30
+- Rig I: 49.5 ft
+- Rig J: 22.0 ft
+- Rig P: 44.8 ft
+- Rig E: 15.3 ft
+- Sail area total: 887 sq ft
