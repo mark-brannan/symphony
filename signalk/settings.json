@@ -1,0 +1,55 @@
+{
+  "pipedProviders": [],
+  "interfaces": {
+    "applicationData": true,
+    "appstore": true,
+    "logfiles": true,
+    "mfd_webapp": true,
+    "n2k-discovery": true,
+    "nmea-tcp": true,
+    "playground": true,
+    "plugins": true,
+    "providers": true,
+    "rest": true,
+    "tcp": true,
+    "unitpreferences-api": true,
+    "wasm": true,
+    "webapps": true,
+    "ws": true
+  },
+  "security": {
+    "strategy": "./tokensecurity"
+  },
+  "resourcesApi": {
+    "defaultProviders": {
+      "notes": "signalk-crows-nest",
+      "tides": "tides",
+      "routes": "resources-provider",
+      "waypoints": "resources-provider",
+      "regions": "resources-provider",
+      "charts": "resources-provider",
+      "infolayers": "resources-provider",
+      "tracks": "resources-provider",
+      "groups": "resources-provider",
+      "plotterExtensions": "signalk-basic-tide-widgets",
+      "dsc-calls": "signalk-dsc",
+      "dsc-call-markers": "signalk-dsc",
+      "restricted-areas": "signalk-restricted-areas"
+    }
+  },
+  "courseApi": {
+    "apiOnly": false
+  },
+  "mdns": true,
+  "ssl": false,
+  "wsCompression": false,
+  "wsPingInterval": 30000,
+  "accessLogging": true,
+  "enablePluginLogging": true,
+  "trustProxy": false,
+  "port": 3000,
+  "sslport": 3443,
+  "pruneContextsMinutes": 60,
+  "keepMostRecentLogsOnly": true,
+  "logCountToKeep": 24
+}

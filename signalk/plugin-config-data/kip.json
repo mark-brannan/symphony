@@ -1,0 +1,8 @@
+{
+  "configuration": {
+    "nodeSqliteAvailable": true,
+    "historySeriesServiceEnabled": true,
+    "registerAsHistoryApiProvider": true
+  },
+  "enabled": true
+}
