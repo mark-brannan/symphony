@@ -1,0 +1,10 @@
+name: symphony
+
+networks:
+  symphony-net:
+    driver: bridge
+
+include:
+  - path: compose-signalk.yml
+  - path: compose-influxdb.yml
+  - path: compose-grafana.yml
