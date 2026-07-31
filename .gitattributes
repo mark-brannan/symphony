@@ -4,3 +4,4 @@ signalk/plugin-config-data/signalk-dsc.json filter=sops
 signalk/plugin-config-data/signalk-healthcheck.json filter=sops
 signalk/plugin-config-data/signalk-windy-plugin.json filter=sops
 signalk/plugin-config-data/signalk-usage.json filter=sops
+signalk/plugin-config-data/openweather-signalk.json filter=sops

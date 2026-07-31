@@ -49,3 +49,9 @@ creation_rules:
     key_groups:
       - age:
           - *host_age
+
+  - path_regex: signalk/plugin-config-data/openweather-signalk\.json$
+    encrypted_regex: '^apikey$'
+    key_groups:
+      - age:
+          - *host_age
