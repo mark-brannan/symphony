@@ -96,6 +96,50 @@ influxdb_reachable() {
   [ "$code" = "200" ]
 }
 
+influxdb_captain_login() {
+  local captain_password code
+  captain_password=$(sops --decrypt --extract '["influxdb_captain_password"]' secrets/symphony.sops.yaml 2>/dev/null) || return 1
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -u "captain:${captain_password}" http://localhost:8086/api/v2/signin)
+  [ "$code" = "204" ]
+}
+
+influxdb_signalk_token_can_write() {
+  local token code
+  token=$(sops --decrypt --extract '["influxdb_signalk_token"]' secrets/symphony.sops.yaml 2>/dev/null) || return 1
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+    "http://localhost:8086/api/v2/write?org=darkstarllc&bucket=symphony&precision=s" \
+    -H "Authorization: Token ${token}" --data-raw "integration_test,source=ci value=1")
+  [ "$code" = "204" ]
+}
+
+influxdb_signalk_token_is_scoped() {
+  # Regression guard: this token is meant to be read+write on one bucket
+  # only, not an operator token. InfluxDB's list endpoints (users,
+  # buckets) don't 401/403 on insufficient scope -- they silently filter
+  # to what the token can see, which isn't a reliable "denied" signal. A
+  # genuinely admin-only action is: deleting *any* authorization requires
+  # write:authorizations, which this token must not have.
+  local token operator_token some_auth_id code
+  token=$(sops --decrypt --extract '["influxdb_signalk_token"]' secrets/symphony.sops.yaml 2>/dev/null) || return 1
+  operator_token=$(sops --decrypt --extract '["influxdb_operator_token"]' secrets/symphony.sops.yaml 2>/dev/null) || return 1
+  some_auth_id=$(curl -s -H "Authorization: Token ${operator_token}" "http://localhost:8086/api/v2/authorizations" | \
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["authorizations"][0]["id"])' 2>/dev/null) || return 1
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE \
+    -H "Authorization: Token ${token}" "http://localhost:8086/api/v2/authorizations/${some_auth_id}")
+  [ "$code" = "401" ] || [ "$code" = "403" ]
+}
+
+grafana_influxdb_datasource_healthy() {
+  local admin_user admin_password ds_uid status
+  admin_user=$(sops --decrypt --extract '["grafana_superadmin_user"]' secrets/symphony.sops.yaml 2>/dev/null) || return 1
+  admin_password=$(sops --decrypt --extract '["grafana_superadmin_password"]' secrets/symphony.sops.yaml 2>/dev/null) || return 1
+  ds_uid=$(curl -s -u "${admin_user}:${admin_password}" http://localhost:3000/api/datasources | \
+    python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["uid"])' 2>/dev/null) || return 1
+  status=$(curl -s -u "${admin_user}:${admin_password}" "http://localhost:3000/api/datasources/uid/${ds_uid}/health" | \
+    python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' 2>/dev/null)
+  [ "$status" = "OK" ]
+}
+
 check "SignalK: /signalk endpoint reachable"        signalk_reachable
 check "SignalK: admin UI reachable"                 signalk_admin_ui_reachable
 check "SignalK: rejects bad login"                  signalk_rejects_bad_login
@@ -105,6 +149,10 @@ check "Grafana: admin login works"                  grafana_admin_login
 check "Grafana: default admin:admin is rejected"    grafana_rejects_default_admin_admin
 check "Grafana: captain login works"                grafana_captain_login
 check "InfluxDB: health endpoint reachable"          influxdb_reachable
+check "InfluxDB: captain login works"               influxdb_captain_login
+check "InfluxDB: signalk token can write"           influxdb_signalk_token_can_write
+check "InfluxDB: signalk token is properly scoped"  influxdb_signalk_token_is_scoped
+check "Grafana->InfluxDB datasource is healthy"     grafana_influxdb_datasource_healthy
 
 echo
 echo "$pass passed, $fail failed"

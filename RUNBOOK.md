@@ -14,13 +14,15 @@ Two mechanisms, one age key, one store of truth (`secrets/symphony.sops.yaml`):
   is always plaintext — SignalK/Grafana read and rewrite it exactly as they
   do today, no behavior change. Only what git stores (and what's on GitHub)
   is encrypted.
-- **API-provisioned** — Grafana users. Grafana OSS has no file-based user
-  provisioning at all (confirmed by inspecting the image — real provisioning
-  dirs are only `access-control, alerting, dashboards, datasources,
-  notifiers, plugins`), so there's no file for a template or a git filter to
-  act on. `scripts/provision_grafana_users.sh` is the equivalent: idempotent,
-  creates-or-converges each user via the HTTP Admin API using the superadmin
-  credential from Layer 1.
+- **API-provisioned** — Grafana users and all of InfluxDB. Neither has a
+  file for a template or a git filter to act on: Grafana OSS has no
+  file-based user provisioning at all (confirmed by inspecting the image —
+  real provisioning dirs are only `access-control, alerting, dashboards,
+  datasources, notifiers, plugins`), and InfluxDB's org/bucket/users/tokens
+  are pure runtime state created through its own setup + admin API.
+  `scripts/provision_grafana_users.sh` and `scripts/provision_influxdb.sh`
+  are the equivalent: idempotent, create-or-converge via HTTP API calls
+  using a superadmin/operator credential from Layer 1.
 
 ## Provisioning a new host
 
@@ -47,6 +49,18 @@ Two mechanisms, one age key, one store of truth (`secrets/symphony.sops.yaml`):
    users (currently just `captain`). Needs Grafana up and its superadmin
    password already applied (see the `GF_SECURITY_ADMIN_PASSWORD` note
    under "Rotating a secret" if this is an existing, not fresh, volume).
+9. `bash scripts/provision_influxdb.sh` — on a truly fresh InfluxDB volume,
+   runs `/api/v2/setup` (org `darkstarllc`, bucket `symphony`) and stores
+   the resulting operator token; on an existing one, uses the operator
+   token already in `secrets/symphony.sops.yaml`. Either way, creates the
+   `captain` user (org member, not owner — InfluxDB OSS's access model
+   only has those two levels, no Grafana-style viewer/editor/admin) and
+   mints read/write-scoped tokens for the SignalK plugin and Grafana's
+   datasource if they don't already exist. If it minted a new
+   `influx_token`, re-run `scripts/render.py` and recreate `grafana`; if it
+   minted a new `influxdb_signalk_token`, update the `token` field in
+   `signalk/plugin-config-data/signalk-to-influxdb2.json` by hand and
+   restart `signalk-server`.
 
 If this is a genuinely first-ever boot (no prior `security.json` exists
 anywhere, nothing to decrypt), skip step 5 and just let SignalK create its
@@ -86,6 +100,16 @@ tracked (encrypted) from that point on.
   user's entry) in `secrets/symphony.sops.yaml`, re-run
   `scripts/provision_grafana_users.sh` — it converges password + role on
   every run, so this is safe to re-run any time.
+- **InfluxDB users:** same idea — update `influxdb_captain_password`,
+  re-run `scripts/provision_influxdb.sh`. Passwords converge on every run.
+- **InfluxDB tokens:** these can't be reset in place — InfluxDB only shows
+  a token's value once, at creation, by design. To rotate: `DELETE
+  /api/v2/authorizations/<id>` for the old one (find `<id>` via `GET
+  /api/v2/authorizations?orgID=<org>`, using `influxdb_operator_token`),
+  then re-run `scripts/provision_influxdb.sh` — with the old authorization
+  gone, its "already exists" check no longer finds it and mints a fresh
+  token. Update `secrets/symphony.sops.yaml` and (for the SignalK token)
+  `signalk/plugin-config-data/signalk-to-influxdb2.json` with the new value.
 - See `ROTATION.md` for the specific credentials flagged in the Phase 0
   survey.
 
@@ -107,4 +131,9 @@ new host, or recovering this one, needs it. It is never in git.
   live in the running containers/`.env`, and the 3 in-place files by just
   reading their current plaintext-on-disk copies (which are unaffected by
   losing the key — only the *git-stored* encrypted copies are unreadable)
-  and `git add`-ing them again under the new key.
+  and `git add`-ing them again under the new key. Exception:
+  `influxdb_operator_token` has no plaintext-on-disk copy anywhere (it's
+  not consumed by any container, just used by provisioning scripts) — if
+  it's gone, sign in to InfluxDB with `influxdb_init_username`/`_password`
+  (a real login, not just a token) and mint a replacement via `POST
+  /api/v2/authorizations`.
