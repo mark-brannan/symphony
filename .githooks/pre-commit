@@ -22,7 +22,6 @@ sops_paths=(
   "signalk/security.json"
   "signalk/plugin-config-data/signalk-to-influxdb2.json"
   "signalk/plugin-config-data/signalk-dsc.json"
-  "grafana/provisioning/users/users.yaml"
 )
 for path in "${sops_paths[@]}"; do
   if git diff --cached --name-only | grep -qx "$path"; then

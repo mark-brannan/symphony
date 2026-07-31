@@ -83,6 +83,13 @@ grafana_rejects_default_admin_admin() {
   [ "$code" = "401" ]
 }
 
+grafana_captain_login() {
+  local captain_password code
+  captain_password=$(sops --decrypt --extract '["grafana_captain_password"]' secrets/symphony.sops.yaml 2>/dev/null) || return 1
+  code=$(curl -s -o /dev/null -w '%{http_code}' -u "captain:${captain_password}" http://localhost:3000/api/org)
+  [ "$code" = "200" ]
+}
+
 influxdb_reachable() {
   local code
   code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8086/health)
@@ -96,6 +103,7 @@ check "SignalK: captain login + dashboard API call" signalk_captain_login_and_da
 check "Grafana: login page reachable"               grafana_reachable
 check "Grafana: admin login works"                  grafana_admin_login
 check "Grafana: default admin:admin is rejected"    grafana_rejects_default_admin_admin
+check "Grafana: captain login works"                grafana_captain_login
 check "InfluxDB: health endpoint reachable"          influxdb_reachable
 
 echo

@@ -31,9 +31,3 @@ creation_rules:
     key_groups:
       - age:
           - *host_age
-
-  - path_regex: grafana/provisioning/users/users\.yaml$
-    encrypted_regex: '^password$'
-    key_groups:
-      - age:
-          - *host_age

@@ -6,15 +6,21 @@ Two mechanisms, one age key, one store of truth (`secrets/symphony.sops.yaml`):
   rendered by `scripts/render.py` from `secrets/symphony.sops.yaml`.
   `.env.example` documents every key.
 - **In-place** — `signalk/security.json`, `signalk/plugin-config-data/signalk-to-influxdb2.json`,
-  `signalk/plugin-config-data/signalk-dsc.json`, and
-  `grafana/provisioning/users/users.yaml` are tracked in git *as themselves*.
-  A git clean/smudge filter (`scripts/sops_filter.py`, wired by `.gitattributes`
+  and `signalk/plugin-config-data/signalk-dsc.json` are tracked in git *as
+  themselves*. A git clean/smudge filter (`scripts/sops_filter.py`, wired by `.gitattributes`
   + `scripts/setup-git-filters.sh`) transparently encrypts just the secret
   leaf fields (`secretKey`, `password`, `token`, `logbookToken`) on commit
   and decrypts them back to plaintext on checkout. The working copy on disk
   is always plaintext — SignalK/Grafana read and rewrite it exactly as they
   do today, no behavior change. Only what git stores (and what's on GitHub)
   is encrypted.
+- **API-provisioned** — Grafana users. Grafana OSS has no file-based user
+  provisioning at all (confirmed by inspecting the image — real provisioning
+  dirs are only `access-control, alerting, dashboards, datasources,
+  notifiers, plugins`), so there's no file for a template or a git filter to
+  act on. `scripts/provision_grafana_users.sh` is the equivalent: idempotent,
+  creates-or-converges each user via the HTTP Admin API using the superadmin
+  credential from Layer 1.
 
 ## Provisioning a new host
 
@@ -31,12 +37,16 @@ Two mechanisms, one age key, one store of truth (`secrets/symphony.sops.yaml`):
    point.
 4. `bash scripts/setup-git-filters.sh` — wires the `sops` filter and the
    `.githooks/pre-commit` hook.
-5. `git checkout -- signalk/security.json signalk/plugin-config-data/signalk-to-influxdb2.json signalk/plugin-config-data/signalk-dsc.json grafana/provisioning/users/users.yaml`
-   — re-checks-out those 4 files now that the smudge filter is live, which
+5. `git checkout -- signalk/security.json signalk/plugin-config-data/signalk-to-influxdb2.json signalk/plugin-config-data/signalk-dsc.json`
+   — re-checks-out those 3 files now that the smudge filter is live, which
    decrypts them to real plaintext on disk.
 6. `python3 scripts/render.py` — decrypts `secrets/symphony.sops.yaml` and
    renders `.env`.
 7. `docker compose up -d`.
+8. `bash scripts/provision_grafana_users.sh` — creates/converges Grafana
+   users (currently just `captain`). Needs Grafana up and its superadmin
+   password already applied (see the `GF_SECURITY_ADMIN_PASSWORD` note
+   under "Rotating a secret" if this is an existing, not fresh, volume).
 
 If this is a genuinely first-ever boot (no prior `security.json` exists
 anywhere, nothing to decrypt), skip step 5 and just let SignalK create its
@@ -67,13 +77,15 @@ tracked (encrypted) from that point on.
   `docker exec grafana grafana cli admin reset-admin-password '<value>'`
   to actually apply it to the account. Verify with
   `curl -u admin:<value> http://localhost:3000/api/org` (expect `200`).
-- **In-place:** change it the normal way — through the SignalK/Grafana
-  admin UI (or, for `users.yaml`, edit the file directly since Grafana only
-  reads it, it doesn't own it) — then `git add <file>` to pick up and
-  encrypt the new value. If you also keep a copy in
-  `secrets/symphony.sops.yaml` (as we do for `influx_token`, since Grafana
-  needs it as an env var too, a separate consumption path from SignalK
-  reading it off disk), update both.
+- **In-place:** change it the normal way — through the SignalK admin UI —
+  then `git add <file>` to pick up and encrypt the new value. If you also
+  keep a copy in `secrets/symphony.sops.yaml` (as we do for `influx_token`,
+  since Grafana needs it as an env var too, a separate consumption path
+  from SignalK reading it off disk), update both.
+- **Grafana users:** update `grafana_captain_password` (or add a new
+  user's entry) in `secrets/symphony.sops.yaml`, re-run
+  `scripts/provision_grafana_users.sh` — it converges password + role on
+  every run, so this is safe to re-run any time.
 - See `ROTATION.md` for the specific credentials flagged in the Phase 0
   survey.
 
@@ -88,11 +100,11 @@ new host, or recovering this one, needs it. It is never in git.
   on the new/recovered host and everything above works normally.
 - **If the key is truly gone:** every sops-encrypted value (the whole
   `secrets/symphony.sops.yaml` store, and the encrypted fields inside the
-  4 in-place files as they exist in git history) is unrecoverable from git
+  3 in-place files as they exist in git history) is unrecoverable from git
   alone. Recovery path: generate a fresh keypair (`age-keygen`), update the
   recipient in `.sops.yaml`, then re-populate secrets from their live
   source — `secrets/symphony.sops.yaml` values from whatever's currently
-  live in the running containers/`.env`, and the 4 in-place files by just
+  live in the running containers/`.env`, and the 3 in-place files by just
   reading their current plaintext-on-disk copies (which are unaffected by
   losing the key — only the *git-stored* encrypted copies are unreadable)
   and `git add`-ing them again under the new key.

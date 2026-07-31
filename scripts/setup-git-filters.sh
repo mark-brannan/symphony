@@ -16,7 +16,7 @@ if ! command -v age >/dev/null 2>&1; then
 fi
 if [ ! -f "$HOME/.config/sops/age/keys.txt" ] && [ -z "${SOPS_AGE_KEY_FILE:-}" ]; then
   echo "warning: no age key found at ~/.config/sops/age/keys.txt and SOPS_AGE_KEY_FILE is unset." >&2
-  echo "  security.json / users.yaml / plugin tokens will smudge as ciphertext until you provision one." >&2
+  echo "  security.json / plugin tokens will smudge as ciphertext until you provision one." >&2
 fi
 
 git config filter.sops.clean  "python3 $(pwd)/scripts/sops_filter.py clean %f"

@@ -9,11 +9,13 @@ a real Ansible role later is a mechanical transcription, not a rewrite.
 
 The other secret-bearing files (signalk/security.json,
 signalk/plugin-config-data/signalk-to-influxdb2.json,
-signalk/plugin-config-data/signalk-dsc.json,
-grafana/provisioning/users/users.yaml) are NOT handled here -- they're
-restored automatically by the sops git smudge filter on `git checkout`
-(see scripts/setup-git-filters.sh). This script only covers the .env
-layer that docker-compose substitutes at container-start time.
+signalk/plugin-config-data/signalk-dsc.json) are NOT handled here --
+they're restored automatically by the sops git smudge filter on
+`git checkout` (see scripts/setup-git-filters.sh). Grafana users are
+handled separately by scripts/provision_grafana_users.sh, since Grafana
+OSS has no file-based provisioning for them at all. This script only
+covers the .env layer that docker-compose substitutes at container-start
+time.
 """
 import os
 import stat
