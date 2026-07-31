@@ -1,0 +1,53 @@
+name: Validate
+
+# Syntax/config validation only -- this repo's actual services run on the
+# boat's own hardware, not reachable from a GitHub-hosted runner, so this
+# is not (and can't be) the integration suite in scripts/test_integration.sh.
+# The point here is catching typos before they ever reach the boat, using
+# nothing that needs a secret: no age key, no sops decryption anywhere in
+# this workflow.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stub .env from .env.example (no secrets needed to validate syntax)
+        run: cp .env.example .env
+      - name: docker compose config
+        run: docker compose config --quiet
+
+  json-yaml-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install pyyaml
+      - run: python3 scripts/validate_configs.py
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          command -v shellcheck || (sudo apt-get update && sudo apt-get install -y shellcheck)
+          shellcheck scripts/*.sh .githooks/pre-commit
+
+  python-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 -m py_compile scripts/*.py

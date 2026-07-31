@@ -3,6 +3,8 @@ services:
     image: signalk/signalk-server:latest
     container_name: signalk-server
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "3001:3000" # Map to external port 3001 to avoid conflict with grafana
       - "80:80"

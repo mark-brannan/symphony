@@ -8,7 +8,7 @@
 # `secrets/symphony.sops.yaml` decryptable (age key present), `sops`,
 # `curl`, `python3`.
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)" || exit 1
 
 pass=0
 fail=0
