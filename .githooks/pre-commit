@@ -45,11 +45,16 @@ for path in secrets/*.sops.yaml; do
 done
 
 # Defense in depth: a plain-text regex sweep of staged diffs for anything
-# that looks like a live credential slipping in through some other path.
-if git diff --cached -U0 -- . ':!*.sops.yaml' | grep -E '^\+' | grep -viE '^\+\+\+' | \
+# that looks like a live credential slipping into a *config* file through
+# some other path. Scoped to config-shaped files only (json/yaml/env) --
+# application/test source code legitimately contains strings like
+# `"password":"wrong-on-purpose"` in login-rejection test cases, which
+# isn't a real secret and shouldn't trip this.
+if git diff --cached -U0 -- '*.json' '*.yaml' '*.yml' '.env*' ':!*.sops.yaml' | \
+   grep -E '^\+' | grep -viE '^\+\+\+' | \
    grep -iE '"(password|secret[kK]ey|token|apikey|api_key|logbookToken)"\s*:\s*"[^"]+' | \
    grep -v 'ENC\[' >/dev/null; then
-  echo "pre-commit: a staged line looks like a cleartext credential (password/secret/token field with a non-ENC[ value)." >&2
+  echo "pre-commit: a staged line in a config file looks like a cleartext credential (password/secret/token field with a non-ENC[ value)." >&2
   echo "  Review the diff -- if this is a new sops-tracked file, make sure the clean filter actually ran." >&2
   fail=1
 fi
