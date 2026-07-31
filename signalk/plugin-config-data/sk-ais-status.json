@@ -1,0 +1,6 @@
+{
+  "configuration": {
+    "confirmMaxAgeRatio": 1.1
+  },
+  "enabled": true
+}

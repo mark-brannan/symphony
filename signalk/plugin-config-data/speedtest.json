@@ -1,0 +1,11 @@
+{
+  "configuration": {
+    "eula": true,
+    "tos": true,
+    "privacy": true,
+    "gdpr": true,
+    "interval": 48,
+    "testOnMove": true
+  },
+  "enabled": true
+}

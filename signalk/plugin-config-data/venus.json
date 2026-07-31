@@ -1,0 +1,19 @@
+{
+  "configuration": {
+    "installType": "mqtt",
+    "dbusAddress": "tcp:host=192.168.1.57,port=78",
+    "MQTT": {
+      "host": "venus.local"
+    },
+    "pollInterval": 20,
+    "useDeviceNames": false,
+    "usePosition": true,
+    "relayPath0": "electrical.switches.venus-0",
+    "relayPath1": "electrical.switches.venus-1",
+    "instanceMappings": [],
+    "temperatureMappings": [],
+    "blacklist": [],
+    "ignoredSenders": []
+  },
+  "enabled": true
+}

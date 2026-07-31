@@ -1,0 +1,12 @@
+{
+  "configuration": {
+    "sendAdvisoryOutlook": false,
+    "sendAlertsWatchesWarnings": false,
+    "notificationVisual": false,
+    "notificationSound": false,
+    "minScaleAlert": 3,
+    "observationsInterval": 60,
+    "notificationsInterval": 60
+  },
+  "enabled": true
+}

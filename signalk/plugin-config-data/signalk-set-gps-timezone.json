@@ -1,0 +1,7 @@
+{
+  "configuration": {
+    "interval": 60,
+    "sudo": true
+  },
+  "enabled": true
+}

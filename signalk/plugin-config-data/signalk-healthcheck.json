@@ -13,23 +13,34 @@
 			"sendNotification": false,
 			"sendEmail": false
 		},
+		"providers": {
+			"OpenPlotter GPSD": {
+				"enabled": true,
+				"deltaWarning": 1,
+				"deltaAlarm": 1,
+				"checkFrequency": 60,
+				"checkMaxAttempts": 3,
+				"sendNotification": false,
+				"sendEmail": false
+			}
+		},
 		"mail": {
 			"secure": false,
 			"username": "captain",
-			"password": "ENC[AES256_GCM,data:ghfMM2GcgQdD,iv:e0OwwYhdHcvcVNi47N9nNPs0OkMQ6eRl1s9344/8JUA=,tag:5GHQd4Bsqn5wOfYsaeA+Bg==,type:str]"
+			"password": "ENC[AES256_GCM,data:6NUlgxzV/P3D,iv:TMFxrrqwiPEm1iJZXLStkZf9z0YXFLEkRTvai5NEdP0=,tag:O4gU3G0L5Mz7SAhk8jIEzg==,type:str]"
 		}
 	},
 	"enabled": true,
 	"sops": {
 		"age": [
 			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBKejdCamk0Q1Y3Y2lvWWhO\nUWNIOWdxNy96MVg4ckpTMUZYcFlRTFVKTnhRClg4a2NieE5BaGd1TG1GTHlRTjJW\nUFJGVGo1Q0JFY0pta3Y0QUtTZWw0UE0KLS0tIHhLSUY3OE1Xdi9IZlBZMFN5bjFr\nKytiOWlhUUlMQXdYdSs5OW1TaXN2QnMKfH8WSJxBqb49orX+kj7tHb8nbZKLJChR\nBs3ZNE4MFPxeW0kAXmk9ecZVix12F5iX73RhtMzEPK9OJViBjp5/wA==\n-----END AGE ENCRYPTED FILE-----\n",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBaeXBPQ3laQ0hqMis5eWI2\ndFR3TWlSRlRQc3czVTl5bk5qVkRJZGJPaDA0CkNYaUpBVXV0VnZ2ZU8wS3IxRGRS\nejEzRGtXaWJPVldaaFUrWERkcnFXaTQKLS0tIFYrS0pqdVRnN05zYlprYVo4RnRs\najhKTEp0R1ZTQ3NUSUR4b0NnVHJlWU0KNp36kHKWVto14ttonG0fi6PVSGndbDXv\nWDclz3e/nJTrh/pS2os0y+B+xSBasjk951AA+Y8neqy7TRTMUHphgQ==\n-----END AGE ENCRYPTED FILE-----\n",
 				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
 			}
 		],
 		"encrypted_regex": "^password$",
-		"lastmodified": "2026-07-31T09:15:59Z",
-		"mac": "ENC[AES256_GCM,data:RQRQkLVOBKCzMkiN5ZepdDc1m3F8JS9oIqN4uMHUIiWmuAStMwRsU0UX5BDdWGn+1o9pI7Pqp4Sabug0d7wQCvzw4edzNifeiPkKIjwmzn48eUWGPKVVl4t9mooSN/VjTNeZNdRU5YTp1CnVj+ihEcennTGA/tw8SrW5zkGcIK4=,iv:2/tLu88PFR7VWa9PqyfVGmyplruY0LIKVuHEwXYOlvk=,tag:LXMRF6F+mwAR1HrHzLvsqQ==,type:str]",
+		"lastmodified": "2026-07-31T10:12:45Z",
+		"mac": "ENC[AES256_GCM,data:8xizb7xK/0GA7Vww0dmrav4+pO4PyRUhgIJ/iOE3f8Q/6MKPrB+pz/hHF50eIM4MJgf2VTl84vwHHQCZQi/DrYo2OHLcAJAFopP1C+ZTFAhDSKkzVD8UY10l7yNQBlBRO7IQ74Z9n5r6Oeloc5JUgu743KF6xFOIhj3ltax/yJM=,iv:BS1wPcYPTwGAMVgDmMHeQTu6FIE2u5RdLF4AyPWVIYE=,tag:5PzHVZxBaDFTwhrx37ZHMQ==,type:str]",
 		"version": "3.13.3"
 	}
 }

@@ -1,0 +1,30 @@
+{
+  "configuration": {
+    "regions": [
+      "nw-pacific"
+    ],
+    "minLfp": 0,
+    "displayActivities": [
+      "anchoring",
+      "entry",
+      "fishing"
+    ],
+    "geofence": {
+      "enabled": true,
+      "alertOn": [
+        "anchoring",
+        "entry"
+      ],
+      "approachDistanceM": 1852,
+      "lookaheadSeconds": 600,
+      "hysteresisM": 200,
+      "evalIntervalSeconds": 10,
+      "minMoveM": 20
+    },
+    "autoUpdate": true,
+    "updateIntervalDays": 30,
+    "resourceType": "restricted-areas",
+    "dataRepo": "dirkwa/restricted-areas-data"
+  },
+  "enabled": true
+}
