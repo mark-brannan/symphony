@@ -61,6 +61,12 @@ tracked (encrypted) from that point on.
 - **Layer 1:** `sops secrets/symphony.sops.yaml`, edit the value, save,
   re-run `scripts/render.py`, restart the affected container(s)
   (`docker compose up -d --force-recreate <service>` or just `restart`).
+  Exception: `GF_SECURITY_ADMIN_PASSWORD` only takes effect on a *fresh*
+  `grafana-data` volume — on an existing one (i.e. every time after the
+  first), also run
+  `docker exec grafana grafana cli admin reset-admin-password '<value>'`
+  to actually apply it to the account. Verify with
+  `curl -u admin:<value> http://localhost:3000/api/org` (expect `200`).
 - **In-place:** change it the normal way — through the SignalK/Grafana
   admin UI (or, for `users.yaml`, edit the file directly since Grafana only
   reads it, it doesn't own it) — then `git add <file>` to pick up and

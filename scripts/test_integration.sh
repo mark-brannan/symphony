@@ -65,6 +65,24 @@ grafana_reachable() {
   [ "$code" = "200" ]
 }
 
+grafana_admin_login() {
+  local admin_user admin_password code
+  admin_user=$(sops --decrypt --extract '["grafana_superadmin_user"]' secrets/symphony.sops.yaml 2>/dev/null) || return 1
+  admin_password=$(sops --decrypt --extract '["grafana_superadmin_password"]' secrets/symphony.sops.yaml 2>/dev/null) || return 1
+  code=$(curl -s -o /dev/null -w '%{http_code}' -u "${admin_user}:${admin_password}" http://localhost:3000/api/org)
+  [ "$code" = "200" ]
+}
+
+grafana_rejects_default_admin_admin() {
+  # Regression guard: the built-in superadmin account defaults to
+  # admin:admin on a fresh volume. This must never authenticate on a
+  # provisioned host -- if it does, GF_SECURITY_ADMIN_PASSWORD wasn't
+  # applied (see RUNBOOK.md's rotating-a-secret section).
+  local code
+  code=$(curl -s -o /dev/null -w '%{http_code}' -u "admin:admin" http://localhost:3000/api/org)
+  [ "$code" = "401" ]
+}
+
 influxdb_reachable() {
   local code
   code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8086/health)
@@ -76,6 +94,8 @@ check "SignalK: admin UI reachable"                 signalk_admin_ui_reachable
 check "SignalK: rejects bad login"                  signalk_rejects_bad_login
 check "SignalK: captain login + dashboard API call" signalk_captain_login_and_dashboard
 check "Grafana: login page reachable"               grafana_reachable
+check "Grafana: admin login works"                  grafana_admin_login
+check "Grafana: default admin:admin is rejected"    grafana_rejects_default_admin_admin
 check "InfluxDB: health endpoint reachable"          influxdb_reachable
 
 echo
