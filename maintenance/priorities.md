@@ -143,6 +143,10 @@
 ### Infrastructure
 - Rebuild boat computer
 - Install BLE hub for lighting and related devices
+- Set up real off-machine hosting (VPS or existing NAS) for Vaultwarden to hold the sops/age key backup, reachable privately (e.g. Tailscale) — currently only a local Docker proof-of-concept on the boat computer, which doesn't yet solve the single-point-of-failure risk for the key protecting `symphony.sops.yaml` / `signalk/security.json`
+- Configure InfluxDB to receive data from SignalK, with appropriate data retention policies
+- Revisit current InfluxDB org/bucket setup (org "darkstarllc", bucket "symphony") — consider alternatives using multiple buckets aboard Symphony
+- Set up Grafana dashboards based on the public examples on GitHub from @meri-imperiumi
 
 ### Cameras
 - Identify location for interior Tapo cam
