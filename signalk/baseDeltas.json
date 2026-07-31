@@ -1,0 +1,56 @@
+[
+  {
+    "context": "vessels.self",
+    "updates": [
+      {
+        "values": [
+          {
+            "path": "",
+            "value": {
+              "name": "Symphony",
+              "communication": {
+                "callsignVhf": "WDP8516"
+              },
+              "mmsi": "368391180"
+            }
+          },
+          {
+            "path": "design.draft",
+            "value": {
+              "maximum": 1.83
+            }
+          },
+          {
+            "path": "design.length",
+            "value": {
+              "overall": 14.3
+            }
+          },
+          {
+            "path": "design.beam",
+            "value": 3.76
+          },
+          {
+            "path": "design.airHeight",
+            "value": 16.61
+          },
+          {
+            "path": "sensors.gps.fromBow",
+            "value": 14.3
+          },
+          {
+            "path": "sensors.gps.fromCenter",
+            "value": 1
+          },
+          {
+            "path": "design.aisShipType",
+            "value": {
+              "name": "Sailing",
+              "id": 36
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
