@@ -1,0 +1,203 @@
+{
+  "ui": {
+    "mapNorthUp": false,
+    "mapMove": true,
+    "mapConstrainZoom": false,
+    "toolbarButtons": true,
+    "invertColor": false,
+    "showCourseData": true,
+    "showAisTargets": true,
+    "showNotes": true,
+    "autoNightMode": false
+  },
+  "imageAdjustPalettePos": null,
+  "display": {
+    "fab": "wpt",
+    "disableWakelock": false,
+    "darkMode": {
+      "enabled": true,
+      "source": 0
+    },
+    "nightMode": false,
+    "muteSound": true,
+    "depthAlarm": {
+      "enabled": false,
+      "smoothing": 10000
+    },
+    "plugins": {
+      "instruments": "/@signalk/instrumentpanel",
+      "startOnOpen": true,
+      "parameters": null,
+      "favourites": []
+    },
+    "preferInfoPanel": true,
+    "singleClickNoteDetails": false,
+    "windIndicator": "barb",
+    "statusBar": {
+      "liveEta": false,
+      "referenceSpeed": 6
+    }
+  },
+  "units": {
+    "distance": "kilometer",
+    "depth": "m",
+    "length": "m",
+    "speed": "kn",
+    "temperature": "C",
+    "positionFormat": "XY",
+    "headingAttribute": "navigation.headingTrue",
+    "preferredPaths": {
+      "tws": "environment.wind.speedTrue",
+      "twd": "environment.wind.directionTrue",
+      "heading": "navigation.courseOverGroundTrue",
+      "course": "navigation.courseGreatCircle"
+    },
+    "useServerPrefs": false
+  },
+  "map": {
+    "zoomLevel": 13.967754616950158,
+    "center": [
+      -122.34,
+      47.73949999999999
+    ],
+    "rotation": 0,
+    "lockMoveMap": true,
+    "animate": false,
+    "labelsMinZoom": 8,
+    "doubleClickZoom": false,
+    "overZoomTiles": true,
+    "centerOffset": 0,
+    "s57Options": {
+      "graphicsStyle": "Paper",
+      "boundaries": "Plain",
+      "colors": 4,
+      "shallowDepth": 2,
+      "safetyDepth": 3,
+      "deepDepth": 6,
+      "colorTable": 0,
+      "otherLayers": [
+        "SOUNDG",
+        "OBSTRN",
+        "UWTROC",
+        "WRECKS",
+        "DEPCNT",
+        "RIVERS",
+        "LAKARE"
+      ],
+      "depthUnit": "m"
+    },
+    "popoverMulti": false
+  },
+  "course": {
+    "autoNextPointOnArrival": false,
+    "autoNextPointDelay": 5000,
+    "autoNextPointTrigger": "perpendicularPassed",
+    "arrivalCircle": 100
+  },
+  "vessels": {
+    "fixedLocationMode": true,
+    "fixedPosition": [
+      -122.34,
+      47.7395
+    ],
+    "trail": true,
+    "windVectors": true,
+    "laylines": false,
+    "selfLines": {
+      "cog": {
+        "length": 10,
+        "color": "rgba(204, 12, 225, 0.7)",
+        "weight": 1,
+        "dash": "none"
+      },
+      "heading": {
+        "length": -1,
+        "color": "rgba(221, 99, 0, 0.5)",
+        "weight": 4,
+        "dash": "none"
+      }
+    },
+    "aisCogLine": 10,
+    "iconScale": 0.9,
+    "rangeCircles": false,
+    "rangeCirclesFixed": false,
+    "rangeCirclesDistance": 1000,
+    "rangeCircleCount": 4,
+    "rangeCircleMinZoom": 8,
+    "aisStaleAge": 360000,
+    "aisMaxAge": 540000,
+    "aisWindApparent": false,
+    "aisWindMinZoom": 15,
+    "aisShowTrack": false,
+    "trailFromServer": true,
+    "trailDuration": 24,
+    "trailResolution": {
+      "lastHour": "5s",
+      "next23": "1m",
+      "beyond24": "5m"
+    }
+  },
+  "resources": {
+    "fetchFilter": "?position=[%map:longitude%,%map:latitude%]&distance=%fetch:radius%",
+    "fetchRadius": 0,
+    "notes": {
+      "rootFilter": "?position=[%map:longitude%,%map:latitude%]&distance=%note:radius%",
+      "getRadius": 20,
+      "groupNameEdit": false,
+      "groupRequiresPosition": true,
+      "minZoom": 10
+    },
+    "video": {
+      "enable": false,
+      "url": null
+    },
+    "paths": []
+  },
+  "signalk": {
+    "vessels": true,
+    "atons": true,
+    "aircraft": false,
+    "sar": false,
+    "meteo": true,
+    "maxRadius": 0,
+    "proxied": true
+  },
+  "anchor": {
+    "radius": 40,
+    "setRadius": false,
+    "manualSet": false,
+    "rodeLength": 50
+  },
+  "radars": {
+    "opacity": 1
+  },
+  "experiments": false,
+  "plotterExtensions": {
+    "widgets": []
+  },
+  "selections": {
+    "routes": [],
+    "waypoints": [],
+    "regions": [],
+    "tracks": null,
+    "charts": [
+      "openstreetmap",
+      "openseamap"
+    ],
+    "chartOrder": [
+      "openstreetmap",
+      "openseamap"
+    ],
+    "chartOpacity": {},
+    "chartImageAdjustment": {},
+    "aisTargets": null,
+    "aisTargetTypes": [],
+    "aisFilterByShipType": false,
+    "aisState": [],
+    "resourceSets": {},
+    "infolayers": null,
+    "weatherWindEnabled": false,
+    "oceanCurrentsEnabled": false,
+    "tidalCurrentsEnabled": false
+  }
+}
