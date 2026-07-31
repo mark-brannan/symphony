@@ -1,4 +1,9 @@
 {
-  "configuration": {},
+  "configuration": {
+    "position": {
+      "latitude": 47.657792,
+      "longitude": -122.3773056
+    }
+  },
   "enabled": true
 }
