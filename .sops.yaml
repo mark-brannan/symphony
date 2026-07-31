@@ -1,0 +1,39 @@
+keys:
+  - &host_age age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk
+
+creation_rules:
+  # Layer 1 store: DB init creds, tokens shared across services. Whole-file
+  # encryption -- keys and values both encrypted, only meant to be read via
+  # `sops`, never opened directly.
+  - path_regex: secrets/.*\.sops\.ya?ml$
+    key_groups:
+      - age:
+          - *host_age
+
+  # Layer "in-place": files SignalK/Grafana read directly off disk and, in
+  # SignalK's case, rewrite at runtime. Only the named leaf keys are
+  # encrypted; everything else stays cleartext so the file is still legible
+  # (and mergeable/diffable) in git.
+  - path_regex: signalk/security\.json$
+    encrypted_regex: '^(secretKey|password)$'
+    key_groups:
+      - age:
+          - *host_age
+
+  - path_regex: signalk/plugin-config-data/signalk-to-influxdb2\.json$
+    encrypted_regex: '^token$'
+    key_groups:
+      - age:
+          - *host_age
+
+  - path_regex: signalk/plugin-config-data/signalk-dsc\.json$
+    encrypted_regex: '^logbookToken$'
+    key_groups:
+      - age:
+          - *host_age
+
+  - path_regex: grafana/provisioning/users/users\.yaml$
+    encrypted_regex: '^password$'
+    key_groups:
+      - age:
+          - *host_age

@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Safety net behind the sops clean filter -- catches the case where a clone
+# never ran scripts/setup-git-filters.sh (or the filter silently no-oped)
+# and a secret-bearing file is about to be committed as plaintext.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+fail=0
+
+# Files that must never be tracked at all. Deleting them (e.g. untracking
+# via `git rm --cached`) is fine and expected; only block adds/modifies.
+for path in .env age.key; do
+  status="$(git diff --cached --name-status -- "$path" | cut -f1)"
+  if [ -n "$status" ] && [ "$status" != "D" ]; then
+    echo "pre-commit: '$path' is staged (status: $status) but must never be committed (see .gitignore)." >&2
+    fail=1
+  fi
+done
+
+# Files that must only ever be committed sops-encrypted (partial or whole).
+sops_paths=(
+  "signalk/security.json"
+  "signalk/plugin-config-data/signalk-to-influxdb2.json"
+  "signalk/plugin-config-data/signalk-dsc.json"
+  "grafana/provisioning/users/users.yaml"
+)
+for path in "${sops_paths[@]}"; do
+  if git diff --cached --name-only | grep -qx "$path"; then
+    staged_content="$(git show ":$path")"
+    if ! grep -q "sops" <<<"$staged_content"; then
+      echo "pre-commit: '$path' is staged WITHOUT sops encryption markers." >&2
+      echo "  Did you run scripts/setup-git-filters.sh in this clone?" >&2
+      fail=1
+    fi
+  fi
+done
+for path in secrets/*.sops.yaml; do
+  [ -e "$path" ] || continue
+  if git diff --cached --name-only | grep -qx "$path"; then
+    if ! grep -q "^sops:" "$path"; then
+      echo "pre-commit: '$path' is staged without sops encryption." >&2
+      fail=1
+    fi
+  fi
+done
+
+# Defense in depth: a plain-text regex sweep of staged diffs for anything
+# that looks like a live credential slipping in through some other path.
+if git diff --cached -U0 -- . ':!*.sops.yaml' | grep -E '^\+' | grep -viE '^\+\+\+' | \
+   grep -iE '"(password|secret[kK]ey|token|apikey|api_key|logbookToken)"\s*:\s*"[^"]+' | \
+   grep -v 'ENC\[' >/dev/null; then
+  echo "pre-commit: a staged line looks like a cleartext credential (password/secret/token field with a non-ENC[ value)." >&2
+  echo "  Review the diff -- if this is a new sops-tracked file, make sure the clean filter actually ran." >&2
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "pre-commit: blocked. Fix the above and re-commit." >&2
+  exit 1
+fi

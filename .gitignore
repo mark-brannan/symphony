@@ -3,3 +3,8 @@ node_modules
 *.log
 .DS_Store
 tmp/
+
+# secrets / rendered config -- see RUNBOOK.md
+.env
+age.key
+rendered/

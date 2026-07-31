@@ -1,0 +1,27 @@
+{
+	"configuration": {
+		"maxEvents": 1000,
+		"markerWindowHours": 24,
+		"logbookEnabled": true,
+		"logbookRoutine": false,
+		"logbookUrl": "http://localhost:3000/plugins/signalk-logbook/logs",
+		"logbookToken": "ENC[AES256_GCM,data:PTcMzY28rV2FL/wSk/3dS6iRFCh2Kg/8hkTrWQlQHE0bn8bG,iv:/JN6R1SRxX7M6kPVPZhPbNJf9AMgFIOhiim7Py2VbCE=,tag:uzbaO5egq2NFufZLsZh6Zg==,type:str]",
+		"snapshotPaths": [],
+		"dscwatchEnabled": true,
+		"dscwatchReceiverKey": "",
+		"dscwatchUrl": "https://dscwatch.com/api/v1/report"
+	},
+	"enabled": true,
+	"sops": {
+		"age": [
+			{
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB1MmRjTGZkU2ZQTlhKV20y\nUDhMUDliWU1xalJmZTUzaVZzTlExbHh2K0ZFClBSVnlBSGtTNEhMcTI0MjVrYWhG\neHVGMFdibXJlb0k5dXBmYWxvRkZ6TWMKLS0tIGQxZ0tHNm10M0psM1BNbkl6UktN\neGNVeXJIMTJpNWpMd3ZjcHp0QkdiTFEKDa9yMP+w8pG9hkFNhz4L0RXrl7sUXAEF\n8DoL35YnpqPHyz6n49Y0tK/Tp4rHp2n7SK9o2ySVwkzaeFS0hOqF9g==\n-----END AGE ENCRYPTED FILE-----\n",
+				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+			}
+		],
+		"encrypted_regex": "^logbookToken$",
+		"lastmodified": "2026-07-31T02:26:19Z",
+		"mac": "ENC[AES256_GCM,data:NV+KWZDdR9THfEje6M8BOl3NjTPE2OoLPsQ0THixKfgk6YiiJFmwejBj1ea0ck/fs89wbSaa6JzWReaB+86LgO89H0DVb9dfsrRDmbraFPxHEpmkJVRHz5/8Z7f0nOHpKQjMzp5kjs7i/hQ+F9QuPi3U8r/nqPsDMjehtw7vqDE=,iv:IeeHQkh1A47E15wqQU4LXZf+g5ujmKG5Yk8t/faEEhk=,tag:wwemS4zcRXJf5OBoF3qkXw==,type:str]",
+		"version": "3.13.3"
+	}
+}

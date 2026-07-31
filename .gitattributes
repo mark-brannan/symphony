@@ -1,0 +1,4 @@
+signalk/security.json filter=sops
+signalk/plugin-config-data/signalk-to-influxdb2.json filter=sops
+signalk/plugin-config-data/signalk-dsc.json filter=sops
+grafana/provisioning/users/users.yaml filter=sops
