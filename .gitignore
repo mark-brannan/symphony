@@ -3,6 +3,7 @@ node_modules
 *.log
 .DS_Store
 tmp/
+signalk/appstore-cache/
 
 # secrets / rendered config -- see RUNBOOK.md
 .env
