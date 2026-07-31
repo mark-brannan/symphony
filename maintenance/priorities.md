@@ -21,9 +21,11 @@
 - Install radiator cap and coolant hoses
 
 ### Hull, bilge & underwater
-- Clean and repaint rusted areas in bilge
+- Clean rusted areas in bilge
+- Repaint bilge (after rust cleanup)
 - Clean rust off drive shaft
-- High-priority cleaning/de-rusting: shaft coupler, chain plates, rudder quadrant, topside deck
+- Clean rust off shaft coupler
+- De-rust topside (weather) deck
 
 ### Deck & rig
 - Fix deck caulking; replace missing teak bungs
@@ -41,18 +43,50 @@
 ### Electrical (core, non-IoT)
 - GFCI outlet in head
 - Secure batteries with straps; cover exposed positive battery terminals
+- Wrap up DC-DC converter install (Victron Orion-Tr, purchased 2025-05-08)
+- Charger for starter battery
+- Research and diagram correct inverter / transfer-switch installation
+- Install inverter and transfer switch correctly
+- Install negative bus
+- 3D-print negative bus base
+- Design new positive bus
+- Cut and drill new positive bus
+- 3D-print positive bus base
+- Design bus bar links
+- Fabricate bus bar links
+- Design battery shelves
+- Build battery shelves
+- Design small battery holder
+- 3D-print small battery holder
+- Design pump circuits
+- Short-term pump wiring
+- Short-term shower sump wiring — white stripe is auto, solid brown is manual
+- Design AC system
+- Design pump system
+- Design under-desk layout
+- Design LED COB lighting
+- Design CFL-to-LED replacements
 
 ### Interior & woodwork
 - Refurb stern teak grid, bow pulpit floorboards, sink covers, hob cover
 - Order replacement V-berth mattress
 
 ### Cleaning, painting & finish
-- Paint engine panel, sole brace, chain locker cover, battery compartment, bilge
-- Paint/varnish rudder quadrant, rails, pins
-- Cetol: cockpit, mid deck, foredeck
-- Topside paint: bowsprit, general
-- Refinish/refurb boom holder
-- Clean/wash cockpit; pressure wash
+- Paint engine panel
+- Paint sole brace
+- Paint chain locker cover
+- Paint battery compartment
+- Paint bilge
+- De-rust rudder quadrant
+- Paint/varnish rudder quadrant
+- Cetol cockpit
+- Cetol mid deck
+- Cetol foredeck
+- Topside paint: bowsprit
+- Topside paint: general
+- Refinish/refurb boom gallows
+- Clean/wash cockpit
+- Pressure wash cockpit
 
 ### Organization & storage
 - Reorganize tool/parts drawers, galley, V-berth
@@ -67,6 +101,8 @@
 - Manual bilge pump, floating winch handles, floating lanyard for deck key
 - Ship's bell
 - Sikasil N Plus (portlight gasket bedding), spare belt
+- Fixed-mount VHF radio (Icom M10 Evo)
+- Remote mic for fixed-mount VHF
 
 ### To sell / divest
 - Spinnaker, Baba mainsail, other sails
@@ -77,3 +113,38 @@
 - Separate fridge/freezer
 - Composting toilet
 - Additional cabin heating
+- Decide whether systems/*.md files should be tracked individually or left untracked until populated.
+
+## SignalK / IoT
+
+### Sensors
+- Design engine temp sensors and diagram
+- Design engine flow sensor plumbing
+- Design engine flow sensor electrical
+- Rudder position sensor
+- Pump flow sensors
+- Air quality sensors
+- Air pressure sensor
+- Illuminance sensor
+- Additional temperature sensors
+- Design smart pump system with voltage/current detection
+
+### Autopilot
+- pypilot
+- Design pypilot board
+- Separate IMU for pypilot
+
+### Enclosures
+- 3D-print gas sensor case
+- 3D-print BME688 case
+- 3D-print IMU case
+
+### Infrastructure
+- Rebuild boat computer
+- Install BLE hub for lighting and related devices
+
+### Cameras
+- Identify location for interior Tapo cam
+- Install Tapo cam for galley/saloon
+- Identify location for exterior Tapo cam
+- Install exterior Tapo cam
