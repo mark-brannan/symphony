@@ -10,8 +10,11 @@ services:
       - "80:80"
     volumes:
       - ./signalk:/home/node/.signalk
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - symphony-net
+    group_add:
+      - "1001" # host's docker GID, for docker.sock access (getent group docker)
     #devices:
       #- "/dev/ttyUSB0:/dev/ttyUSB0"
       #- "/dev/ttyAMA0:/dev/ttyAMA0" # Maps the GPIO UART for NMEA 0183
