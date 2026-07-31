@@ -37,3 +37,15 @@ creation_rules:
     key_groups:
       - age:
           - *host_age
+
+  - path_regex: signalk/plugin-config-data/signalk-windy-plugin\.json$
+    encrypted_regex: '^key$'
+    key_groups:
+      - age:
+          - *host_age
+
+  - path_regex: signalk/plugin-config-data/signalk-usage\.json$
+    encrypted_regex: '^token$'
+    key_groups:
+      - age:
+          - *host_age

@@ -1,0 +1,30 @@
+{
+	"configuration": {
+		"influx": {
+			"url": "http://localhost:8086",
+			"token": "ENC[AES256_GCM,data:YNuOutcUSRCo,iv:DU9P3r01TwTcu8vyJnZ5kDoB0ZldSrB9RCRLhVULnXs=,tag:O5HFjO455B7qcX3RyCSE8w==,type:str]",
+			"org": "signalk",
+			"bucket": "signalk"
+		},
+		"tankage": [],
+		"power": [],
+		"reporting": {
+			"updateInterval": 300,
+			"cacheResults": true,
+			"unitPreference": "metric"
+		}
+	},
+	"enabled": true,
+	"sops": {
+		"age": [
+			{
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA3Wmc1aWFhQlliY1BzZXA0\nOVhIRlBMaG4zS1dhcFZRTlhTKzZQbk1EaUJnCkxDTWJaMlBpOTFtS3pXbTlqc1dI\nVkZmeURpTTNiMXBQR3BTanNPYTl5Y3MKLS0tIEoyOHhHblBENDEyWFJjb2xWSFNF\naGhBYUM5T1NldnlRTm1JcHJqdmJSZEkKj6P0M+/Z5WfTzj19+MS+/8e9XG4RpSUh\nF3VUziIkAYvqwkglfRKaxoi0F7G5pRPvpTjszPV9DXZVK9GXLbSJNA==\n-----END AGE ENCRYPTED FILE-----\n",
+				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+			}
+		],
+		"encrypted_regex": "^token$",
+		"lastmodified": "2026-07-31T09:18:46Z",
+		"mac": "ENC[AES256_GCM,data:B8oWrGMbirVry+TRc+vKha5Ynof8QNueDRF6IQqCFajwYvKi40YRJitAKYZ4zdy1t05FJXea5XNZtQtnddSbU/xQVfu/5P7ZSeJQWwgugBbYoTCULfuMQ8Op6n7v7ElQSQv9T6d6SUUTO47EzfHTPUae+wV/K8mpz+5f3MiHheQ=,iv:fxk6n6yxPyfZ0TADXji330+ozKoBuQpBROFZrMz98YM=,tag:QDSwviz2GKoE+g36CV+rBg==,type:str]",
+		"version": "3.13.3"
+	}
+}

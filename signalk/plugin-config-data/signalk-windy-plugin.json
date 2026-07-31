@@ -1,0 +1,18 @@
+{
+	"configuration": {
+		"key": "ENC[AES256_GCM,data:ToK4m4a5WLUY9RreWWFAIOA77r1iKYzfx/vGDil//go=,iv:37bTbWZNAB0e6PyuvaRVghwKvvgDTSsgArv+u7tr8iM=,tag:dVZuM/A8Zjzv3SUTuP/xKA==,type:str]"
+	},
+	"enabled": true,
+	"sops": {
+		"age": [
+			{
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB0SGNSNithd1g2QmQyWklo\nTUFjMWNWMmlkK2NJK0ptOXVIQjc5bXc3UkdjClZibkpNdDlZdmRGK0Q0U2RsK1Qy\nMVNtWk83SHMwemx4eEo2R0dUYXRrWTQKLS0tIHVuckd2WGF0dUE5L2tCSDVybGds\nM0FCZzB1eW1hQmVDVHJRUUFYRzF0VEkKdk3TVO/pu5g4bLcby0wvM31nXcvAbLZj\n1JzsRIeNKaFfJr64D43Zzcn2uoXFcF9XeA8iwgS9xbF++c01hiYBiQ==\n-----END AGE ENCRYPTED FILE-----\n",
+				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+			}
+		],
+		"encrypted_regex": "^key$",
+		"lastmodified": "2026-07-31T09:18:46Z",
+		"mac": "ENC[AES256_GCM,data:0gQPRI+kFE3eji+z2f/sDq19Tnic/J3FrXH/tP7Di+xsrU1jTRY0oNt8T3brMjf2AexBwIg1pwdui5q9yl/MBDXHwrsiLJZ7PLCS1U2i3f73DIL9tTjQCsbHm5xqpyecTS0+9wNQdwMq6bCJVJFlUCQvJvDEk0yBrMyyk2UEArk=,iv:CFilIAzxTG/laBHOYW1ANJXiEFtXUNHBsj6zz9piDOI=,tag:8eY3pQ3VP1rEnVVjLeLS3w==,type:str]",
+		"version": "3.13.3"
+	}
+}
