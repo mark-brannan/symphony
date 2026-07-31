@@ -1,0 +1,49 @@
+{
+  "configuration": {
+    "adapter": "hci0",
+    "transport": "auto",
+    "discoveryTimeout": 30,
+    "discoveryInterval": 10,
+    "peripherals": [
+      {
+        "active": true,
+        "mac_address": "7A:4D:00:98:68:0E",
+        "discoveryTimeout": 30,
+        "params": {
+          "name": "Cerbo GX 1",
+          "sensorClass": "VictronGXDevice"
+        }
+      },
+      {
+        "active": true,
+        "mac_address": "CE:B5:52:72:1C:81",
+        "discoveryTimeout": 30,
+        "params": {
+          "name": "Fridge Thermometer",
+          "sensorClass": "SwitchBotTH"
+        },
+        "paths": {
+          "temp": "environment.inside.refrigerator.temperature",
+          "humidity": "environment.inside.refrigerator.humidity",
+          "battery": "sensors.refrigerator.switchbot.battery",
+          "RSSI": "sensors.refrigerator.switchbot.signalStrength"
+        }
+      },
+      {
+        "active": true,
+        "mac_address": "D2:2A:6F:EF:DB:36",
+        "discoveryTimeout": 30,
+        "params": {
+          "name": "Victron IP22 Charger"
+        },
+        "paths": {
+          "RSSI": "electrical.chargers.VictronACCharger.signalStrength",
+          "state": "electrical.chargers.VictronACCharger.state",
+          "chargerError": "electrical.chargers.VictronACCharger.errorCode",
+          "acCurr": "electrical.chargers.VictronACCharger.current"
+        }
+      }
+    ]
+  },
+  "enabled": true
+}

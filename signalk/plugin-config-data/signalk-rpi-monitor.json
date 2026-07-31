@@ -1,0 +1,11 @@
+{
+  "configuration": {
+    "path_cpu_temp": "environment.rpi.cpu.temperature",
+    "path_gpu_temp": "environment.rpi.gpu.temperature",
+    "path_cpu_util": "environment.rpi.cpu.utilisation",
+    "path_mem_util": "environment.rpi.memory.utilisation",
+    "path_sd_util": "environment.rpi.sd.utilisation",
+    "rate": 30
+  },
+  "enabled": true
+}

@@ -1,0 +1,23 @@
+{
+  "configuration": {
+    "mappings": [
+      {
+        "path": "environment.inside.pressure",
+        "newPath": "environment.outside.pressure",
+        "duplicate": true
+      },
+      {
+        "path": "environment.time",
+        "newPath": "navigation.datetime",
+        "source": "plugin",
+        "duplicate": true
+      },
+      {
+        "path": "electrical.batteries.279",
+        "newPath": "electrical.batteries.house",
+        "duplicate": false
+      }
+    ]
+  },
+  "enabled": true
+}
