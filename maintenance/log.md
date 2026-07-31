@@ -166,3 +166,5 @@
 - Modeled and 3D-printed new deck fill cap keys (~27mm between pins).
 - Small chest refurb completed.
 - Water tank cleaned (at least once previously — due for a deeper clean again, see backlog).
+- GFCI outlet installed in galley.
+- GFCI outlet installed in portside berth.

@@ -54,6 +54,7 @@
 - 3D-print positive bus base
 - Design bus bar links
 - Fabricate bus bar links
+- Rework 3D-printed bus bar covers
 - Design battery shelves
 - Build battery shelves
 - Design small battery holder
