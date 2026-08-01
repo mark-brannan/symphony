@@ -1,0 +1,9 @@
+{
+  "configuration": {
+    "weather": {
+      "apiKey": "",
+      "cacheTTL": 10
+    }
+  },
+  "enabled": true
+}

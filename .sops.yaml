@@ -55,3 +55,9 @@ creation_rules:
     key_groups:
       - age:
           - *host_age
+
+  - path_regex: signalk/plugin-config-data/signalk-grafana\.json$
+    encrypted_regex: '^adminPassword$'
+    key_groups:
+      - age:
+          - *host_age

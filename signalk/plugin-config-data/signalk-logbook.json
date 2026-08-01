@@ -1,0 +1,13 @@
+{
+  "configuration": {
+    "crewNames": [],
+    "displayTimeZone": "UTC",
+    "logNotifications": true,
+    "notificationMinLevel": "warn",
+    "notificationDebounceMinutes": 5,
+    "notificationExcludePaths": [],
+    "logNotificationClears": true,
+    "logHeadingChanges": false
+  },
+  "enabled": true
+}

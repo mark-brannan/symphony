@@ -1,0 +1,11 @@
+{
+  "configuration": {
+    "fetchOnMiss": true,
+    "opacity": {
+      "noaa-sonar": 0.75,
+      "bluetopo-relief": 0.5,
+      "bluetopo-bathymetry": 0.3
+    }
+  },
+  "enabled": true
+}

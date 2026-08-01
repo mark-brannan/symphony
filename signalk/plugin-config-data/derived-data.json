@@ -1,0 +1,85 @@
+{
+  "configuration": {
+    "default_ttl": 0,
+    "engine_instances": "inboard",
+    "battery_instances": "house,starter",
+    "tank_instances": "fuel.0, fuel.1, fresh.0, fresh.1, holding.0",
+    "air_instances": "outside,indoor",
+    "air": {
+      "Air density": false,
+      "outsidedewPoint": false,
+      "Heat Index": false,
+      "Wind Chill": false
+    },
+    "electrical": {
+      "batterPower0": false
+    },
+    "course data": {
+      "cog_magnetic": false,
+      "eta_waypoint": false,
+      "setDrift": false,
+      "steer_error": false,
+      "vmg_Wind": false,
+      "vmg_Wind_STW": false
+    },
+    "heading": {
+      "cog_true": false,
+      "heading": false,
+      "leeway": false,
+      "kFactor": 12,
+      "leewayAngle": false,
+      "magneticVariation": false
+    },
+    "traffic": {
+      "CPA": true,
+      "distanceToSelf": true,
+      "range": -1,
+      "timelimit": 1800,
+      "distanceToSelfTimelimit": 3600,
+      "sendNotifications": true,
+      "notificationZones": []
+    },
+    "depth": {
+      "belowKeel": false,
+      "belowKeel_2": false,
+      "belowSurface": false,
+      "transducerToKeel": false
+    },
+    "propulsion": {
+      "economyport": false,
+      "economystarboard": false,
+      "portstate": false,
+      "starboardstate": false,
+      "propslipport": false,
+      "propslipstarboard": false
+    },
+    "moon": {
+      "Moon": true,
+      "forecastDays": 1
+    },
+    "sun": {
+      "Sun": true,
+      "Sun Time": true,
+      "forecastDays": 1
+    },
+    "tanks": {
+      "tankVolume_fuel.0": false,
+      "volume_unit": "litres",
+      "calibrations.fuel.0": [],
+      "tankVolume_fuel.1": false,
+      "calibrations.fuel.1": [],
+      "tankVolume2_fuel.0": false,
+      "tankVolume2_fuel.1": false
+    },
+    "wind": {
+      "directionMagnetic2": false,
+      "directionMagnetic": false,
+      "angleTrueWater": false,
+      "directionTrue": false,
+      "groundWind": false,
+      "groundWindDirection": false,
+      "windShift": false
+    }
+  },
+  "enabled": true
+}

@@ -1,0 +1,9 @@
+{
+  "configuration": {
+    "managedContainer": false,
+    "logLevel": "info",
+    "publishNotifications": true,
+    "notificationIntervalSeconds": 60
+  },
+  "enabled": true
+}

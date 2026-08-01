@@ -1,0 +1,9 @@
+{
+  "configuration": {
+    "interval": 1000,
+    "duration": 300,
+    "gpioPin": 17,
+    "gpioChip": "gpiochip0"
+  },
+  "enabled": false
+}

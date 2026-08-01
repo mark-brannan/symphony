@@ -1,0 +1,27 @@
+{
+	"configuration": {
+		"grafanaPort": 3001,
+		"grafanaVersion": "latest",
+		"adminPassword": "ENC[AES256_GCM,data:Scbn1Ps=,iv:BiVCmcVPp8CaM+P6P4ZfbGeToSdC/k0C1rGfWOm8RhQ=,tag:eAjNcrJSpZwpmF+d3/LRCw==,type:str]",
+		"anonymousAccess": true,
+		"questdbContainerName": "signalk-questdb",
+		"questdbPgPort": 8812,
+		"signalkUrl": "",
+		"subPath": "",
+		"networkName": "symphony-net",
+		"bindToAllInterfaces": false
+	},
+	"enabled": true,
+	"sops": {
+		"age": [
+			{
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBIUnYxR3NRc3VCbjR0Q0t1\nTzl6aEZxQXNGa1R5ZkpGOGd6SkJnOHRFMFQwCk5BbHRoYTJFV1c0N3ZLNWlsa21S\nL3BVRXNVR3Uycll5Y3JOWENSK1hVOGsKLS0tIHB2WTNRVlJXRkZGcEl0ZVJtcVIz\ncnpFQ25OYU8vZ2oyQm5rN2RXeDdldVkKGegMsXG+6V7xyWnSKYZP/tbF+LiNM42T\ncAA4a+63ARK7AH9JNgFVnii/+yK0Y6rNeuW7jhY4DfoaXE57n3Txww==\n-----END AGE ENCRYPTED FILE-----\n",
+				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+			}
+		],
+		"encrypted_regex": "^adminPassword$",
+		"lastmodified": "2026-08-01T04:42:43Z",
+		"mac": "ENC[AES256_GCM,data:xh/A20Dg9R8XcWnmaljF/fzByZ7DoKLuVir0qQ9JOdrTd3+gTzqTWYnoLFDVQdgyT8SNr/bYK13nVZKp9QYycEBlCxcCQwkmLLGyBl8PjW1/9cqYX79NhLGgQWypku3ndteIeIwUJJJa2BYBD1/UbjdSeSOv3Bn7LwCj7tOEn2Y=,iv:BLJh7/rLX51yB2T2euUAYKLEreMqh2pzIwSEt+YRTO0=,tag:KfxDTnYebHE81CgnKAphtw==,type:str]",
+		"version": "3.13.3"
+	}
+}

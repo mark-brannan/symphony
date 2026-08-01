@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "configuration": {
+    "runtime": "docker",
+    "pruneSchedule": "weekly",
+    "keepImageVersions": 1,
+    "maxConcurrentJobs": 2,
+    "updateCheckInterval": "24h",
+    "backgroundUpdateChecks": true,
+    "containerOverrides": {}
+  }
+}
