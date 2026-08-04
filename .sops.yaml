@@ -61,3 +61,9 @@ creation_rules:
     key_groups:
       - age:
           - *host_age
+
+  - path_regex: signalk/plugin-config-data/signalk-pushover-notification-relay\.json$
+    encrypted_regex: '^(api_key|api_user)$'
+    key_groups:
+      - age:
+          - *host_age
