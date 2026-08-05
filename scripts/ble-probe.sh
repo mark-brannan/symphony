@@ -21,10 +21,15 @@
 #   ble-probe.sh scan [seconds]
 #   ble-probe.sh gatt <MAC>
 #   ble-probe.sh notify <MAC> <char-uuid> [seconds]
+#   ble-probe.sh poll <MAC> <write-char-uuid> <hex-payload> <notify-char-uuid> [seconds]
 #
 # Typical run: scan to confirm the advertised name, gatt to get the service
 # and characteristic UUIDs, then notify against the characteristic that has
-# the notify flag to capture raw frames.
+# the notify flag to capture raw frames. Some BMS families (JBD/ff00, for
+# one) are request/response, not push -- they never notify until a command
+# is written to their write characteristic, so `notify` alone comes back
+# empty on those. `poll` writes a payload first, then listens like `notify`
+# does. Payload is a plain hex string, e.g. dda50300fffd77.
 set -uo pipefail
 
 # Kept out of /tmp deliberately: these logs are the fixture data a sensor
@@ -36,6 +41,21 @@ stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || { echo "missing: $1" >&2; exit 1; }
+}
+
+# bluetoothctl's gatt `write` takes space-separated 0x-prefixed bytes, not a
+# bare hex string -- `dda503...` has to become `0xdd 0xa5 0x03 ...`.
+hex_to_btctl() {
+  local hex="$1"
+  if [ $(( ${#hex} % 2 )) -ne 0 ]; then
+    echo "odd-length hex payload: $hex" >&2
+    return 1
+  fi
+  local out="" i
+  for (( i=0; i<${#hex}; i+=2 )); do
+    out+="0x${hex:i:2} "
+  done
+  printf '%s' "${out% }"
 }
 
 # bluetoothctl is a REPL, not a batch tool. Feeding it a heredoc races --
@@ -101,9 +121,35 @@ cmd_notify() {
   echo "frames: $log" >&2
 }
 
+cmd_poll() {
+  local mac="${1:?usage: ble-probe.sh poll <MAC> <write-char-uuid> <hex-payload> <notify-char-uuid> [seconds]}"
+  local write_uuid="${2:?usage: ble-probe.sh poll <MAC> <write-char-uuid> <hex-payload> <notify-char-uuid> [seconds]}"
+  local payload="${3:?usage: ble-probe.sh poll <MAC> <write-char-uuid> <hex-payload> <notify-char-uuid> [seconds]}"
+  local notify_uuid="${4:?usage: ble-probe.sh poll <MAC> <write-char-uuid> <hex-payload> <notify-char-uuid> [seconds]}"
+  local secs="${5:-30}"
+  local log="${out_dir}/ble-poll-${mac//:/}-${stamp}.log"
+  need bluetoothctl
+  local bytes
+  bytes="$(hex_to_btctl "$payload")" || exit 1
+  drive \
+    "connect $mac" 10 \
+    "menu gatt" 1 \
+    "select-attribute $write_uuid" 2 \
+    "write $bytes" 2 \
+    "select-attribute $notify_uuid" 2 \
+    "notify on" "$secs" \
+    "notify off" 2 \
+    "back" 1 \
+    "disconnect $mac" 3 \
+    | bluetoothctl 2>&1 | tee "$log"
+  echo "captured $(grep -c '^Notification' "$log") notifications" >&2
+  echo "frames: $log" >&2
+}
+
 case "${1:-}" in
   scan)   shift; cmd_scan "$@" ;;
   gatt)   shift; cmd_gatt "$@" ;;
   notify) shift; cmd_notify "$@" ;;
+  poll)   shift; cmd_poll "$@" ;;
   *) sed -n '/^# Usage:/,/^# Typical/p' "$0" >&2; exit 1 ;;
 esac
