@@ -29,7 +29,11 @@
 # one) are request/response, not push -- they never notify until a command
 # is written to their write characteristic, so `notify` alone comes back
 # empty on those. `poll` writes a payload first, then listens like `notify`
-# does. Payload is a plain hex string, e.g. dda50300fffd77.
+# does. Payload is a plain hex string, e.g. dda50300fffd77. The write is
+# sent as `command` (write-without-response) -- BlueZ's default write type
+# is `request` (write-with-response), and JBD-family write chars answer a
+# request-type write with org.bluez.Error.NotSupported since they only
+# advertise the write-without-response property.
 set -uo pipefail
 
 # Kept out of /tmp deliberately: these logs are the fixture data a sensor
@@ -136,7 +140,7 @@ cmd_poll() {
     "connect $mac" 10 \
     "menu gatt" 1 \
     "select-attribute $write_uuid" 2 \
-    "write $bytes" 2 \
+    "write $bytes 0 command" 2 \
     "select-attribute $notify_uuid" 2 \
     "notify on" "$secs" \
     "notify off" 2 \
