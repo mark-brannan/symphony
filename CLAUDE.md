@@ -60,6 +60,32 @@ established practices, not covered here.
 ## Git hygiene
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
-  Stage files explicitly by name.
-- Nothing gets committed or pushed without the owner's explicit go-ahead on
-  that specific action.
+  Stage files explicitly by name, every time, no exceptions.
+- Default to committing and pushing regularly. Finished, reviewable work —
+  new files, scripts, code fixes, doc updates you can point to in a diff —
+  should be checked in as you go, not held back pending a separate
+  go-ahead. Work that stays local and never reaches the remote isn't useful
+  to anyone, including the next session that picks this up.
+- Be defensive specifically about anything that could lose or clobber
+  existing state, and ask first when an action is actually destructive or
+  ambiguous — not as a blanket gate on all commits:
+  - Before staging a file you didn't just create, `git diff` it first and
+    understand what would change. Don't stage a file just because it
+    happened to be sitting there modified.
+  - Before touching anything under `signalk/` — plugin config,
+    `security.json`, etc. — check `git status`. SignalK and its plugins
+    rewrite their own config at runtime, so an untracked file or a
+    modification you didn't make may be live state that matters more than
+    whatever git thinks the file should look like. Flag anything
+    surprising there rather than silently committing over it or discarding
+    it.
+  - Never run history- or working-tree-destructive git commands (`reset
+    --hard`, `clean -fd`, `checkout -- <tracked file>` to discard edits,
+    force-push, branch deletion) without confirming first — these can
+    erase untracked or uncommitted work with no way back.
+  - sops-encrypted files must round-trip through the `sops` filter, never
+    hand-edited in cleartext and committed directly.
+- The bar for "ask before proceeding" is a real risk of losing or
+  overwriting something useful — not merely "this is new" or "I wasn't
+  told to." When genuinely unsure, say what's ambiguous and wait; otherwise
+  commit and push.
