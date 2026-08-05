@@ -35,7 +35,8 @@ set -uo pipefail
 # Kept out of /tmp deliberately: these logs are the fixture data a sensor
 # class gets written and unit tested against, so they need to survive a
 # reboot and be worth syncing somewhere durable.
-out_dir="${BLE_PROBE_OUT:-$HOME/ble_scans}"
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+out_dir="${BLE_PROBE_OUT:-$SCRIPT_DIR/data}"
 mkdir -p "$out_dir" || exit 1
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 
