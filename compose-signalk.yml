@@ -11,6 +11,7 @@ services:
     volumes:
       - ./signalk:/home/node/.signalk
       - /var/run/docker.sock:/var/run/docker.sock
+      - /home/solace/signalk-lint:/opt/dev-plugins/signalk-lint:ro
     networks:
       - symphony-net
     group_add:
