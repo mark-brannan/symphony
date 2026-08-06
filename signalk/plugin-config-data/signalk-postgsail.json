@@ -1,0 +1,63 @@
+{
+  "configuration": {
+    "host": "https://api.openplotter.cloud/",
+    "token": "",
+    "monitoring": {
+      "Uptime": "environment.rpi.uptime",
+      "update_at": "2026-07-03T10:19:12Z",
+      "voltageKey": "electrical.batteries.house.voltage",
+      "venus state": "electrical.venus.state",
+      "CPU avg usage": "host.cpu.averageUsage",
+      "RPi disk free %": "host.disk.freePercentage",
+      "battery current": "electrical.batteries.house.current",
+      "cpu.temperature": "environment.rpi.cpu.temperature",
+      "stateOfChargeKey": "electrical.batteries.house.capacity.stateOfCharge",
+      "insideHumidityKey": "environment.inside.refrigerator.humidity",
+      "additionalDataKeys": [
+        "sensors.refrigerator.switchbot.battery",
+        "electrical.venus.state",
+        "electrical.batteries.house.current",
+        "host.disk.freePercentage",
+        "host.cpu.averageUsage",
+        "environment.rpi.uptime",
+        "environment.rpi.cpu.temperature"
+      ],
+      "additionalSections": [
+        {
+          "key": "sensors.refrigerator.switchbot.battery",
+          "name": "fridge sensor battery"
+        },
+        {
+          "key": "electrical.venus.state",
+          "name": "venus state"
+        },
+        {
+          "key": "electrical.batteries.house.current",
+          "name": "battery current"
+        },
+        {
+          "key": "host.disk.freePercentage",
+          "name": "RPi disk free %"
+        },
+        {
+          "key": "host.cpu.averageUsage",
+          "name": "CPU avg usage"
+        },
+        {
+          "key": "environment.rpi.uptime",
+          "name": "Uptime"
+        },
+        {
+          "key": "environment.rpi.cpu.temperature",
+          "name": "cpu.temperature"
+        }
+      ],
+      "outsideHumidityKey": "environment.outside.relativeHumidity",
+      "outsidePressureKey": "environment.outside.pressure",
+      "insideTemperatureKey": "environment.inside.refrigerator.temperature",
+      "fridge sensor battery": "sensors.refrigerator.switchbot.battery",
+      "outsideTemperatureKey": "environment.outside.temperature"
+    }
+  },
+  "enabled": true
+}
