@@ -1,12 +1,17 @@
 {
   "configuration": {
-    "sendAdvisoryOutlook": false,
-    "sendAlertsWatchesWarnings": false,
-    "notificationVisual": false,
-    "notificationSound": false,
-    "minScaleAlert": 3,
+    "sendAdvisoryOutlook": true,
+    "sendAlertsWatchesWarnings": true,
+    "notificationVisual": true,
+    "notificationSound": true,
+    "zoneAlertThreshold": 3,
+    "auroraEnabled": true,
+    "auroraInterval": 60,
     "observationsInterval": 60,
-    "notificationsInterval": 60
+    "notificationsInterval": 60,
+    "minScaleAlert": 3
   },
-  "enabled": true
+  "enabled": true,
+  "enableDebug": false,
+  "enableLogging": false
 }
