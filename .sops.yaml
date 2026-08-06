@@ -67,3 +67,9 @@ creation_rules:
     key_groups:
       - age:
           - *host_age
+
+  - path_regex: signalk/plugin-config-data/signalk-postgsail\.json$
+    encrypted_regex: '^token$'
+    key_groups:
+      - age:
+          - *host_age
