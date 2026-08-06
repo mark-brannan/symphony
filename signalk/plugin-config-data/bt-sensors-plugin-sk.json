@@ -34,12 +34,20 @@
         "mac_address": "D2:2A:6F:EF:DB:36",
         "discoveryTimeout": 30,
         "params": {
-          "name": "Victron IP22 Charger"
+          "name": "Victron IP22 Charger",
+          "sensorClass": "VictronACCharger"
         },
         "paths": {
           "RSSI": "electrical.chargers.VictronACCharger.signalStrength",
           "state": "electrical.chargers.VictronACCharger.state",
           "chargerError": "electrical.chargers.VictronACCharger.errorCode",
+          "batt1": "electrical.chargers.{id}.battery1.voltage",
+          "curr1": "electrical.chargers.{id}.battery1.current",
+          "batt2": "electrical.chargers.{id}.battery2.voltage",
+          "curr2": "electrical.chargers.{id}.battery2.current",
+          "batt3": "electrical.chargers.{id}.battery3.voltage",
+          "curr3": "electrical.chargers.{id}.battery3.current",
+          "temp": "electrical.chargers.{id}.temperature",
           "acCurr": "electrical.chargers.VictronACCharger.current"
         }
       }
