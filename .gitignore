@@ -8,17 +8,21 @@ signalk/appstore-cache/
 
 # plugin cache/generated/runtime data -- not configuration, some of it
 # huge (noaa-sonar-chart-provider/ alone has run to 1.4GB before)
-signalk/plugin-config-data/noaa-sonar-chart-provider/
-signalk/plugin-config-data/signalk-restricted-areas/
-signalk/plugin-config-data/signalk-crows-nest/
-signalk/plugin-config-data/signalk-marinetraffic-public/
 signalk/plugin-config-data/kip/
+signalk/plugin-config-data/noaa-sonar-chart-provider/
+signalk/plugin-config-data/signalk-crows-nest/
 signalk/plugin-config-data/signalk-autostate/
-signalk/plugin-config-data/tides/
-signalk/plugin-config-data/signalk-dsc/
+signalk/plugin-config-data/signalk-checklist/
 signalk/plugin-config-data/signalk-container/
+signalk/plugin-config-data/signalk-dsc/
 signalk/plugin-config-data/signalk-grafana/
+signalk/plugin-config-data/signalk-marinetraffic-public/
+signalk/plugin-config-data/signalk-notification-player/ 
+signalk/plugin-config-data/signalk-noaa-space-weather/ 
+signalk/plugin-config-data/signalk-postgsail/
 signalk/plugin-config-data/signalk-questdb/
+signalk/plugin-config-data/signalk-restricted-areas/
+signalk/plugin-config-data/tides/
 
 # secrets / rendered config -- see RUNBOOK.md
 .env
