@@ -1,0 +1,7 @@
+{
+  "configuration": {
+    "intervalMinutes": 60,
+    "publishNotifications": true
+  },
+  "enabled": true
+}
