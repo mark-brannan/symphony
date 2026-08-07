@@ -31,10 +31,10 @@
       "infolayers": "resources-provider",
       "tracks": "resources-provider",
       "groups": "resources-provider",
-      "plotterExtensions": "signalk-basic-tide-widgets",
       "dsc-calls": "signalk-dsc",
       "dsc-call-markers": "signalk-dsc",
-      "restricted-areas": "signalk-restricted-areas"
+      "restricted-areas": "signalk-restricted-areas",
+      "plotterExtensions": "signalk-basic-tide-widgets"
     }
   },
   "courseApi": {
