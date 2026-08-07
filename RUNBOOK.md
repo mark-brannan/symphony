@@ -70,48 +70,90 @@ tracked (encrypted) from that point on.
 
 ## Adding a secret
 
-- **Layer 1 (.env value):** `sops secrets/symphony.sops.yaml`, add the key,
-  save. Add the same key (blank/dummy) to `.env.example` so it stays a
-  complete contract. Add a line to `.env.j2`. Re-run `scripts/render.py`.
-- **In-place (embedded in a config file SignalK/Grafana already owns):**
-  add a rule to `.sops.yaml` (`path_regex` for the file, `encrypted_regex`
-  matching the new field's key name), add the path to `.gitattributes`
-  (`filter=sops`), add the path to the `sops_paths` list in
-  `.githooks/pre-commit`. Then just edit/save the file normally — the next
-  `git add` encrypts the new field along with the rest.
+**In-place (a plugin config file SignalK/Grafana already owns):**
+
+```
+scripts/add_inplace_secret.sh <file> <field> [<field2> ...]
+git commit
+```
+
+Worked example — this is exactly what wires up a new plugin's token:
+
+```
+scripts/add_inplace_secret.sh signalk/plugin-config-data/signalk-postgsail.json token
+git commit -m "Encrypt signalk-postgsail.json's token"
+```
+
+The script adds the `.sops.yaml` rule, the `.gitattributes` entry, and the
+`.githooks/pre-commit` tracked-path entry (skipping any of the three
+that's already there), stages the file, and fails loudly if the field
+didn't actually encrypt. Re-run it any time — it's idempotent.
+
+**Layer 1 (a new `.env` value):**
+
+```
+sops secrets/symphony.sops.yaml          # add the key, save
+$EDITOR .env.example                     # add the same key, blank/dummy value
+$EDITOR .env.j2                          # add the {{ jinja }} line
+python3 scripts/render.py
+```
 
 ## Rotating a secret
 
-- **Layer 1:** `sops secrets/symphony.sops.yaml`, edit the value, save,
-  re-run `scripts/render.py`, restart the affected container(s)
-  (`docker compose up -d --force-recreate <service>` or just `restart`).
-  Exception: `GF_SECURITY_ADMIN_PASSWORD` only takes effect on a *fresh*
-  `grafana-data` volume — on an existing one (i.e. every time after the
-  first), also run
-  `docker exec grafana grafana cli admin reset-admin-password '<value>'`
-  to actually apply it to the account. Verify with
-  `curl -u admin:<value> http://localhost:3000/api/org` (expect `200`).
-- **In-place:** change it the normal way — through the SignalK admin UI —
-  then `git add <file>` to pick up and encrypt the new value. If you also
-  keep a copy in `secrets/symphony.sops.yaml` (as we do for `influx_token`,
-  since Grafana needs it as an env var too, a separate consumption path
-  from SignalK reading it off disk), update both.
-- **Grafana users:** update `grafana_captain_password` (or add a new
-  user's entry) in `secrets/symphony.sops.yaml`, re-run
-  `scripts/provision_grafana_users.sh` — it converges password + role on
-  every run, so this is safe to re-run any time.
-- **InfluxDB users:** same idea — update `influxdb_captain_password`,
-  re-run `scripts/provision_influxdb.sh`. Passwords converge on every run.
-- **InfluxDB tokens:** these can't be reset in place — InfluxDB only shows
-  a token's value once, at creation, by design. To rotate: `DELETE
-  /api/v2/authorizations/<id>` for the old one (find `<id>` via `GET
-  /api/v2/authorizations?orgID=<org>`, using `influxdb_operator_token`),
-  then re-run `scripts/provision_influxdb.sh` — with the old authorization
-  gone, its "already exists" check no longer finds it and mints a fresh
-  token. Update `secrets/symphony.sops.yaml` and (for the SignalK token)
-  `signalk/plugin-config-data/signalk-to-influxdb2.json` with the new value.
-- See `ROTATION.md` for the specific credentials flagged in the Phase 0
-  survey.
+**Layer 1:**
+
+```
+sops secrets/symphony.sops.yaml          # edit the value, save
+python3 scripts/render.py
+docker compose up -d --force-recreate <service>
+```
+
+`GF_SECURITY_ADMIN_PASSWORD` is the exception — it only takes effect on a
+*fresh* `grafana-data` volume. On an existing one, also run:
+
+```
+docker exec grafana grafana cli admin reset-admin-password '<value>'
+curl -u admin:<value> http://localhost:3000/api/org      # expect 200
+```
+
+**In-place:** change it through the SignalK admin UI, then:
+
+```
+git add <file>
+git commit
+```
+
+If the same secret is also mirrored in `secrets/symphony.sops.yaml` (like
+`influx_token`, which Grafana also needs as an env var — a second
+consumption path besides SignalK reading it off disk), update both.
+
+**Grafana / InfluxDB users:** edit the password in `secrets/symphony.sops.yaml`,
+then re-run the matching provisioner — both converge password + role on
+every run, safe to re-run any time:
+
+```
+scripts/provision_grafana_users.sh
+scripts/provision_influxdb.sh
+```
+
+**InfluxDB tokens** can't be reset in place — a token's value is only ever
+shown once, at creation. To rotate:
+
+```
+# find the old authorization's id
+curl -H "Authorization: Token $(sops --decrypt --extract '["influxdb_operator_token"]' secrets/symphony.sops.yaml)" \
+  "http://localhost:8086/api/v2/authorizations?orgID=<org>"
+
+curl -X DELETE -H "Authorization: Token <operator_token>" \
+  "http://localhost:8086/api/v2/authorizations/<old_id>"
+
+scripts/provision_influxdb.sh   # mints a fresh one now that the old one's gone
+```
+
+Then update `secrets/symphony.sops.yaml` and (for the SignalK token)
+`signalk/plugin-config-data/signalk-to-influxdb2.json` with the new value.
+
+See `ROTATION.md` for the specific credentials flagged in the Phase 0 survey.
 
 ## Recovering a lost age key
 

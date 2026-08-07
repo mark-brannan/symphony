@@ -19,6 +19,7 @@ done
 
 # Files that must only ever be committed sops-encrypted (partial or whole).
 sops_paths=(
+  "signalk/plugin-config-data/signalk-postgsail.json"
   "signalk/security.json"
   "signalk/plugin-config-data/signalk-to-influxdb2.json"
   "signalk/plugin-config-data/signalk-dsc.json"
