@@ -4,6 +4,10 @@ services:
     container_name: dex
     profiles: ["tls"]
     restart: unless-stopped
+    # dex/config.yaml is rendered mode 600, owned by whoever ran render.py
+    # (uid 1000 on these hosts); the image's default non-root user can't
+    # read it. Dex needs no privileges -- run it as the file's owner.
+    user: "1000:1000"
     volumes:
       - ./dex/config.yaml:/etc/dex/config.docker.yaml:ro
     networks:
