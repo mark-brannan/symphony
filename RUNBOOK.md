@@ -162,20 +162,22 @@ Prerequisite: a registered domain with its DNS hosted at Cloudflare (the
 free plan is enough). A subdomain of a domain already on Cloudflare works
 too (`DOMAIN` can be `boat.example.com`).
 
-1. In Cloudflare DNS, add three **A** records pointing at the LAN IP of
-   the host running the stack (DNS only / grey cloud, not proxied):
-   - `signalk.<domain>` → e.g. `192.168.1.50`
-   - `grafana.<domain>` → same IP
-   - `auth.<domain>` → same IP
+1. In Cloudflare DNS, add one **A** record and three CNAMEs, all DNS
+   only / grey cloud (not proxied):
+   - `<domain>` → the LAN IP of the host running the stack, e.g.
+     `192.168.1.50`
+   - `signalk.<domain>`, `grafana.<domain>`, `auth.<domain>` → CNAME to
+     `<domain>`
 
-   Give that host a fixed LAN IP first (DHCP reservation in the boat
-   router). A public name resolving to a private IP is fine — nothing
-   here is reachable from the internet.
+   With the IP in one record, moving the host later is a one-record
+   edit. Give that host a fixed LAN IP first (DHCP reservation in the
+   boat router). A public name resolving to a private IP is fine —
+   nothing here is reachable from the internet.
 2. Create the certificate-issuance token: Cloudflare → My Profile → API
    Tokens → Create Token → "Edit zone DNS" template → limit it to this
    one zone.
-3. On the **boat router**, add local DNS overrides for the same three
-   names → the same LAN IP (dnsmasq:
+3. On the **boat router**, add local DNS overrides for all four names
+   → the same LAN IP (dnsmasq:
    `address=/signalk.<domain>/192.168.1.50`, or the router UI's "local
    DNS records"). Don't skip this: offshore there is no public DNS, and
    without a local override even already-logged-in devices can't resolve

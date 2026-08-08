@@ -21,12 +21,9 @@ values collected below.
 
 ## A. Decide the domain (everything below bakes it into URLs)
 
-- [ ] Pick the boat's domain. A domain already on Cloudflare can be
-      reused, including as a subdomain: `DOMAIN` may be
-      `boat.example.com`, giving `signalk.boat.example.com` and so on.
-      Otherwise register one (~$10/yr) and add it as a site on a free
-      Cloudflare plan at <https://dash.cloudflare.com>.
-- [ ] Put it in sops as `boat_domain`.
+- [x] Pick the boat's domain: `symphony.dark-star-llc.com` (the boat is
+      a sub-zone; apex and top-level names stay free for the LLC).
+- [x] Put it in sops as `boat_domain`.
 
 ## B. OAuth apps (needs only the domain name, not working DNS)
 
@@ -58,13 +55,15 @@ Google:
 - [ ] Give the server host a fixed LAN IP: DHCP reservation in the boat
       router. (No Tailscale involvement — the names must work for any
       device on the boat wifi, tailnet member or not.)
-- [ ] Cloudflare DNS: three **A** records → that IP, grey cloud (DNS
-      only, not proxied): `signalk.<domain>`, `grafana.<domain>`,
-      `auth.<domain>`.
-- [ ] Cloudflare API token: My Profile → API Tokens → Create Token →
+- [x] Cloudflare DNS, all grey cloud (DNS only, not proxied): one **A**
+      record `<domain>` → the boat IP, and `signalk.<domain>`,
+      `grafana.<domain>`, `auth.<domain>` as CNAMEs to it.
+- [ ] Replace the A record's placeholder content (`192.0.2.1`) with the
+      real DHCP-reserved IP once it exists.
+- [x] Cloudflare API token: My Profile → API Tokens → Create Token →
       "Edit zone DNS" template → limit to this zone. Into sops:
       `cloudflare_api_token`.
-- [ ] Router local DNS overrides for the same three names → the same IP
+- [ ] Router local DNS overrides for all four names → the same IP
       (offshore there is no public DNS). Check from the boat LAN with
       WAN unplugged: `nslookup signalk.<domain>` returns the LAN IP.
 
