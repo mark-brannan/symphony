@@ -24,10 +24,10 @@ staticClients:
 
 connectors:
   # Fake upstream IdP that always returns the identity Kilgore Trout
-  # (kilgore@kilgore.trout) with groups ["authors"]. This is the stand-in
-  # for a GitHub login with team memberships: point
-  # SIGNALK_OIDC_ADMIN_GROUPS (or _READWRITE_GROUPS) at "authors" to test
-  # the group -> permission mapping.
+  # (kilgore@kilgore.trout) with groups ["authors"] -- a one-click login.
+  # The boat's config ignores groups (SSO is identity-only), but pointing
+  # SIGNALK_OIDC_ADMIN_GROUPS at "authors" here exercises the server's
+  # group -> permission mapping when experimenting.
   - type: mockCallback
     id: mock
     name: Mock upstream

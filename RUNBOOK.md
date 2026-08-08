@@ -90,6 +90,13 @@ it's gitignored and must never be committed).
 docker compose up -d
 ```
 
+On the boat, once SSO is configured (next section), use this instead so
+the TLS proxy and the identity provider come up too:
+
+```bash
+docker compose --profile tls up -d --build
+```
+
 Compose starts InfluxDB first; SignalK and Grafana both declare
 `depends_on: influxdb`. Note that `depends_on` waits for the *container*,
 not for InfluxDB to be ready to serve — on a cold start the provisioning
@@ -135,6 +142,200 @@ before running it:
 - **If it minted a new `influxdb_signalk_token`:** update the `token` field
   in `signalk/plugin-config-data/signalk-to-influxdb2.json` and restart
   `signalk-server`.
+
+## SSO login (GitHub / Google)
+
+SignalK and Grafana web UIs show a "Sign in with GitHub / Google" button.
+Behind it sits Dex, a small identity provider on the boat at
+`auth.<domain>`: SignalK and Grafana trust only Dex; Dex hands the actual
+login to GitHub or Google. Any account at either provider can sign in and
+view SignalK (readonly). The owner's email also gets Grafana Admin.
+Anything that changes state still uses the local password logins
+(`captain`, Grafana's superadmin), which are also the no-internet
+fallback.
+
+Steps 1–3 are one-time setup from any machine. Step 4 runs on the boat.
+
+### 1 — Domain and DNS (one-time)
+
+Prerequisite: a registered domain with its DNS hosted at Cloudflare (the
+free plan is enough). A subdomain of a domain already on Cloudflare works
+too (`DOMAIN` can be `boat.example.com`).
+
+1. In Cloudflare DNS, add three **A** records pointing at the LAN IP of
+   the host running the stack (DNS only / grey cloud, not proxied):
+   - `signalk.<domain>` → e.g. `192.168.1.50`
+   - `grafana.<domain>` → same IP
+   - `auth.<domain>` → same IP
+
+   Give that host a fixed LAN IP first (DHCP reservation in the boat
+   router). A public name resolving to a private IP is fine — nothing
+   here is reachable from the internet.
+2. Create the certificate-issuance token: Cloudflare → My Profile → API
+   Tokens → Create Token → "Edit zone DNS" template → limit it to this
+   one zone.
+3. On the **boat router**, add local DNS overrides for the same three
+   names → the same LAN IP (dnsmasq:
+   `address=/signalk.<domain>/192.168.1.50`, or the router UI's "local
+   DNS records"). Don't skip this: offshore there is no public DNS, and
+   without a local override even already-logged-in devices can't resolve
+   the names at all.
+
+*Verify:* from a device on the boat LAN **with the WAN link
+disconnected**, `nslookup signalk.<domain>` returns the LAN IP.
+
+### 2 — OAuth apps (one-time)
+
+**GitHub** — under the personal account, no org involved:
+[github.com/settings/developers](https://github.com/settings/developers)
+→ OAuth Apps → New OAuth App:
+
+- Application name: anything (e.g. "Symphony boat systems")
+- Homepage URL: `https://auth.<domain>`
+- Authorization callback URL: `https://auth.<domain>/dex/callback`
+
+Copy the client ID; "Generate a new client secret" and copy it.
+
+**Google** — at
+[console.cloud.google.com](https://console.cloud.google.com):
+
+1. Create a project (any name).
+2. APIs & Services → OAuth consent screen: user type **External**, app
+   name + support email → then **publish to production** (Audience →
+   "Publish app"). Not Testing: testing mode caps sign-ins to a
+   100-address allowlist, and the open readonly door is intended. The
+   basic scopes used need no Google review.
+3. Credentials → Create credentials → OAuth client ID → type **Web
+   application** → one redirect URI:
+   `https://auth.<domain>/dex/callback`
+4. Copy the client ID and client secret.
+
+Both providers talk only to Dex, hence the single callback URL each — no
+signalk/grafana URLs belong in either console.
+
+### 3 — Secrets store (one-time)
+
+```bash
+sops secrets/symphony.sops.yaml
+```
+
+Replace the `REPLACE_WITH_*` placeholders: `boat_domain`,
+`github_oauth_client_id`, `github_oauth_client_secret`,
+`google_oauth_client_id`, `google_oauth_client_secret`,
+`cloudflare_api_token`. `owner_email` is the email that gets Grafana
+Admin. Leave `dex_symphony_client_secret` alone — it's the pre-generated
+secret shared between Dex and SignalK/Grafana; nothing outside this repo
+ever needs it. Commit the file, then:
+
+```bash
+python3 scripts/render.py
+```
+
+(renders both `.env` and `dex/config.yaml` — the latter is gitignored
+plaintext, same trust level as `.env`).
+
+### 4 — Deploy (on the boat)
+
+```bash
+git pull
+python3 scripts/render.py
+docker compose --profile tls up -d --build
+```
+
+The `tls` profile adds `caddy` (HTTPS for all three hostnames, Let's
+Encrypt via Cloudflare DNS-01) and `dex`. The first run builds the caddy
+image and issues certificates, so it needs internet — do it dockside.
+
+*Verify:*
+
+```bash
+curl -s https://signalk.<domain>/signalk/v1/auth/oidc/status
+curl -s https://auth.<domain>/dex/.well-known/openid-configuration | head -3
+```
+
+The first expects `"enabled":true` and
+`"issuer":"https://auth.<domain>/dex"`; the second returns JSON if Dex is
+up behind Caddy. If TLS itself fails, certificates haven't issued — check
+`docker logs caddy`. Then from a browser on the LAN:
+
+- `https://signalk.<domain>` → sign in with either provider → Security →
+  Users shows the new user with type `readonly`.
+- `https://grafana.<domain>` → the owner's login → Admin; any other
+  account → refused (that's the strict email list working).
+- The `captain` password still logs in on SignalK with admin.
+
+### Who gets what
+
+| Login | SignalK | Grafana |
+|---|---|---|
+| any GitHub or Google account | readonly | refused |
+| the owner's email, via either provider | readonly | Admin |
+| `captain` (local password) | admin | — |
+| Grafana superadmin / provisioned users (password) | — | Admin / as provisioned |
+
+SSO permissions are re-applied at every login: promoting an SSO user in
+the SignalK admin UI reverts the next time they sign in, and Grafana
+re-evaluates its email list the same way.
+
+### Granting more than readonly
+
+- **Grafana:** add the email to
+  `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH` in `.env.j2` — e.g. append
+  `|| email=='crew@example.com' && 'Editor'` — then
+  `python3 scripts/render.py` and
+  `docker compose up -d --force-recreate grafana`. A hand-managed list,
+  in the repo.
+- **SignalK:** not available for SSO logins — the stock server maps
+  permissions only from IdP group claims, which these providers don't
+  supply. Someone who needs to change things uses the `captain` login.
+
+### Removing someone
+
+SSO guests need no removal — they're readonly. To cut a person off
+entirely: delete their user in SignalK (Security → Users — SignalK
+sessions never expire, and deleting the user is what invalidates the
+session), remove their email from the Grafana role path if it's there,
+and delete their Grafana user (Administration → Users).
+
+### Offshore (no internet)
+
+- Devices already signed in stay signed in: SignalK sessions don't
+  expire, Grafana sessions last 30 days idle / 90 days max.
+- SSO login needs internet, so a fresh device offshore uses local login
+  instead: on SignalK, the username/password form below the SSO button
+  (`captain`, password in the secrets store); on Grafana, the password
+  box.
+- After ~60 days fully offline, browsers start warning about an expired
+  certificate. It's only a warning; renewal happens on its own once
+  internet returns.
+
+### Re-testing the login flow without real providers
+
+A local stand-in issuer (`dex-dev`) exercises the whole SignalK OIDC
+flow on a dev machine. It serves two personas: a "Mock upstream"
+connector that logs in as `kilgore@kilgore.trout` in one click, and a
+password user `dev@example.com` / `password`. Both land as `readonly`
+under the boat's config.
+
+```bash
+docker compose --profile dev-idp up -d dex-dev
+# point .env's SIGNALK_OIDC_* at it (gitignored; re-render to undo):
+#   ISSUER=http://dex-dev:5556/dex  CLIENT_ID=symphony-local
+#   CLIENT_SECRET=local-dev-not-a-secret
+#   REDIRECT_URI=http://localhost:3001/signalk/v1/auth/oidc/callback
+docker compose up -d signalk
+```
+
+Log in via the SSO button, then restore:
+
+```bash
+python3 scripts/render.py
+docker compose up -d signalk
+docker compose --profile dev-idp rm -sf dex-dev
+```
+
+and delete the test users in SignalK Security → Users (they land in
+git-tracked `signalk/security.json` otherwise).
 
 ## Adding a secret
 
