@@ -194,21 +194,30 @@ two phases later as something that looks unrelated.
 
 ### Phase 1 — Host and tooling
 
-The host needs Docker (with compose v2), and your user in the `docker`
-group. Then:
+The host needs Docker (with compose v2), and on Linux your user in the
+`docker` group. Then install `pre-commit`:
 
 ```bash
-sudo apt install pre-commit
+sudo apt install pre-commit     # Debian/Ubuntu, incl. Pi OS and WSL2
+brew install pre-commit         # macOS
 ```
 
-Use apt rather than pip — the Debian/Ubuntu images used here ship no pip at
-all.
+Prefer the package manager over `pip` — some of these hosts have no `pip`
+at all.
 
 `sops` and `age` ship as standalone binaries. Take the build matching the
-host's architecture from
-[sops releases](https://github.com/getsops/sops/releases) and
-[age releases](https://github.com/FiloSottile/age/releases), and drop them on
-`PATH`, e.g. `~/.local/bin`.
+host you're on from [sops releases](https://github.com/getsops/sops/releases)
+and [age releases](https://github.com/FiloSottile/age/releases), and drop
+them on `PATH`, e.g. `~/.local/bin`:
+
+| Host | Build |
+|---|---|
+| Raspberry Pi (the boat) | `linux-arm64` |
+| Linux PC / WSL2 (dev) | `linux-amd64` |
+| Mac, Apple Silicon (dev) | `darwin-arm64` |
+
+Architecture differs between the boat and the machines this gets developed
+on, so don't copy binaries between them — fetch per host.
 
 *Verify:* `docker compose version && sops --version && age --version && pre-commit --version`
 
