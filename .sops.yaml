@@ -35,8 +35,11 @@ creation_rules:
   # SignalK's case, rewrite at runtime. Only the named leaf keys are
   # encrypted; everything else stays cleartext so the file is still legible
   # (and mergeable/diffable) in git.
+  # clientSecret doesn't exist in the file today (OIDC is configured via
+  # env vars) but appears if anyone saves the admin UI's OIDC form -- the
+  # cleartext-sweep hook doesn't know that field name, so encrypt it here.
   - path_regex: signalk/security\.json$
-    encrypted_regex: '^(secretKey|password)$'
+    encrypted_regex: '^(secretKey|password|clientSecret)$'
     key_groups:
       - age: *recipients
 
