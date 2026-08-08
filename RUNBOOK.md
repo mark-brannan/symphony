@@ -41,19 +41,47 @@ its flows under `signalk/red/`.
 
 ### Two datastores, two Grafanas
 
-There are two parallel paths for the same job, and which one is live has
-changed over time — **check before assuming**:
+There are two parallel paths for the same job:
 
-- SignalK → InfluxDB (`signalk-to-influxdb2` plugin) → compose `grafana`
+- SignalK → InfluxDB (`signalk-to-influxdb2`) → compose `grafana`
 - SignalK → QuestDB (`signalk-questdb`) → `sk-signalk-grafana`
 
-Both sets of credentials are tracked and encrypted, so neither path is
-broken by the secrets tooling. But they contend for host ports: SignalK is
-published on 3001, and `signalk-grafana` also defaults to `grafanaPort:
-3001`. When both want it, the plugin-managed Grafana fails to start with
-`Bind for 0.0.0.0:3001 failed: port is already allocated` and sits in
-`Created`. If a container is inexplicably not running, check
-`docker inspect <name> --format '{{.State.Error}}'` first.
+Credentials for both are tracked and encrypted, so the secrets tooling is
+not what decides between them. **Check which one is actually running before
+assuming** — as of 2026-08-07 neither was working:
+
+- compose `influxdb` and `grafana` were both `exited`.
+- `sk-signalk-questdb` was up and healthy but held **zero tables**; nothing
+  had ever written to it.
+- `sk-signalk-grafana` had never started at all.
+
+Two configuration faults explain the QuestDB path, and both are worth
+knowing about because they fail silently:
+
+**The plugins are on a different network from SignalK.** They are configured
+with `networkName: symphony-net`, but compose prefixes network names with
+the project, so its network is `symphony_symphony-net`. Finding no
+`symphony-net`, `signalk-container` created one — a second bridge with no
+compose labels. `sk-signalk-questdb` sits on it alone, and
+`getent hosts sk-signalk-questdb` from inside `signalk-server` does not
+resolve. Point the plugins at `symphony_symphony-net`, or make `symphony-net`
+an external network that compose joins.
+
+**`questdbHost` is `127.0.0.1`.** Inside the `signalk-server` container that
+is the container itself, not the host, so it cannot reach QuestDB that way
+either.
+
+Separately, the two Grafanas contend for host port 3001: SignalK publishes
+on 3001 and `signalk-grafana` also defaults to `grafanaPort: 3001`, so the
+plugin-managed one dies with `Bind for 0.0.0.0:3001 failed: port is already
+allocated` and stays in `Created`.
+
+When a container is inexplicably not running:
+
+```bash
+docker ps -a                                              # sk-* included
+docker inspect <name> --format '{{.State.Error}}'
+```
 
 SignalK's whole state directory is a bind mount that's tracked in git. That
 is why the in-place encryption scheme exists: SignalK reads and rewrites
@@ -82,9 +110,10 @@ That socket is reachable from inside `signalk-server` — confirmed by
 querying `/version` through it from within the container. So any SignalK
 plugin, or anything that compromises one, can take the host.
 
-Removing the mount is not really on the table while those four plugins are
-in use; `sk-signalk-questdb` in particular holds live data. So plugin
-installation is the security boundary here. Two things follow:
+Whether to keep the mount depends on whether those four plugins are wanted;
+see "Two datastores, two Grafanas" for the state of the ones that use it.
+While they are installed and enabled, plugin installation is the security
+boundary here. Two things follow:
 
 - Know what you're installing. A SignalK plugin is npm code running with a
   path to root on this host.
