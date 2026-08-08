@@ -87,5 +87,10 @@ covered here.
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
-- Nothing gets committed or pushed without the owner's explicit go-ahead on
-  that specific action.
+- Branch judiciously for features.  Small changes such as a package.json update
+should go directly to main
+- Small atomic changes may be committed and pushed as soon as they are verified.
+Larger changes, especially if they merit a feature branch, should get a PR and 
+sign off from the owner.  If a change is potentially destructive or could affect
+adjacent environments for plugin testing, then ask for explicit permission before
+changing, committing, or pushing.
