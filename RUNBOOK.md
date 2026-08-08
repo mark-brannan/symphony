@@ -1,8 +1,8 @@
 # Symphony systems runbook
 
 Operating and recovering S/V Symphony's onboard computer systems: the
-SignalK/InfluxDB/Grafana stack, the host it runs on, and the encrypted
-configuration that ties it together.
+SignalK stack, the host it runs on, and the encrypted configuration that
+ties it together.
 
 Scope note: this covers the *electronic* systems. Physical systems — engine,
 rigging, ground tackle, plumbing — live in `systems/*.md`, and work done on
@@ -13,7 +13,7 @@ Secrets are encrypted with sops before git ever sees them.
 
 ## The stack
 
-Containers here come from two places, and this trips people up.
+Containers come from two places.
 
 **Compose services**, in `docker-compose.yml` and the `compose-*.yml` files
 it includes:
@@ -39,50 +39,6 @@ everything.
 Node-RED runs inside SignalK (the `@signalk/signalk-node-red` plugin), with
 its flows under `signalk/red/`.
 
-### Two datastores, two Grafanas
-
-There are two parallel paths for the same job:
-
-- SignalK → InfluxDB (`signalk-to-influxdb2`) → compose `grafana`
-- SignalK → QuestDB (`signalk-questdb`) → `sk-signalk-grafana`
-
-Credentials for both are tracked and encrypted, so the secrets tooling is
-not what decides between them. **Check which one is actually running before
-assuming** — as of 2026-08-07 neither was working:
-
-- compose `influxdb` and `grafana` were both `exited`.
-- `sk-signalk-questdb` was up and healthy but held **zero tables**; nothing
-  had ever written to it.
-- `sk-signalk-grafana` had never started at all.
-
-Two configuration faults explain the QuestDB path, and both are worth
-knowing about because they fail silently:
-
-**The plugins are on a different network from SignalK.** They are configured
-with `networkName: symphony-net`, but compose prefixes network names with
-the project, so its network is `symphony_symphony-net`. Finding no
-`symphony-net`, `signalk-container` created one — a second bridge with no
-compose labels. `sk-signalk-questdb` sits on it alone, and
-`getent hosts sk-signalk-questdb` from inside `signalk-server` does not
-resolve. Point the plugins at `symphony_symphony-net`, or make `symphony-net`
-an external network that compose joins.
-
-**`questdbHost` is `127.0.0.1`.** Inside the `signalk-server` container that
-is the container itself, not the host, so it cannot reach QuestDB that way
-either.
-
-Separately, the two Grafanas contend for host port 3001: SignalK publishes
-on 3001 and `signalk-grafana` also defaults to `grafanaPort: 3001`, so the
-plugin-managed one dies with `Bind for 0.0.0.0:3001 failed: port is already
-allocated` and stays in `Created`.
-
-When a container is inexplicably not running:
-
-```bash
-docker ps -a                                              # sk-* included
-docker inspect <name> --format '{{.State.Error}}'
-```
-
 SignalK's whole state directory is a bind mount that's tracked in git. That
 is why the in-place encryption scheme exists: SignalK reads and rewrites
 these files while running, so they have to be plaintext on disk and
@@ -91,6 +47,67 @@ ciphertext in git.
 Outbound integrations that need credentials: PostgSail
 (`api.openplotter.cloud`), OpenWeather, Windy, and InfluxDB. Each token is
 encrypted in the relevant `signalk/plugin-config-data/*.json`.
+
+### Two paths to the same job
+
+There are two parallel data paths, and which one is live has changed over
+time. Check before assuming:
+
+- SignalK → InfluxDB (`signalk-to-influxdb2`) → compose `grafana`
+- SignalK → QuestDB (`signalk-questdb`) → `sk-signalk-grafana`
+
+Credentials for both are tracked and encrypted, so the secrets tooling
+doesn't decide between them. Three traps if you run the QuestDB path, all of
+which fail quietly:
+
+**Network names get a project prefix.** Both plugins default to
+`networkName: symphony-net`, but compose actually creates
+`symphony_symphony-net`. Finding no bare `symphony-net`, `signalk-container`
+creates one, and the plugin containers end up on a bridge SignalK isn't on —
+`getent hosts sk-signalk-questdb` from inside `signalk-server` won't resolve.
+Point the plugins at `symphony_symphony-net`, or declare `symphony-net`
+external and have compose join it.
+
+**`questdbHost` defaults to `127.0.0.1`,** which inside the `signalk-server`
+container means that container, not the host. It's ignored while
+`managedContainer` is true, and starts mattering the moment you set it false.
+
+**Both Grafanas want host port 3001.** SignalK publishes on 3001 and
+`signalk-grafana` defaults to `grafanaPort: 3001`, so the plugin-managed one
+dies with `Bind for 0.0.0.0:3001 failed: port is already allocated` and sits
+in `Created`.
+
+To run QuestDB from your own compose file instead, set `managedContainer:
+false` and point `questdbHost` at the service name. The plugin then behaves
+as a client and `signalk-container` isn't involved. `signalk-grafana` has no
+equivalent switch — it always runs its own.
+
+### When a plugin isn't in the config UI
+
+A plugin that crashes on load doesn't appear in Server → Plugin Config at
+all, which looks identical to not being installed. Check the log first:
+
+```bash
+docker logs signalk-server --since 5m 2>&1 | grep 'failed to start'
+docker inspect <container> --format '{{.State.Error}}'   # for sk-* containers
+```
+
+Missing-module errors usually mean a broken dependency tree. The fix is a
+clean reinstall against `signalk/package.json`, which declares every plugin:
+
+```bash
+docker compose stop signalk
+mv signalk/node_modules signalk/.node_modules_old
+docker run --rm -v "$PWD/signalk:/home/node/.signalk" -w /home/node/.signalk \
+  --entrypoint npm signalk/signalk-server:latest install
+docker compose start signalk
+```
+
+Move the old tree aside rather than deleting it, so you can put it back.
+Note `signalk/.npmrc` sets `package-lock=false`, so versions resolve fresh
+against the `^` ranges each time — this is not a reproducible install. npm 11
+also blocks postinstall scripts by default; if a plugin needs a native binary
+(`sharp`, `esbuild`), run `npm approve-scripts <pkg>` and reinstall it.
 
 ### Known risk: the Docker socket
 
@@ -110,15 +127,14 @@ That socket is reachable from inside `signalk-server` — confirmed by
 querying `/version` through it from within the container. So any SignalK
 plugin, or anything that compromises one, can take the host.
 
-Whether to keep the mount depends on whether those four plugins are wanted;
-see "Two datastores, two Grafanas" for the state of the ones that use it.
-While they are installed and enabled, plugin installation is the security
-boundary here. Two things follow:
+While those plugins are enabled, plugin installation is the security boundary
+here. So: know what you're installing, and consider turning off
+`backgroundUpdateChecks` in the `signalk-container` config so new plugin code
+doesn't arrive unattended.
 
-- Know what you're installing. A SignalK plugin is npm code running with a
-  path to root on this host.
-- Consider turning off `backgroundUpdateChecks` in the `signalk-container`
-  config, so new plugin code doesn't arrive unattended.
+The mount can go entirely if nothing needs managed containers — run QuestDB
+from compose (`managedContainer: false`), drop `signalk-grafana`, and remove
+the `docker.sock` volume and `group_add` from `compose-signalk.yml`.
 
 A socket proxy is the usual middle path, but it buys little here:
 `signalk-container` has to create containers to do its job, and container
@@ -182,13 +198,16 @@ The host needs Docker (with compose v2), and your user in the `docker`
 group. Then:
 
 ```bash
-sudo apt install pre-commit          # note: this box has no pip at all
+sudo apt install pre-commit
 ```
 
-`sops` and `age` ship as standalone binaries — take the linux-arm64 (Pi) or
-linux-amd64 build from
+Use apt rather than pip — the Debian/Ubuntu images used here ship no pip at
+all.
+
+`sops` and `age` ship as standalone binaries. Take the build matching the
+host's architecture from
 [sops releases](https://github.com/getsops/sops/releases) and
-[age releases](https://github.com/FiloSottile/age/releases) and drop them on
+[age releases](https://github.com/FiloSottile/age/releases), and drop them on
 `PATH`, e.g. `~/.local/bin`.
 
 *Verify:* `docker compose version && sops --version && age --version && pre-commit --version`
@@ -272,30 +291,23 @@ SignalK create its own through the setup wizard on first admin login, then
 `git add signalk/security.json` once so it starts being tracked — encrypted
 — from that point forward.
 
-### What `provision_influxdb.sh` actually does
+### What `provision_influxdb.sh` does
 
-Worth knowing before you run it, because it can mint credentials that then
-need to be propagated by hand:
+It can mint credentials that then need propagating by hand, so read this
+before running it:
 
 - On a **fresh** volume it runs `/api/v2/setup` (org `darkstarllc`, bucket
   `symphony`) and stores the resulting operator token. On an **existing**
   one it uses the operator token already in `secrets/symphony.sops.yaml`.
 - Either way it creates the `captain` user as an org *member*, not owner —
-  InfluxDB OSS has only those two levels, no Grafana-style viewer/editor
-  tiers — and mints read/write-scoped tokens for the SignalK plugin and
-  Grafana's datasource if they don't already exist.
+  InfluxDB OSS has only those two levels — and mints read/write-scoped
+  tokens for the SignalK plugin and Grafana's datasource if they don't
+  already exist.
 - **If it minted a new `influx_token`:** re-run `scripts/render.py` and
   `docker compose up -d --force-recreate grafana`.
 - **If it minted a new `influxdb_signalk_token`:** update the `token` field
   in `signalk/plugin-config-data/signalk-to-influxdb2.json` and restart
   `signalk-server`.
-
-Grafana users and InfluxDB have no file-based provisioning to template.
-Grafana OSS supports provisioning only for `access-control, alerting,
-dashboards, datasources, notifiers, plugins` — not users. InfluxDB's
-org/bucket/user/token state is created purely through its own setup and
-admin API. These two scripts are the equivalent: idempotent
-create-or-converge over HTTP, using a credential from Layer 1.
 
 ## Adding a secret
 
@@ -386,7 +398,7 @@ scripts/provision_influxdb.sh   # mints a fresh one now that the old one's gone
 Then update `secrets/symphony.sops.yaml` and (for the SignalK token)
 `signalk/plugin-config-data/signalk-to-influxdb2.json`.
 
-See `ROTATION.md` for specific credentials flagged in the Phase 0 survey.
+`ROTATION.md` records credentials already rotated and why.
 
 ## Rotating the age key
 
@@ -450,8 +462,8 @@ to *hygiene*; rotating the secrets is the right response to *exposure*.
 A host still holding only the retired key will fail to decrypt after phase
 2. Nothing is lost — copy a current private key to
 `~/.config/sops/age/keys.txt` on that host and re-run
-`scripts/setup-git-filters.sh`. The keyring file holds multiple keys quite
-happily, one block per key.
+`scripts/setup-git-filters.sh`. The keyring file takes multiple keys, one
+block each.
 
 ## Removing a secret
 
@@ -519,10 +531,10 @@ repo are world-readable.
 
 **Rotate first. Everything else is secondary.**
 
-Once a secret is pushed to a public repo, assume it is compromised. It's in
-GitHub's API, in forks, in mirrors, and in the training corpus of every
-scraper watching the firehose. Rewriting history does **not** un-publish it,
-and GitHub retains unreferenced commits that stay reachable by SHA.
+Once a secret is pushed to a public repo, assume it's compromised — it's in
+GitHub's API, in forks, and in anything that scrapes new commits. Rewriting
+history does **not** un-publish it: GitHub keeps unreferenced commits
+reachable by SHA.
 
 1. **Revoke and reissue the credential at its provider.** This is the only
    step that actually fixes anything. See "Rotating a secret" above.
