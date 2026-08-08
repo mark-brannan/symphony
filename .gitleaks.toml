@@ -1,0 +1,42 @@
+# gitleaks configuration.
+#
+# Uses the full upstream ruleset unmodified and narrows it only where a
+# finding is provably not a secret. Do not redefine upstream rules here --
+# the built-in patterns are more carefully written than a hand-rolled
+# replacement (an earlier attempt at a custom curl rule matched shell
+# variable interpolations and produced four extra false positives).
+#
+# Before adding an allowlist entry, ask whether the value should instead be
+# encrypted (scripts/add_inplace_secret.sh) or removed. Allowlisting is the
+# last resort, not the first fix. Keep every entry scoped with
+# condition = "AND" so it silences one string in one place, never a whole
+# file -- a blanket path exclusion also silences every future rule on that
+# file, which is how scanners quietly stop working.
+
+[extend]
+useDefault = true
+
+# scripts/test_integration.sh asserts that Grafana's *default* credential no
+# longer works after rotation (expects HTTP 401), and RUNBOOK.md documents
+# that same check. The literal "admin:admin" is the thing being proven dead,
+# not a live credential -- see ROTATION.md.
+[[allowlists]]
+description = "negative test asserting the default Grafana cred is rejected"
+condition = "AND"
+paths = [
+  '''scripts/test_integration\.sh''',
+  '''RUNBOOK\.md''',
+]
+regexes = ['''admin:admin''']
+
+# sops ciphertext is high-entropy by construction. Flagging it would mean
+# flagging the mechanism working correctly. The age *public* key in
+# .sops.yaml is likewise not a secret -- it is published so anyone can
+# encrypt to this host; the private key never enters the repo
+# (see .gitignore: age.key).
+[[allowlists]]
+description = "sops ciphertext and the age public recipient are not secrets"
+regexes = [
+  '''ENC\[AES256_GCM,data:[A-Za-z0-9+/=,_-]+\]''',
+  '''age1[0-9a-z]{58}''',
+]

@@ -1,0 +1,64 @@
+# Local secret-leak guards. Install with `scripts/setup-git-filters.sh`
+# (which runs `pre-commit install` for you) -- see RUNBOOK.md.
+#
+# These give fast feedback at commit time. They are NOT the enforcement
+# boundary: any of them can be skipped with `--no-verify`, or simply never
+# installed on a fresh clone. The real gate is .github/workflows/validate.yml,
+# which runs the same checks plus a verified-secret scan on every push and
+# cannot be bypassed from a laptop.
+#
+# Upgrading: run `pre-commit autoupdate` while you have connectivity --
+# it fetches new hook revisions, so it is a dockside operation, not an
+# underway one. Commit the resulting rev change so every machine and CI
+# agree on which scanner version cleared a given commit.
+
+minimum_pre_commit_version: "3.0.0"
+
+repos:
+  # Broad secret detection. Catches credential-shaped strings in files that
+  # sops has never been told about -- which is the realistic leak path,
+  # since anything already in .sops.yaml is encrypted by the clean filter
+  # before git ever sees it.
+  #
+  # The -docker variant pins an exact image rather than using whatever
+  # `gitleaks` happens to be on PATH; a stale distro build would run a
+  # different (and differently-spelled) scanner than CI does.
+  #
+  # --redact is non-negotiable: without it gitleaks prints the secret it
+  # found into the terminal and CI logs, turning a near-miss into a real
+  # exposure.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks-docker
+        name: gitleaks (scan staged changes for secrets)
+
+  - repo: local
+    hooks:
+      # .sops.yaml is the single source of truth for which files carry
+      # secrets. This asserts .gitattributes still agrees with it -- a file
+      # with a sops rule but no filter entry commits as PLAINTEXT, silently.
+      - id: sops-config-consistency
+        name: sops config consistency (.sops.yaml <-> .gitattributes)
+        entry: python3 scripts/sops_paths.py check
+        language: system
+        pass_filenames: false
+        files: '^(\.sops\.yaml|\.gitattributes)$'
+
+      # Staged-content guard: never-tracked files, missing encryption
+      # markers, and a cleartext-credential sweep. See the script header.
+      - id: sops-secret-guard
+        name: staged secrets guard (encryption markers + cleartext sweep)
+        entry: scripts/precommit_secret_guard.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Cheap syntax gate. A config file that doesn't parse can strand the
+      # boat's services on next restart, and it's the same check CI runs.
+      - id: validate-configs
+        name: JSON/YAML parse check
+        entry: python3 scripts/validate_configs.py
+        language: system
+        pass_filenames: false
+        files: '\.(json|ya?ml)$'

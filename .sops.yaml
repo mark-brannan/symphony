@@ -1,5 +1,21 @@
-keys:
-  - &host_age age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk
+# Single source of truth for which files carry secrets and who can decrypt
+# them. Everything else derives from this file at runtime -- the pre-commit
+# guard, the CI verifier, and the rotation tooling all read it via
+# scripts/sops_paths.py. Do not keep a second copy of this list anywhere.
+#
+# Adding a secret:  scripts/add_inplace_secret.sh <file> <field>
+# Rotating the key: scripts/rotate_age_key.sh   (see RUNBOOK.md)
+
+# Every rule below shares this one recipient list via a YAML anchor, so
+# adding or retiring a key is a ONE-LINE edit here rather than an edit to
+# all eleven rules. That matters: a rotation that requires eleven identical
+# edits is a rotation nobody performs, and a half-applied one silently
+# leaves some files readable only by the retired key.
+recipients: &recipients
+  # Symphony host key. Private half lives at ~/.config/sops/age/keys.txt
+  # and is NEVER in git. Back it up out-of-band -- losing it costs you every
+  # encrypted value in this repo.
+  - age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk
 
 creation_rules:
   # Layer 1 store: DB init creds, tokens shared across services. Whole-file
@@ -7,8 +23,7 @@ creation_rules:
   # `sops`, never opened directly.
   - path_regex: secrets/.*\.sops\.ya?ml$
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   # Layer "in-place": files SignalK/Grafana read directly off disk and, in
   # SignalK's case, rewrite at runtime. Only the named leaf keys are
@@ -17,59 +32,49 @@ creation_rules:
   - path_regex: signalk/security\.json$
     encrypted_regex: '^(secretKey|password)$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   - path_regex: signalk/plugin-config-data/signalk-to-influxdb2\.json$
     encrypted_regex: '^token$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   - path_regex: signalk/plugin-config-data/signalk-dsc\.json$
     encrypted_regex: '^logbookToken$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   - path_regex: signalk/plugin-config-data/signalk-healthcheck\.json$
     encrypted_regex: '^password$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   - path_regex: signalk/plugin-config-data/signalk-windy-plugin\.json$
     encrypted_regex: '^key$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   - path_regex: signalk/plugin-config-data/signalk-usage\.json$
     encrypted_regex: '^token$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   - path_regex: signalk/plugin-config-data/openweather-signalk\.json$
     encrypted_regex: '^apikey$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   - path_regex: signalk/plugin-config-data/signalk-grafana\.json$
     encrypted_regex: '^adminPassword$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   - path_regex: signalk/plugin-config-data/signalk-pushover-notification-relay\.json$
     encrypted_regex: '^(api_key|api_user)$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 
   - path_regex: signalk/plugin-config-data/signalk-postgsail\.json$
     encrypted_regex: '^token$'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
