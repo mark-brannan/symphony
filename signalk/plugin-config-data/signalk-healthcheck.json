@@ -27,20 +27,24 @@
 		"mail": {
 			"secure": false,
 			"username": "captain",
-			"password": "ENC[AES256_GCM,data:6NUlgxzV/P3D,iv:TMFxrrqwiPEm1iJZXLStkZf9z0YXFLEkRTvai5NEdP0=,tag:O4gU3G0L5Mz7SAhk8jIEzg==,type:str]"
+			"password": "ENC[AES256_GCM,data:C3GSnCIuBN2Q,iv:99GPIew1biMJbMM5/Pr9LZWavWGzergtToU7mIfPUIY=,tag:dgCy8kUclrGUfPPkLy94Ww==,type:str]"
 		}
 	},
 	"enabled": true,
 	"sops": {
 		"age": [
 			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBaeXBPQ3laQ0hqMis5eWI2\ndFR3TWlSRlRQc3czVTl5bk5qVkRJZGJPaDA0CkNYaUpBVXV0VnZ2ZU8wS3IxRGRS\nejEzRGtXaWJPVldaaFUrWERkcnFXaTQKLS0tIFYrS0pqdVRnN05zYlprYVo4RnRs\najhKTEp0R1ZTQ3NUSUR4b0NnVHJlWU0KNp36kHKWVto14ttonG0fi6PVSGndbDXv\nWDclz3e/nJTrh/pS2os0y+B+xSBasjk951AA+Y8neqy7TRTMUHphgQ==\n-----END AGE ENCRYPTED FILE-----\n",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBXRmZ0L3M5VFlhd00wMEpi\nck9BTEE5VzkyS2U2MER4dFF1TGRadEpPMkdFCi9CQ2pGY0s4SURIaDBYTUVUekxT\nMmtxNllzK3UwdFgybThqUFBzcFo0KzgKLS0tIHlYN0tmdGRXWXAwZ0NKcEdaVytk\nNGFrcUlvZWNsQngzRGpweGJHOEplRmsKJx2i3tZZsgVvOBYp86bIPOg+yqkPex2L\nuCTQgh9kGFzQFi4z+PaO9+UMfPdmyKnCU8X47TrO4jKZYD7N/lHosw==\n-----END AGE ENCRYPTED FILE-----\n",
 				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+			},
+			{
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBueUptRnZOZHRHa1BQSm1J\naWxqK21HcEtZREFFQXc5QllFL2QwaTl0Nmd3CkhHNUV5OTkvbnFiM2haaTJPRlRG\nUlRuSWJYaHJyWVliQzErZ0Rrek0ya1EKLS0tIEZpMmxCQWZYNWFaRUNuaDhPM2sv\naStDazIrUW9sQVRZajh6NmlwclpIOU0Kze6Di2fdMHNCFo4cc1W5p9AFFCYYH8O6\n3/l/nWP7wHbWhKTapqnr7tFUb3cx8kVVOyLCwNkgRRWdFAlA5jjtAA==\n-----END AGE ENCRYPTED FILE-----\n",
+				"recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
 			}
 		],
 		"encrypted_regex": "^password$",
-		"lastmodified": "2026-07-31T10:12:45Z",
-		"mac": "ENC[AES256_GCM,data:8xizb7xK/0GA7Vww0dmrav4+pO4PyRUhgIJ/iOE3f8Q/6MKPrB+pz/hHF50eIM4MJgf2VTl84vwHHQCZQi/DrYo2OHLcAJAFopP1C+ZTFAhDSKkzVD8UY10l7yNQBlBRO7IQ74Z9n5r6Oeloc5JUgu743KF6xFOIhj3ltax/yJM=,iv:BS1wPcYPTwGAMVgDmMHeQTu6FIE2u5RdLF4AyPWVIYE=,tag:5PzHVZxBaDFTwhrx37ZHMQ==,type:str]",
+		"lastmodified": "2026-08-08T05:36:12Z",
+		"mac": "ENC[AES256_GCM,data:vhViLr2ap0FnBsTENPfwBjUYGhxyD4zGwquB2kkhwAG1P19pWJhINud23bWPyP3gpPXxhkeRF33YWvrYY3mzz2uHMC7FjvA5Zr4qxd0vSF5wkB9yXo7VnF8BLz3c5t+fQUC4Q7Hz/gY5k2Yu7sCsmttmwu2HUhN0XVwFxpAJaJE=,iv:IjwjNbGOVMYijo44gT83eW5s7saFSpLsK+hy26BPbmU=,tag:oeCnLQUILKOWhqS3OJIx3w==,type:str]",
 		"version": "3.13.3"
 	}
 }

@@ -5,7 +5,7 @@
 		"logbookEnabled": true,
 		"logbookRoutine": false,
 		"logbookUrl": "http://localhost:3000/plugins/signalk-logbook/logs",
-		"logbookToken": "ENC[AES256_GCM,data:PY1NqWfaTiMw8BfrJradzFX550xZKJ+uvHLN61DAkSBndLlG,iv:NFOboMjoBsWaJJZL5Iv1FO05fO14FcG/sanVGU+zA7g=,tag:wpy7mGW5EJR8G3Kd1tjxgQ==,type:str]",
+		"logbookToken": "ENC[AES256_GCM,data:+HMB7DNoEaJ1QnRCVD0R74CHUj6erAmx1T6ZmJEdmSRT9mRh,iv:9BhTwUfdwyGwDJAUXyWPnQYhvNgExYWdNp7CJCmIVCU=,tag:KhfcCw/LxBbP+I0eZ1DDZg==,type:str]",
 		"snapshotPaths": [],
 		"dscwatchEnabled": true,
 		"dscwatchReceiverKey": "368391180",
@@ -15,13 +15,17 @@
 	"sops": {
 		"age": [
 			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBDV0U2WGROWURpRFBsOFZW\ncFNZUjdVTGpSang3YWUxajhPRThCZmtGNFdvCko5Y2VVR3U1Ti9hdFhGRUE1cnor\nMHFsQTFXR2hLVWpod0tCcXRnZ29wVncKLS0tIER4dFBRNllFbExaUHBVSU5TTnJ2\nYXF3NUVVbzlML1lhWFFZL0ZvRVdGNTgKBgBWAdzvGh6FEd3KOcYUbgXJcxFF3IQ4\nV+9omOU3uUIR2UHhOmyiYvh2hY1IxYaRCrgMete+IsNiZfXDP5Qvgw==\n-----END AGE ENCRYPTED FILE-----\n",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSArTE9KYTZVVU9FQmMwZVEv\naWorUTI1UlduNm9kRTFLVjRoanBPZmM4SlNBCkNoejV5WFl3TW9sV3Vaa0tlNm1o\nT20rdnZrUFpmU2JKTFIyclcwNlRxN2cKLS0tIHFqdzFJQWxSL29Da1VZNkdHaW95\nUzM3UW5vSDhPWEg3blZuelF2Y01RVEEK9/7wUbx0ZMJD6HGjxXABK3YTCRX3C174\nf5kJvxRUbns/TYYeI53k2zxt8jafdvvrENBv5xpDn5ZvJmmBHDO4Gg==\n-----END AGE ENCRYPTED FILE-----\n",
 				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+			},
+			{
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBORC9sd3ZVYjNnRnh2eVNq\nVlJYL2pnK2hJOWh4WExRT1dqblFLRFdscTNBClJ4cXRvWi9lT1V2Y1pGL09ZWlBV\naFZ0NElMc2lYRUZ6bEx4bHZialBaYkkKLS0tIE8zVkFGVGtReThwbElxRjNCeGsz\ncTNYTUU5bUNkZUdFNEU2V0xCMGpYcFEK0DEd59eg6QB/36fZyjU+CDq3cHg8TeEw\nEaKoaa1nk39/MY8sEpFTXOc8IAGYbDpWj/CBAmUlIEddkYR8568q3A==\n-----END AGE ENCRYPTED FILE-----\n",
+				"recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
 			}
 		],
 		"encrypted_regex": "^logbookToken$",
-		"lastmodified": "2026-07-31T09:44:58Z",
-		"mac": "ENC[AES256_GCM,data:ArADDw4JSOJiujitTudPLcz5K5Hm+K6S3EazaWwOIvJ1FGlUKR+lq/UdMVuoBP/Ijxk9mBZsVz3Aleu7p9pVcjsf5zFNbNCXztAgOCQBGfffZkYFTn8Eia7Mmdqb+HmdGp/tE8BIRnEKE0QnsKX/ZrZikDmg0jvQ+kiL2pLtFZ8=,iv:zGugEuteVWGyaKniVXwLoALU8Yi6CBttlzkviuUrMK8=,tag:gkYdAk1A18UpnQw3RLAxCw==,type:str]",
+		"lastmodified": "2026-08-08T05:36:12Z",
+		"mac": "ENC[AES256_GCM,data:SM+Nzh3MWApOm8y+NtkGbug5Jc6SvVCiwV/o7yABHMTe5MDoHmm7TAH0MgB2VsLkoLbxFIeh6IXKxDu9KYGFlGfhx1dic4beZcsSyD5V7JMyqFphFORWrmxwOwYJ7YwABbonx0BCShfB7gCPWv0Aifk0eFuCUVjaaZYVER3KH1Q=,iv:CTbEMbTmzNKABATme78vadUB3TzxeiuE4fZGlCnz/D4=,tag:pMOXgWeOU3iwQtAOkMYZ8g==,type:str]",
 		"version": "3.13.3"
 	}
 }

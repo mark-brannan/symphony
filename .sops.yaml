@@ -12,10 +12,16 @@
 # edits is a rotation nobody performs, and a half-applied one silently
 # leaves some files readable only by the retired key.
 recipients: &recipients
-  # Symphony host key. Private half lives at ~/.config/sops/age/keys.txt
-  # and is NEVER in git. Back it up out-of-band -- losing it costs you every
-  # encrypted value in this repo.
+  # Working key. Private half lives at ~/.config/sops/age/keys.txt and is
+  # NEVER in git. This is the one that gets rotated.
   - age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk
+
+  # Escrow key, added 2026-08-07. Exists only so that losing the working key
+  # is recoverable. Keep its private half somewhere separate from the working
+  # key -- a different password manager, a printed copy, another machine --
+  # and do NOT retire it during a routine rotation. Both keys are verified to
+  # decrypt everything independently (scripts/rotate_age_key.sh verify).
+  - age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q
 
 creation_rules:
   # Layer 1 store: DB init creds, tokens shared across services. Whole-file
