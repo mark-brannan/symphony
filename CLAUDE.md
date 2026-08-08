@@ -1,15 +1,18 @@
 # Working conventions — Symphony project
 
 This repo combines Symphony's maintenance tracking with her SignalK/IoT
-infrastructure. Conventions below apply to the maintenance side
-(`maintenance/`, `reference/`); the SignalK/Ansible side has its own
-established practices, not covered here.
+infrastructure. Conventions below cover the maintenance side
+(`maintenance/`, `reference/`) and the docs for the software stack
+(`RUNBOOK.md`, `reference/software_stack.md`). Ansible practices aren't
+covered here.
 
 ## Files
 - `maintenance/log.md` — chronological ship's-log record of work done.
 - `maintenance/priorities.md` — current backlog and triage.
 - `reference/specs.md` — vessel identity, registration, and physical particulars.
 - `reference/vendors-parts.md` — vendor contacts and parts sourcing.
+- `reference/software_stack.md` — how the SignalK stack is built and why.
+- `RUNBOOK.md` — operating procedures for the software stack.
 - `systems/*.md` — one file per boat system, intentionally empty for now.
   Don't impose section structure on these until asked — the owner wants to
   arrive at the right structure organically, not have it templated in.
@@ -49,6 +52,29 @@ established practices, not covered here.
   stock/design-reference value (e.g. from sailboatdata), prefer the
   vessel-specific one and drop the generic duplicate — don't carry both as
   if they were peers.
+
+## RUNBOOK.md
+- **Actions only.** Every section answers "what do I do." Commands, the
+  order to run them in, and how to tell it worked. If a passage doesn't
+  change what the reader does next, it belongs in
+  `reference/software_stack.md` instead.
+- Include a *why* only where its absence causes the wrong action — e.g.
+  "don't skip `verify`, here's what silently breaks without it." One or two
+  sentences, next to the step. Not a background section.
+- No point-in-time status. Don't write down which containers were up, what
+  was broken on a given day, or what an audit found last week — that rots
+  into a lie within days. Durable config traps are fine; snapshots aren't.
+- Don't editorialize about the system's design, security posture, or
+  industry practice. State the trap and the fix.
+
+## reference/*.md
+- Explanatory material lives here: architecture, design rationale, known
+  risks, why a thing is the way it is.
+- Still no speculation. Verify before asserting — check the running system,
+  the config file, or the vendor's own docs. Never infer behavior from a
+  config field name or a plugin's title and write it up as fact.
+- When a claim can't be verified, leave it out or flag it in conversation.
+  A gap is better than a confident guess.
 
 ## Working style, generally
 - No unsolicited notes, hedges, or "this may have changed" commentary

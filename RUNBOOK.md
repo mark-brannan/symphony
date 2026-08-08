@@ -4,187 +4,14 @@ Operating and recovering S/V Symphony's onboard computer systems: the
 SignalK stack, the host it runs on, and the encrypted configuration that
 ties it together.
 
-Scope note: this covers the *electronic* systems. Physical systems — engine,
-rigging, ground tackle, plumbing — live in `systems/*.md`, and work done on
-them belongs in `maintenance/log.md`.
-
 This repo is public, so nothing sensitive can sit in it in the clear.
 Secrets are encrypted with sops before git ever sees them.
 
-## The stack
-
-Containers come from two places.
-
-**Compose services**, in `docker-compose.yml` and the `compose-*.yml` files
-it includes:
-
-| Service | Image | Port | Persistent state |
-|---|---|---|---|
-| `signalk-server` | `signalk/signalk-server:latest` | 3001→3000, 80 | `./signalk` (bind mount, **in git**) |
-| `influxdb` | `influxdb:2.7` | 8086 | `influxdb-data`, `influxdb-config` volumes |
-| `grafana` | `grafana/grafana:latest` | 3000 | `grafana-data` volume, `./grafana/provisioning` |
-
-**Plugin-managed containers**, launched by SignalK plugins through the
-`signalk-container` plugin and named `sk-*`. These are not in any compose
-file — SignalK starts them itself:
-
-| Container | Launched by | Notes |
-|---|---|---|
-| `sk-signalk-questdb` | `signalk-questdb` | time-series store |
-| `sk-signalk-grafana` | `signalk-grafana` | its own Grafana, auto-provisioned against QuestDB |
-
-`docker compose ps` only shows the first group. Use `docker ps -a` to see
-everything.
-
-Node-RED runs inside SignalK (the `@signalk/signalk-node-red` plugin), with
-its flows under `signalk/red/`.
-
-SignalK's whole state directory is a bind mount that's tracked in git. That
-is why the in-place encryption scheme exists: SignalK reads and rewrites
-these files while running, so they have to be plaintext on disk and
-ciphertext in git.
-
-Outbound integrations that need credentials: PostgSail
-(`api.openplotter.cloud`), OpenWeather, Windy, and InfluxDB. Each token is
-encrypted in the relevant `signalk/plugin-config-data/*.json`.
-
-### Two paths to the same job
-
-There are two parallel data paths, and which one is live has changed over
-time. Check before assuming:
-
-- SignalK → InfluxDB (`signalk-to-influxdb2`) → compose `grafana`
-- SignalK → QuestDB (`signalk-questdb`) → `sk-signalk-grafana`
-
-Credentials for both are tracked and encrypted, so the secrets tooling
-doesn't decide between them. Three traps if you run the QuestDB path, all of
-which fail quietly:
-
-**Network names get a project prefix.** Both plugins default to
-`networkName: symphony-net`, but compose actually creates
-`symphony_symphony-net`. Finding no bare `symphony-net`, `signalk-container`
-creates one, and the plugin containers end up on a bridge SignalK isn't on —
-`getent hosts sk-signalk-questdb` from inside `signalk-server` won't resolve.
-Point the plugins at `symphony_symphony-net`, or declare `symphony-net`
-external and have compose join it.
-
-**`questdbHost` defaults to `127.0.0.1`,** which inside the `signalk-server`
-container means that container, not the host. It's ignored while
-`managedContainer` is true, and starts mattering the moment you set it false.
-
-**Both Grafanas want host port 3001.** SignalK publishes on 3001 and
-`signalk-grafana` defaults to `grafanaPort: 3001`, so the plugin-managed one
-dies with `Bind for 0.0.0.0:3001 failed: port is already allocated` and sits
-in `Created`.
-
-To run QuestDB from your own compose file instead, set `managedContainer:
-false` and point `questdbHost` at the service name. The plugin then behaves
-as a client and `signalk-container` isn't involved. `signalk-grafana` has no
-equivalent switch — it always runs its own.
-
-### When a plugin isn't in the config UI
-
-A plugin that crashes on load doesn't appear in Server → Plugin Config at
-all, which looks identical to not being installed. Check the log first:
-
-```bash
-docker logs signalk-server --since 5m 2>&1 | grep 'failed to start'
-docker inspect <container> --format '{{.State.Error}}'   # for sk-* containers
-```
-
-Missing-module errors usually mean a broken dependency tree. The fix is a
-clean reinstall against `signalk/package.json`, which declares every plugin:
-
-```bash
-docker compose stop signalk
-mv signalk/node_modules signalk/.node_modules_old
-docker run --rm -v "$PWD/signalk:/home/node/.signalk" -w /home/node/.signalk \
-  --entrypoint npm signalk/signalk-server:latest install
-docker compose start signalk
-```
-
-Move the old tree aside rather than deleting it, so you can put it back.
-Note `signalk/.npmrc` sets `package-lock=false`, so versions resolve fresh
-against the `^` ranges each time — this is not a reproducible install. npm 11
-also blocks postinstall scripts by default; if a plugin needs a native binary
-(`sharp`, `esbuild`), run `npm approve-scripts <pkg>` and reinstall it.
-
-### Known risk: the Docker socket
-
-`compose-signalk.yml` mounts `/var/run/docker.sock` into `signalk-server`
-and adds the host's `docker` group. This is what lets the
-`signalk-container` plugin start containers on behalf of other plugins —
-`signalk-questdb`, `signalk-grafana`, `signalk-chart-locker` and
-`signalk-doctor` all delegate their container lifecycle to it.
-
-Note that this has nothing to do with SignalK reaching InfluxDB or Grafana.
-Those are ordinary HTTP calls over the container network. The socket is
-only about *launching and managing* containers.
-
-Docker API access is equivalent to root on the host: anything that can
-reach the socket can start a container that mounts the host filesystem.
-That socket is reachable from inside `signalk-server` — confirmed by
-querying `/version` through it from within the container. So any SignalK
-plugin, or anything that compromises one, can take the host.
-
-While those plugins are enabled, plugin installation is the security boundary
-here. So: know what you're installing, and consider turning off
-`backgroundUpdateChecks` in the `signalk-container` config so new plugin code
-doesn't arrive unattended.
-
-The mount can go entirely if nothing needs managed containers — run QuestDB
-from compose (`managedContainer: false`), drop `signalk-grafana`, and remove
-the `docker.sock` volume and `group_add` from `compose-signalk.yml`.
-
-A socket proxy is the usual middle path, but it buys little here:
-`signalk-container` has to create containers to do its job, and container
-creation is itself the escalation.
-
-## How secrets are stored
-
-Two encryption mechanisms, one age key, one store of truth
-(`secrets/symphony.sops.yaml`):
-
-- **Layer 1** — `docker-compose` `env_file: .env`. `.env` is gitignored,
-  rendered by `scripts/render.py` from `secrets/symphony.sops.yaml`.
-  `.env.example` documents every key.
-- **In-place** — plugin config files that SignalK/Grafana read directly off
-  disk (and rewrite at runtime) are tracked in git *as themselves*. A git
-  clean/smudge filter (`scripts/sops_filter.py`, wired by `.gitattributes` +
-  `scripts/setup-git-filters.sh`) encrypts just the secret leaf fields on
-  commit and decrypts them back on checkout. The working copy on disk is
-  always plaintext — SignalK reads and rewrites it exactly as it would
-  otherwise, no behavior change. Only what git stores is encrypted.
-- **API-provisioned** — Grafana users and all of InfluxDB. These have no
-  file to encrypt at all; their state lives inside the containers and is
-  created over HTTP by `scripts/provision_grafana_users.sh` and
-  `scripts/provision_influxdb.sh`. See "Bringing up a host" for details.
-
-To list the files that currently carry secrets:
-
-```bash
-python3 scripts/sops_paths.py list
-```
-
-## How the safety net is layered
-
-The layers are not equally trustworthy:
-
-| Layer | What it catches | Can it be bypassed? |
-|---|---|---|
-| sops clean filter | encrypts configured fields automatically on commit | only if the clone never ran `setup-git-filters.sh` |
-| pre-commit hooks | unencrypted secrets, cleartext credentials, forbidden files | **yes** — `--no-verify`, or never installing them |
-| GitHub Actions | all of the above, plus full-history and live-credential scans | **no** — runs on every push |
-
-**CI is the enforcement boundary. The hooks are fast feedback, not a
-guarantee.** That is why `.github/workflows/validate.yml` re-runs the same
-checks rather than trusting that a hook already ran.
-
-`.sops.yaml` is the single source of truth for which files carry secrets.
-The pre-commit guard and the CI verifier read it at runtime via
-`scripts/sops_paths.py`. Don't hardcode that list anywhere else; duplicate
-copies drift, and the copy that drifts is usually the one doing the
-checking.
+Procedures only. For how the stack is built and why — containers, the two
+data paths, the encryption design — see
+[reference/software_stack.md](reference/software_stack.md). Physical systems
+(engine, rigging, ground tackle, plumbing) live in `systems/*.md`, with work
+logged in `maintenance/log.md`.
 
 ## Bringing up a host
 
@@ -205,19 +32,10 @@ brew install pre-commit         # macOS
 Prefer the package manager over `pip` — some of these hosts have no `pip`
 at all.
 
-`sops` and `age` ship as standalone binaries. Take the build matching the
-host you're on from [sops releases](https://github.com/getsops/sops/releases)
-and [age releases](https://github.com/FiloSottile/age/releases), and drop
-them on `PATH`, e.g. `~/.local/bin`:
-
-| Host | Build |
-|---|---|
-| Raspberry Pi (the boat) | `linux-arm64` |
-| Linux PC / WSL2 (dev) | `linux-amd64` |
-| Mac, Apple Silicon (dev) | `darwin-arm64` |
-
-Architecture differs between the boat and the machines this gets developed
-on, so don't copy binaries between them — fetch per host.
+`sops` and `age` ship as standalone binaries. Get them from
+[sops releases](https://github.com/getsops/sops/releases) and
+[age releases](https://github.com/FiloSottile/age/releases) and put them on
+`PATH`, e.g. `~/.local/bin`.
 
 *Verify:* `docker compose version && sops --version && age --version && pre-commit --version`
 
@@ -487,6 +305,33 @@ To stop tracking a file's secret (plugin uninstalled, field no longer used):
 Removing the rules does **not** un-publish anything already committed. If
 the secret was ever live in a public commit, rotate it — see below.
 
+## When a plugin isn't in the config UI
+
+A plugin that crashes on load doesn't appear in Server → Plugin Config at
+all, which looks identical to not being installed. Check the log first:
+
+```bash
+docker logs signalk-server --since 5m 2>&1 | grep 'failed to start'
+docker inspect <container> --format '{{.State.Error}}'   # for sk-* containers
+```
+
+Missing-module errors usually mean a broken dependency tree. The fix is a
+clean reinstall against `signalk/package.json`, which declares every plugin:
+
+```bash
+docker compose stop signalk
+mv signalk/node_modules signalk/.node_modules_old
+docker run --rm -v "$PWD/signalk:/home/node/.signalk" -w /home/node/.signalk \
+  --entrypoint npm signalk/signalk-server:latest install
+docker compose start signalk
+```
+
+Move the old tree aside rather than deleting it, so you can put it back.
+Note `signalk/.npmrc` sets `package-lock=false`, so versions resolve fresh
+against the `^` ranges each time — this is not a reproducible install. npm 11
+also blocks postinstall scripts by default; if a plugin needs a native binary
+(`sharp`, `esbuild`), run `npm approve-scripts <pkg>` and reinstall it.
+
 ## When a hook blocks your commit
 
 The message names which check failed. In rough order of likelihood:
@@ -557,13 +402,6 @@ reachable by SHA.
    rotated (rare — a hardcoded key in a third-party device, say). It
    requires a force-push, breaks every existing clone, and does not remove
    the data from GitHub's servers without also contacting GitHub Support.
-
-**Audited 2026-08-07:** every historical version of every secret-bearing
-file was checked. Two were committed unencrypted (`signalk/security.json` at
-`7fe7d40`, `signalk-postgsail.json` at `eb04632`), both holding empty values
-at the time. No live credential has been in this repo's history; gitleaks
-and trufflehog each scanned the full history clean. No rotation or history
-rewrite was needed.
 
 ## Recovering a lost age key
 
