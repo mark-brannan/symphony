@@ -29,3 +29,4 @@ signalk/plugin-config-data/tides/
 age.key
 rendered/
 __pycache__/
+dex/config.yaml

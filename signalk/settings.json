@@ -46,7 +46,7 @@
   "wsPingInterval": 30000,
   "accessLogging": true,
   "enablePluginLogging": true,
-  "trustProxy": false,
+  "trustProxy": true,
   "port": 3000,
   "sslport": 3443,
   "pruneContextsMinutes": 60,

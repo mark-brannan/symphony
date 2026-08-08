@@ -1,0 +1,42 @@
+# Local-only stand-in OIDC provider for testing the SignalK SSO flow
+# without the real upstream GitHub/Google apps. Nothing in this file is a
+# secret: the client secret and the users exist only inside a Dex container
+# bound to this machine. Never deploy this on the boat -- the boat runs
+# dex/config.yaml.j2 rendered with real credentials.
+
+issuer: http://dex-dev:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  skipApprovalScreen: true
+
+staticClients:
+  - id: symphony-local
+    name: Symphony local dev
+    secret: local-dev-not-a-secret
+    redirectURIs:
+      - http://localhost:3001/signalk/v1/auth/oidc/callback
+
+connectors:
+  # Fake upstream IdP that always returns the identity Kilgore Trout
+  # (kilgore@kilgore.trout) with groups ["authors"]. This is the stand-in
+  # for a GitHub login with team memberships: point
+  # SIGNALK_OIDC_ADMIN_GROUPS (or _READWRITE_GROUPS) at "authors" to test
+  # the group -> permission mapping.
+  - type: mockCallback
+    id: mock
+    name: Mock upstream
+
+enablePasswordDB: true
+staticPasswords:
+  # A groupless login (the "random person with a verified email" case).
+  - email: dev@example.com
+    # bcrypt of the literal string "password" (from the Dex examples)
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+    username: dev
+    userID: 15b3a4c1-8d9e-4c3f-9f6a-000000000001

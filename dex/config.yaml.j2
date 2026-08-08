@@ -1,0 +1,52 @@
+# dex/config.yaml -- rendered by scripts/render.py from
+# secrets/symphony.sops.yaml. DO NOT EDIT the rendered copy; edit this
+# template or the sops store and re-render.
+#
+# Dex is the boat's OIDC issuer: SignalK and Grafana trust only it, and it
+# federates the actual logins out to GitHub and Google. GitHub team
+# memberships come back as groups ("<org>:<team-slug>"), which is what
+# SignalK and Grafana map to permission levels.
+
+issuer: https://auth.{{ boat_domain }}/dex
+
+# Memory storage on purpose: Dex holds no state worth keeping. A restart
+# only breaks logins in flight at that moment; established SignalK/Grafana
+# sessions are their own cookies and don't involve Dex until the next login.
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  skipApprovalScreen: true
+
+connectors:
+  - type: github
+    id: github
+    name: GitHub
+    config:
+      clientID: {{ github_oauth_client_id }}
+      clientSecret: {{ github_oauth_client_secret }}
+      redirectURI: https://auth.{{ boat_domain }}/dex/callback
+      # No `orgs:` filter -- anyone with a GitHub account may log in
+      # (readonly by default). Org teams still arrive as groups for those
+      # who are members.
+      loadAllGroups: true
+      teamNameField: slug
+
+  - type: google
+    id: google
+    name: Google
+    config:
+      clientID: {{ google_oauth_client_id }}
+      clientSecret: {{ google_oauth_client_secret }}
+      redirectURI: https://auth.{{ boat_domain }}/dex/callback
+
+staticClients:
+  - id: symphony
+    name: Symphony boat systems
+    secret: {{ dex_symphony_client_secret }}
+    redirectURIs:
+      - https://signalk.{{ boat_domain }}/signalk/v1/auth/oidc/callback
+      - https://grafana.{{ boat_domain }}/login/generic_oauth

@@ -31,6 +31,7 @@ SECRETS_FILE = os.path.join(REPO_ROOT, "secrets", "symphony.sops.yaml")
 TEMPLATES = [
     # (src relative to repo root, dest relative to repo root)
     (".env.j2", ".env"),
+    ("dex/config.yaml.j2", "dex/config.yaml"),
 ]
 
 

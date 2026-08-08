@@ -1,0 +1,30 @@
+# TLS front door for the web UIs. Certificates come from Let's Encrypt via
+# Cloudflare DNS-01, so nothing has to be reachable from the internet --
+# but issuance and renewal need *outbound* internet. Certs last 90 days and
+# renew ~30 days early, so more than ~60 days fully offline means browsers
+# start warning about an expired cert; the services underneath keep working.
+
+{
+	email {$ACME_EMAIL}
+}
+
+signalk.{$DOMAIN} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy signalk-server:3000
+}
+
+grafana.{$DOMAIN} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy grafana:3000
+}
+
+auth.{$DOMAIN} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy dex:5556
+}

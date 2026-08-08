@@ -1,0 +1,11 @@
+services:
+  dex-dev:
+    image: ghcr.io/dexidp/dex:latest
+    container_name: dex-dev
+    profiles: ["dev-idp"]
+    ports:
+      - "5556:5556"
+    volumes:
+      - ./dev/dex.yaml:/etc/dex/config.docker.yaml:ro
+    networks:
+      - symphony-net
