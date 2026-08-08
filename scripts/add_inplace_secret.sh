@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Wire a new (or existing) plugin config file into the sops in-place
-# encryption scheme: adds the .sops.yaml rule, .gitattributes entry, and
-# .githooks/pre-commit tracked-path entry, then stages the file and
-# confirms the field(s) actually encrypted. Idempotent -- safe to re-run,
-# skips whatever's already done.
+# encryption scheme: adds the .sops.yaml rule and the .gitattributes entry,
+# then stages the file and confirms the field(s) actually encrypted.
+# Idempotent -- safe to re-run, skips whatever's already done.
+#
+# Two files to touch, not three: the pre-commit guard and the CI verifier
+# both derive their file list from .sops.yaml at runtime (see
+# scripts/sops_paths.py), so there's no third copy to keep in sync.
 #
 # Usage: scripts/add_inplace_secret.sh <file> <field> [<field2> ...]
 # Example: scripts/add_inplace_secret.sh signalk/plugin-config-data/signalk-postgsail.json token
@@ -28,13 +31,15 @@ ESCAPED_PATH=$(printf '%s' "$FILE" | sed -e 's/[.]/\\./g')
 if grep -qF "path_regex: ${ESCAPED_PATH}\$" .sops.yaml 2>/dev/null; then
   echo "skip: .sops.yaml already has a rule for $FILE"
 else
+  # `age: *recipients` shares the one recipient list at the top of
+  # .sops.yaml, so key rotation stays a single-line edit. Never inline a
+  # literal key here.
   cat >>.sops.yaml <<EOF
 
   - path_regex: ${ESCAPED_PATH}\$
     encrypted_regex: '${ENCRYPTED_REGEX}'
     key_groups:
-      - age:
-          - *host_age
+      - age: *recipients
 EOF
   echo "added: .sops.yaml rule (${ENCRYPTED_REGEX})"
 fi
@@ -46,24 +51,10 @@ else
   echo "added: .gitattributes entry"
 fi
 
-if grep -qF "\"$FILE\"" .githooks/pre-commit; then
-  echo "skip: .githooks/pre-commit already covers $FILE"
-else
-  python3 - "$FILE" <<'PYEOF'
-import sys
-path = sys.argv[1]
-with open(".githooks/pre-commit") as f:
-    content = f.read()
-marker = "sops_paths=(\n"
-idx = content.index(marker) + len(marker)
-content = content[:idx] + f'  "{path}"\n' + content[idx:]
-with open(".githooks/pre-commit", "w") as f:
-    f.write(content)
-PYEOF
-  echo "added: .githooks/pre-commit entry"
-fi
+echo
+python3 scripts/sops_paths.py check
 
-git add .sops.yaml .gitattributes .githooks/pre-commit
+git add .sops.yaml .gitattributes
 git rm --cached "$FILE" >/dev/null 2>&1 || true
 git add "$FILE"
 

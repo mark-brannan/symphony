@@ -1,11 +1,18 @@
 name: Validate
 
-# Syntax/config validation only -- this repo's actual services run on the
-# boat's own hardware, not reachable from a GitHub-hosted runner, so this
-# is not (and can't be) the integration suite in scripts/test_integration.sh.
-# The point here is catching typos before they ever reach the boat, using
-# nothing that needs a secret: no age key, no sops decryption anywhere in
-# this workflow.
+# Syntax/config validation and secret scanning. This repo's actual services
+# run on the boat's own hardware, not reachable from a GitHub-hosted runner,
+# so this is not (and can't be) the integration suite in
+# scripts/test_integration.sh. The point here is catching mistakes before
+# they reach the boat -- and, for the secret-scanning jobs, before they
+# reach the public internet.
+#
+# Nothing here needs the age key: no sops decryption happens in this
+# workflow. The encryption checks work on ciphertext by design.
+#
+# This workflow is the enforcement boundary. Local pre-commit hooks give
+# faster feedback but can be skipped with --no-verify or never installed;
+# these jobs cannot be bypassed from a laptop.
 
 on:
   push:
@@ -13,6 +20,14 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # Weekly re-scan of unchanged history. Not redundant: trufflehog ships
+    # new detectors continuously, so a commit that was clean last month can
+    # be flagged this month by a detector that didn't exist then.
+    - cron: "17 9 * * 1"
+
+permissions:
+  contents: read
 
 jobs:
   compose-config:
@@ -41,7 +56,7 @@ jobs:
       - name: shellcheck
         run: |
           command -v shellcheck || (sudo apt-get update && sudo apt-get install -y shellcheck)
-          shellcheck scripts/*.sh .githooks/pre-commit
+          shellcheck scripts/*.sh
 
   python-syntax:
     runs-on: ubuntu-latest
@@ -52,8 +67,63 @@ jobs:
           python-version: "3.x"
       - run: python3 -m py_compile scripts/*.py
 
+  # Asserts .sops.yaml and .gitattributes still describe the same set of
+  # files. A file with a sops rule but no filter entry commits as PLAINTEXT
+  # and nothing else would notice.
+  sops-config-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install pyyaml
+      - run: python3 scripts/sops_paths.py check
+
+  # Asserts every secret-bearing file is encrypted in what git actually
+  # stores. File list is derived from .sops.yaml, so adding a secret
+  # extends this check automatically.
   secrets-encrypted:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install pyyaml
       - run: bash scripts/verify_encrypted.sh
+
+  # Pattern/entropy scan over the entire history, not just the diff --
+  # catches a secret introduced in any commit on the branch, including one
+  # that a bypassed local hook let through. Pinned to the same version the
+  # pre-commit hook uses so laptop and CI agree.
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks (full history)
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            zricethezav/gitleaks:v8.30.1 \
+            git --no-banner --redact --verbose \
+            --config /repo/.gitleaks.toml \
+            --exit-code 1
+
+  # Complements gitleaks rather than duplicating it: trufflehog calls the
+  # provider API to check whether a candidate credential is actually live.
+  # It fails only on confirmed-live secrets, so a red build here is never a
+  # false alarm and is always urgent.
+  #
+  # Wrapped in a script because trufflehog has no --redact flag and prints
+  # raw secret values -- this repo's Actions logs are public, so the wrapper
+  # reports detector/file/commit only. Run it locally the same way.
+  trufflehog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: trufflehog (verified-live secrets, full history)
+        run: bash scripts/scan_verified_secrets.sh

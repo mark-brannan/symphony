@@ -25,6 +25,7 @@ modified. To avoid that, `clean` first decrypts whatever is already staged
 and only emits new ciphertext if the plaintext actually changed.
 """
 import json
+import os
 import subprocess
 import sys
 
@@ -69,7 +70,21 @@ def clean(path):
     new_plaintext = sys.stdin.read()
     old_ciphertext = index_blob(path)
 
-    if old_ciphertext and '"sops"' in old_ciphertext or (old_ciphertext and "sops:" in old_ciphertext):
+    # SOPS_FILTER_REKEY forces fresh encryption even when the plaintext is
+    # unchanged. Required for age key rotation: the reuse path below emits
+    # the *existing* ciphertext byte-for-byte, which is still encrypted to
+    # the old recipient only. Without this escape hatch, changing the
+    # recipient list in .sops.yaml and re-staging appears to succeed while
+    # silently leaving every in-place file readable by the old key alone --
+    # and unreadable by the new one. See scripts/rotate_age_key.sh.
+    if os.environ.get("SOPS_FILTER_REKEY") == "1":
+        sys.stdout.write(sops_encrypt(path, new_plaintext))
+        return
+
+    already_encrypted = old_ciphertext is not None and (
+        '"sops"' in old_ciphertext or "sops:" in old_ciphertext
+    )
+    if already_encrypted:
         try:
             old_plaintext = sops_decrypt(path, old_ciphertext)
             if parse(old_plaintext, path) == parse(new_plaintext, path):
