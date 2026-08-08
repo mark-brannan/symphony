@@ -13,8 +13,10 @@ Secrets are encrypted with sops before git ever sees them.
 
 ## The stack
 
-Three containers under one compose project (`symphony`), defined in
-`docker-compose.yml` and the `compose-*.yml` files it includes.
+Containers here come from two places, and this trips people up.
+
+**Compose services**, in `docker-compose.yml` and the `compose-*.yml` files
+it includes:
 
 | Service | Image | Port | Persistent state |
 |---|---|---|---|
@@ -22,13 +24,36 @@ Three containers under one compose project (`symphony`), defined in
 | `influxdb` | `influxdb:2.7` | 8086 | `influxdb-data`, `influxdb-config` volumes |
 | `grafana` | `grafana/grafana:latest` | 3000 | `grafana-data` volume, `./grafana/provisioning` |
 
-Data flows one way: sensors → SignalK → InfluxDB → Grafana. The
-`signalk-to-influxdb2` plugin writes selected SignalK paths into InfluxDB;
-Grafana reads InfluxDB for dashboards. Node-RED runs inside SignalK (the
-`@signalk/signalk-node-red` plugin), with its flows under `signalk/red/`.
+**Plugin-managed containers**, launched by SignalK plugins through the
+`signalk-container` plugin and named `sk-*`. These are not in any compose
+file — SignalK starts them itself:
 
-SignalK is published on 3001 because Grafana already has 3000. Inside the
-compose network it's still on 3000.
+| Container | Launched by | Notes |
+|---|---|---|
+| `sk-signalk-questdb` | `signalk-questdb` | time-series store |
+| `sk-signalk-grafana` | `signalk-grafana` | its own Grafana, auto-provisioned against QuestDB |
+
+`docker compose ps` only shows the first group. Use `docker ps -a` to see
+everything.
+
+Node-RED runs inside SignalK (the `@signalk/signalk-node-red` plugin), with
+its flows under `signalk/red/`.
+
+### Two datastores, two Grafanas
+
+There are two parallel paths for the same job, and which one is live has
+changed over time — **check before assuming**:
+
+- SignalK → InfluxDB (`signalk-to-influxdb2` plugin) → compose `grafana`
+- SignalK → QuestDB (`signalk-questdb`) → `sk-signalk-grafana`
+
+Both sets of credentials are tracked and encrypted, so neither path is
+broken by the secrets tooling. But they contend for host ports: SignalK is
+published on 3001, and `signalk-grafana` also defaults to `grafanaPort:
+3001`. When both want it, the plugin-managed Grafana fails to start with
+`Bind for 0.0.0.0:3001 failed: port is already allocated` and sits in
+`Created`. If a container is inexplicably not running, check
+`docker inspect <name> --format '{{.State.Error}}'` first.
 
 SignalK's whole state directory is a bind mount that's tracked in git. That
 is why the in-place encryption scheme exists: SignalK reads and rewrites
@@ -42,28 +67,32 @@ encrypted in the relevant `signalk/plugin-config-data/*.json`.
 ### Known risk: the Docker socket
 
 `compose-signalk.yml` mounts `/var/run/docker.sock` into `signalk-server`
-and adds the host's `docker` group, because the `signalk-container` plugin
-(installed, enabled, set to `runtime: docker`) uses it to update and prune
-containers.
+and adds the host's `docker` group. This is what lets the
+`signalk-container` plugin start containers on behalf of other plugins —
+`signalk-questdb`, `signalk-grafana`, `signalk-chart-locker` and
+`signalk-doctor` all delegate their container lifecycle to it.
 
-Docker API access is equivalent to root on the host — anything that can
-reach that socket can start a container that mounts the host filesystem.
-The socket is reachable from inside `signalk-server` today; confirmed by
-querying it from within the container. So any SignalK plugin, or anything
-that compromises one, can take the host.
+Note that this has nothing to do with SignalK reaching InfluxDB or Grafana.
+Those are ordinary HTTP calls over the container network. The socket is
+only about *launching and managing* containers.
 
-That is not a bug in the setup, it's the cost of the plugin. The decision
-is whether `signalk-container` is worth it:
+Docker API access is equivalent to root on the host: anything that can
+reach the socket can start a container that mounts the host filesystem.
+That socket is reachable from inside `signalk-server` — confirmed by
+querying `/version` through it from within the container. So any SignalK
+plugin, or anything that compromises one, can take the host.
 
-- **Keep it** — then plugin installs are the security boundary. Know what
-  you're installing, and consider turning off `backgroundUpdateChecks` so
-  new plugin code doesn't arrive unattended.
-- **Drop it** — disable the plugin and remove the `docker.sock` volume and
-  `group_add` from `compose-signalk.yml`. Nothing else in the stack needs
-  the socket.
+Removing the mount is not really on the table while those four plugins are
+in use; `sk-signalk-questdb` in particular holds live data. So plugin
+installation is the security boundary here. Two things follow:
 
-A socket proxy is the usual middle path, but it doesn't help much here:
-`signalk-container` needs to create containers to do its job, and container
+- Know what you're installing. A SignalK plugin is npm code running with a
+  path to root on this host.
+- Consider turning off `backgroundUpdateChecks` in the `signalk-container`
+  config, so new plugin code doesn't arrive unattended.
+
+A socket proxy is the usual middle path, but it buys little here:
+`signalk-container` has to create containers to do its job, and container
 creation is itself the escalation.
 
 ## How secrets are stored
