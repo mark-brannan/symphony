@@ -1,0 +1,22 @@
+{
+  "systemName": "SV Symphony DC System",
+  "systemVoltage": 12,
+  "batteries": [
+    {"name": "House Bank LiFePO4", "voltage": 12, "capacityAh": 300, "chemistry": "LiFePO4"},
+    {"name": "Starter AGM", "voltage": 12, "capacityAh": 100, "chemistry": "AGM"}
+  ],
+  "chargers": [
+    {"name": "Orion-Tr Smart DC-DC 12/12-30", "inputVoltage": 12, "outputVoltage": 12, "power": 360, "sourceType": "alternator"},
+    {"name": "MultiPlus 12/2000 Inverter/Charger", "inputVoltage": 120, "outputVoltage": 12, "power": 800, "sourceType": "shore"}
+  ],
+  "loads": [
+    {"name": "Nav lights", "power": 15, "voltage": 12},
+    {"name": "Cabin lights (LED)", "power": 30, "voltage": 12},
+    {"name": "Refrigeration", "power": 60, "voltage": 12},
+    {"name": "VHF radio", "power": 25, "voltage": 12},
+    {"name": "Autopilot", "power": 60, "voltage": 12},
+    {"name": "Bilge pump", "power": 48, "voltage": 12},
+    {"name": "Pressure water pump", "power": 60, "voltage": 12},
+    {"name": "NMEA 2000 bus + SignalK Pi", "power": 15, "voltage": 12}
+  ]
+}

@@ -1,0 +1,22 @@
+name,amps,amps_source,length_ft,length_source,drop_pct,voltage,engine_space,bundle,insulation_c,continuous,status,notes
+Nav lights,3,guess,40,guess,3,12,false,1,105,true,planned,LED bow/stern via lighting sub-panel
+Cabin lights,4,guess,30,guess,10,12,false,1,105,true,planned,LED; some 24V strips via boost converter
+Refrigeration,6,guess,20,guess,3,12,false,1,105,true,planned,compressor has low-voltage cutout
+VHF radio,6,guess,25,guess,3,12,false,1,105,true,planned,25W transmit draw
+Autopilot,8,guess,30,guess,3,12,false,1,105,true,planned,
+Water pump,8,guess,25,guess,10,12,false,1,105,false,planned,intermittent duty
+Shower sump pump,4,guess,20,guess,10,12,false,1,105,false,planned,intermittent duty
+Bilge pump (auto),6,guess,30,guess,3,12,false,1,105,true,planned,fed from always-on bus
+Crash pump,20,guess,35,guess,3,12,false,1,105,true,planned,fed from always-on bus; one circuit per pump - quantity TBD
+NMEA 2000 power tap,2,guess,15,guess,3,12,false,1,105,true,planned,fed from low-current unswitched bus; powers backbone incl SignalK Pi
+Cerbo GX supply,1,guess,8,guess,3,12,false,1,105,true,purchased,direct on unswitched distribution bus
+DC panel main feed,40,guess,20,guess,3,12,false,1,105,true,planned,switched house bus to panel; BatteryProtect load side TBD
+Unswitched distribution bus feed,60,guess,4,guess,3,12,false,1,105,true,planned,battery side of master switch; feeds Cerbo + BatteryProtect + always-on breaker
+Always-on bus feed,30,guess,4,guess,3,12,false,1,105,true,planned,unswitched bus through breaker to always-on bus; pumps only
+Low-current unswitched bus feed,10,guess,4,guess,3,12,false,1,105,true,planned,own breaker off unswitched bus; N2K tap + AIS + router/modem + smoke/CO/LPG detectors - space reserved
+Alternator to starter battery,60,guess,8,guess,10,12,true,1,105,true,planned,alternator output rating TBD
+Orion DC-DC input,40,guess,15,guess,3,12,true,1,105,true,installed,starter battery to Orion 12/12 - model/rating TBD
+Orion DC-DC output,30,guess,10,guess,3,12,false,1,105,true,installed,Orion 12/12 to switched house bus - confirm rated output
+IP22 charger to starter battery,30,spec,10,guess,3,12,false,1,105,true,purchased,Blue Smart IP22 12/30; AGM starter charger on shore-only AC branch (bypasses MultiPlus transfer switch)
+MultiPlus DC feed,45,spec,6,guess,3,12,false,1,105,true,purchased,MultiPlus 500VA; ~42A derived from rating; confirm manual fuse rec
+House bank to bus main,95,guess,6,guess,3,12,false,1,105,true,purchased,bank 2x ECO-WORTHY 280Ah = 560Ah; lithium needs Class T type; master switch GOGONFLY 275A
