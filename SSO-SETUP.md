@@ -40,15 +40,15 @@ GitHub — personal account:
 Google:
 
 - [x] <https://console.cloud.google.com> → create a project (any name).
-- [ ] APIs & Services → OAuth consent screen: **External**, app name +
-      support email → then **Publish app** (production). Not Testing:
-      testing mode caps sign-ins to a 100-address allowlist, and the
-      open readonly door is intended. The basic scopes used need no
-      Google review.
-- [ ] Credentials → Create credentials → OAuth client ID → **Web
+- [x] Google Auth Platform → Get started wizard: **External**, app name
+      + support email → then Audience → **Publish app** (production).
+      Not Testing: testing mode caps sign-ins to a 100-address
+      allowlist, and the open readonly door is intended. The basic
+      scopes used need no Google review.
+- [x] Google Auth Platform → Clients → Create client → **Web
       application** → one redirect URI:
       `https://auth.<domain>/dex/callback`
-- [ ] Into sops: `google_oauth_client_id`, `google_oauth_client_secret`.
+- [x] Into sops: `google_oauth_client_id`, `google_oauth_client_secret`.
 
 ## C. Cloudflare and boat network (needs router access / being aboard)
 
