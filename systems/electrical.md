@@ -79,3 +79,45 @@ AIS silent mode, engine emergency start (bank swap), MOB.
 
 Bow thruster joystick, VHF remote mic, chart plotter, MFDs, autopilot
 controls, phone/tablet holder.
+
+### Purchased components (from order history)
+
+**Charging & batteries**
+
+- Victron Cerbo GX (MK2) — system monitoring/panel
+- Victron Blue Smart IP22 charger, 3-output, 120V AC input
+- Victron SmartShunt IP65 + VE.Direct cable
+- Victron MultiPlus Inverter/Charger, 500VA
+- Victron Orion-Tr DC-DC converter, 24/12V 5A
+- Victron BatteryProtect, 12/24V 65A
+- Victron BMV-702/712 temperature sensor
+- Victron Isolation transformer, 3600W 115/230V, auto
+- LiFePO4 house battery: 2x ECO-WORTHY 280Ah 12V (Bluetooth, low-temp protection)
+- AGM Starting/accessory battery: EBL AGM Group 48R, 12V 70Ah
+- ISINSWIFT Dual Battery Isolator, 12V 140A, Voltage Sensitive Relay (VSR) — not rated for lithium batteries
+- VEVOR Dual Battery Isolator, 12V 140A, Manual and Automatic VSR with LCD screen — rated for lithium and lead-acid
+
+**Distribution & protection**
+
+- GOGONFLY battery disconnect/master isolator switch, 275A
+- Bus bars: 150A 1/4" bus bar, C110 copper flat bar stock, M8 stud bus bars
+- DC-DC boost converter, 12V to 24V, 10A/240W
+
+**Wire**
+
+- Marine tinned wire: 8, 10, 14 AWG duplex/triplex
+- Ancor marine primary wire: 14 AWG (100 ft), 12 AWG (25 ft)
+- Battery cable: 2 AWG, 6 AWG, with assorted lug terminals
+- Silicone hookup wire, 18–20 AWG (non-marine, general purpose)
+
+**NMEA 2000 / navigation electronics**
+
+- Garmin Airmar DST810 smart transducer
+- Navico/Lowrance DST-810 bronze triducer
+- Regatta Processing N2K backbone/drop cables (1m, 2m, 3m) + tee
+  connector
+- Rudder angle sender, 0–190 ohm
+
+**Shore power**
+
+- 30A shore power extension cord, 12 ft
