@@ -94,3 +94,17 @@ Larger changes, especially if they merit a feature branch, should get a PR and
 sign off from the owner.  If a change is potentially destructive or could affect
 adjacent environments for plugin testing, then ask for explicit permission before
 changing, committing, or pushing.
+- Multiple Claude sessions may be working this checkout at once. Before running
+  any git command whose effect isn't scoped to files you explicitly name, run
+  `git status` and read the full output — don't assume the working tree only
+  holds what you touched. If it shows changes you didn't make, stop and tell
+  the owner before running anything that would revert or discard them; don't
+  guess whether they're safe to lose.
+- Never run, without the owner's explicit go-ahead in that moment:
+  `git reset --hard`, `git clean` (any flags), `git checkout` or `git restore`
+  with no pathspec or a directory pathspec, `git stash` (repo-wide, not a
+  named/scoped stash), `git branch -D`, or `git push --force*`. Each of these
+  can discard or overwrite work outside whatever you meant to target,
+  including another session's uncommitted changes. `git checkout HEAD -- path`
+  is fine for a single file you've confirmed the diff of; it stops being fine
+  the moment `path` is a directory you haven't fully read the diff of first.
