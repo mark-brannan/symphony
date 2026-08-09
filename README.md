@@ -1,4 +1,8 @@
 # S/V Symphony
+A 1985 Hans Christian 38T; heavy displacement, cutter rigged, blue-water cruiser.
+Seattle, WA is her home.
+
+<img src="images/symphony.jpg" alt="Symphony at anchor" width="640">
 
 ## SV Symphony IoT setup
 For setting up SV Symphony's devices and computer systems.
@@ -6,7 +10,7 @@ For setting up SV Symphony's devices and computer systems.
 Inspired by [meri-imperiumi/curiosity](https://github.com/meri-imperiumi/curiosity)
 
 ## Symphony — Maintenance & Improvement Tracking
-1985 Hans Christian 38T. Working log of deferred maintenance, in-progress
+Working log of deferred maintenance, in-progress
 work, and planned improvements.
 
 ### Structure
@@ -24,3 +28,10 @@ work, and planned improvements.
 ### Open items
 - Electrical/IoT sensor and SignalK-integration tasks are tracked separately from the main backlog for now, pending re-integration once `priorities.md` and `log.md` are in good shape.
 - Physical specs that also live as SignalK config (calibration curves, sensor mappings) aren't yet reconciled between this repo and the SignalK/Ansible repo.
+
+## Links
+- [Sailboatdata — Hans Christian 38T](https://sailboatdata.com/sailboat/hans-christian-38t/)
+- [Good Old Boat — Hans Christian 38T](https://goodoldboat.com/saildata/boat/hans-christian-38t/)
+- [AIS — MarineTraffic](https://www.marinetraffic.com/en/ais/details/ships/shipid:9545721/mmsi:368391180/vessel:SYMPHONY)
+- [AIS — VesselFinder](https://www.vesselfinder.com/vessels/details/368391180)
+- [Facebook - Hans Christian Sailboats](https://www.facebook.com/hanschristiansailboats/)
