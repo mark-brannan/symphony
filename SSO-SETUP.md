@@ -29,17 +29,17 @@ values collected below.
 
 GitHub — personal account:
 
-- [ ] <https://github.com/settings/developers> → OAuth Apps → New OAuth
+- [x] <https://github.com/settings/developers> → OAuth Apps → New OAuth
       App:
       - Application name: anything (e.g. "Symphony boat systems")
       - Homepage URL: `https://auth.<domain>`
       - Authorization callback URL: `https://auth.<domain>/dex/callback`
-- [ ] Copy the client ID; "Generate a new client secret" and copy it.
-- [ ] Into sops: `github_oauth_client_id`, `github_oauth_client_secret`.
+- [x] Copy the client ID; "Generate a new client secret" and copy it.
+- [x] Into sops: `github_oauth_client_id`, `github_oauth_client_secret`.
 
 Google:
 
-- [ ] <https://console.cloud.google.com> → create a project (any name).
+- [x] <https://console.cloud.google.com> → create a project (any name).
 - [ ] APIs & Services → OAuth consent screen: **External**, app name +
       support email → then **Publish app** (production). Not Testing:
       testing mode caps sign-ins to a 100-address allowlist, and the
