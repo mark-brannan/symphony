@@ -14,10 +14,12 @@ Values written `<like-this>` get decided along the way. Real values go in
 `secrets/symphony.sops.yaml` (`sops secrets/symphony.sops.yaml` to edit),
 never in this file.
 
-Already done and waiting in the repo: all compose/Caddy/Dex/SignalK/
-Grafana config, `dex_symphony_client_secret` in sops, and a locally
-verified login flow. The remaining sops placeholders are exactly the
-values collected below.
+Already done and in the repo: all compose/Caddy/Dex/SignalK/Grafana
+config, a locally verified login flow, and every sops value — no
+placeholders remain. Both OAuth apps were smoke-tested from the dev box
+(each provider accepts the client ID + callback pair); the client
+secrets and Google's publish status can only be proven by the real
+logins in step D. What's left is boat-network work and the deploy.
 
 ## A. Decide the domain (everything below bakes it into URLs)
 
@@ -47,7 +49,8 @@ Google:
       scopes used need no Google review.
 - [x] Google Auth Platform → Clients → Create client → **Web
       application** → one redirect URI:
-      `https://auth.<domain>/dex/callback`
+      `https://auth.<domain>/dex/callback`. Copy the ID and secret at
+      creation — Google shows the secret only once.
 - [x] Into sops: `google_oauth_client_id`, `google_oauth_client_secret`.
 
 ## C. Cloudflare and boat network (needs router access / being aboard)
@@ -69,7 +72,7 @@ Google:
 
 ## D. Ship it
 
-- [ ] Review and commit the working-tree changes (stage by name, never
+- [x] Review and commit the working-tree changes (stage by name, never
       `git add -A` in this repo).
 - [ ] On the boat, dockside (first run builds the caddy image and issues
       certificates, so it needs internet):
