@@ -47,6 +47,18 @@ Outbound integrations that need credentials: PostgSail
 (`api.openplotter.cloud`), OpenWeather, Windy, and InfluxDB. Each token is
 encrypted in the relevant `signalk/plugin-config-data/*.json`.
 
+## Remote access
+
+rpi-connect is enabled but has been unreliable, and its browser shell
+can't tunnel arbitrary tools (a Claude Code session, for one) — it isn't
+`sshd`. Tailscale was added as the primary path instead: normal SSH over
+a WireGuard mesh, no public exposure, and no dependency on the Cloudflare
+zone or AWS account, neither of which had the groundwork (DNS record,
+IAM users) this would have needed. rpi-connect stays enabled as a
+fallback.
+
+RUNBOOK.md → "Remote SSH access" has setup and verification.
+
 ## Web login (SSO)
 
 Both web UIs authenticate against **Dex**, a small OIDC identity provider

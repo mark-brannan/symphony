@@ -13,6 +13,27 @@ data paths, the encryption design — see
 (engine, rigging, ground tackle, plumbing) live in `systems/*.md`, with work
 logged in `maintenance/log.md`.
 
+## Remote SSH access
+
+rpi-connect gives browser-based screen/shell access but has been
+unreliable, and its shell doesn't tunnel plain `ssh` — no good for things
+like a Claude Code session. Tailscale is the primary path: normal `ssh`
+over a WireGuard mesh, no port forwarding, no public exposure.
+
+**One-time setup on a new host:**
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up --ssh --hostname=<host>
+```
+
+Follow the printed login URL to join the tailnet.
+
+*Verify:* `tailscale status` lists the host; `ssh pi@<hostname>` from
+another device on the tailnet connects.
+
+Symphony's Pi is already on the tailnet as `symphony-pi`.
+
 ## Bringing up a host
 
 Four phases, in this order: tooling, key material, repo, services. Each ends
