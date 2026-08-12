@@ -213,11 +213,14 @@ journalctl -t nightly-reboot --since yesterday
 ```
 ## Reaching the boat over Tailscale
 
-The boat is node `symphony-pi` (100.113.172.64) on the tailnet. Anything on
-the tailnet reaches it by name; anything else doesn't, including the Windows
-side of a WSL machine — WSL runs its own tailscaled and doesn't share it with
-the host. If a browser can't load the admin UI, install Tailscale on *that*
-machine before debugging anything else.
+Setup is under [Remote SSH access](#remote-ssh-access); this covers using it
+and the ways it fails. The boat is node `symphony-pi`, tailnet address
+100.113.172.64.
+
+Only devices on the tailnet can reach it — which includes the Windows side
+of a WSL machine *not* being on it, because WSL runs its own tailscaled and
+doesn't share it with the host. If a browser can't load the admin UI,
+install Tailscale on *that* machine before debugging anything else.
 
 ```bash
 tailscale status                 # symphony-pi listed and not "offline"
@@ -226,11 +229,7 @@ curl -s http://symphony-pi:3000/signalk    # server version + endpoints
 
 SignalK admin UI: `http://symphony-pi:3000/admin/`.
 
-### SSH
-
-```bash
-ssh pi@symphony-pi
-```
+### SSH users and the periodic check
 
 Tailscale SSH handles auth, so no key setup is needed, but the ACL names
 which local users you may become — `pi` works, other names are rejected with
