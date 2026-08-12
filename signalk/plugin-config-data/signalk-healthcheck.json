@@ -10,8 +10,9 @@
 			"diskAlarm": 10,
 			"checkFrequency": 60,
 			"checkMaxAttempts": 3,
-			"sendNotification": false,
-			"sendEmail": false
+			"sendNotification": true,
+			"sendEmail": true,
+			"toEmail": "markbrannan@gmail.com"
 		},
 		"providers": {
 			"OpenPlotter GPSD": {
@@ -27,24 +28,24 @@
 		"mail": {
 			"secure": false,
 			"username": "captain",
-			"password": "ENC[AES256_GCM,data:C3GSnCIuBN2Q,iv:99GPIew1biMJbMM5/Pr9LZWavWGzergtToU7mIfPUIY=,tag:dgCy8kUclrGUfPPkLy94Ww==,type:str]"
+			"password": "ENC[AES256_GCM,data:6SAo5me2V5un,iv:ebJaSfcMM2UyhcTjf5H1PYyMlOsgq9XaNtmHrhk6zn0=,tag:zN5xJ5sWlNooelNCiy7P9g==,type:str]"
 		}
 	},
 	"enabled": true,
 	"sops": {
 		"age": [
 			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBXRmZ0L3M5VFlhd00wMEpi\nck9BTEE5VzkyS2U2MER4dFF1TGRadEpPMkdFCi9CQ2pGY0s4SURIaDBYTUVUekxT\nMmtxNllzK3UwdFgybThqUFBzcFo0KzgKLS0tIHlYN0tmdGRXWXAwZ0NKcEdaVytk\nNGFrcUlvZWNsQngzRGpweGJHOEplRmsKJx2i3tZZsgVvOBYp86bIPOg+yqkPex2L\nuCTQgh9kGFzQFi4z+PaO9+UMfPdmyKnCU8X47TrO4jKZYD7N/lHosw==\n-----END AGE ENCRYPTED FILE-----\n",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAwVDQ0RlgxcThCS3dLNHpq\nRzJVcnJjR1QxL0hHcFRqTlNLbUE0MVp4NmpRCkpCemF1M3ZoMWRFNWVNQjFQb2tD\neURVVjM5ZnVDcUR3MUNkVmx5c3h3VzgKLS0tIHQyNUY1VmRCOWRubHBURUs1bk9D\nMVZUdW81WDFNZTgyZ21TM0tYYitxakEK2Wz9BaTmlO8Smt4z/hsbSda6nEDJ+fEZ\njwPDgccmgZK3+7FIJNA7nzav7n/NXnWIP549xPTLnDiyWpZxbKvI1w==\n-----END AGE ENCRYPTED FILE-----\n",
 				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
 			},
 			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBueUptRnZOZHRHa1BQSm1J\naWxqK21HcEtZREFFQXc5QllFL2QwaTl0Nmd3CkhHNUV5OTkvbnFiM2haaTJPRlRG\nUlRuSWJYaHJyWVliQzErZ0Rrek0ya1EKLS0tIEZpMmxCQWZYNWFaRUNuaDhPM2sv\naStDazIrUW9sQVRZajh6NmlwclpIOU0Kze6Di2fdMHNCFo4cc1W5p9AFFCYYH8O6\n3/l/nWP7wHbWhKTapqnr7tFUb3cx8kVVOyLCwNkgRRWdFAlA5jjtAA==\n-----END AGE ENCRYPTED FILE-----\n",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBkUmFLTGJTSTV6L0g4dFE1\ncUhCdVBmWnE4dGI4OUk0OW12RWM4MzBmbXhzCkQya0dQWWdJK25jN3pSZzdPdXB4\ndklzRTg0VlMxZEg3RXRUeENLZ2dwUm8KLS0tIG5vWmxwNW1Ncm56Mk9kdFh1My9r\ndUxYeFJISjRTemVWT3I5UlhpS2w5WE0Kz+JNEwH5nCzRX8eG/bYuBXB9XXix0/q4\nPNPpPzclYA45SqGu+2rdbMQmR/zkJZ/9uXGXHefMHbxLY4/G71IVKw==\n-----END AGE ENCRYPTED FILE-----\n",
 				"recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
 			}
 		],
 		"encrypted_regex": "^password$",
-		"lastmodified": "2026-08-08T05:36:12Z",
-		"mac": "ENC[AES256_GCM,data:vhViLr2ap0FnBsTENPfwBjUYGhxyD4zGwquB2kkhwAG1P19pWJhINud23bWPyP3gpPXxhkeRF33YWvrYY3mzz2uHMC7FjvA5Zr4qxd0vSF5wkB9yXo7VnF8BLz3c5t+fQUC4Q7Hz/gY5k2Yu7sCsmttmwu2HUhN0XVwFxpAJaJE=,iv:IjwjNbGOVMYijo44gT83eW5s7saFSpLsK+hy26BPbmU=,tag:oeCnLQUILKOWhqS3OJIx3w==,type:str]",
+		"lastmodified": "2026-08-12T03:15:10Z",
+		"mac": "ENC[AES256_GCM,data:Qfmv/lXZQwZcxIp/Kalx4ibqyUTBzjheaCGP77/xvvEoIqbuqSgF7Ljb63Yyk+n++sxcKyCByC23wSP3MHcGf4hFHmttUpA7ga0pizNPYjPb38fVgSJ0HR9rmgd9y2b7MZ90hNwy9TYgzpoOROxXr5GowfAiZel1c/PUVhjfmHE=,iv:121rNRY0soprQc43kyccbb+jpnKem4bqGyTF7Hvc428=,tag:yaNY3ZxotSBD38gAkX+g0Q==,type:str]",
 		"version": "3.13.3"
 	}
 }

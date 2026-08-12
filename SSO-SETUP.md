@@ -55,20 +55,21 @@ Google:
 
 ## C. Cloudflare and boat network (needs router access / being aboard)
 
-- [ ] Give the server host a fixed LAN IP: DHCP reservation in the boat
+- [x] Give the server host a fixed LAN IP: DHCP reservation in the boat
       router. (No Tailscale involvement — the names must work for any
       device on the boat wifi, tailnet member or not.)
 - [x] Cloudflare DNS, all grey cloud (DNS only, not proxied): one **A**
       record `<domain>` → the boat IP, and `signalk.<domain>`,
       `grafana.<domain>`, `auth.<domain>` as CNAMEs to it.
-- [ ] Replace the A record's placeholder content (`192.0.2.1`) with the
+- [x] Replace the A record's placeholder content (`192.0.2.1`) with the
       real DHCP-reserved IP once it exists.
 - [x] Cloudflare API token: My Profile → API Tokens → Create Token →
       "Edit zone DNS" template → limit to this zone. Into sops:
       `cloudflare_api_token`.
-- [ ] Router local DNS overrides for all four names → the same IP
-      (offshore there is no public DNS). Check from the boat LAN with
-      WAN unplugged: `nslookup signalk.<domain>` returns the LAN IP.
+- [x] Router local DNS override covering the domain and all its
+      subdomains → the same IP (offshore there is no public DNS). Check
+      from the boat LAN with WAN unplugged: `nslookup signalk.<domain>`
+      returns the LAN IP.
 
 ## D. Ship it
 
