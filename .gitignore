@@ -1,6 +1,5 @@
 .npmrc
 node_modules
-*.log
 .DS_Store
 tmp/
 *.swp

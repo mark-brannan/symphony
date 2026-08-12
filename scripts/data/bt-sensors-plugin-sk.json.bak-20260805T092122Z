@@ -31,7 +31,6 @@
       },
       {
         "active": true,
-        "mac_address": "D2:2A:6F:EF:DB:36",
         "discoveryTimeout": 30,
         "params": {
           "name": "Victron IP22 Charger",
@@ -49,27 +48,8 @@
           "curr3": "electrical.chargers.{id}.battery3.current",
           "temp": "electrical.chargers.{id}.temperature",
           "acCurr": "electrical.chargers.VictronACCharger.current"
-        }
-      },
-      {
-        "active": true,
-        "mac_address": "A5:C2:37:40:01:46",
-        "discoveryTimeout": 30,
-        "params": {
-          "name": "House Battery 1",
-          "sensorClass": "JBDBMS",
-          "batteryID": "0146"
-        }
-      },
-      {
-        "active": true,
-        "mac_address": "A5:C2:37:3C:5C:90",
-        "discoveryTimeout": 30,
-        "params": {
-          "name": "House Battery 2",
-          "sensorClass": "JBDBMS",
-          "batteryID": "5C90"
-        }
+        },
+        "mac_address": "D2:2A:6F:EF:DB:36"
       }
     ]
   },

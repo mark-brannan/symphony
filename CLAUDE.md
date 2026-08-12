@@ -108,3 +108,12 @@ changing, committing, or pushing.
   including another session's uncommitted changes. `git checkout HEAD -- path`
   is fine for a single file you've confirmed the diff of; it stops being fine
   the moment `path` is a directory you haven't fully read the diff of first.
+- sops-encrypted files must round-trip through the `sops` filter, never
+  hand-edited in cleartext and committed directly.
+- When two copies of a SignalK peripheral/device config disagree (a backup vs.
+  the committed file, two repos, etc.), union them rather than picking one and
+  discarding the other's fields — merge to the superset. A stale or invalid
+  peripheral entry costs SignalK a harmless connection-retry log line; a
+  silently dropped working one costs real functionality. Keep everything, flag
+  anything that's a genuine conflict (not just a gap) rather than guessing, and
+  let the owner prune deliberately later.
