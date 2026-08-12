@@ -211,6 +211,39 @@ packages installed. Check which way it went with:
 ```bash
 journalctl -t nightly-reboot --since yesterday
 ```
+## Reaching the boat over Tailscale
+
+The boat is node `symphony-pi` (100.113.172.64) on the tailnet. Anything on
+the tailnet reaches it by name; anything else doesn't, including the Windows
+side of a WSL machine — WSL runs its own tailscaled and doesn't share it with
+the host. If a browser can't load the admin UI, install Tailscale on *that*
+machine before debugging anything else.
+
+```bash
+tailscale status                 # symphony-pi listed and not "offline"
+curl -s http://symphony-pi:3000/signalk    # server version + endpoints
+```
+
+SignalK admin UI: `http://symphony-pi:3000/admin/`.
+
+### SSH
+
+```bash
+ssh pi@symphony-pi
+```
+
+Tailscale SSH handles auth, so no key setup is needed, but the ACL names
+which local users you may become — `pi` works, other names are rejected with
+"tailnet policy does not permit you to SSH as user X". Change that in the
+[access controls](https://login.tailscale.com/admin/acls) if you need
+another.
+
+The ACL also sets a check period. When it lapses, ssh stops at
+`# Tailscale SSH requires an additional check.` and prints a
+`login.tailscale.com/a/...` URL — open it, approve, then re-run ssh. The URL
+is single-use, so don't bother saving it. Under `-o BatchMode=yes` or any
+non-interactive wrapper this just looks like a hang; that message is the
+tell.
 
 ## SSO login (GitHub / Google)
 
