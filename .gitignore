@@ -27,5 +27,9 @@ signalk/plugin-config-data/tides/
 .env
 age.key
 rendered/
+
+# pulled-from-the-boat snapshots -- large, and carry live tokens/password
+# hashes (grafana.db, signalk security.json, influx cli configs)
+raw_backups/
 __pycache__/
 dex/config.yaml
