@@ -4,12 +4,12 @@
 		"dbusAddress": "tcp:host=192.168.1.57,port=78",
 		"MQTT": {
 			"host": "venus.local",
-			"password": "ENC[AES256_GCM,data:H2CZ,iv:btF/+xk/v9iLTpBCcIQuFmSr6Q2AOklW0EPQ1/YGgcM=,tag:erU0jJ+sJZVmb8IPXPW1+Q==,type:str]"
+			"password": "ENC[AES256_GCM,data:jH5W,iv:NNHZNXAvF+f7g1XcZFCSXrQG/H+AjtfbX6SfifkHxHE=,tag:H4urof861ucFFDRiAFvFxw==,type:str]"
 		},
 		"VRM": {
 			"portalId": "c0619ab7ab01",
 			"userName": "markbrannan@gmail.com",
-			"password": "ENC[AES256_GCM,data:t4FWY0zEmz5Y/0n4vAIc,iv:8HbeQyEFOwRVNNIN4Aj5C0dH6krpQL/AcDc27RD85YU=,tag:mSpO9LA1Xf8yk13DI6moug==,type:str]"
+			"password": "ENC[AES256_GCM,data:oSEGGeR07oHjC2L264Qq,iv:KnaEXpDGFYw6BJb88lU12cBOEpdKEPwsnb333rIz/YE=,tag:UZFRDo+EMeiP6/+h9InTnA==,type:str]"
 		},
 		"pollInterval": 20,
 		"useDeviceNames": false,
@@ -19,23 +19,25 @@
 		"relayPath1": "electrical.switches.venus-1",
 		"relayDisplayName1": "Cerbo relay 2",
 		"temperatureMappings": [],
-		"ignoredSenders": []
+		"ignoredSenders": [],
+		"instanceMappings": [],
+		"blacklist": []
 	},
 	"enabled": true,
 	"sops": {
 		"age": [
 			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBZbXNDUjM4cVhocHpWd1ZS\nejI2TytpMUlieU85YU9oQ2hGMjRoS0NpeUJjCms2MC9ycER5bkdIZE5QZDY5S0lo\nZDNlNFM3c0ZKazE0czRFUE1LejNiRHcKLS0tIEloM1RncUJHLy9ITUc3NmRLN2c1\nelJGZDBPUE83cFZNeXhQOHhMYS9lVFkK0S5OcpUcs08WTOf7bBcMAW/2O/z2/gVi\n9CCSWa5FB8UH4GVSdKvSsaLNc5aYLBdhrxCd7U++UajqCFTdITVDXw==\n-----END AGE ENCRYPTED FILE-----\n",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAvaERickpGUVlsRWVkZzF2\nOXN6RTcxTDZRMkRCM1JFb3F0Tlczak91TTNJCno1UzRRNmJYRHVSVFllMGRlV0p1\nZ1ZZYlBWQ1dKaG04b3hoWmlOQ2phOWMKLS0tIHcrdUE5OUxBT05KVkF0ZUtuem1M\nWStWaEZKbDhmRXpNMXVlV1dRZEhBQ1kKYxt8JV9wGfHMjLfB/UiQ6tnNG4clesAv\nYa7d0p6oPUgcsddDoPmHS7WkUL/NkESI7F5nzfMg0FV61MAm7+HBCg==\n-----END AGE ENCRYPTED FILE-----\n",
 				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
 			},
 			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBKK3Z0THhGOGZnaVh4eW4x\nbTdrZmgreUtXT0FBR1lCWFhNZ2pYb1FlLzA4Ci9BOTkxQ2FRZmswdE9yeUhjUm9Z\nU0o5T0lIU2c3TDIyKzlpQzI1NGtMWjAKLS0tIENENkhCNWV3dlBhdWJaelJmVDZV\ncHBrWS9xKytyUzZaMTFmdmxwQ0VqMEEKD9N7c83cVuyNx+B6azYAEBOgg3HCyDOH\n1cG0956liPI7S/Tfhuj29fznl66JNwNPOC4nsVJtGQrmHZ2Rn9kNmw==\n-----END AGE ENCRYPTED FILE-----\n",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB0c3dIcGxjN1laTHBiaThQ\nd2ZzaWFzRWVFTzlsQlVMdHE2aG9ja3p5MGpzCjQwVGNGRzlwSUk2Y1REUjdoMXFs\neVVZQXVJdU1kYkdQeWJRa3ZKM3dCa28KLS0tIDJmNmVwVGw3N1k3MW1TZWNSWTQ0\nelpwbUU4Zko1dmxZT3oydFhoVFBWOE0KkQKoyXPok6IUhZMNPcMIH+QzKfDOLaC0\nQDbxeZVArTeKu/NNYX1REACXCb/fcy+0e5BAObx3eTzJk/t25cfJ/Q==\n-----END AGE ENCRYPTED FILE-----\n",
 				"recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
 			}
 		],
 		"encrypted_regex": "^password$",
-		"lastmodified": "2026-08-12T02:08:34Z",
-		"mac": "ENC[AES256_GCM,data:UPF/Z9yHt49RaAVRElIFLaKki5HAQTMejdfGqxOQmas56vkjGciushpZF6HWtck4H9NwISswOZb3xRzO2hDBJhuBemIyCCiONWrYaE+eqtY1bD5RDm7tQBQVUWoxNBirvartb49Y9nTCrczteUHtJCvlqDR7NpK7aXXuYu7A9dA=,iv:3yzwHA0VXa++egToH48GlZKNy/hzls6DsGJtJHXfR6k=,tag:n6ymBosHhgqgy7/tO3HqZA==,type:str]",
+		"lastmodified": "2026-08-12T02:42:14Z",
+		"mac": "ENC[AES256_GCM,data:0hYDT22aiVWlzIWugvI6irLz3ReWd3nKY87aSq4G2vRpPoUcebfSREE9UfhlrQw+TwW2lWzvd502tNElEgMeWHVO9sG5i5fjxlNMpFTabzClnVZ4u4Um/GzDyKxO1H1HeBA8/UUcRvgGLtWzEbLuEAX7BaD+m9uJUvI1upOesCc=,iv:Yc9VDzvCixphjq2M5F7kz6g1IYyIYOSP/vhyVy1xbIQ=,tag:0p+D5edVdl08c5YxIlxm1w==,type:str]",
 		"version": "3.13.3"
 	}
 }
