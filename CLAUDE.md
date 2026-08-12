@@ -92,13 +92,16 @@ covered here.
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
-- Branch judiciously for features.  Small changes such as a package.json update
-should go directly to main
-- Small atomic changes may be committed and pushed as soon as they are verified.
-Larger changes, especially if they merit a feature branch, should get a PR and 
-sign off from the owner.  If a change is potentially destructive or could affect
-adjacent environments for plugin testing, then ask for explicit permission before
-changing, committing, or pushing.
+- **Work on main.** Default to committing straight to main in small,
+  iterative commits, each one verified before the next. Push as soon as a
+  commit is verified rather than batching. Don't create a branch because the
+  work feels large — break it into smaller commits on main instead.
+- Branch only in special circumstances: work that can't be landed in a
+  working state partway through, or something the owner has asked to review
+  as a PR. When in doubt, ask rather than branching.
+- If a change is potentially destructive, or could affect adjacent
+  environments for plugin testing, ask for explicit permission before
+  changing, committing, or pushing.
 - **Always commit with an explicit pathspec: `git commit -m "..." -- path1 path2`.**
   `git commit` otherwise commits the whole index, not the files you staged.
   With several sessions sharing this checkout the index is shared mutable
