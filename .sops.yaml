@@ -87,3 +87,8 @@ creation_rules:
     encrypted_regex: '^token$'
     key_groups:
       - age: *recipients
+
+  - path_regex: signalk/plugin-config-data/venus\.json$
+    encrypted_regex: '^password$'
+    key_groups:
+      - age: *recipients
