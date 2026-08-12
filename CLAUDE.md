@@ -94,6 +94,16 @@ Larger changes, especially if they merit a feature branch, should get a PR and
 sign off from the owner.  If a change is potentially destructive or could affect
 adjacent environments for plugin testing, then ask for explicit permission before
 changing, committing, or pushing.
+- **Always commit with an explicit pathspec: `git commit -m "..." -- path1 path2`.**
+  `git commit` otherwise commits the whole index, not the files you staged.
+  With several sessions sharing this checkout the index is shared mutable
+  state, so `git add <file> && git commit` is a race — anything another
+  session staged in between rides along in your commit, under your message.
+  Checking `git status` first does not close this; it's an observation, not a
+  constraint, and the other session can stage between your check and your
+  commit. The pathspec form commits only the named paths and leaves the rest
+  of the index untouched, which removes the race instead of watching for it.
+  This happened: b11b40d silently carried unrelated SSO-SETUP.md edits.
 - Multiple Claude sessions may be working this checkout at once. Before running
   any git command whose effect isn't scoped to files you explicitly name, run
   `git status` and read the full output — don't assume the working tree only
