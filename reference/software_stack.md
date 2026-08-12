@@ -12,9 +12,9 @@ it includes:
 
 | Service | Image | Port | Persistent state |
 |---|---|---|---|
-| `signalk-server` | `signalk/signalk-server:latest` | 3001→3000, 80 | `./signalk` (bind mount, **in git**) |
+| `signalk-server` | `signalk/signalk-server:latest` | 3000, 80 | `./signalk` (bind mount, **in git**) |
 | `influxdb` | `influxdb:2.7` | 8086 | `influxdb-data`, `influxdb-config` volumes |
-| `grafana` | `grafana/grafana:latest` | 3000 | `grafana-data` volume, `./grafana/provisioning` |
+| `grafana` | `grafana/grafana:latest` | 3001→3000 | `grafana-data` volume, `./grafana/provisioning` |
 | `caddy` | built from `./caddy` | 443 | `caddy-data` volume (certificates) |
 | `dex` | `ghcr.io/dexidp/dex:latest` | none (proxied by caddy) | none (memory only) |
 | `dex-dev` | `ghcr.io/dexidp/dex:latest` | 5556 | none (memory only) |
@@ -157,10 +157,11 @@ external and have compose join it.
 container means that container, not the host. It's ignored while
 `managedContainer` is true, and starts mattering the moment you set it false.
 
-**Both Grafanas want host port 3001.** SignalK publishes on 3001 and
-`signalk-grafana` defaults to `grafanaPort: 3001`, so the plugin-managed one
-dies with `Bind for 0.0.0.0:3001 failed: port is already allocated` and sits
-in `Created`.
+**Both Grafanas want host port 3001.** The compose `grafana` service publishes
+on 3001 and `signalk-grafana` defaults to `grafanaPort: 3001`, so the
+plugin-managed one dies with
+`Bind for 0.0.0.0:3001 failed: port is already allocated` and sits in
+`Created`.
 
 To run QuestDB from your own compose file instead, set
 `managedContainer: false` and point `questdbHost` at the service name. The

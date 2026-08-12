@@ -324,7 +324,7 @@ docker compose --profile dev-idp up -d dex-dev
 # point .env's SIGNALK_OIDC_* at it (gitignored; re-render to undo):
 #   ISSUER=http://dex-dev:5556/dex  CLIENT_ID=symphony-local
 #   CLIENT_SECRET=local-dev-not-a-secret
-#   REDIRECT_URI=http://localhost:3001/signalk/v1/auth/oidc/callback
+#   REDIRECT_URI=http://localhost:3000/signalk/v1/auth/oidc/callback
 docker compose up -d signalk
 ```
 
@@ -387,7 +387,7 @@ docker compose up -d --force-recreate <service>
 
 ```bash
 docker exec grafana grafana cli admin reset-admin-password '<value>'
-curl -u admin:<value> http://localhost:3000/api/org      # expect 200
+curl -u admin:<value> http://localhost:3001/api/org      # expect 200
 ```
 
 **In-place:** change it through the SignalK admin UI, then:
