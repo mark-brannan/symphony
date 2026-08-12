@@ -151,6 +151,7 @@
 - Configure InfluxDB to receive data from SignalK, with appropriate data retention policies
 - Revisit current InfluxDB org/bucket setup (org "darkstarllc", bucket "symphony") — consider alternatives using multiple buckets aboard Symphony
 - Set up Grafana dashboards based on the public examples on GitHub from @meri-imperiumi
+- Evaluate Telegraf as a host-metrics adjunct to InfluxDB (CPU, memory, disk, temperature) — it was installed Nov 2024, never configured past the default stub, and removed Aug 2026 rather than left failing
 
 ### Cameras
 - Identify location for interior Tapo cam
