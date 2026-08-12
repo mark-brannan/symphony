@@ -152,6 +152,7 @@
 - Revisit current InfluxDB org/bucket setup (org "darkstarllc", bucket "symphony") — consider alternatives using multiple buckets aboard Symphony
 - Set up Grafana dashboards based on the public examples on GitHub from @meri-imperiumi
 - Evaluate Telegraf as a host-metrics adjunct to InfluxDB (CPU, memory, disk, temperature) — it was installed Nov 2024, never configured past the default stub, and removed Aug 2026 rather than left failing
+- Reconcile the InfluxDB secrets in `symphony.sops.yaml` against the running database. As of 2026-08-11 all three sops tokens (`influx_token`, `influxdb_operator_token`, `influxdb_signalk_token`) return 401; the only working credential is "captain's Token" (all-access), held in `signalk/plugin-config-data/signalk-to-influxdb2.json`. The org is also wrong: the database has `symphony`, while `.env.j2` renders `DOCKER_INFLUXDB_INIT_ORG=darkstarllc`. Buckets present: `symphony` (30d), `_monitoring` (7d), `_tasks` (3d). Which side is authoritative is an open question — the repo copy is not automatically the correct one.
 
 ### Cameras
 - Identify location for interior Tapo cam
