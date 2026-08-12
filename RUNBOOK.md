@@ -508,6 +508,40 @@ To stop tracking a file's secret (plugin uninstalled, field no longer used):
 Removing the rules does **not** un-publish anything already committed. If
 the secret was ever live in a public commit, rotate it — see below.
 
+## When the boat's hostnames stop resolving
+
+All three names fail on the boat wifi and browsers say the site can't be
+found — a DNS failure, not a certificate or connection error. The services
+themselves are still up: `http://192.168.8.240:3000` loads by IP.
+
+Confirm which link is down:
+
+```bash
+ping -c2 192.168.8.240   # boat computer, wired
+ping -c2 192.168.8.241   # same host, wifi
+```
+
+Wired dead and wifi alive points at the cable, the switch port, or the Pi's
+`eth0`. The router's wildcard resolves every name to the wired address only,
+so all three go down with that one interface even though the host is still
+reachable.
+
+Repoint the wildcard at the wifi reservation:
+
+```bash
+ssh root@192.168.8.1
+uci set dhcp.@dnsmasq[0].address='/symphony.dark-star-llc.com/192.168.8.241'
+uci commit dhcp && /etc/init.d/dnsmasq restart
+```
+
+From a laptop on the boat wifi, `dig +short signalk.symphony.dark-star-llc.com`
+should return `192.168.8.241`. If it still returns the old address, flush the
+client's cache — on macOS, `sudo dscacheutil -flushcache; sudo killall -HUP
+mDNSResponder`.
+
+Set it back to `192.168.8.240` once the cable is fixed. Wifi is the slower
+path and drops when the router reboots.
+
 ## When a plugin isn't in the config UI
 
 A plugin that crashes on load doesn't appear in Server → Plugin Config at
