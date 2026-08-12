@@ -1,0 +1,20 @@
+#!/bin/sh
+# Nightly reboot, skipped while a package install is in flight.
+#
+# A reboot landing on top of an `npm install` in ~/.signalk truncates the
+# plugin tree: npm leaves its .<name>-<hash> staging directories behind and
+# half-written package.json files in place. That happened often enough to
+# take 32 plugins down at once (2026-08-11), and npm won't self-heal it
+# because it sees the directories and considers the packages installed.
+#
+# Skipping a night costs nothing; the next run picks it up.
+
+set -eu
+
+if pgrep -x npm >/dev/null 2>&1 || pgrep -f 'node-gyp|node-pre-gyp' >/dev/null 2>&1; then
+	logger -t nightly-reboot "package install in flight, skipping tonight"
+	exit 0
+fi
+
+logger -t nightly-reboot "no installs in flight, rebooting"
+/sbin/shutdown -r now

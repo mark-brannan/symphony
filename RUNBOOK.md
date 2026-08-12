@@ -164,6 +164,36 @@ before running it:
   in `signalk/plugin-config-data/signalk-to-influxdb2.json` and restart
   `signalk-server`.
 
+## Installing host files
+
+`host/` holds files that live on the machine rather than in a container —
+scripts under `/usr/local/sbin`, and the root cron entries that call them.
+On the host:
+
+```bash
+cd ~/symphony && git pull
+sudo host/install.sh
+```
+
+It's idempotent, and it prints what it installed plus the resulting root
+crontab. Re-run it after any change under `host/`; it rewrites only the cron
+entries pointing at paths it installs and leaves everything else in that
+crontab alone.
+
+To add a file, drop it in `host/` and add a line to `INSTALL` (and `CRON` if
+it needs scheduling) at the top of `host/install.sh`.
+
+Currently installed: `nightly-reboot`, which reboots the boat Pi at 04:00
+**unless** an `npm` or `node-gyp` process is running. Don't move that back to
+midnight and don't call `shutdown` from cron directly — a reboot landing on an
+`npm install` in `~/.signalk` truncates the plugin tree, and npm won't repair
+it afterward because it sees the half-written directories and considers those
+packages installed. Check which way it went with:
+
+```bash
+journalctl -t nightly-reboot --since yesterday
+```
+
 ## SSO login (GitHub / Google)
 
 SignalK and Grafana web UIs show a "Sign in with GitHub / Google" button.

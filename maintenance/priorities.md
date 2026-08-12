@@ -146,6 +146,7 @@
   describe the Docker deploy meant to replace them. Docker isn't installed on the
   Pi yet, so `docker compose --profile tls up` can't run there.
 - Rebuild boat computer
+- Evaluate Ansible for host provisioning. `RUNBOOK.md` → "Bringing up a host" is four phases of hand-run steps, and `host/install.sh` is a deliberately small stopgap covering one script and one cron entry. The case gets real with a second host — the boat computer rebuild, or the VPS/NAS for Vaultwarden — where the same steps have to land twice and drift between them matters. Not worth it for a single Pi.
 - Install BLE hub for lighting and related devices
 - Set up real off-machine hosting (VPS or existing NAS) for Vaultwarden to hold the sops/age key backup, reachable privately (e.g. Tailscale) — currently only a local Docker proof-of-concept on the boat computer, which doesn't yet solve the single-point-of-failure risk for the key protecting `symphony.sops.yaml` / `signalk/security.json`
 - Configure InfluxDB to receive data from SignalK, with appropriate data retention policies
