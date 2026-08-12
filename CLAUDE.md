@@ -84,6 +84,11 @@ covered here.
   gets flagged to the owner rather than silently resolved by guessing.
 
 ## Git hygiene
+- At the start of every session, before doing any work: `git fetch` and check
+  whether the local branch is behind `origin/main`. Multiple sessions push to
+  this repo, so a checkout that looked current yesterday usually isn't. Get
+  onto the tip of main first — landing work on a stale base means a rebase and
+  hand-resolved conflicts later, in files another session has since rewritten.
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
