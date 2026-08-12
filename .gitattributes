@@ -9,3 +9,4 @@ signalk/plugin-config-data/signalk-grafana.json filter=sops
 signalk/plugin-config-data/signalk-pushover-notification-relay.json filter=sops
 signalk/plugin-config-data/signalk-postgsail.json filter=sops
 signalk/plugin-config-data/venus.json filter=sops
+signalk/plugin-config-data/freeboard-sk.json filter=sops

@@ -1,4 +1,32 @@
 {
-  "enabled": true,
-  "configuration": {}
+	"enabled": true,
+	"configuration": {
+		"weather": {
+			"enable": true,
+			"apiVersion": 3,
+			"apiKey": "ENC[AES256_GCM,data:nenH2dpl18/9a8qvBKcf0ldHR6CIH0r+fWNoN2QbCsg=,iv:QDtcWgVlboMPPhm8DzLIttX1T0A4/Era5edzkcz8DQM=,tag:lzbN7Q0Y5KMacadCJ8IFEw==,type:str]",
+			"pollInterval": 15
+		},
+		"pypilot": {
+			"enable": true,
+			"host": "localhost",
+			"port": 8000
+		}
+	},
+	"sops": {
+		"age": [
+			{
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA5N0FFclBHaEJnMGVUL3RL\nOHpxY3VDeWlrS0IwZGZhRlRNVlFkWDN6M1NBClVON2M1Q0ZNVnNmb0ZHZUZieDZa\nL25ZbjlmM1k4ell5RDNGeFpiT1VXbEUKLS0tIFlMUXhBQXd5UkczVmVaYmtDbG1V\nOWVZempPdEZldUJHb2h2NFlPSmZZWm8KSeSlajECbDCIR6hUE2WdUU6uUZkEL0AO\nHkMeveZYSQTiBp572gAt6euRoUsOjqaMB9o/0qm8Yg4OLHKELIOMjA==\n-----END AGE ENCRYPTED FILE-----\n",
+				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+			},
+			{
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBZbGFkS3NQOEdORzRxUFJK\nc0xmUVN1WjZpQW9aVG5kWmFMWGFSZEVOWDJBCjYrbDJGQnVUTmEyMU81M0d3WUQr\nZHhCK2FlbGE3Vjc4OXlNS25ySjhFRWsKLS0tIExJbW5BZU5vV0xRdkZkaXdWa3pN\nSnByMzN2dXhjR1BoUDBQK1lERVYzWmMKBKFesTKZogL0pobdvYKAamM9UHVaMn3k\nPjaLvg8umwTe7S+9yXKyxemdzijoBxJkn7sjxpnyhmpDc75Kv5fVkA==\n-----END AGE ENCRYPTED FILE-----\n",
+				"recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
+			}
+		],
+		"encrypted_regex": "^apiKey$",
+		"lastmodified": "2026-08-12T02:46:54Z",
+		"mac": "ENC[AES256_GCM,data:eCfAUMcERwQ4JruSRrDTGQ3TeEWoU21DwHz6qquX6HMD8eohuN93ooSogGWoEpWSbyZ0kWYDjiMy54JhbU/w0SgmLAoCcZp3XBGVRFogZWQGBbOTtnEg9SNC6U4gzsP0eDuV+NAqQ/f8KaPGhFX0HIuzKo7zwRtovEHyXtwxCTw=,iv:tvLvLLW0mkk3HALeXbJep11HNbkE0tso8c6mgOS1Clk=,tag:DIN+IBfeF9xILr2CkHOgIw==,type:str]",
+		"version": "3.13.3"
+	}
 }

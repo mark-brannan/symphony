@@ -92,3 +92,8 @@ creation_rules:
     encrypted_regex: '^password$'
     key_groups:
       - age: *recipients
+
+  - path_regex: signalk/plugin-config-data/freeboard-sk\.json$
+    encrypted_regex: '^apiKey$'
+    key_groups:
+      - age: *recipients
