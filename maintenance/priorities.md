@@ -141,6 +141,10 @@
 - 3D-print IMU case
 
 ### Infrastructure
+- Finish dockerizing the boat computer — SignalK, Grafana, Dex, and Caddy run as
+  native systemd services today; the repo's compose files and `RUNBOOK.md`
+  describe the Docker deploy meant to replace them. Docker isn't installed on the
+  Pi yet, so `docker compose --profile tls up` can't run there.
 - Rebuild boat computer
 - Install BLE hub for lighting and related devices
 - Set up real off-machine hosting (VPS or existing NAS) for Vaultwarden to hold the sops/age key backup, reachable privately (e.g. Tailscale) — currently only a local Docker proof-of-concept on the boat computer, which doesn't yet solve the single-point-of-failure risk for the key protecting `symphony.sops.yaml` / `signalk/security.json`
