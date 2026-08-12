@@ -47,6 +47,65 @@ Outbound integrations that need credentials: PostgSail
 (`api.openplotter.cloud`), OpenWeather, Windy, and InfluxDB. Each token is
 encrypted in the relevant `signalk/plugin-config-data/*.json`.
 
+## The boat Pi runs none of this in Docker
+
+The table above describes the intended deployment. The Pi aboard Symphony
+doesn't match it: Docker isn't installed there, and SignalK, InfluxDB,
+Grafana, Caddy, Dex, and Telegraf all run as systemd units instead.
+
+The constraint is the hardware. It's a Pi 4B with 4 GB of RAM on a 32 GB SD
+card, and the live data — SignalK's state directory, the InfluxDB store,
+Grafana's database — already comes to a couple of gigabytes. Container
+images plus a copy of that data don't fit, and the SD card is the part most
+likely to fail first. Finishing the move to Docker is tracked in
+`maintenance/priorities.md`; the likely answer is that it happens on the
+machine that replaces this Pi, not on this Pi.
+
+What the compose files supply as container configuration, systemd supplies
+natively:
+
+| Service | Native form | Config source |
+|---|---|---|
+| `caddy` | `/usr/local/bin/caddy`, custom build with `caddy-dns/cloudflare` | `/etc/caddy/Caddyfile`, a copy of `caddy/Caddyfile` with the three upstreams repointed from container names to `localhost` |
+| `dex` | `/usr/local/bin/dex`, binary extracted from the OCI image | reads `dex/config.yaml` from the repo directly |
+| `telegraf` | Debian package | `/etc/telegraf/telegraf.conf`, a symlink to `telegraf/telegraf.conf` |
+| `signalk`, `grafana-server`, `influxdb` | Debian/npm installs predating the repo | their own config trees, not the repo's |
+
+Every one of them reads the same rendered `.env` that compose would have
+passed as `env_file`, delivered by an `EnvironmentFile=` drop-in under
+`/etc/systemd/system/<unit>.service.d/`. So `scripts/render.py` remains the
+single path from sops to running configuration, container or not.
+
+Two traps live here. Dex and Telegraf run as `pi` rather than their own
+service users, because `/home/pi` is mode 0700 and their config lives
+inside it — the same reason `compose-idp.yml` pins Dex to uid 1000. And
+Telegraf's packaged unit is `Type=notify`, which times out under this
+configuration; the drop-in overrides it.
+
+SignalK is installed twice on that host, 2.14.4 under `/usr/lib` and 2.30.0
+under `/usr/local`. The service runs the older one, which predates OIDC
+support entirely — the practical cost of the OpenPlotter inheritance, and
+the clearest argument for containers whenever the rebuild happens.
+
+## Host metrics
+
+Telegraf writes CPU, memory, swap, disk, disk I/O, temperature, network,
+per-process and systemd unit state into the `symphony` InfluxDB bucket
+every sixty seconds, batched into a single write to spare the SD card.
+
+It exists because nothing else was recording the machine. SignalK's plugins
+report vessel data and `signalk-healthcheck` alarms on a CPU, memory, or
+disk threshold, but neither keeps history — so a hang or an out-of-memory
+event left nothing to look at afterwards, and diagnosis meant a trip to the
+boat.
+
+Its credential is `influxdb_captain_token`, which is captain's all-access
+token rather than a scoped one. That's a stopgap: the other InfluxDB tokens
+in sops no longer authenticate against the running database, and untangling
+that is its own task. `TELEGRAF_INFLUX_TOKEN` is a separate variable from
+`INFLUX_TOKEN` precisely so the stopgap can be replaced without touching
+Grafana's datasource.
+
 ## Remote access
 
 rpi-connect is enabled but has been unreliable, and its browser shell

@@ -269,6 +269,19 @@ The `tls` profile adds `caddy` (HTTPS for all three hostnames, Let's
 Encrypt via Cloudflare DNS-01) and `dex`. The first run builds the caddy
 image and issues certificates, so it needs internet — do it dockside.
 
+**On a host without Docker, the third command does nothing.** Caddy, Dex
+and Telegraf run as systemd units there instead; restart those directly:
+
+```bash
+python3 scripts/render.py
+sudo systemctl restart caddy dex telegraf
+```
+
+Restart Grafana and SignalK too if you changed anything they read —
+`GF_AUTH_GENERIC_OAUTH_*` or `SIGNALK_OIDC_*`. They pick up `.env` through
+an `EnvironmentFile=` drop-in, so a re-render alone doesn't reach a running
+process.
+
 *Verify:*
 
 ```bash
