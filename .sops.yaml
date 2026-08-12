@@ -97,3 +97,8 @@ creation_rules:
     encrypted_regex: '^apiKey$'
     key_groups:
       - age: *recipients
+
+  - path_regex: signalk/plugin-config-data/signalk-saillogger\.json$
+    encrypted_regex: '^uuid$'
+    key_groups:
+      - age: *recipients
