@@ -245,6 +245,75 @@ is single-use, so don't bother saving it. Under `-o BatchMode=yes` or any
 non-interactive wrapper this just looks like a hang; that message is the
 tell.
 
+### A page hangs but the host is reachable — MTU
+
+Symptom: the browser spins forever on `https://signalk.<domain>/`, ssh and
+ping to the same host are fine, and a port check succeeds:
+
+```powershell
+Test-NetConnection 100.113.172.64 -Port 443 -InformationLevel Quiet   # True
+```
+
+That combination means small packets get through and large ones don't. TCP
+completes its handshake, then the TLS handshake's full-size packets are
+dropped in silence. It shows up when a device takes a *direct* path to the
+boat over an uplink whose real MTU is below Tailscale's assumed 1280 —
+cellular and Starlink both do this. Relayed connections don't hit it, so one
+machine can work while another fails against the same server.
+
+Confirm by finding where ping stops making it through with
+don't-fragment set:
+
+```powershell
+foreach ($s in 1100,1200,1272,1400) { ping -n 1 -f -l $s 100.113.172.64 }
+```
+
+Fix on Windows — find the adapter's `ifIndex`, then lower its MTU
+(needs an elevated shell):
+
+```powershell
+Get-NetIPInterface -AddressFamily IPv4 | Where-Object InterfaceAlias -like '*Tailscale*'
+netsh interface ipv4 set subinterface <ifIndex> mtu=1180 store=persistent
+```
+
+On macOS or Linux, set it on the Tailscale interface instead:
+
+```bash
+sudo ifconfig utun<N> mtu 1180        # macOS
+sudo ip link set tailscale0 mtu 1180  # Linux
+```
+
+The Windows form survives reboots; the macOS and Linux ones don't survive a
+`tailscaled` restart. It's per-machine either way and doesn't propagate, so
+each new device can need it again.
+
+## Router config backup
+
+The boat router holds the local DNS override that makes the hostnames
+resolve on the boat. A factory reset takes it, and on-boat access with it.
+An encrypted copy of the router's full UCI config lives in
+`secrets/router-config.sops.yaml`.
+
+Refresh it after any router change (the pi's key is authorized on the
+router; run this from anywhere on the tailnet):
+
+```bash
+ssh pi@symphony-pi 'ssh root@192.168.8.1 "uci export"' > /tmp/uci.txt
+```
+
+then re-wrap it as the `uci_export` key of that YAML file and
+`sops --encrypt --in-place` it.
+
+To read or restore:
+
+```bash
+sops --decrypt secrets/router-config.sops.yaml
+```
+
+Feed the `uci_export` contents back through `uci import` on the router,
+then `reload_config`. Restoring overwrites WiFi and WAN settings too —
+this is a whole-config restore, not a DNS-only one.
+
 ## SSO login (GitHub / Google)
 
 SignalK and Grafana web UIs show a "Sign in with GitHub / Google" button.
@@ -266,24 +335,36 @@ too (`DOMAIN` can be `boat.example.com`).
 
 1. In Cloudflare DNS, add one **A** record and three CNAMEs, all DNS
    only / grey cloud (not proxied):
-   - `<domain>` → the LAN IP of the host running the stack, e.g.
-     `192.168.1.50`
+   - `<domain>` → the host's **tailnet** IP, e.g. `100.113.172.64`
    - `signalk.<domain>`, `grafana.<domain>`, `auth.<domain>` → CNAME to
      `<domain>`
 
-   With the IP in one record, moving the host later is a one-record
-   edit. Give that host a fixed LAN IP first (DHCP reservation in the
-   boat router). A public name resolving to a private IP is fine —
-   nothing here is reachable from the internet.
+   Public DNS answers for off-boat devices, the boat router answers for
+   on-boat ones (step 3), and the same URL works in both places. Give
+   the host a fixed LAN IP too (DHCP reservation in the boat router) —
+   the router override needs it. A public name resolving to a private
+   or CGNAT address is fine; nothing here is reachable from the
+   internet.
+
+   The tailnet IP is stable, but it belongs to the *machine*, not the
+   hostname. Rebuild the host's SD card, or delete and re-add it in the
+   Tailscale console, and it joins as a new machine with a different
+   100.x — this record then points at nothing. Symptom: off-boat access
+   dies, on-boat keeps working. You can't CNAME to the MagicDNS
+   `.ts.net` name instead; it doesn't resolve off the tailnet.
 2. Create the certificate-issuance token: Cloudflare → My Profile → API
    Tokens → Create Token → "Edit zone DNS" template → limit it to this
    one zone.
-3. On the **boat router**, add local DNS overrides for all four names
-   → the same LAN IP (dnsmasq:
-   `address=/signalk.<domain>/192.168.1.50`, or the router UI's "local
-   DNS records"). Don't skip this: offshore there is no public DNS, and
-   without a local override even already-logged-in devices can't resolve
-   the names at all.
+3. On the **boat router**, add a local DNS override sending the whole
+   subdomain to the host's LAN IP (dnsmasq:
+   `address=/<domain>/192.168.1.50`, or the router UI's "local DNS
+   records"). One wildcard entry covers the apex and every subdomain,
+   so adding a service later needs no router change.
+
+   Don't skip this. It is what makes the hostname work for anything on
+   the boat that isn't on the tailnet — a guest's phone — and offshore
+   there is no public DNS at all, so without it even already-logged-in
+   devices can't resolve the names.
 
 *Verify:* from a device on the boat LAN **with the WAN link
 disconnected**, `nslookup signalk.<domain>` returns the LAN IP.
