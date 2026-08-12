@@ -183,6 +183,25 @@ If SignalK ever grows email-based permission lists (a small upstream
 addition next to `adminGroups`), SignalK's authority model collapses into
 the same shape as Grafana's: email lists in this repo.
 
+Two routes to that, looked at on 2026-08-11 and neither taken:
+
+- **Let Dex synthesize the group.** Dex 2.45's generic `oidc` connector
+  supports `claimModifications.newGroupFromClaims`, which builds a group
+  out of other claims. Pointed at `email`, every user arrives carrying a
+  group equal to their own address, and `SIGNALK_OIDC_ADMIN_GROUPS`
+  becomes the allowlist — one line per admin, guests still falling
+  through to readonly. Needs Google moved off Dex's purpose-built
+  `google` connector onto the generic `oidc` one, which works because
+  Google publishes a discovery document. GitHub can't follow: it's
+  OAuth2, `claimModifications` is OIDC-connector-only, and the org/teams
+  alternative is the one already rejected above.
+- **Patch upstream.** An email list beside `adminGroups` in
+  `dist/oidc/permission-mapping.js`, which today takes the groups array
+  and nothing else. This is the only route that covers both providers,
+  and it removes the Dex-side asymmetry rather than working around it.
+  The OIDC code is Matti Airas's (Hat Labs), who is active on the SignalK
+  Discord.
+
 ### TLS, offline, and the dev harness
 
 - **TLS**: OAuth redirect URIs must be HTTPS on a real domain (both

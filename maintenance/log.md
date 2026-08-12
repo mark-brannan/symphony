@@ -159,6 +159,19 @@
 ## 2026-07-25/26
 - Holding tank removed.
 
+## 2026-08-11
+- SignalK SSO working — logged in with both GitHub and Google, `captain`
+  password still admin. The server had been running 2.14.4 all along: a
+  launcher script names that install by absolute path, so every OpenPlotter
+  update since July 2025 had been writing a newer version to a directory
+  nothing reads. Repointed the launcher at 2.30.0.
+- Found the plugin tree gutted by an interrupted install. Restored from backup
+  and rebuilt it. Native modules still don't compile, so the sensor plugins
+  that need them stay down.
+- Installed signalk-noaa-space-weather and signalk-lint.
+- Decided against GitHub orgs as the route to giving an SSO login admin.
+  Alternatives written up in `reference/software_stack.md`.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.

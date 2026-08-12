@@ -603,6 +603,38 @@ against the `^` ranges each time — this is not a reproducible install. npm 11
 also blocks postinstall scripts by default; if a plugin needs a native binary
 (`sharp`, `esbuild`), run `npm approve-scripts <pkg>` and reinstall it.
 
+## Stopping SignalK on the boat Pi
+
+`systemctl stop signalk` does not keep it down. A `signalk.socket` unit
+re-activates the service on the first connection to port 3000, which in
+practice means seconds — the admin UI polls. Stop the socket first:
+
+```bash
+sudo systemctl stop signalk.socket
+sudo systemctl stop signalk.service
+ss -lntp | grep :3000      # expect no output
+```
+
+Start them in the reverse order. If the service was killed while running it
+shows `failed`; `sudo systemctl reset-failed signalk.service` clears that
+before starting.
+
+Do this before any `npm install` in `~/.signalk`. Otherwise the running server
+is reading the tree while npm rewrites it, and anything that restarts the
+service mid-install brings it up against a half-written plugin directory.
+
+## Never use OpenPlotter's "Reinstall" for Signal K
+
+Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf` on
+`~/.signalk` first — every plugin's configuration, `security.json`,
+`settings.json`, all of it. That is deliberate on OpenPlotter's part: it
+forces the first-run branch that rewrites the launcher script, which is
+skipped whenever `settings.json` already exists. There is no prompt and
+nothing is backed up.
+
+If you need that branch to run — say, to regenerate the launcher after moving
+Node — back up `~/.signalk` first and put the config files back afterward.
+
 ## When a hook blocks your commit
 
 The message names which check failed. In rough order of likelihood:
