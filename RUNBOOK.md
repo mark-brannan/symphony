@@ -183,7 +183,25 @@ crontab alone.
 To add a file, drop it in `host/` and add a line to `INSTALL` (and `CRON` if
 it needs scheduling) at the top of `host/install.sh`.
 
-Currently installed: `nightly-reboot`, which reboots the boat Pi at 04:00
+Anything landing under `/etc/systemd/` triggers a `daemon-reexec`, because
+manager settings like the watchdog don't apply on a plain `daemon-reload`.
+
+Currently installed:
+
+`systemd-watchdog.conf` turns on the Pi's BCM2835 hardware watchdog with a
+15-second timeout, so a hang that stops answering ping and SSH resets the
+board instead of waiting for someone aboard to pull power. Confirm it took:
+
+```bash
+journalctl -b | grep -i "hardware watchdog"
+systemctl show -p RuntimeWatchdogUSec
+```
+
+Expect `Watchdog running with a hardware timeout of 15s` and
+`RuntimeWatchdogUSec=15s`. It won't catch a wedged service while systemd
+keeps running — that needs a separate check.
+
+`nightly-reboot` reboots the boat Pi at 04:00
 **unless** an `npm` or `node-gyp` process is running. Don't move that back to
 midnight and don't call `shutdown` from cron directly — a reboot landing on an
 `npm install` in `~/.signalk` truncates the plugin tree, and npm won't repair

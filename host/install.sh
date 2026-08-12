@@ -17,6 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # <source in host/>:<destination>:<mode>
 INSTALL=(
 	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755"
+	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644"
 )
 
 # Root cron entries this installer owns. Matched for removal by the command
@@ -37,9 +38,18 @@ for spec in "${INSTALL[@]}"; do
 		echo "  MISSING in repo: $src" >&2
 		exit 1
 	fi
-	install -o root -g root -m "$mode" "$HERE/$src" "$dest"
+	install -D -o root -g root -m "$mode" "$HERE/$src" "$dest"
 	echo "  $dest  ($mode)"
+	case "$dest" in /etc/systemd/*) reexec=yes ;; esac
 done
+
+# systemd manager settings (watchdog and friends) only take effect on
+# re-exec; daemon-reload is not enough.
+if [ "${reexec:-}" = yes ]; then
+	echo "== systemd daemon-reexec =="
+	systemctl daemon-reexec
+	systemctl show -p RuntimeWatchdogUSec -p RebootWatchdogUSec | sed 's/^/  /'
+fi
 
 echo "== root crontab =="
 current="$(crontab -l 2>/dev/null || true)"
