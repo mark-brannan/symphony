@@ -19,6 +19,12 @@
 # worked while leaving every one of those files decryptable only by the old
 # key. Doing this by hand is how you lose your secrets.
 #
+# SCOPED KEYS: most rules in .sops.yaml share one recipient list through a
+# YAML anchor, but a rule may spell out its own so a key can open one file
+# and nothing else. `add` and `retire` reach both kinds (see
+# scripts/sops_recipients.py); `verify` checks a key only against the files
+# it is actually a recipient of, and says so when that isn't everything.
+#
 # Usage:
 #   scripts/rotate_age_key.sh status
 #   scripts/rotate_age_key.sh add [--generate | <new-age-public-key>]
@@ -32,15 +38,13 @@ SOPS_CONFIG=".sops.yaml"
 
 die() { echo "error: $*" >&2; exit 1; }
 
-configured_recipients() {
-  python3 -c "
-import yaml, sys
-with open('$SOPS_CONFIG') as f:
-    doc = yaml.safe_load(f)
-for r in doc.get('recipients', []):
-    print(r)
-"
-}
+# Recipient reads and edits all go through scripts/sops_recipients.py, which
+# knows about rules that spell out their own key list instead of sharing the
+# `recipients:` anchor. Editing only the anchor -- what this script used to
+# do -- leaves such a rule holding the retired key and nothing else.
+recipients_tool() { python3 scripts/sops_recipients.py "$@"; }
+configured_recipients() { recipients_tool list; }
+all_recipients() { recipients_tool list --all; }
 
 # Every file that needs re-keying, by kind.
 whole_files() { python3 scripts/sops_paths.py list --whole; }
@@ -52,8 +56,7 @@ inplace_files() {
 
 # ---------------------------------------------------------------- status ---
 cmd_status() {
-  echo "Recipients configured in $SOPS_CONFIG:"
-  configured_recipients | sed 's/^/  /'
+  recipients_tool show
   echo
   echo "Recipients actually present in committed ciphertext:"
   while IFS= read -r path; do
@@ -81,7 +84,9 @@ except Exception:
     echo "Private keys held locally in $KEYS_FILE: ${n:-0}"
     while IFS= read -r pub; do
       if configured_recipients | grep -qx "$pub"; then
-        echo "  $pub  (current recipient)"
+        echo "  $pub  (global recipient)"
+      elif all_recipients | grep -qx "$pub"; then
+        echo "  $pub  (per-rule recipient -- some files only)"
       else
         echo "  $pub  (NOT a recipient -- retired, or belongs elsewhere)"
       fi
@@ -148,24 +153,9 @@ cmd_add() {
 
   [[ "$newkey" =~ ^age1[0-9a-z]{58}$ ]] || die "'$newkey' is not a valid age public key"
 
-  if configured_recipients | grep -qx "$newkey"; then
-    echo "already a recipient: $newkey"
-  else
-    python3 - "$newkey" <<'PY'
-import re, sys
-key = sys.argv[1]
-with open(".sops.yaml") as f:
-    lines = f.readlines()
-# Insert after the last recipient entry in the `recipients:` block, which
-# ends where `creation_rules:` begins.
-end = next(i for i, l in enumerate(lines) if l.startswith("creation_rules:"))
-last = max(i for i in range(end) if re.match(r"^\s+- age1", lines[i]))
-lines.insert(last + 1, f"  - {key}\n")
-with open(".sops.yaml", "w") as f:
-    f.writelines(lines)
-PY
-    echo "added recipient to $SOPS_CONFIG: $newkey"
-  fi
+  # Goes into the anchor AND into every rule that keeps its own list, so a
+  # rule with an extra key still picks up the new working key.
+  recipients_tool add "$newkey"
 
   rekey_everything
   git add "$SOPS_CONFIG"
@@ -242,68 +232,75 @@ PY
     fi
   fi
 
-  local fail=0 checked=0
-  while IFS= read -r path; do
+  # Only the files this key is a recipient of. A key scoped to one rule is
+  # SUPPOSED to fail on everything else, so checking it against the whole
+  # repo would report a lockout that isn't one.
+  local fail=0 checked=0 kind path
+  while IFS=$'\t' read -r kind path; do
     [ -n "$path" ] || continue
-    if sops_solo --decrypt "$path" >/dev/null 2>&1; then
-      checked=$((checked + 1))
+    if [ "$kind" = "whole" ]; then
+      if sops_solo --decrypt "$path" >/dev/null 2>&1; then
+        checked=$((checked + 1))
+      else
+        echo "  CANNOT DECRYPT: $path" >&2
+        fail=1
+      fi
     else
-      echo "  CANNOT DECRYPT: $path" >&2
-      fail=1
+      # In-place files are plaintext on disk; git's copy is the ciphertext.
+      # Ones configured but not installed have nothing to check.
+      [ -f "$path" ] || continue
+      git show ":$path" >"$sandbox/blob" 2>/dev/null || { echo "  NOT STAGED: $path" >&2; fail=1; continue; }
+      if sops_solo --decrypt --filename-override "$path" "$sandbox/blob" >/dev/null 2>&1; then
+        checked=$((checked + 1))
+      else
+        echo "  CANNOT DECRYPT (staged): $path" >&2
+        fail=1
+      fi
     fi
-  done < <(whole_files)
-
-  while IFS= read -r path; do
-    [ -n "$path" ] || continue
-    git show ":$path" >"$sandbox/blob" 2>/dev/null || { echo "  NOT STAGED: $path" >&2; fail=1; continue; }
-    if sops_solo --decrypt --filename-override "$path" "$sandbox/blob" >/dev/null 2>&1; then
-      checked=$((checked + 1))
-    else
-      echo "  CANNOT DECRYPT (staged): $path" >&2
-      fail=1
-    fi
-  done < <(inplace_files)
+  done < <(recipients_tool files-for "$pubkey")
 
   rm -rf "$sandbox"
 
+  if [ "$checked" -eq 0 ] && [ "$fail" -eq 0 ]; then
+    die "$pubkey is not a recipient of any configured file. Nothing to verify."
+  fi
   if [ "$fail" -ne 0 ]; then
     echo >&2
-    die "$pubkey CANNOT decrypt everything. Do NOT retire the old key."
+    die "$pubkey CANNOT decrypt everything it is a recipient of. Do NOT retire the old key."
   fi
-  echo "OK: $pubkey alone decrypts all $checked secret-bearing file(s)."
-  echo "Safe to retire the old key once every host has this one."
+
+  local total
+  total=$(( $(whole_files | grep -c . || true) + $(inplace_files | grep -c . || true) ))
+  echo "OK: $pubkey alone decrypts all $checked file(s) it is a recipient of."
+  if [ "$checked" -lt "$total" ]; then
+    echo "Note: this key is scoped -- $((total - checked)) other configured file(s)" \
+         "are deliberately out of its reach. It cannot stand in for a global recipient."
+  else
+    echo "Safe to retire the old key once every host has this one."
+  fi
 }
 
 # ---------------------------------------------------------------- retire ---
 cmd_retire() {
   local oldkey="${1:?usage: $0 retire <old-age-public-key>}"
 
-  configured_recipients | grep -qx "$oldkey" || die "$oldkey is not currently a recipient"
-  local remaining
-  remaining="$(configured_recipients | grep -vx "$oldkey" || true)"
-  [ -n "$remaining" ] || die "refusing to retire the only recipient -- add a new key first"
+  all_recipients | grep -qx "$oldkey" || die "$oldkey is not currently a recipient"
+  # Ask before prompting, so a removal that would strand a file fails now
+  # rather than after the confirmation.
+  recipients_tool remove --dry-run "$oldkey" >/dev/null
 
   echo "Retiring: $oldkey"
-  echo "Remaining recipient(s):"
-  while IFS= read -r r; do
-    [ -n "$r" ] && echo "  $r"
-  done <<<"$remaining"
+  echo "Files it can currently decrypt:"
+  recipients_tool files-for "$oldkey" | cut -f2 | sed 's/^/  /'
+  echo "Remaining recipient(s) after this:"
+  all_recipients | grep -vx "$oldkey" | sed 's/^/  /'
   echo
   echo "Every host must already hold a remaining key. Verify first:"
   echo "  scripts/rotate_age_key.sh verify <remaining-key>"
   read -r -p "Proceed? [y/N] " reply
   [[ "$reply" =~ ^[Yy]$ ]] || die "aborted"
 
-  python3 - "$oldkey" <<'PY'
-import sys
-key = sys.argv[1]
-with open(".sops.yaml") as f:
-    lines = f.readlines()
-lines = [l for l in lines if key not in l]
-with open(".sops.yaml", "w") as f:
-    f.writelines(lines)
-PY
-  echo "removed recipient from $SOPS_CONFIG"
+  recipients_tool remove "$oldkey"
 
   rekey_everything
   git add "$SOPS_CONFIG"
@@ -327,5 +324,7 @@ case "${1:-}" in
   add)    shift; cmd_add "$@" ;;
   verify) shift; cmd_verify "$@" ;;
   retire) shift; cmd_retire "$@" ;;
-  *) sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  # Print the whole header comment, however long it grows -- a fixed line
+  # range silently truncates the usage text the next time someone edits it.
+  *) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit 1 ;;
 esac

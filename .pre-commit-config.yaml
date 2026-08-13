@@ -54,6 +54,20 @@ repos:
         pass_filenames: false
         always_run: true
 
+      # The unit tests for the two scripts that rewrite secret-bearing
+      # content: the pseudonym substitution the clean filter applies, and
+      # the recipient edits a key rotation makes. Both fail silently and
+      # expensively -- a wrong substitution leaks an address, a missed
+      # recipient list makes a file unreadable once the old key is gone --
+      # so they run on any change to the scripts. Stdlib unittest, no
+      # dependency, well under a second.
+      - id: secret-tooling-tests
+        name: unit tests (pseudonymize, sops recipients)
+        entry: bash -c 'python3 scripts/test_pseudonymize.py -q && python3 scripts/test_sops_recipients.py -q'
+        language: system
+        pass_filenames: false
+        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|test_.*)\.py|\.sops\.yaml|\.pseudonyms\.yaml)$'
+
       # Cheap syntax gate. A config file that doesn't parse can strand the
       # boat's services on next restart, and it's the same check CI runs.
       - id: validate-configs
