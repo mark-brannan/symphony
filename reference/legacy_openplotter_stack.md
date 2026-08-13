@@ -137,6 +137,27 @@ Go binaries including the `influx` CLI bypass NSS, ask the router at
 192.168.8.1, and fail with `no such host`. Pass
 `--host http://localhost:8086` to any `influx` command.
 
+**The plugin tree cannot repair itself.** `~/.signalk/package.json` declares
+about 103 plugins, and `.npmrc` sets `package-lock=false`, so every install
+resolves fresh against the `^` ranges and wants roughly 1.7 GB on a box with
+3.7 GB of RAM. Anything that interrupts one mid-write leaves npm's
+`.<name>-<hash>` staging directories behind and package directories partly
+written — and npm reads a half-written directory as installed and skips it, so
+running it again repairs nothing. On 2026-08-11 that state held 863 orphaned
+staging directories, a zero-byte `lie/package.json`, and an
+`@mapbox/node-pre-gyp` stripped of its own `package.json` and most of `lib/`.
+Because node-pre-gyp is what native modules build through, every later install
+aborted at the first one, and 32 plugins were failing to start. The way out is
+to move the tree aside rather than install over it — RUNBOOK, "When SignalK
+errors about missing packages on the boat Pi."
+
+Three things kept interrupting installs. Root's crontab ran
+`0 0 * * * /sbin/shutdown -r +5`, so anything crossing midnight died mid-write;
+that entry is gone. Installs large enough to exhaust memory got OOM-killed. And
+SignalK's own app store starts `npm` without knowing whether one is already
+running, so a manual install and a plugin install can write the same tree at
+once.
+
 **Disk fills with cache, not data.** On 2026-08-11 the root filesystem was 89%
 full. InfluxDB accounted for 308 MB and SignalK's raw logs for 1.2 MB. The
 space was in `/var/cache/apt` (2.4 GB), `/home/pi/.npm` (2.2 GB) and journald
