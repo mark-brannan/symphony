@@ -551,6 +551,20 @@ Takes the short form or the full `pid.rj232vx+invalid@gmail.com`. Needs an
 age identity, which is the point — the token is publishable, the address
 behind it isn't.
 
+### Let someone else resolve tokens
+
+Give them the manifest key, not your working key. Copy the block labelled
+`age1n566m5z8e5nmhqkhxqmpd9jr2678t6l6wrzvcxrnckdjn9r2adjs55jgp9` out of
+`~/.config/sops/age/keys.txt` into theirs. Check what it opens first:
+
+```bash
+scripts/rotate_age_key.sh verify age1n566m5z8e5nmhqkhxqmpd9jr2678t6l6wrzvcxrnckdjn9r2adjs55jgp9
+```
+
+It should report one file — `secrets/pseudonyms.sops.yaml` — and say the key
+is scoped. If it reports more, stop: that key now opens the boat's live
+credentials too.
+
 ### When someone new logs in
 
 SignalK writes the new address into the file itself, and the clean filter
@@ -718,6 +732,24 @@ finished:
 `verify` works around both: it checks the staged ciphertext with `HOME` and
 `XDG_CONFIG_HOME` pointed away from the real keyring, and it proves that
 isolation with a throwaway key before trusting its own result.
+
+### Keys scoped to one file
+
+Most rules in `.sops.yaml` share one recipient list; a few spell out their
+own so a key can open a single file. `add` and `retire` reach both kinds, so
+a rotation needs no extra steps — but read what `verify` says:
+
+```
+OK: age1n566... alone decrypts all 1 file(s) it is a recipient of.
+Note: this key is scoped -- 14 other configured file(s) are deliberately
+out of its reach.
+```
+
+That's a pass, not a lockout. `verify` on a scoped key tells you nothing
+about whether the *rotation* is complete — run it against the new global key
+for that.
+
+`scripts/rotate_age_key.sh status` lists which keys are scoped and to what.
 
 ### What rotation does and does not protect
 

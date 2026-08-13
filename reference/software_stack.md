@@ -340,6 +340,27 @@ sops encryption. Three consequences worth knowing:
   `@gmail.com` address falls to a dictionary attack in seconds without one.
   It lives in `secrets/pseudonyms.sops.yaml` beside the map.
 
+### Who can read the map
+
+`.sops.yaml` gives `secrets/pseudonyms.sops.yaml` its own recipient list —
+the two global keys plus a third, the manifest key — instead of the shared
+anchor every other rule uses. That third key answers "who is pid.rj232vx?"
+and nothing else, so it can go to someone who needs the answer without also
+trusting them with the boat's live credentials.
+
+Two traps come with a per-rule list:
+
+- sops applies the **first** matching creation rule. The narrow
+  `secrets/pseudonyms\.sops\.ya?ml$` rule has to sit above the general
+  `secrets/.*` one; below it, the anchor wins and the manifest key is
+  quietly dropped.
+- An explicit list doesn't follow the anchor. A rotation that edited only
+  the anchor would leave the list holding the retired key, and the file
+  would keep committing and keep looking encrypted right until that private
+  key was deleted. Both are edited together through
+  `scripts/sops_recipients.py`, which is why `rotate_age_key.sh` has no path
+  that touches one without the other.
+
 `oidc.sub` is deliberately left alone. It is self-regulating *today*: the
 GitHub subject decodes (base64 protobuf, no key) to a numeric user ID that
 resolves to a public profile with one unauthenticated API call, which is

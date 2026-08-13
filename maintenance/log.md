@@ -172,6 +172,17 @@
 - Decided against GitHub orgs as the route to giving an SSO login admin.
   Alternatives written up in `reference/software_stack.md`.
 
+## 2026-08-12
+- Email addresses in `signalk/security.json` now go into git as short `pid.*`
+  tokens and come back out as addresses on checkout. GitHub logins stay
+  legible, which is the point — the record of who had access is wanted, a
+  guest's mailbox isn't. No cleartext address remains anywhere in that file's
+  history.
+- Generated a third age key that reads the pseudonym map and nothing else, so
+  a token can be resolved without handing over the boat's credentials. Taught
+  the rotation script to handle keys scoped to one file; without it the next
+  rotation would have made the map unreadable.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
