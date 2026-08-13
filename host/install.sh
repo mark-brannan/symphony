@@ -14,10 +14,16 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# <source in host/>:<destination>:<mode>
+# The login user that owns the boat's interactive session. Its systemd --user
+# units are installed and enabled below.
+BOAT_USER=pi
+
+# <source in host/>:<destination>:<mode>:<owner>:<group>
 INSTALL=(
-	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755"
-	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644"
+	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755:root:root"
+	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
+	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
+	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
 )
 
 # Root cron entries this installer owns. Matched for removal by the command
@@ -39,14 +45,17 @@ fi
 
 echo "== files =="
 for spec in "${INSTALL[@]}"; do
-	IFS=: read -r src dest mode <<<"$spec"
+	IFS=: read -r src dest mode owner group <<<"$spec"
 	if [ ! -f "$HERE/$src" ]; then
 		echo "  MISSING in repo: $src" >&2
 		exit 1
 	fi
-	install -D -o root -g root -m "$mode" "$HERE/$src" "$dest"
-	echo "  $dest  ($mode)"
-	case "$dest" in /etc/systemd/*) reexec=yes ;; esac
+	install -D -o "$owner" -g "$group" -m "$mode" "$HERE/$src" "$dest"
+	echo "  $dest  ($mode $owner:$group)"
+	case "$dest" in
+	/etc/systemd/*) reexec=yes ;;
+	*/.config/systemd/user/*) user_units=yes ;;
+	esac
 done
 
 # systemd manager settings (watchdog and friends) only take effect on
@@ -55,6 +64,21 @@ if [ "${reexec:-}" = yes ]; then
 	echo "== systemd daemon-reexec =="
 	systemctl daemon-reexec
 	systemctl show -p RuntimeWatchdogUSec -p RebootWatchdogUSec | sed 's/^/  /'
+fi
+
+# A systemd --user unit only runs while that user has a session, unless
+# lingering is on. Enabling it here is what lets the resident Claude session
+# come back after a reboot with nobody logged in.
+if [ "${user_units:-}" = yes ]; then
+	echo "== user units =="
+	uid="$(id -u "$BOAT_USER")"
+	as_boat_user() {
+		sudo -u "$BOAT_USER" XDG_RUNTIME_DIR="/run/user/$uid" "$@"
+	}
+	loginctl enable-linger "$BOAT_USER"
+	as_boat_user systemctl --user daemon-reload
+	as_boat_user systemctl --user enable --now claude-resident.service
+	echo "  claude-resident.service  $(as_boat_user systemctl --user is-enabled claude-resident.service || true)"
 fi
 
 echo "== root crontab =="

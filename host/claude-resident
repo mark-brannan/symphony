@@ -1,0 +1,16 @@
+#!/bin/sh
+# Resident Claude Code session, reachable by Remote Control instead of a
+# held-open SSH connection. Attach locally with: tmux attach -t claude
+set -eu
+
+SESSION=claude
+DIR=/home/pi/symphony
+
+if tmux has-session -t "$SESSION" 2>/dev/null; then
+	exit 0
+fi
+
+# The trailing shell keeps the pane alive if claude exits, so the session is
+# still there to attach to and restart from.
+exec tmux new-session -d -s "$SESSION" -c "$DIR" \
+	"claude --remote-control symphony-pi; echo; echo \"[claude exited - restart with: claude --remote-control symphony-pi]\"; exec bash -l"
