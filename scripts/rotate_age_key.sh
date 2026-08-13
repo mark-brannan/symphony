@@ -79,10 +79,15 @@ except Exception:
 
   echo
   if [ -f "$KEYS_FILE" ]; then
-    local n
-    n="$(grep -c '^AGE-SECRET-KEY-' "$KEYS_FILE" || true)"
-    echo "Private keys held locally in $KEYS_FILE: ${n:-0}"
+    # Derive the public halves from the secret lines rather than reading the
+    # `# public key:` comments. A key that has been redacted out of the file
+    # leaves its comment block behind, and the comment would report a key as
+    # held here when its secret half is somewhere else entirely.
+    local held
+    held="$(age-keygen -y "$KEYS_FILE" 2>/dev/null || true)"
+    echo "Private keys held locally in $KEYS_FILE: $(printf '%s' "$held" | grep -c . || true)"
     while IFS= read -r pub; do
+      [ -n "$pub" ] || continue
       if configured_recipients | grep -qx "$pub"; then
         echo "  $pub  (global recipient)"
       elif all_recipients | grep -qx "$pub"; then
@@ -90,7 +95,17 @@ except Exception:
       else
         echo "  $pub  (NOT a recipient -- retired, or belongs elsewhere)"
       fi
-    done < <(grep -oP '(?<=public key: )age1\w+' "$KEYS_FILE" 2>/dev/null || true)
+    done <<<"$held"
+
+    # The other direction: keys that can open these files but aren't on this
+    # box. An escrow key SHOULD show up here -- that's what makes it escrow.
+    local absent
+    absent="$(all_recipients | grep -vxF -f <(printf '%s\n' "$held") || true)"
+    if [ -n "$absent" ]; then
+      echo
+      echo "Recipients whose private half is NOT on this box:"
+      printf '%s\n' "$absent" | sed 's/^/  /'
+    fi
   else
     echo "Private keys held locally: none -- $KEYS_FILE does not exist"
   fi
@@ -186,19 +201,23 @@ cmd_add() {
 cmd_verify() {
   local pubkey="${1:?usage: $0 verify <age-public-key>}"
   local privkey solo
-  privkey="$(python3 - "$KEYS_FILE" "$pubkey" <<'PY'
-import sys
-path, want = sys.argv[1], sys.argv[2]
-lines = open(path).read().splitlines()
-for i, line in enumerate(lines):
-    if want in line:
-        for candidate in lines[i:]:
-            if candidate.startswith("AGE-SECRET-KEY-"):
-                print(candidate)
-                sys.exit(0)
-sys.exit(1)
-PY
-)" || die "no private key for $pubkey found in $KEYS_FILE"
+
+  # Find the secret half by DERIVING each candidate's public half and
+  # comparing, not by taking the first AGE-SECRET-KEY- line after the
+  # matching `# public key:` comment. That older heuristic breaks as soon as
+  # a key is redacted out of the file: the comment block stays, so the scan
+  # walks past it and picks up the NEXT key's secret. It then reports a
+  # result for a key you no longer hold -- a false fail if that neighbour
+  # can't decrypt, and a false PASS if it can.
+  privkey=""
+  while IFS= read -r line; do
+    case "$line" in AGE-SECRET-KEY-*) ;; *) continue ;; esac
+    if [ "$(printf '%s\n' "$line" | age-keygen -y - 2>/dev/null)" = "$pubkey" ]; then
+      privkey="$line"
+      break
+    fi
+  done < "$KEYS_FILE"
+  [ -n "$privkey" ] || die "no private key for $pubkey found in $KEYS_FILE"
 
   local sandbox
   sandbox="$(mktemp -d)"
