@@ -534,6 +534,56 @@ docker compose --profile dev-idp rm -sf dex-dev
 and delete the test users in SignalK Security → Users (they land in
 git-tracked `signalk/security.json` otherwise).
 
+## Email pseudonyms in security.json
+
+Email addresses in `signalk/security.json` become `pid.*` tokens on the way
+into git and are restored on the way out. The working tree keeps the real
+addresses, so SignalK is unaffected. GitHub logins arrive as a handle
+(`mark-brannan`) and stay legible.
+
+### Resolve a token
+
+```
+python3 scripts/pseudonymize.py resolve pid.rj232vx
+```
+
+Takes the short form or the full `pid.rj232vx+invalid@gmail.com`. Needs an
+age identity, which is the point — the token is publishable, the address
+behind it isn't.
+
+### When someone new logs in
+
+SignalK writes the new address into the file itself, and the clean filter
+picks it up at commit time:
+
+```
+pseudonymize: new address p*****d@yahoo.com -> pid.t8tym9m+invalid@yahoo.com
+pseudonymize: the map changed -- stage secrets/pseudonyms.sops.yaml ...
+```
+
+Stage `secrets/pseudonyms.sops.yaml` in that same commit. Without it the
+token lands in git with nothing that resolves it, for you and everyone else.
+
+### If checkout warns the map is unavailable
+
+```
+pseudonymize: WARNING - cannot decrypt secrets/pseudonyms.sops.yaml
+```
+
+Don't start SignalK against that file. The tokens stay in place, SignalK
+reads them as real addresses, and rewrites them back as the users' identity.
+Get an age identity working, then re-run smudge:
+
+```
+git checkout -- signalk/security.json
+```
+
+### Find when someone had access
+
+```
+git log -S 'pid.rj232vx' -- signalk/security.json
+```
+
 ## Adding a secret
 
 **In-place (a plugin config file SignalK/Grafana already owns):**

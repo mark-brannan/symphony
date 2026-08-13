@@ -78,6 +78,24 @@ if git diff --cached -U0 -- '*.json' '*.yaml' '*.yml' '.env*' ':!*.sops.yaml' | 
   fail=1
 fi
 
+# --- 4. cleartext addresses in pseudonymized files --------------------------
+# The staged blob is sops ciphertext, so this only ever sees what really
+# stayed in the clear. Base64 has no '@', so ENC[...] cannot false-positive.
+# A hit means the clean filter did not substitute -- usually a clone that
+# never ran setup-git-filters.sh, or a path added to .pseudonyms.yaml
+# without being wired to filter=sops.
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  grep -qxF "$path" <<<"$staged" || continue
+  if git show ":$path" | grep -oE '"[^"]+@[^"]+\.[A-Za-z]{2,}"' | grep -qv '^"pid\.'; then
+    echo "BLOCKED: '$path' is staged with a cleartext email address." >&2
+    echo "  Expected every address to be a pid.* token. The clean filter" >&2
+    echo "  did not substitute. Check that this clone ran" >&2
+    echo "  scripts/setup-git-filters.sh and that the path is filter=sops." >&2
+    fail=1
+  fi
+done < <(python3 scripts/pseudonymize.py paths)
+
 if [ "$fail" -ne 0 ]; then
   echo >&2
   echo "Commit blocked. Nothing was written to git." >&2

@@ -128,6 +128,16 @@ covered here.
   the moment `path` is a directory you haven't fully read the diff of first.
 - sops-encrypted files must round-trip through the `sops` filter, never
   hand-edited in cleartext and committed directly.
+- `secrets/pseudonyms.sops.yaml` is generated — the clean filter rewrites it
+  whenever a new email address appears in a covered file. Don't hand-edit it,
+  and don't reformat a sops-filtered JSON file by hand: sops re-serializes on
+  every encrypt and decrypt, so the indentation comes from `--indent` in
+  `scripts/sops_filter.py` and nothing you do in an editor survives.
+- Stage *all* files you've touched before committing, even ones you mean to
+  commit later. pre-commit stashes unstaged changes, and if a hook auto-fix
+  conflicts it rolls back with `git checkout -- .`, which reverts them and
+  can leave a filtered file deleted mid-smudge. This happened; the recovery
+  patch is in `~/.cache/pre-commit/`.
 - When two copies of a SignalK peripheral/device config disagree (a backup vs.
   the committed file, two repos, etc.), union them rather than picking one and
   discarding the other's fields — merge to the superset. A stale or invalid

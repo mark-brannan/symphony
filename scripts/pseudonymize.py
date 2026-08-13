@@ -56,6 +56,7 @@ import hashlib
 import os
 import re
 import subprocess
+import sys
 
 import yaml
 
@@ -279,3 +280,37 @@ def depseudonymize(text, mapping):
         return f'"{mapping[token]}"'
 
     return QUOTED_TOKEN_RE.sub(convert, text), unresolved
+
+
+def main():
+    """Small CLI. `paths` feeds the pre-commit guard; `resolve` is for you.
+
+    Resolving a token needs the store, so it needs an age identity -- which
+    is the point: the token is publishable, the address behind it is not.
+    """
+    args = sys.argv[1:]
+    if args[:1] == ["paths"]:
+        for path in load_paths():
+            print(path)
+        return 0
+    if args[:1] == ["resolve"] and len(args) == 2:
+        _, mapping = load_store()
+        token = args[1]
+        # Accept either the full token or just the `pid.xxxxxxx` part, which
+        # is what someone reading a diff or a log line is likely to copy.
+        for key, address in mapping.items():
+            if token in (key, key.split(GUARD)[0]):
+                print(address)
+                return 0
+        print(f"no such token: {token}", file=sys.stderr)
+        return 1
+    print(
+        "usage: pseudonymize.py paths\n"
+        "       pseudonymize.py resolve <token>",
+        file=sys.stderr,
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

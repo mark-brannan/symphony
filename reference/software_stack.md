@@ -314,6 +314,40 @@ pre-commit guard and the CI verifier read it at runtime via
 `scripts/sops_paths.py`. Don't hardcode that list anywhere else; duplicate
 copies drift, and the copy that drifts is usually the one doing the checking.
 
+## Email pseudonyms
+
+Anyone who logs in via OIDC gets written into `signalk/security.json` by
+SignalK. That record is wanted — knowing who had access to the boat is a
+feature, and a GitHub login shows up as a readable handle. What isn't wanted
+is publishing a guest's mailbox as a side effect. Dex's `google` connector
+sets no `preferred_username`, so SignalK falls back to the address, and it
+lands in `username` as well as `oidc.email`.
+
+Addresses are therefore replaced with a short keyed hash on the way into git
+and restored on the way out, by the same clean/smudge filter that does the
+sops encryption. Three consequences worth knowing:
+
+- **Selection is by value, not field name.** sops picks what to encrypt with
+  `encrypted_regex` on key names. That can't work here: no key-name rule
+  matches the `username` holding an address without also matching
+  `mark-brannan`. Any string that parses as an address gets tokenized,
+  wherever it sits — which self-selects correctly with no per-user config.
+- **Not sops, because identifiers have to stay comparable.** An `ENC[...]`
+  blob is ~200 characters and re-randomizes on every write. A token is short,
+  stable forever, and greppable, so `git log -S` still answers when a person
+  got access and when it went away.
+- **The salt is what makes it a pseudonym.** A 7-character hash of a
+  `@gmail.com` address falls to a dictionary attack in seconds without one.
+  It lives in `secrets/pseudonyms.sops.yaml` beside the map.
+
+`oidc.sub` is deliberately left alone. It is self-regulating *today*: the
+GitHub subject decodes (base64 protobuf, no key) to a numeric user ID that
+resolves to a public profile with one unauthenticated API call, which is
+exposure we're content with; the Google subject has no public resolver. That
+is a property of those two Dex connectors, not a guarantee — GitLab IDs
+resolve publicly, and Dex's static password DB puts whatever string you typed
+into the subject. Re-check it before adding a connector.
+
 ## How the safety net is layered
 
 The layers are not equally trustworthy:
