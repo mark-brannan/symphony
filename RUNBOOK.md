@@ -984,20 +984,45 @@ tree aside first:
 sudo systemctl stop signalk.socket     # socket first, see above
 sudo systemctl stop signalk.service
 mv ~/.signalk/node_modules ~/.signalk/.node_modules_old
-cd ~/.signalk && npm install
+cd ~/.signalk
+npm install --ignore-scripts --no-audit --no-fund   # phase 1: lay down the tree
+npm rebuild                                          # phase 2: build the natives
 ```
+
+Install in those two phases, not as a plain `npm install`. A single
+`npm install` deletes the entire tree it just wrote if any one package's
+build script fails, and `better-sqlite3@7.6.2` always fails here — see below.
+That costs the whole install and leaves `~/.signalk` with no `node_modules`
+at all. `npm rebuild` reports the same failure and leaves everything else
+built, so the tree survives it.
+
+`npm rebuild` exits non-zero while still having done its job. Judge it by
+what it produced, not its exit code:
+
+```bash
+find ~/.signalk/node_modules -name '*.node' | wc -l   # expect dozens, not 0
+ls -d ~/.signalk/node_modules/@mapbox/node-pre-gyp    # must exist
+```
+
+`@mapbox/node-pre-gyp` is what native modules build through. If it is absent,
+every native build aborts on it and no `.node` is produced anywhere.
 
 Check `free -m` before starting — you want more than 2 GB available. If you
 don't have it, `sudo systemctl stop grafana-server influxdb` frees a few
-hundred MB. Should a previous install have been interrupted, add
-`npm cache clean --force`; it can leave partial tarballs behind.
+hundred MB, and `sudo systemctl stop raspotify cups cups-browsed ModemManager`
+a couple hundred more. Should a previous install have been interrupted, add
+`npm cache clean --force`; it can leave partial tarballs behind, and on a full
+disk it also frees a couple of GB.
 
-Watch it with `vmstat 5` rather than the load average. Sustained `wa` above 50
-with `b` in double digits means it's swapping instead of compiling and won't
-finish — stop more services and start over rather than waiting it out. Load
-average won't tell you this apart from a GPU hang, where blocked kworkers
-inflate it just as much and only a reboot clears them; `wa` and `b` separate
-the two.
+Watch it with `vmstat 5` rather than the load average. Load average won't tell
+a stalled install from a GPU hang, where blocked kworkers inflate it just as
+much and only a reboot clears them.
+
+Read the swap columns, not `wa` alone. Phase 1 drives `wa` to 60-80 with `b`
+in double digits purely from SD-card writes, and that finishes fine. What
+means it won't finish is `si`/`so` staying non-zero with `available` falling
+toward zero — that is swapping instead of working. Free more memory then;
+`available` recovering is the confirmation. Don't kill the install to fix it.
 
 Start again in reverse order. A service killed while running comes back
 `failed`, so clear it with `sudo systemctl reset-failed signalk.service`

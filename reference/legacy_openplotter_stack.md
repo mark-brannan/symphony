@@ -158,6 +158,21 @@ SignalK's own app store starts `npm` without knowing whether one is already
 running, so a manual install and a plugin install can write the same tree at
 once.
 
+**`better-sqlite3@7.6.2` cannot build on this box, and it sinks a plain
+`npm install`.** `signalk-polar` and `signalk-postgsail` both depend on it. The
+pinned version predates Node 22 and its source still references
+`v8::AccessorSignature` and `v8::Object::CreationContext`, both removed from
+V8; the compile fails at `better_sqlite3.o` every time, and no arm64 prebuilt
+exists for it to fall back on. This is a version incompatibility, not the
+truncation problem — a clean tree does not fix it.
+
+It matters out of proportion to those two plugins because npm rolls back the
+whole install when a build script fails, so one unbuildable package throws away
+a complete, otherwise-good tree. Splitting the install into
+`npm install --ignore-scripts` then `npm rebuild` contains it: `npm rebuild`
+fails on that package alone and leaves the rest built. RUNBOOK, "When SignalK
+errors about missing packages on the boat Pi."
+
 **Disk fills with cache, not data.** On 2026-08-11 the root filesystem was 89%
 full. InfluxDB accounted for 308 MB and SignalK's raw logs for 1.2 MB. The
 space was in `/var/cache/apt` (2.4 GB), `/home/pi/.npm` (2.2 GB) and journald

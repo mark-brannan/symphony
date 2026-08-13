@@ -202,6 +202,28 @@
   only battery instance ever written is `house`, which neither the boat's
   `derived-data` config nor the repo's had right.
 
+## 2026-08-13
+- Rebuilt the SignalK plugin tree from scratch. 29 plugins had been failing to
+  start against a truncated `node_modules` with no `@mapbox/node-pre-gyp` and
+  no compiled native binaries at all. Moved the tree aside and installed fresh;
+  0 plugins now fail on a missing module.
+- The first attempt got most of the way and then deleted everything it had
+  written: `better-sqlite3` failed to compile and npm rolled the whole install
+  back. That package is pinned at a version that predates Node 22 and cannot
+  build here at all, so it would have sunk every retry. Reinstalled in two
+  phases instead — tree first, native builds second — which contains the
+  failure to the one package. Both are written up in `RUNBOOK.md` and
+  `reference/legacy_openplotter_stack.md`.
+- Restored the `bt-sensors-plugin-sk` symlink to the local fork afterward; a
+  clean install puts the registry version over it. Confirmed 1.3.8-beta10
+  started and both JBD house batteries reconnected.
+- Still not starting, for their own reasons rather than missing modules:
+  `signalk-solar-forecast` and `signalk-to-influxdb-v2-buffering`, both on
+  unconfigured settings. `signalk-polar` and `signalk-postgsail` are the
+  `better-sqlite3` casualties.
+- Left `~/.signalk/.node_modules_old` in place as the fallback. It is 1.8 GB
+  and the disk is at 84%; delete it once the new tree has proven itself.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
