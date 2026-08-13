@@ -210,7 +210,7 @@ cmd_poll() {
   # every time. `select-attribute <uuid>` is also ambiguous when two packs
   # expose identical UUIDs; going through D-Bus lets us address the
   # characteristic by its object path, under the MAC we were actually asked
-  # for. See reference/software_stack.md.
+  # for.
   python3 - "$mac" "$write_uuid" "$payload" "$notify_uuid" "$secs" 2>&1 \
     <<'PYPOLL' | tee "$log"
 import sys, time
