@@ -1,0 +1,85 @@
+# Vaultwarden, reachable only over the tailnet.
+#
+# Vaultwarden gets no ports of its own. It shares a network namespace with a
+# Tailscale sidecar, which joins the tailnet as its own node and is the only
+# way in. Nothing is published on the host, so nothing is on the LAN and
+# nothing is on the internet -- the demo this replaces bound 127.0.0.1:8443,
+# which is why the Mac and the Pi couldn't reach it.
+#
+# This file is meant to run unchanged on a VPS. The sidecar dials out to the
+# tailnet, so the host needs no inbound firewall rule and no public DNS name.
+#
+# What it holds: the sops/age key material that decrypts this repo's secrets.
+# So its own config is deliberately NOT sops-encrypted -- restoring from a
+# backup you can't open without the thing inside the backup is not a backup.
+# `.env` stays plain and gitignored.
+#
+# --- Bring-up -------------------------------------------------------------
+#  0. Stop the old demo stack first:
+#       docker compose -f /home/solace/vaultwarden/docker-compose.yml down
+#     It mounts the same data directory. Two vaultwarden processes on one
+#     SQLite file is how you corrupt the vault, and it will not announce
+#     itself -- the second writer just wins.
+#  1. Enable HTTPS certificates for the tailnet (admin console -> DNS ->
+#     HTTPS Certificates). Without it there is no cert for the sidecar to
+#     serve, and the Bitwarden web vault needs a secure context to do its
+#     crypto at all -- over plain http the unlock screen fails.
+#  2. Mint a reusable, non-ephemeral auth key (admin console -> Settings ->
+#     Keys). Ephemeral keys make the node disappear when the container
+#     stops, taking the DNS name with it.
+#  3. cp .env.example .env, fill in TS_AUTHKEY and ADMIN_TOKEN.
+#  4. docker compose up -d
+#  5. https://vaultwarden.tailc38418.ts.net from any tailnet device.
+#
+# Verify with `docker compose logs tailscale` -- it prints the cert domain it
+# came up on. If the name is `vaultwarden-1`, an old node still holds
+# `vaultwarden`; delete it in the admin console and recreate.
+---
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: vaultwarden-ts
+    # Becomes the tailnet node name: vaultwarden.tailc38418.ts.net
+    hostname: vaultwarden
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY in .env -- see bring-up above}
+      TS_STATE_DIR: /var/lib/tailscale
+      # Serving config lives in a file rather than a `tailscale serve` call so
+      # the container is stateless about it -- a recreate can't lose it.
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_USERSPACE: "false"
+    volumes:
+      - ts-state:/var/lib/tailscale
+      - ./serve.json:/config/serve.json:ro
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+
+  vaultwarden:
+    image: ghcr.io/dani-garcia/vaultwarden:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    # No ports, no networks of its own: everything arrives through the
+    # sidecar. Changing this to a normal bridge network with a published port
+    # is what re-exposes it.
+    network_mode: service:tailscale
+    depends_on:
+      - tailscale
+    env_file:
+      - .env
+    environment:
+      DOMAIN: https://vaultwarden.tailc38418.ts.net
+      # The account already exists. Leave signups off; use the admin page if
+      # another one is ever needed.
+      SIGNUPS_ALLOWED: "false"
+      ROCKET_PORT: "8080"
+    volumes:
+      # Points outside the repo on purpose -- this is the live vault, not
+      # configuration. Keep it wherever it already lives; the compose file is
+      # what moves between hosts.
+      - ${VAULTWARDEN_DATA:-/home/solace/vaultwarden/data}:/data
+
+volumes:
+  ts-state:
