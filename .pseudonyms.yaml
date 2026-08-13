@@ -1,0 +1,15 @@
+# Files whose email-shaped values are replaced with short stable tokens
+# before they reach git. Read by scripts/pseudonymize.py; the substitution
+# itself runs inside the sops clean/smudge filter, so a file listed here
+# must also already be `filter=sops` in .gitattributes.
+#
+# Selection is by VALUE, not by field name: any string in these files that
+# parses as an email address gets tokenized, wherever it sits. That is on
+# purpose -- SignalK writes a Google login's address into `username` as well
+# as `oidc.email`, and no field-name rule catches that without also eating
+# legible GitHub handles like `mark-brannan`.
+#
+# The salt and the token -> address map live in secrets/pseudonyms.sops.yaml.
+
+paths:
+  - signalk/security.json
