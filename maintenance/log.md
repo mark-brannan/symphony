@@ -186,6 +186,21 @@
   losing that machine no longer loses every copy of a key that opens the
   repo. Confirming the off-box copy still works is its own procedure — see
   `RUNBOOK.md`.
+- An `npm install` in `~/.signalk` took the Pi down: 1.7 GB wanted on a 3.7 GB
+  box, swap full, 93% iowait, SSH needing a minute and a half to answer.
+  Killed the install and the box recovered without a reboot. Same trap that
+  gutted the plugin tree the day before, met from the other end — the loop and
+  the way out of it are now in `RUNBOOK.md`. Left `grafana-server` stopped for
+  the memory; it comes back on boot.
+- Purged RealVNC. The package had been removed but never purged, so an enabled
+  unit with no binary behind it failed five times every boot and sat in
+  `systemctl --failed` where a real failure could hide.
+- Pi rebooted and came back with SignalK and InfluxDB both running. Writes to
+  the bucket resumed after stopping on 08-08.
+- Read the InfluxDB schema off the running server: org and bucket both
+  `symphony`, 30-day retention, InfluxQL served through a virtual DBRP. The
+  only battery instance ever written is `house`, which neither the boat's
+  `derived-data` config nor the repo's had right.
 
 ## Date unknown
 - Cleaned fuel filter.

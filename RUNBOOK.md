@@ -930,6 +930,46 @@ Do this before any `npm install` in `~/.signalk`. Otherwise the running server
 is reading the tree while npm rewrites it, and anything that restarts the
 service mid-install brings it up against a half-written plugin directory.
 
+## When SignalK errors about missing packages on the boat Pi
+
+The Pi is a baremetal OpenPlotter install, so the Docker reinstall above
+doesn't apply to it. Read this before running `npm install` there — the
+obvious fix feeds the problem.
+
+A truncated plugin tree makes SignalK log missing-module errors. `npm install`
+in `~/.signalk` looks like the answer, but it wants around 1.7 GB on a box
+with 3.7 GB of RAM and 200 MB of swap. Memory runs out, the Pi climbs to ~90%
+iowait, and SSH stops answering — a banner can take over a minute. Killing or
+rebooting out of that truncates the tree further, so the next start logs more
+missing modules than the last one did.
+
+Never run `npm install` over a broken tree. npm treats a half-written package
+directory as installed and skips it, so a second run repairs nothing. Move the
+tree aside first:
+
+```bash
+sudo systemctl stop signalk.socket     # socket first, see above
+sudo systemctl stop signalk.service
+mv ~/.signalk/node_modules ~/.signalk/.node_modules_old
+cd ~/.signalk && npm install
+```
+
+Check `free -m` before starting — you want more than 2 GB available. If you
+don't have it, `sudo systemctl stop grafana-server influxdb` frees a few
+hundred MB. Should a previous install have been interrupted, add
+`npm cache clean --force`; it can leave partial tarballs behind.
+
+Watch it with `vmstat 5` rather than the load average. Sustained `wa` above 50
+with `b` in double digits means it's swapping instead of compiling and won't
+finish — stop more services and start over rather than waiting it out. Load
+average won't tell you this apart from a GPU hang, where blocked kworkers
+inflate it just as much and only a reboot clears them; `wa` and `b` separate
+the two.
+
+Start again in reverse order. A service killed while running comes back
+`failed`, so clear it with `sudo systemctl reset-failed signalk.service`
+first.
+
 ## Never use OpenPlotter's "Reinstall" for Signal K
 
 Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf` on
