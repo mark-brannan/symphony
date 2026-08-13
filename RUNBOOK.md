@@ -772,6 +772,48 @@ A host still holding only the retired key will fail to decrypt after phase
 `scripts/setup-git-filters.sh`. The keyring file takes multiple keys, one
 block each.
 
+### Checking a key that isn't on this box
+
+`status` lists recipients whose private half is absent — an escrow key
+should be one of them:
+
+```
+Recipients whose private half is NOT on this box:
+  age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q
+```
+
+That says the key is *expected*, not that the copy you're keeping elsewhere
+still works. Nothing on this machine can tell you that. Check it directly,
+at least after any move and once a year:
+
+```bash
+# 1. Retrieve it into a scratch file. NOT into ~/.config/sops/age/keys.txt --
+#    putting it back defeats the point of keeping it off this box.
+install -m 600 /dev/null /tmp/check.key
+#    ... paste the key in ...
+
+# 2. Is it the key you think? This catches a truncated or wrong paste,
+#    which is the realistic failure and is otherwise invisible.
+age-keygen -y /tmp/check.key       # must print the public key from .sops.yaml
+
+# 3. Does it actually open the repo?
+SOPS_AGE_KEY_FILE=/tmp/check.key \
+  scripts/rotate_age_key.sh verify <public-key>
+
+# 4. Destroy the scratch copy.
+shred -u /tmp/check.key
+```
+
+`SOPS_AGE_KEY_FILE` makes `verify` read that file instead of the keyring, so
+the key is tested without ever being installed here. Expect
+`decrypts all 15 file(s)` for an escrow key. Fewer means it's scoped to some
+rules only and can't stand in for the working key — fine for the manifest
+key, wrong for escrow.
+
+A failure at step 2 is recoverable while the key is still on this box or
+another host. A failure at step 3 after the last other copy is gone is not.
+Which is why this gets checked on a schedule rather than when you need it.
+
 ## Removing a secret
 
 To stop tracking a file's secret (plugin uninstalled, field no longer used):
