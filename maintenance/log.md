@@ -182,6 +182,10 @@
   a token can be resolved without handing over the boat's credentials. Taught
   the rotation script to handle keys scoped to one file; without it the next
   rotation would have made the map unreadable.
+- Escrow key's private half moved off the dev box and kept separately, so
+  losing that machine no longer loses every copy of a key that opens the
+  repo. Confirming the off-box copy still works is its own procedure — see
+  `RUNBOOK.md`.
 
 ## Date unknown
 - Cleaned fuel filter.
