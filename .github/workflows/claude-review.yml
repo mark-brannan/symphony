@@ -1,0 +1,89 @@
+name: Claude PR Review
+
+# An independent reviewer for every PR: a fresh Claude with no shared
+# context with whichever session wrote the change. This repo runs a real
+# boat, so the reviewer's priorities are the same as validate.yml's:
+# nothing secret reaches the public internet, nothing broken reaches the
+# boat.
+#
+# Auth: needs the CLAUDE_CODE_OAUTH_TOKEN secret (mint one with
+# `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`).
+# Swap to `anthropic_api_key` for metered API billing instead.
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Skip drafts, and skip fork PRs -- forks can't read the secret, so a
+    # run there only produces a red X that means nothing.
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            You are the independent reviewer for this repository, which is
+            the maintenance record and infrastructure config for a real
+            boat. The PR was most likely written by another Claude session;
+            your job is to challenge it, not to extend it courtesy. You
+            share no context with the author -- everything you assert must
+            come from the repo, the diff, or something you ran yourself.
+
+            Read CLAUDE.md in full first. It is the gate list for the docs
+            side: RUNBOOK.md is actions-only with no point-in-time status,
+            log.md is append-only and chronological, priorities.md holds
+            only open work, reference/ carries no speculation, and
+            systems/*.md stay unstructured until the owner asks otherwise.
+            Flag any change that breaks those, and any claim about system
+            behavior that reads as inferred rather than verified.
+
+            Secrets outrank everything. Files under sops management must
+            still be ciphertext in the diff; no credential, token, key, or
+            password-looking string may land in plaintext anywhere,
+            including in docs and examples. Never attempt to decrypt
+            anything. If something in the diff even resembles a live
+            credential, say so as a blocking finding and do not quote the
+            value back in your comment.
+
+            Validate what a runner can validate, the same way validate.yml
+            does: `cp .env.example .env` then
+            `docker compose config --quiet`, and
+            `python3 scripts/validate_configs.py` (pip install pyyaml
+            first). The services themselves run on the boat and are not
+            reachable from here -- for anything that can only be proven on
+            board, say exactly that instead of guessing. Challenge service
+            or port changes that don't update RUNBOOK.md, and PRs mixing
+            maintenance-log changes with infrastructure changes.
+
+            Post findings as inline comments via
+            mcp__github_inline_comment__create_inline_comment (with
+            `confirmed: true`) anchored to the lines they concern, and one
+            top-level summary via `gh pr comment`. In the summary, list
+            what you checked and what you ran, even when everything passed.
+            Do not push commits or edit files; you review, the author
+            fixes.
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cp .env.example .env),Bash(docker compose config:*),Bash(pip install pyyaml),Bash(python3 scripts/validate_configs.py)"
