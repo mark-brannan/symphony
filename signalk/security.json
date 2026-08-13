@@ -1,45 +1,100 @@
 {
-	"allow_readonly": false,
-	"expiration": "NEVER",
-	"secretKey": "ENC[AES256_GCM,data:CkI+AMQeq6ivg0kOhvcwbb7WXpDbKYP3VzWY0xgok7qJf4RklCMyJDlnlQzwZxBPXS36FaFGrU0W+ClhJYIxwOXiTKX5p8qd/68+y7cl8vBFCaUiGd3cHcyWA6rc7PfXOfbEMIvFRj29rGyjDSnKd+z7Na1U6V6yxUQ1jfGXU+ak7cDRlQDj3hXxyZfupJHcSuHcT2yZ+a1vryG5yJacpEk1aTVCXA3lj32wlZjsoqJcEEsiRGpN1ptU/fF4FbMUDh+djVp3nQi+t5Jx6LxmYS/ImSYcMUyiqsbdeN+LjSwq0zOMvnWCJSDag7rW07T5ukur4iIvrcadWg7Yu62OkW/K0PGjfek/JWwmiUUKxJrV1j6ptfU+c6Uk6Y3y2R5KmqN96sbH0/ZsWTL6DXHmWSL52DTX7IZGLdxLBTavuoNX1m7qyPEKZzge2HJUZKetxVyt7GZ3rKy4ntnW42x0/1rpXuvGVKjJLg4bZzaV91s+Lf9SF6XEQpPEK302jU519D7oJWZc6Ga+jCSqNYGw4Sr2oHdXce6al4he80aUVY8Ec/jX6W1h/3kGEhDDKIUa4ZzebPHzp9qFOSn6yAFJZgGWxDkQLn9Z5Rl3HjuaruWwfMD75CGgWQpe8GJfDnq4xANyqbydJyYADIA8rsZduCX/ou3S3OxXBWNdyZLDgYA=,iv:8djwbAnrc8oI7b3mWnXL2zqUUa/hkUIfA0hebqUWli0=,tag:2GUYIDFzG7BMebL2s4ny+w==,type:str]",
-	"users": [
-		{
-			"username": "captain",
-			"type": "admin",
-			"password": "ENC[AES256_GCM,data:4gyBCMG1789FeHC+a3/3rgG8CCHVgrr1uxMSREMwr0zp/bT4V0atUf+IaveREWiJZpLaDALCobFCmKTZ,iv:q8wyzKAqiwu3NXvSDsPnqJwc2vyzn8GTkeVMNC4MkNs=,tag:/qadElUjKUFMxkZRwaONrw==,type:str]"
-		},
-		{
-			"username": "screenshots",
-			"password": "ENC[AES256_GCM,data:xCRWMXB+Uj3POt6n59wTAVwprt6fX1g9uaZcDeQPRXQ+b/1cLJv4ncBtzKTcYXIxhAvykimCOVXvLWMb,iv:7Ry7HjLCPSKGBJJI6ygnWZhQkWqrvgJ9bDAslmEex4M=,tag:JWqY0kh2oBmnPbVS1JhuwA==,type:str]",
-			"type": "admin"
-		}
-	],
-	"devices": [
-		{
-			"clientId": "claude-dev-tools",
-			"permissions": "readonly",
-			"description": "Claude Code dev/test tooling for signalk-noaa-space-weather (read-only automated testing)",
-			"requestedPermissions": ""
-		}
-	],
-	"immutableConfig": false,
-	"acls": [],
-	"allowDeviceAccessRequests": true,
-	"allowNewUserRegistration": true,
-	"sops": {
-		"age": [
-			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxSkkzcS82STI5eVpFcGts\nRko1SGc1Y0ZQbUYyMHB1NW5jMGxOeG91amhZCmd3ei9GZ1VremplRmNQKzlpTWQ5\nUjFTekRKTDVXVXRibjZJb2VhZmhWb3cKLS0tIEU1UnJHa0FWak9OUVo2RVQ1dGZt\nbmhZNU91dkxWMmVMbE10Q1JQbTg0S1kKCqs9lkfJTWFrGtSIFQc68kqMcQZF4n23\nxOBhhvbld6rVUAvLAEO2vT18vmwQXw4jzM9b3aYVTWOLWO+0DpidZg==\n-----END AGE ENCRYPTED FILE-----\n",
-				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
-			},
-			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBpM1pMWFFZeldmSTl3Ymla\nVlBZRXR6TlBmRjlTSjQ2emhCMFdLeVJuOUdVCm1mWkMxMThwLzJoMktXWE1XdTNm\naU93b3d3bkkxWFhBQUhhMUI0ZHpPVmcKLS0tIDJVQVVGSS9HTDVQWUhBUmNpUFds\nY2YxNmhQS1NHKzloMVF2RmVacm8rZWcKHNoIZTkLm8HPJg7eayCTtHbe8kioIHR1\nKp3plGXjtpOJmYO/9C7lers7TTKtWDVdtaL76yjnzvYNDZb5cTXiLw==\n-----END AGE ENCRYPTED FILE-----\n",
-				"recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
-			}
-		],
-		"encrypted_regex": "^(secretKey|password)$",
-		"lastmodified": "2026-08-08T18:54:24Z",
-		"mac": "ENC[AES256_GCM,data:YqWz+2O8LAc8c2RpVW7FIFJHVPeLCTGtO4h8DLz4joN8Q30lkbhzSaNKnFQuL+CJnnnwDZ6TCcCI/i/jGE6BURSDVeJ0eHdXEYW0uF/Jzm/Nic3w0vVmC3zu5tXgFmrfRRL9pffDQjXEjqv2KzbkgZCC14lTDdE3PaJzijKdVZI=,iv:xUm9HV6A0dr8se6WOnDMfmTgiLD1WGfPVpJ85qoFxVo=,tag:KCbFgBfVF9NOvOXTRt1IPw==,type:str]",
-		"version": "3.13.3"
-	}
+  "allow_readonly": true,
+  "expiration": "NEVER",
+  "secretKey": "ENC[AES256_GCM,data:xDvizTMaiNuN+DIEGv57RHe3Uo6PDTrT3e8M8i+WIIp3ztawWImPe/Vjo8/FIfP9oDUUW0BwDrJjF8nkJXKsTETd4n7Fb1yMj5qsYTJ2Ih75fstPSYyHLcPyZ9d3aO/edhv+0wrU7lDF6XVMmLdTRRw0rvFwp7WpSca46za5Txgd7Lap84m32E72zQbdeMLrS2mekkAPFHtWaXaFh72VjuoZt9aQqIwvXYh5+j7ezXlL0h7AUjEpvQo1Pd0vyKnTGvIFp6wcyZ1hykrCtRHmPfK3waKDb4+BOZh5IQIsxSS8O5xP/isviFXPNR66AHEDrcYsYNkZO8f4xjhC+yzOxPpaDLxpfyUNdijJxZ6qmcZRiHeKbQmLzHzY2MfSASQ4SwgyXZOu4G+Kf3SCAW4fy5h1dFrBhlGPpG94TUiuSBwHx4JmfXgxSeyPsUv+81ZoDVvd9L6gckLUYC5iORuqWZWt2nKZlhxI81ujmLo+/o8aGZR6V2/nBY78vaZhvr4kKZVRS5Ghx65CEbbRXdUaD0eAUDgrmguk0yBcF6fqHFhgeet3MY+uXYl7RISxLezpbNmg26Rbwsjs+4AKdAeYofqWWJQMMz3+1SAMK4ZL/CkTG3j4LoojeLFBoEi4l14dfsYt/28hshr2JsPf8rzIYK6dgPpMMfTxx4wS0B3k4tk=,iv:QTzWx+Jnl6qXHy02oyGaBlU8t5ZpirNKEDSBWFrt0mc=,tag:K4gg/MiA0PTrYuvZ2FxT6Q==,type:str]",
+  "users": [
+    {
+      "username": "captain",
+      "type": "admin",
+      "password": "ENC[AES256_GCM,data:VQNwKhoxYGNIjC4MCGORJ/95KSKfX8I8d7nhrE9uv2SxqW8JfLktWN+az8vz6JVtWhABTq6uHMEFJ8mB,iv:GZeKLUE1w4onv8HEZnLTu9ih0byiv7Vr7RBRoyDcVZo=,tag:51P5Rn6MMwcpLulIS2q7XQ==,type:str]"
+    },
+    {
+      "username": "screenshots",
+      "password": "ENC[AES256_GCM,data:k5IIH7YytDr93k3/52GrynFWBVnvuOiQsK5MNGmnZpuereHhgwSlWntvvG09vzJOcgdDtdSsLV7t3OoA,iv:dnuDFsXIXQ/MQ+YLu3BRC5Fa3qaE2G7gqzMnVvfP+ns=,tag:nl9qPXPibqMvlwPa2Wzwgw==,type:str]",
+      "type": "admin"
+    },
+    {
+      "username": "mark-brannan",
+      "type": "admin",
+      "oidc": {
+        "sub": "CggxNTgxMTY1MBIGZ2l0aHVi",
+        "issuer": "https://auth.symphony.dark-star-llc.com/dex",
+        "email": "pid.rj232vx+invalid@gmail.com",
+        "name": "Solace (Mark)"
+      }
+    },
+    {
+      "username": "pid.rj232vx+invalid@gmail.com",
+      "type": "admin",
+      "oidc": {
+        "sub": "ChUxMTQ5NjExNTU1NTIwMDY2Njg4ODcSBmdvb2dsZQ",
+        "issuer": "https://auth.symphony.dark-star-llc.com/dex",
+        "email": "pid.rj232vx+invalid@gmail.com",
+        "name": "Mark Brannan"
+      }
+    }
+  ],
+  "devices": [
+    {
+      "clientId": "claude-dev-tools",
+      "permissions": "readonly",
+      "description": "Claude Code dev/test tooling for signalk-noaa-space-weather (read-only automated testing)",
+      "requestedPermissions": ""
+    },
+    {
+      "clientId": "GPIO-cfa0-4769-8f9d-0e5010d1a1f0",
+      "permissions": "readwrite",
+      "description": "OpenPlotter GPIO"
+    },
+    {
+      "clientId": "NOTIFICATIONS-8acb-4f8d-b9f8-f7757502c915",
+      "permissions": "readwrite",
+      "description": "OpenPlotter NOTIFICATIONS"
+    },
+    {
+      "clientId": "I2C-d64e-482e-a512-c55fe68b2c07",
+      "permissions": "readwrite",
+      "description": "OpenPlotter I2C"
+    },
+    {
+      "clientId": "MAIANA-2c92-4d73-aa65-d0d55baa1e57",
+      "permissions": "readwrite",
+      "description": "OpenPlotter MAIANA"
+    },
+    {
+      "clientId": "PYPILOT-759d-44d0-b0bb-8e6973f8824b",
+      "permissions": "readwrite",
+      "description": "OpenPlotter PYPILOT"
+    },
+    {
+      "clientId": "IOB-897f-4f15-a2f8-244ee13680be",
+      "permissions": "readwrite",
+      "description": "OpenPlotter IOB"
+    },
+    {
+      "clientId": "pypilot-18111839792",
+      "permissions": "readwrite",
+      "description": "pypilot"
+    }
+  ],
+  "immutableConfig": false,
+  "acls": [],
+  "allowDeviceAccessRequests": true,
+  "allowNewUserRegistration": true,
+  "sops": {
+    "age": [
+      {
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBKOWtJc0VOSW5jRWp2VTlj\neWRsQU56bGVtTzhuQUxLMHlGVHY3aHRtL3h3CktiWWE0NmZQVmxiTmJwem9CVUcx\nZlkvMEIvRFRXT2o0aytlSkovRWlrdmMKLS0tIDVZR3FRN09VeTNob2lKVW1WTDdp\nNXJMVDhtOCt2Rk53MFRVOVR5QUp6RDQK3jYfl095ARY9Uwlb5goLmYAWwwqXcTJI\nA+jT+K60z39ryo4HytzEz/9JWasbS/uqGoJB2ZVZJIenQkYxlEhsKQ==\n-----END AGE ENCRYPTED FILE-----\n",
+        "recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+      },
+      {
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB0YWo4aFozQmZZaFZiV2Nm\nSjFhZTgrSU00NFIrc2dCTFh6YS9iMEY2SXdRCk1Ick9zVjhKVVZTSzVpckRoVytF\naXJ5VHYxdmtmV2NxUmp3dGMwMmRLMDgKLS0tIFZ1ZlhLNS9nOVlkRjJwYTBCaUE4\ncmhJK3RWYWxoRXVRb2oycElKWGRHS1kKZ/jXYmdhfEbkqpoXdFb+Dj6QIizpRy9E\nLC3L1/6pBUdLojz/mXIN0NKcFaLap+kSa03Sg2Fwk2S0fNfPeGJ7SA==\n-----END AGE ENCRYPTED FILE-----\n",
+        "recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
+      }
+    ],
+    "encrypted_regex": "^(secretKey|password|clientSecret)$",
+    "lastmodified": "2026-08-13T03:07:05Z",
+    "mac": "ENC[AES256_GCM,data:BT/XOLzgeLtMzWm8feMGbHuvnLDOw21CnYnjRnUO0ESVcf9GGJtt7U8SFqehDolT9dmI59jiygkRM4P7r8qIXaqJ7mR+d6s3tqsp0XGGGMRIAN/NON7x88thyx/ksjqRrZnAqffmzehDRE5urTgRYd+0awJ5+Y0J+PZ0KEeiZHA=,iv:kpD11xhv14lOM8PATqJCOfpvabW8VeljKgZUYywvh4I=,tag:8D2mwox4MI7klDbyKUa3CA==,type:str]",
+    "version": "3.13.3"
+  }
 }
