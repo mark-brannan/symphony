@@ -201,16 +201,38 @@ Expect `Watchdog running with a hardware timeout of 15s` and
 `RuntimeWatchdogUSec=15s`. It won't catch a wedged service while systemd
 keeps running — that needs a separate check.
 
-`nightly-reboot` reboots the boat Pi at 04:00
-**unless** an `npm` or `node-gyp` process is running. Don't move that back to
-midnight and don't call `shutdown` from cron directly — a reboot landing on an
-`npm install` in `~/.signalk` truncates the plugin tree, and npm won't repair
-it afterward because it sees the half-written directories and considers those
-packages installed. Check which way it went with:
+`nightly-reboot` is still installed, but its line in root's crontab is
+commented out. It rebooted the Pi at 04:00 **unless** an `npm` or `node-gyp`
+process was running. Keep that guard if you ever turn it back on, and don't
+call `shutdown` from cron directly — a reboot landing on an `npm install` in
+`~/.signalk` truncates the plugin tree, and npm won't repair it afterward
+because it sees the half-written directories and considers those packages
+installed. On a night it runs, check which way it went with:
 
 ```bash
 journalctl -t nightly-reboot --since yesterday
 ```
+
+## Don't autostart a browser on the boat Pi
+
+Chromium started from `~/.config/autostart` renders with GPU acceleration
+whether or not an HDMI display is connected, and on this Pi that wedges the
+v3d driver. `Resetting GPU for hang` then repeats several times a minute
+until a kworker blocks permanently in `v3d_gpu_reset_for_timeout`, systemd
+stops petting the watchdog, and the board hard-resets. Those blocked kworkers
+also hold the load average up by one apiece, so load stops meaning anything;
+nothing but a reboot clears them.
+
+```bash
+journalctl -b -k | grep -c "Resetting GPU for hang"    # want 0
+ps -eo pid,stat,comm | awk '$2 ~ /D/'                  # want no kworker
+```
+
+If the count is climbing, find what's driving the GPU and stop it — the
+desktop by itself doesn't touch v3d. The Freeboard entry now sits in
+`~/.config/autostart-disabled/`; its Desktop launcher still works when
+someone is actually at a screen.
+
 ## Reaching the boat over Tailscale
 
 Setup is under [Remote SSH access](#remote-ssh-access); this covers using it
