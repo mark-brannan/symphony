@@ -308,6 +308,39 @@ The Windows form survives reboots; the macOS and Linux ones don't survive a
 `tailscaled` restart. It's per-machine either way and doesn't propagate, so
 each new device can need it again.
 
+## The resident Claude session on the boat Pi
+
+The Pi keeps a Claude Code session running in tmux with Remote Control on, so
+work in progress isn't tied to an SSH connection staying up. It starts at
+boot, with nobody logged in.
+
+Attach on the box, and detach without stopping anything:
+
+```bash
+tmux attach -t claude       # attach
+                            # Ctrl-b then d to detach
+```
+
+Detaching, closing the terminal, and dropping the SSH connection all leave the
+session running. Remotely, open the `https://claude.ai/code/session_…` URL the
+session prints at startup; the footer shows `/rc active` when Remote Control is
+live.
+
+If it isn't running:
+
+```bash
+systemctl --user status claude-resident.service
+systemctl --user start claude-resident.service
+```
+
+That's a `--user` unit, so `sudo systemctl` won't find it — run it as `pi`.
+What makes it survive a reboot is lingering (`loginctl show-user pi -p Linger`
+→ `Linger=yes`); without that, a user unit stops when the last login session
+ends. `host/install.sh` sets it.
+
+The wrapper starts the pane with a trailing shell, so if Claude exits the tmux
+session stays up and you can restart it in place instead of losing the window.
+
 ## Router config backup
 
 The boat router holds the local DNS override that makes the hostnames
