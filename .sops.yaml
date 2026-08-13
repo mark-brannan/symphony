@@ -24,6 +24,26 @@ recipients: &recipients
   - age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q
 
 creation_rules:
+  # MUST stay above the general secrets/ rule below -- sops uses the FIRST
+  # rule that matches, so putting it second would silently apply the anchor
+  # and drop the manifest key.
+  #
+  # The pseudonym map turns pid.* tokens in signalk/security.json back into
+  # email addresses. It gets its own recipient list so the manifest key can
+  # answer "who is pid.rj232vx?" without also opening the boat's live
+  # credentials -- which is the whole point of holding that key separately.
+  #
+  # The two keys below the manifest key mirror `recipients:` above.
+  # scripts/rotate_age_key.sh keeps them in sync; don't hand-edit them.
+  - path_regex: secrets/pseudonyms\.sops\.ya?ml$
+    key_groups:
+      - age:
+          # Manifest key, generated 2026-08-12. Reads this file and nothing
+          # else. Safe to hand to someone who needs to resolve a token.
+          - age1n566m5z8e5nmhqkhxqmpd9jr2678t6l6wrzvcxrnckdjn9r2adjs55jgp9
+          - age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk
+          - age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q
+
   # Layer 1 store: DB init creds, tokens shared across services. Whole-file
   # encryption -- keys and values both encrypted, only meant to be read via
   # `sops`, never opened directly.
