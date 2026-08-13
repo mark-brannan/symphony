@@ -83,9 +83,11 @@ Telegraf's packaged unit is `Type=notify`, which times out under this
 configuration; the drop-in overrides it.
 
 SignalK is installed twice on that host, 2.14.4 under `/usr/lib` and 2.30.0
-under `/usr/local`. The service runs the older one, which predates OIDC
-support entirely — the practical cost of the OpenPlotter inheritance, and
-the clearest argument for containers whenever the rebuild happens.
+under `/usr/local`. The service ran the older one — which predates OIDC
+support entirely — until 2026-08-12, when the launcher script was repointed
+at `/usr/local`. Both are still installed: the practical cost of the
+OpenPlotter inheritance, and the clearest argument for containers whenever
+the rebuild happens.
 
 ## Host metrics
 
