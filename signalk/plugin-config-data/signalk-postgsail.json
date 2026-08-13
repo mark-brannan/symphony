@@ -1,79 +1,79 @@
 {
-	"configuration": {
-		"host": "https://api.openplotter.cloud/",
-		"token": "ENC[AES256_GCM,data:l98OEG/8FNOh6gBmx8ZBmOWojZyslcwqJk4+qQmrvqhCgTqmA2cHWm+VZNP4y2ZyP6yCtP8UzF9bQnWYyQZ1SIlbt5T6kdFb4dBVq2mXPc3SM/HOdwKDNSs4ovsPtfgc+I4PwOl2c8W0GUXlxRfFOZ+3NXz2TJtKBKFxQCGBp+Qr+bCzwJaP4dJKq0LquIvj5i63RFaW62Pd8fk4wQTGtHR1EWBFyHJgwCUoe2t4z4qeXcQisw==,iv:JyY4p3fQF8oa26qpSwBb+Kfjw2IIDG1SShpyVJhDB1g=,tag:XXwSiOwkokMSd7mqFQB5Mg==,type:str]",
-		"monitoring": {
-			"Uptime": "environment.rpi.uptime",
-			"update_at": "2026-07-03T10:19:12Z",
-			"voltageKey": "electrical.batteries.house.voltage",
-			"venus state": "electrical.venus.state",
-			"CPU avg usage": "host.cpu.averageUsage",
-			"RPi disk free %": "host.disk.freePercentage",
-			"battery current": "electrical.batteries.house.current",
-			"cpu.temperature": "environment.rpi.cpu.temperature",
-			"stateOfChargeKey": "electrical.batteries.house.capacity.stateOfCharge",
-			"insideHumidityKey": "environment.inside.refrigerator.humidity",
-			"additionalDataKeys": [
-				"sensors.refrigerator.switchbot.battery",
-				"electrical.venus.state",
-				"electrical.batteries.house.current",
-				"host.disk.freePercentage",
-				"host.cpu.averageUsage",
-				"environment.rpi.uptime",
-				"environment.rpi.cpu.temperature"
-			],
-			"additionalSections": [
-				{
-					"key": "sensors.refrigerator.switchbot.battery",
-					"name": "fridge sensor battery"
-				},
-				{
-					"key": "electrical.venus.state",
-					"name": "venus state"
-				},
-				{
-					"key": "electrical.batteries.house.current",
-					"name": "battery current"
-				},
-				{
-					"key": "host.disk.freePercentage",
-					"name": "RPi disk free %"
-				},
-				{
-					"key": "host.cpu.averageUsage",
-					"name": "CPU avg usage"
-				},
-				{
-					"key": "environment.rpi.uptime",
-					"name": "Uptime"
-				},
-				{
-					"key": "environment.rpi.cpu.temperature",
-					"name": "cpu.temperature"
-				}
-			],
-			"outsideHumidityKey": "environment.outside.relativeHumidity",
-			"outsidePressureKey": "environment.outside.pressure",
-			"insideTemperatureKey": "environment.inside.refrigerator.temperature",
-			"fridge sensor battery": "sensors.refrigerator.switchbot.battery",
-			"outsideTemperatureKey": "environment.outside.temperature"
-		}
-	},
-	"enabled": true,
-	"sops": {
-		"age": [
-			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxQXNlaUFKTUJDQzRYNnZI\ndm5hRnYxWmFBeDl2aDBZbGJVeUVxbHlpRWs0ClVGbm5CdGt2Z3F6R0xybXQweFpQ\nZkVKN05qZ2Z6MnJmWGF0RHZlQUNNUVEKLS0tIHlMaWhGdXpxYmc5clBRTFpMc3k0\nMi82S3JLYzRldnkwVjVyLzR6QllRTE0K63cuAbx6+Uj9+WmoQRfJx/koHt0X4Ytv\nkSi0kauAtjFr2Picb7F0ZcLltEeG9I1vY2Bj7mhUi80vCxiqLxiClw==\n-----END AGE ENCRYPTED FILE-----\n",
-				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
-			},
-			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAycW1ZVmg3R3JoTlY4RmVn\nOVZFVnNmNFB4TGJOUHc3YzJ3dDlnbVFBNlhJCnFrRGQxK3dTVEZ2MStocW9ldDNO\nRkp0bWZBcVZsYnJORnNteHBIaWgyM28KLS0tIEtObzFxYmVrMVNVeXFRSmp2U0dh\nY3pOU1FuRk9BK2xjL2pvRnRUUVh0NjAK0i8UE0E8kXZRcUz+FQaBpay38cGbMj8m\n3oSTg+DJVvjjCwZk93SjhXP9zcEIb2znKpsTIxm2NaE5Z15EW+blyg==\n-----END AGE ENCRYPTED FILE-----\n",
-				"recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
-			}
-		],
-		"encrypted_regex": "^token$",
-		"lastmodified": "2026-08-12T04:24:48Z",
-		"mac": "ENC[AES256_GCM,data:v+cJu0KV+sQFY/tEkqnVOcwoLDG5NjvhBjr6tn3ULOfirSzEwo2aJbIqmLT34bw4GLCPVf9Q3LoIRp08OrpCwqLR1/wpDbn9mrTYC/jevE4JjJAyede/z3TXXyd9in8yGQepdaE2+sdlI+vk/9r/fwJnifQF0tLb6uu375Wchps=,iv:peiZenR0YAqHJRDLszF9JFS/plG/OPuSWZdO2HoW/98=,tag:GgaIUdIVb2lizAAgTZf5Uw==,type:str]",
-		"version": "3.13.3"
-	}
+  "configuration": {
+    "host": "https://api.openplotter.cloud/",
+    "token": "ENC[AES256_GCM,data:5pVfWLf/iS2aKQLz4ygn7Ijqm0FU2aoXapXs3ai6+wdV+I1XUNvAVDf/uy0qN2IwBaoQosPdUjkxZOORkhayniUiqOegD2hrE9VjbSA/E0paoj+l14ryZT2WelWQo4vMLyffgf7ZHESNHYtmCDimhts04WlaSx2iJhPjS7IKLf715Z9nZDzj2GN/M81BPBNC+e0OZVbJVdLwdvcGOGDCacYOsQLniwMCYErqfK6jvHxyssvRRQ==,iv:pwu9OaAIYRlW2yEFKSHw5c5Vud57e3/68/XTp6MX8iw=,tag:vS/6dP3yo1G9aIW6K32YWg==,type:str]",
+    "monitoring": {
+      "Uptime": "environment.rpi.uptime",
+      "update_at": "2026-07-03T10:19:12Z",
+      "voltageKey": "electrical.batteries.house.voltage",
+      "venus state": "electrical.venus.state",
+      "CPU avg usage": "host.cpu.averageUsage",
+      "RPi disk free %": "host.disk.freePercentage",
+      "battery current": "electrical.batteries.house.current",
+      "cpu.temperature": "environment.rpi.cpu.temperature",
+      "stateOfChargeKey": "electrical.batteries.house.capacity.stateOfCharge",
+      "insideHumidityKey": "environment.inside.refrigerator.humidity",
+      "additionalDataKeys": [
+        "sensors.refrigerator.switchbot.battery",
+        "electrical.venus.state",
+        "electrical.batteries.house.current",
+        "host.disk.freePercentage",
+        "host.cpu.averageUsage",
+        "environment.rpi.uptime",
+        "environment.rpi.cpu.temperature"
+      ],
+      "additionalSections": [
+        {
+          "key": "sensors.refrigerator.switchbot.battery",
+          "name": "fridge sensor battery"
+        },
+        {
+          "key": "electrical.venus.state",
+          "name": "venus state"
+        },
+        {
+          "key": "electrical.batteries.house.current",
+          "name": "battery current"
+        },
+        {
+          "key": "host.disk.freePercentage",
+          "name": "RPi disk free %"
+        },
+        {
+          "key": "host.cpu.averageUsage",
+          "name": "CPU avg usage"
+        },
+        {
+          "key": "environment.rpi.uptime",
+          "name": "Uptime"
+        },
+        {
+          "key": "environment.rpi.cpu.temperature",
+          "name": "cpu.temperature"
+        }
+      ],
+      "outsideHumidityKey": "environment.outside.relativeHumidity",
+      "outsidePressureKey": "environment.outside.pressure",
+      "insideTemperatureKey": "environment.inside.refrigerator.temperature",
+      "fridge sensor battery": "sensors.refrigerator.switchbot.battery",
+      "outsideTemperatureKey": "environment.outside.temperature"
+    }
+  },
+  "enabled": true,
+  "sops": {
+    "age": [
+      {
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBqcXpieTVTR0lpV25tY0FR\neHZXM0R1UXBvTXpRQjZsbS8zdlE1cE1taFRnCnJFVlBXZHNiTGhFeExxa2laV3RX\nSU1rMnNCRWtUdUZlZ0pIYy9JK0NsZVUKLS0tIGdJMFhSSjY1c2ZSa1RjeXhkam9F\nd0c4b2VyR1dPZFo4K0wyL0VaQmhKb0kKn1cbhks6w6+Giga69KkZZTk0xiczSDbv\nWH8aJqnVbi/uPX6W6CjRbYJeOEea8LauDTFGGEpSp5HFomlbRIAL7g==\n-----END AGE ENCRYPTED FILE-----\n",
+        "recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+      },
+      {
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBJbVlXUEM0TWx1Y28xSmtt\nN3VCNDV1TktvN0JBMnplampLdVVUMEk1MjFBCkhTMTkwY2FlRmlEam44akdkM3c2\nOVhpb0QxTGRYZmhjQXMzWUc2dEkvVUEKLS0tIC9uN0ZHKzNvQXpvZHA5blpZOTRO\nM3g4c1Z6TUttOXA0c25mSnB0WmhKdEEKjd4DemFm5Z3EqiJiwk68+/7zWMskWJWv\nIALnLZgY54x/uX+OvXp34Rh32JqJztxYDU3fxpu8ffu/G2e+u07JNw==\n-----END AGE ENCRYPTED FILE-----\n",
+        "recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
+      }
+    ],
+    "encrypted_regex": "^token$",
+    "lastmodified": "2026-08-13T03:05:04Z",
+    "mac": "ENC[AES256_GCM,data:jS8UflJIx4Hcwl6zh/QewdDjX+w6yo9WzDtcUkcgPA7+Y7vwyslP/ceyYm9PX89T0EtfJKxDaNSBACpH0iddNqEpg3jhfEheUF6avoyai+aZojSrffV5w7UZ2Gj1u1rTtayGlRJ42v3zWVbhZr/f20gQAsZviU9Pkmix176/9jk=,iv:pbZps9Ou4X8s25W+oGgB40LGXCbkkIUvgIzSCbnwoFs=,tag:lcN/F8nMuZ0KYCQg32MKbA==,type:str]",
+    "version": "3.13.3"
+  }
 }

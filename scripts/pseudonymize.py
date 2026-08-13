@@ -55,11 +55,33 @@ downgrade to a guessable token.
 import hashlib
 import os
 import re
+import subprocess
 
 import yaml
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG = os.path.join(REPO, ".pseudonyms.yaml")
+STORE = os.path.join(REPO, "secrets", "pseudonyms.sops.yaml")
+
+# The store is rewritten from scratch whenever the filter learns a new
+# address, so its comments cannot live in the file -- they would be lost on
+# the first write. They live here instead, and this is their only copy.
+STORE_HEADER = """\
+# Salt and token -> address map for scripts/pseudonymize.py.
+#
+# GENERATED. The clean filter rewrites this file whenever it meets an
+# address it has not seen; edits to anything but the values will be lost.
+# Open it with:  sops secrets/pseudonyms.sops.yaml
+#
+# The salt is load-bearing and secret. A 7-character hash of a @gmail.com
+# address falls to a dictionary attack in seconds if the salt is known or
+# absent, so the salt is what makes a token a pseudonym rather than an
+# encoding. Changing it invalidates every token already committed -- there
+# is no reason to rotate it on a schedule, and good reason not to.
+#
+# The map keys (tokens) stay legible in the encrypted file on purpose: they
+# are the published half. Only the addresses become ciphertext.
+"""
 
 # Crockford base32: no I, L, O or U, so a token read aloud or copied out of a
 # terminal cannot be transcribed into a different one.
@@ -74,18 +96,80 @@ TOKEN_CHARS = 7
 PREFIX = "pid."
 GUARD = "+invalid"
 
+# Substitution is textual, not structural, and that is deliberate. SignalK
+# writes security.json with tab indentation and its own key ordering;
+# round-tripping it through json.loads/json.dumps would reformat the entire
+# file and turn every commit into a whole-file diff. Matching quoted JSON
+# string values in the raw text preserves the file byte-for-byte apart from
+# the addresses themselves.
+#
 # Deliberately loose. It over-matches slightly (any `x@y.tld` shape), which
 # is the safe direction: a false positive pseudonymizes something harmless,
 # a false negative publishes a mailbox.
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
+QUOTED_EMAIL_RE = re.compile(r'"([^"@\s]+@[^"@\s]+\.[A-Za-z]{2,})"')
 
 TOKEN_RE = re.compile(
     r"^" + re.escape(PREFIX) + f"[{ALPHABET}]{{{TOKEN_CHARS}}}" + re.escape(GUARD) + r"@"
+)
+QUOTED_TOKEN_RE = re.compile(
+    r'"(' + re.escape(PREFIX) + f"[{ALPHABET}]{{{TOKEN_CHARS}}}"
+    + re.escape(GUARD) + r'@[^"@\s]+)"'
 )
 
 
 class CollisionError(Exception):
     """Two different addresses derived the same token."""
+
+
+class StoreUnavailable(Exception):
+    """The salt/map store could not be decrypted."""
+
+
+def load_store():
+    """Decrypt the store. Returns `(salt, {token: address})`.
+
+    Raises StoreUnavailable rather than returning empty defaults. An empty
+    salt would silently produce guessable tokens, and an empty map during
+    smudge would silently leave tokens in the working tree for SignalK to
+    write back as if they were real addresses.
+    """
+    result = subprocess.run(
+        ["sops", "--decrypt", STORE], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise StoreUnavailable(
+            f"cannot decrypt {os.path.relpath(STORE, REPO)}: "
+            f"{result.stderr.strip() or 'no age identity available'}"
+        )
+    doc = yaml.safe_load(result.stdout) or {}
+    salt = doc.get("salt")
+    if not salt:
+        raise StoreUnavailable(f"{os.path.relpath(STORE, REPO)} has no salt")
+    return salt, doc.get("map") or {}
+
+
+def save_store(salt, mapping):
+    """Re-encrypt the store with an updated map.
+
+    Plaintext is piped straight into sops and never lands on disk -- an
+    interrupted write must not be able to leave the addresses in the clear.
+    """
+    body = yaml.safe_dump(
+        {"salt": salt, "map": dict(sorted(mapping.items()))},
+        default_flow_style=False,
+        sort_keys=False,
+    )
+    result = subprocess.run(
+        ["sops", "--encrypt", "--filename-override", STORE, "/dev/stdin"],
+        input=STORE_HEADER + body,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise StoreUnavailable(f"cannot re-encrypt the store: {result.stderr.strip()}")
+    with open(STORE, "w") as f:
+        f.write(result.stdout)
 
 
 def load_paths():
@@ -144,65 +228,54 @@ def mask(email):
     return f"{local[0]}{'*' * 5}{local[-1]}@{domain}"
 
 
-def _walk(value, fn):
-    """Apply `fn` to every string in a nested JSON structure."""
-    if isinstance(value, dict):
-        return {k: _walk(v, fn) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_walk(v, fn) for v in value]
-    if isinstance(value, str):
-        return fn(value)
-    return value
-
-
-def pseudonymize(data, salt, mapping):
-    """Replace email-shaped values with tokens.
+def pseudonymize(text, salt, mapping):
+    """Replace email-shaped JSON string values in `text` with tokens.
 
     `mapping` is `{token: address}` and is mutated in place: SignalK writes
-    this file itself, so a new address turning up mid-commit is the normal
-    case, not an error. Returns the rewritten structure and the addresses
+    security.json itself, so a new address turning up mid-commit is the
+    normal case, not an error. Returns the rewritten text and the addresses
     newly added, so the caller can warn about them.
     """
     reverse = {address: token for token, address in mapping.items()}
     added = []
 
-    def convert(value):
-        if is_token(value) or not EMAIL_RE.match(value):
-            return value
+    def convert(match):
+        value = match.group(1)
+        if is_token(value):
+            return match.group(0)
         address = value.strip().lower()
         if address in reverse:
-            return reverse[address]
+            return f'"{reverse[address]}"'
         token = derive(address, salt)
         if mapping.get(token, address) != address:
             raise CollisionError(
-                f"token {token} already maps to {mapping[token]}, cannot also map "
-                f"to {mask(address)} -- this should be impossible; do not resolve "
-                "it by overwriting the map."
+                f"token {token} already maps to a different address, cannot also "
+                f"map to {mask(address)} -- this should be impossible; do not "
+                "resolve it by overwriting the map."
             )
         mapping[token] = address
         reverse[address] = token
         added.append(address)
-        return token
+        return f'"{token}"'
 
-    return _walk(data, convert), added
+    return QUOTED_EMAIL_RE.sub(convert, text), added
 
 
-def depseudonymize(data, mapping):
-    """Replace tokens with the addresses they stand for.
+def depseudonymize(text, mapping):
+    """Replace tokens in `text` with the addresses they stand for.
 
-    Returns the rewritten structure and any tokens that were not in the map.
-    Unresolved tokens are left as-is rather than raising: that is what a
-    clone without the map looks like, and it needs to be reported clearly
-    rather than as a stack trace mid-checkout.
+    Returns the rewritten text and any tokens that were not in the map.
+    Unresolved tokens are left as-is rather than raising: that is exactly
+    what a clone without the map looks like, and it needs to be reported
+    clearly rather than as a stack trace in the middle of a checkout.
     """
     unresolved = []
 
-    def convert(value):
-        if not is_token(value):
-            return value
-        if value not in mapping:
-            unresolved.append(value)
-            return value
-        return mapping[value]
+    def convert(match):
+        token = match.group(1)
+        if token not in mapping:
+            unresolved.append(token)
+            return match.group(0)
+        return f'"{mapping[token]}"'
 
-    return _walk(data, convert), unresolved
+    return QUOTED_TOKEN_RE.sub(convert, text), unresolved

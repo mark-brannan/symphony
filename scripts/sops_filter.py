@@ -31,7 +31,69 @@ import sys
 
 import yaml
 
+import pseudonymize
+
 SOPS = "sops"
+
+
+def warn(message):
+    sys.stderr.write(f"{message}\n")
+
+
+def to_git_form(path, text):
+    """Working-tree text -> the form that belongs in git.
+
+    Runs BEFORE encryption on the clean side. Ordering is not negotiable:
+    sops's MAC covers the file, so any substitution has to happen while the
+    document is still plaintext, and the reverse has to happen after
+    decryption on the way out.
+    """
+    if path not in pseudonymize.load_paths():
+        return text
+
+    salt, mapping = pseudonymize.load_store()
+    result, added = pseudonymize.pseudonymize(text, salt, mapping)
+    if added:
+        pseudonymize.save_store(salt, mapping)
+        for address in added:
+            warn(
+                f"pseudonymize: new address {pseudonymize.mask(address)} -> "
+                f"{pseudonymize.derive(address, salt)}"
+            )
+        warn(
+            "pseudonymize: the map changed -- stage secrets/pseudonyms.sops.yaml "
+            "in this commit, or the token will not resolve in a fresh clone."
+        )
+    return result
+
+
+def to_worktree_form(path, text):
+    """Git text -> the form SignalK reads. Runs AFTER decryption on smudge."""
+    if path not in pseudonymize.load_paths():
+        return text
+
+    try:
+        _, mapping = pseudonymize.load_store()
+    except pseudonymize.StoreUnavailable as error:
+        # Deliberately not fatal: failing here breaks `git checkout` itself.
+        # Loud instead, because the silent version is genuinely bad -- the
+        # tokens stay in the file, SignalK reads them as if they were real
+        # addresses, and rewrites them back as the user's identity.
+        warn(f"pseudonymize: WARNING - {error}")
+        warn(
+            "pseudonymize: WARNING - email addresses in "
+            f"{path} will stay as tokens. Do NOT start SignalK against this "
+            "file; it will treat them as real addresses and write them back."
+        )
+        return text
+
+    result, unresolved = pseudonymize.depseudonymize(text, mapping)
+    if unresolved:
+        warn(
+            f"pseudonymize: WARNING - {len(unresolved)} token(s) in {path} are not "
+            f"in the map and stay unresolved: {', '.join(sorted(set(unresolved)))}"
+        )
+    return result
 
 
 def is_yaml(path):
@@ -52,12 +114,25 @@ def run_sops(args, input_text):
     return result.stdout
 
 
+# sops re-serializes the document it is given, so IT decides the file's
+# indentation, not whatever was on disk. Its default (`--indent 0`) means
+# tabs -- which is where the tabs in security.json actually come from, on
+# both the git side and the working-tree side. Setting it here is the only
+# place that can win: normalizing the text before handing it to sops is
+# pointless, because sops re-indents it right back.
+INDENT = ["--indent", "2"]
+
+
 def sops_encrypt(path, plaintext):
-    return run_sops(["--encrypt", "--filename-override", path, "/dev/stdin"], plaintext)
+    return run_sops(
+        ["--encrypt", *INDENT, "--filename-override", path, "/dev/stdin"], plaintext
+    )
 
 
 def sops_decrypt(path, ciphertext):
-    return run_sops(["--decrypt", "--filename-override", path, "/dev/stdin"], ciphertext)
+    return run_sops(
+        ["--decrypt", *INDENT, "--filename-override", path, "/dev/stdin"], ciphertext
+    )
 
 
 def index_blob(path):
@@ -67,7 +142,12 @@ def index_blob(path):
 
 
 def clean(path):
-    new_plaintext = sys.stdin.read()
+    # Pseudonymize FIRST, then treat the result as the plaintext for every
+    # step below. The unchanged-comparison further down decrypts the staged
+    # blob, which is already in git form -- comparing it against the raw
+    # working tree would never match, so every commit would rewrite the blob
+    # and these files would look permanently modified.
+    new_plaintext = to_git_form(path, sys.stdin.read())
     old_ciphertext = index_blob(path)
 
     # SOPS_FILTER_REKEY forces fresh encryption even when the plaintext is
@@ -98,7 +178,7 @@ def clean(path):
 
 def smudge(path):
     ciphertext = sys.stdin.read()
-    sys.stdout.write(sops_decrypt(path, ciphertext))
+    sys.stdout.write(to_worktree_form(path, sops_decrypt(path, ciphertext)))
 
 
 if __name__ == "__main__":

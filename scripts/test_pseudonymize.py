@@ -3,6 +3,7 @@
 
 Run: python3 scripts/test_pseudonymize.py
 """
+import json
 import os
 import re
 import sys
@@ -15,8 +16,10 @@ import pseudonymize as p
 SALT = b"test-salt-not-the-real-one"
 OTHER_SALT = b"a-different-salt"
 
-# A realistic mixed user block: a GitHub login (handle, no email in
-# username), a Google login (address in both fields), and a guest.
+# A realistic mixed user block: a GitHub login (handle, no address in
+# username), a Google login (address in both fields), and a guest. Tab
+# indentation on purpose -- it is what SignalK writes, and preserving it is
+# the reason substitution is textual.
 USERS = [
     {
         "username": "mark-brannan",
@@ -34,6 +37,7 @@ USERS = [
         "oidc": {"sub": "ChUyMjg4", "email": "paranoid-friend@yahoo.com"},
     },
 ]
+USERS_JSON = json.dumps(USERS, indent="\t")
 
 
 class TestDerive(unittest.TestCase):
@@ -74,72 +78,81 @@ class TestPseudonymize(unittest.TestCase):
     def setUp(self):
         self.mapping = {}
 
+    def convert(self, text=None):
+        out, added = p.pseudonymize(text or USERS_JSON, SALT, self.mapping)
+        return out, added, json.loads(out)
+
     def test_non_email_values_untouched(self):
-        out, _ = p.pseudonymize(USERS, SALT, self.mapping)
-        self.assertEqual(out[0]["username"], "mark-brannan")
-        self.assertEqual(out[0]["type"], "admin")
+        _, _, users = self.convert()
+        self.assertEqual(users[0]["username"], "mark-brannan")
+        self.assertEqual(users[0]["type"], "admin")
 
     def test_sub_untouched(self):
-        out, _ = p.pseudonymize(USERS, SALT, self.mapping)
-        for original, result in zip(USERS, out):
+        _, _, users = self.convert()
+        for original, result in zip(USERS, users):
             self.assertEqual(result["oidc"]["sub"], original["oidc"]["sub"])
 
     def test_addresses_replaced_wherever_they_sit(self):
-        out, _ = p.pseudonymize(USERS, SALT, self.mapping)
-        self.assertTrue(p.is_token(out[1]["username"]))
-        self.assertTrue(p.is_token(out[1]["oidc"]["email"]))
-        self.assertTrue(p.is_token(out[2]["username"]))
+        _, _, users = self.convert()
+        self.assertTrue(p.is_token(users[1]["username"]))
+        self.assertTrue(p.is_token(users[1]["oidc"]["email"]))
+        self.assertTrue(p.is_token(users[2]["username"]))
 
     def test_same_address_gets_one_token_everywhere(self):
-        out, _ = p.pseudonymize(USERS, SALT, self.mapping)
-        self.assertEqual(out[0]["oidc"]["email"], out[1]["username"])
-        self.assertEqual(out[1]["username"], out[1]["oidc"]["email"])
+        _, _, users = self.convert()
+        self.assertEqual(users[0]["oidc"]["email"], users[1]["username"])
+        self.assertEqual(users[1]["username"], users[1]["oidc"]["email"])
+
+    def test_formatting_preserved_outside_the_addresses(self):
+        """Everything but the addresses must survive byte-for-byte.
+
+        A structural round-trip through json.dumps would reformat the whole
+        file and make every commit a whole-file diff.
+        """
+        out, _, _ = self.convert()
+        strip = lambda t: p.QUOTED_EMAIL_RE.sub('""', p.QUOTED_TOKEN_RE.sub('""', t))
+        self.assertEqual(strip(out), strip(USERS_JSON))
 
     def test_reports_newly_added_addresses(self):
-        _, added = p.pseudonymize(USERS, SALT, self.mapping)
+        _, added, _ = self.convert()
         self.assertEqual(
             sorted(set(added)), ["markbrannan@gmail.com", "paranoid-friend@yahoo.com"]
         )
 
     def test_known_addresses_are_not_reported_again(self):
-        p.pseudonymize(USERS, SALT, self.mapping)
-        _, added = p.pseudonymize(USERS, SALT, self.mapping)
+        self.convert()
+        _, added, _ = self.convert()
         self.assertEqual(added, [])
 
     def test_map_holds_token_to_address(self):
-        p.pseudonymize(USERS, SALT, self.mapping)
+        self.convert()
         token = p.derive("paranoid-friend@yahoo.com", SALT)
         self.assertEqual(self.mapping[token], "paranoid-friend@yahoo.com")
 
     def test_idempotent(self):
-        once, _ = p.pseudonymize(USERS, SALT, self.mapping)
-        twice, added = p.pseudonymize(once, SALT, self.mapping)
+        once, _, _ = self.convert()
+        twice, added, _ = self.convert(once)
         self.assertEqual(once, twice)
         self.assertEqual(added, [])
-
-    def test_nested_lists_and_dicts_are_reached(self):
-        data = {"a": [{"b": [{"c": "deep@example.com"}]}]}
-        out, _ = p.pseudonymize(data, SALT, self.mapping)
-        self.assertTrue(p.is_token(out["a"][0]["b"][0]["c"]))
 
     def test_collision_raises_rather_than_overwriting(self):
         token = p.derive("first@example.com", SALT)
         self.mapping[token] = "somebody-else@example.com"
         with self.assertRaises(p.CollisionError):
-            p.pseudonymize({"e": "first@example.com"}, SALT, self.mapping)
+            p.pseudonymize('{"e": "first@example.com"}', SALT, self.mapping)
 
 
 class TestDepseudonymize(unittest.TestCase):
-    def test_round_trip(self):
+    def test_round_trip_is_byte_identical(self):
         mapping = {}
-        out, _ = p.pseudonymize(USERS, SALT, mapping)
+        out, _ = p.pseudonymize(USERS_JSON, SALT, mapping)
         back, unresolved = p.depseudonymize(out, mapping)
-        self.assertEqual(back, USERS)
+        self.assertEqual(back, USERS_JSON)
         self.assertEqual(unresolved, [])
 
     def test_missing_map_leaves_tokens_and_reports_them(self):
         mapping = {}
-        out, _ = p.pseudonymize(USERS, SALT, mapping)
+        out, _ = p.pseudonymize(USERS_JSON, SALT, mapping)
         back, unresolved = p.depseudonymize(out, {})
         self.assertEqual(back, out)
         self.assertTrue(unresolved)
@@ -147,12 +160,12 @@ class TestDepseudonymize(unittest.TestCase):
 
     def test_partial_map_resolves_what_it_can(self):
         mapping = {}
-        out, _ = p.pseudonymize(USERS, SALT, mapping)
+        out, _ = p.pseudonymize(USERS_JSON, SALT, mapping)
         token = p.derive("paranoid-friend@yahoo.com", SALT)
-        back, unresolved = p.depseudonymize(out, {token: mapping[token]})
-        self.assertEqual(back[2]["username"], "paranoid-friend@yahoo.com")
-        self.assertTrue(p.is_token(back[1]["username"]))
-        self.assertNotIn(token, unresolved)
+        back, _ = p.depseudonymize(out, {token: mapping[token]})
+        users = json.loads(back)
+        self.assertEqual(users[2]["username"], "paranoid-friend@yahoo.com")
+        self.assertTrue(p.is_token(users[1]["username"]))
 
 
 class TestMask(unittest.TestCase):
@@ -169,6 +182,13 @@ class TestMask(unittest.TestCase):
 
     def test_never_contains_the_full_local_part(self):
         self.assertNotIn("paranoid-friend", p.mask("paranoid-friend@yahoo.com"))
+
+
+class TestStore(unittest.TestCase):
+    def test_real_store_decrypts_and_has_a_salt(self):
+        salt, mapping = p.load_store()
+        self.assertTrue(salt)
+        self.assertIsInstance(mapping, dict)
 
 
 class TestConfig(unittest.TestCase):

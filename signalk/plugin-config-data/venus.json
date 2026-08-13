@@ -1,43 +1,43 @@
 {
-	"configuration": {
-		"installType": "mqtts",
-		"dbusAddress": "tcp:host=192.168.1.57,port=78",
-		"MQTT": {
-			"host": "venus.local",
-			"password": "ENC[AES256_GCM,data:jH5W,iv:NNHZNXAvF+f7g1XcZFCSXrQG/H+AjtfbX6SfifkHxHE=,tag:H4urof861ucFFDRiAFvFxw==,type:str]"
-		},
-		"VRM": {
-			"portalId": "c0619ab7ab01",
-			"userName": "markbrannan@gmail.com",
-			"password": "ENC[AES256_GCM,data:oSEGGeR07oHjC2L264Qq,iv:KnaEXpDGFYw6BJb88lU12cBOEpdKEPwsnb333rIz/YE=,tag:UZFRDo+EMeiP6/+h9InTnA==,type:str]"
-		},
-		"pollInterval": 20,
-		"useDeviceNames": false,
-		"usePosition": true,
-		"relayPath0": "electrical.switches.venus-0",
-		"relayDisplayName0": "Cerbo relay 1",
-		"relayPath1": "electrical.switches.venus-1",
-		"relayDisplayName1": "Cerbo relay 2",
-		"temperatureMappings": [],
-		"ignoredSenders": [],
-		"instanceMappings": [],
-		"blacklist": []
-	},
-	"enabled": true,
-	"sops": {
-		"age": [
-			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAvaERickpGUVlsRWVkZzF2\nOXN6RTcxTDZRMkRCM1JFb3F0Tlczak91TTNJCno1UzRRNmJYRHVSVFllMGRlV0p1\nZ1ZZYlBWQ1dKaG04b3hoWmlOQ2phOWMKLS0tIHcrdUE5OUxBT05KVkF0ZUtuem1M\nWStWaEZKbDhmRXpNMXVlV1dRZEhBQ1kKYxt8JV9wGfHMjLfB/UiQ6tnNG4clesAv\nYa7d0p6oPUgcsddDoPmHS7WkUL/NkESI7F5nzfMg0FV61MAm7+HBCg==\n-----END AGE ENCRYPTED FILE-----\n",
-				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
-			},
-			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB0c3dIcGxjN1laTHBiaThQ\nd2ZzaWFzRWVFTzlsQlVMdHE2aG9ja3p5MGpzCjQwVGNGRzlwSUk2Y1REUjdoMXFs\neVVZQXVJdU1kYkdQeWJRa3ZKM3dCa28KLS0tIDJmNmVwVGw3N1k3MW1TZWNSWTQ0\nelpwbUU4Zko1dmxZT3oydFhoVFBWOE0KkQKoyXPok6IUhZMNPcMIH+QzKfDOLaC0\nQDbxeZVArTeKu/NNYX1REACXCb/fcy+0e5BAObx3eTzJk/t25cfJ/Q==\n-----END AGE ENCRYPTED FILE-----\n",
-				"recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
-			}
-		],
-		"encrypted_regex": "^password$",
-		"lastmodified": "2026-08-12T02:42:14Z",
-		"mac": "ENC[AES256_GCM,data:0hYDT22aiVWlzIWugvI6irLz3ReWd3nKY87aSq4G2vRpPoUcebfSREE9UfhlrQw+TwW2lWzvd502tNElEgMeWHVO9sG5i5fjxlNMpFTabzClnVZ4u4Um/GzDyKxO1H1HeBA8/UUcRvgGLtWzEbLuEAX7BaD+m9uJUvI1upOesCc=,iv:Yc9VDzvCixphjq2M5F7kz6g1IYyIYOSP/vhyVy1xbIQ=,tag:0p+D5edVdl08c5YxIlxm1w==,type:str]",
-		"version": "3.13.3"
-	}
+  "configuration": {
+    "installType": "mqtts",
+    "dbusAddress": "tcp:host=192.168.1.57,port=78",
+    "MQTT": {
+      "host": "venus.local",
+      "password": "ENC[AES256_GCM,data:LUWI,iv:aG48PQQkgYBOPX8HjgY/gKHuk5VhmL+GkwF9t2w9qqc=,tag:BCPwcYWCDy0WV9ZkzUgi8A==,type:str]"
+    },
+    "VRM": {
+      "portalId": "c0619ab7ab01",
+      "userName": "markbrannan@gmail.com",
+      "password": "ENC[AES256_GCM,data:aW9srStLiRZXTOOVMbR2,iv:ZSayo1VwZ2mw7FXJGj16B8MSiyiw07DmXXVFQdW8eog=,tag:uTJsDuKKfeUdMA//pbC4KQ==,type:str]"
+    },
+    "pollInterval": 20,
+    "useDeviceNames": false,
+    "usePosition": true,
+    "relayPath0": "electrical.switches.venus-0",
+    "relayDisplayName0": "Cerbo relay 1",
+    "relayPath1": "electrical.switches.venus-1",
+    "relayDisplayName1": "Cerbo relay 2",
+    "temperatureMappings": [],
+    "ignoredSenders": [],
+    "instanceMappings": [],
+    "blacklist": []
+  },
+  "enabled": true,
+  "sops": {
+    "age": [
+      {
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBUcXh1NmpMNHhaMVV2VmZx\nazZEL3Z1QWl2NExaek5JVFg0YVFZM2RudjBNCm5URGNQc3BzTXdFTExwYm1Cb202\nN0dwSXdaT25UQ3VvV3FUY3RGT1phQkEKLS0tIC8zbTFpUi9HR2t5NDB4dk94R01S\nZEdMVzkrUW4xTXNnS2tLSnVPTGl0YWMKZeefR1JRkUiVbUtGQwY4yh1P6IjAP5cy\n+SMdWc6SE9ZnqtnsOrhOP1HBedbb+71qDTkkeB09fS4IorV5ziwBqA==\n-----END AGE ENCRYPTED FILE-----\n",
+        "recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+      },
+      {
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBjNXJNTk5hL2I2NHJNdFU0\nczVmY09yZGVjN1lmK0NWSm4yUi80UDZ3ZlhBCmxSL2g5NktoWkd3RTFKcUhLYnVQ\nT2RIMW4xUDJJaXlnQVZ3M1c5b3RwbE0KLS0tIFg2M2NqNnFhLzFjeisvdGFmNENw\nU1F1NWVOem9KbG9NWVRJT1J2dHNpREkKv9G4aCb/8s1du+Zpo+thSat/cD6gzW1x\nJcxvdIfPYIX+IHpevalG3CiyYNKusQDkzv9Kl9uAhtuKqUaTyIpihw==\n-----END AGE ENCRYPTED FILE-----\n",
+        "recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
+      }
+    ],
+    "encrypted_regex": "^password$",
+    "lastmodified": "2026-08-13T03:05:04Z",
+    "mac": "ENC[AES256_GCM,data:7LRefekoVfcAdwwoHbfTEib/JMHK6k/N00ALPZUmeGdTCqxlFbGqIYNDb5HAvjfo0wyApMjMRS1IyuiRG0uQIx3DZik9O4CAwwLGKKeDV/zO43Tvbq/edlaG3Iloro0959u6zhJ0sSWAFogk5jbDi+Z7CosPhoqYG1UjxJOUlFc=,iv:IaYvA61SwmR0s8F0qzY6BDPu6MatHNLSO6bp8Oci7do=,tag:e6F1bMfYLN5wyEyXrgik/g==,type:str]",
+    "version": "3.13.3"
+  }
 }

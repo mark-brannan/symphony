@@ -1,3 +1,12 @@
+# Spaces, never tabs.
+#
+# This binds editors and most tooling. It does NOT bind the sops-filtered
+# JSON (signalk/security.json, signalk/plugin-config-data/*.json): sops
+# re-serializes those files itself on every encrypt and decrypt, and its
+# default indent is tabs, which is where the tabs in those files came from.
+# That is fixed by passing `--indent 2` in scripts/sops_filter.py -- see
+# INDENT there. Reformatting one of those files by hand will not stick.
+
 root = true
 
 [*]
@@ -7,3 +16,9 @@ charset = utf-8
 indent_style = space
 indent_size = 2
 trim_trailing_whitespace = true
+
+[*.py]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false

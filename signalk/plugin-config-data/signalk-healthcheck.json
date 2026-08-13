@@ -1,51 +1,51 @@
 {
-	"configuration": {
-		"host": {
-			"enabled": true,
-			"cpuWarning": 80,
-			"cpuAlarm": 90,
-			"memWarning": 20,
-			"memAlarm": 10,
-			"diskWarning": 20,
-			"diskAlarm": 10,
-			"checkFrequency": 60,
-			"checkMaxAttempts": 3,
-			"sendNotification": true,
-			"sendEmail": true,
-			"toEmail": "markbrannan@gmail.com"
-		},
-		"providers": {
-			"OpenPlotter GPSD": {
-				"enabled": true,
-				"deltaWarning": 1,
-				"deltaAlarm": 1,
-				"checkFrequency": 60,
-				"checkMaxAttempts": 3,
-				"sendNotification": false,
-				"sendEmail": false
-			}
-		},
-		"mail": {
-			"secure": false,
-			"username": "captain",
-			"password": "ENC[AES256_GCM,data:6SAo5me2V5un,iv:ebJaSfcMM2UyhcTjf5H1PYyMlOsgq9XaNtmHrhk6zn0=,tag:zN5xJ5sWlNooelNCiy7P9g==,type:str]"
-		}
-	},
-	"enabled": true,
-	"sops": {
-		"age": [
-			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAwVDQ0RlgxcThCS3dLNHpq\nRzJVcnJjR1QxL0hHcFRqTlNLbUE0MVp4NmpRCkpCemF1M3ZoMWRFNWVNQjFQb2tD\neURVVjM5ZnVDcUR3MUNkVmx5c3h3VzgKLS0tIHQyNUY1VmRCOWRubHBURUs1bk9D\nMVZUdW81WDFNZTgyZ21TM0tYYitxakEK2Wz9BaTmlO8Smt4z/hsbSda6nEDJ+fEZ\njwPDgccmgZK3+7FIJNA7nzav7n/NXnWIP549xPTLnDiyWpZxbKvI1w==\n-----END AGE ENCRYPTED FILE-----\n",
-				"recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
-			},
-			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBkUmFLTGJTSTV6L0g4dFE1\ncUhCdVBmWnE4dGI4OUk0OW12RWM4MzBmbXhzCkQya0dQWWdJK25jN3pSZzdPdXB4\ndklzRTg0VlMxZEg3RXRUeENLZ2dwUm8KLS0tIG5vWmxwNW1Ncm56Mk9kdFh1My9r\ndUxYeFJISjRTemVWT3I5UlhpS2w5WE0Kz+JNEwH5nCzRX8eG/bYuBXB9XXix0/q4\nPNPpPzclYA45SqGu+2rdbMQmR/zkJZ/9uXGXHefMHbxLY4/G71IVKw==\n-----END AGE ENCRYPTED FILE-----\n",
-				"recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
-			}
-		],
-		"encrypted_regex": "^password$",
-		"lastmodified": "2026-08-12T03:15:10Z",
-		"mac": "ENC[AES256_GCM,data:Qfmv/lXZQwZcxIp/Kalx4ibqyUTBzjheaCGP77/xvvEoIqbuqSgF7Ljb63Yyk+n++sxcKyCByC23wSP3MHcGf4hFHmttUpA7ga0pizNPYjPb38fVgSJ0HR9rmgd9y2b7MZ90hNwy9TYgzpoOROxXr5GowfAiZel1c/PUVhjfmHE=,iv:121rNRY0soprQc43kyccbb+jpnKem4bqGyTF7Hvc428=,tag:yaNY3ZxotSBD38gAkX+g0Q==,type:str]",
-		"version": "3.13.3"
-	}
+  "configuration": {
+    "host": {
+      "enabled": true,
+      "cpuWarning": 80,
+      "cpuAlarm": 90,
+      "memWarning": 20,
+      "memAlarm": 10,
+      "diskWarning": 20,
+      "diskAlarm": 10,
+      "checkFrequency": 60,
+      "checkMaxAttempts": 3,
+      "sendNotification": true,
+      "sendEmail": true,
+      "toEmail": "markbrannan@gmail.com"
+    },
+    "providers": {
+      "OpenPlotter GPSD": {
+        "enabled": true,
+        "deltaWarning": 1,
+        "deltaAlarm": 1,
+        "checkFrequency": 60,
+        "checkMaxAttempts": 3,
+        "sendNotification": false,
+        "sendEmail": false
+      }
+    },
+    "mail": {
+      "secure": false,
+      "username": "captain",
+      "password": "ENC[AES256_GCM,data:NsGmhsI2YLfW,iv:0odUDKZmPW5EMaT9XBpf9BbXfjY2scssoutlU8vu0wE=,tag:6FlHRcYooVqjYhXOFepM/w==,type:str]"
+    }
+  },
+  "enabled": true,
+  "sops": {
+    "age": [
+      {
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSArVmdzWDdkQXJDZHN4N0NR\nbVhLN0o0eW83Sjd3bzZwMDNtVjZFSFc4ckNBCm9pMURCZlh5YjFMT1R0SldaOW5S\nUGVsNmZoODNTMjNadFd0MzlCUnduOE0KLS0tIEVjckx2SkhQUndaemowQkowUXd2\nREphdURSbUMrQTZWSC9lK0JpYy9TWGsK3jy70t7rt/7la8Tae+LwA0Dw15EGgpNx\no9fhcfMPLBnYfdLvILYakupd+ukHdTr/8EtzpozPfuShqrFtjtl9FA==\n-----END AGE ENCRYPTED FILE-----\n",
+        "recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
+      },
+      {
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBiQ1B2NHpSdURMbXA3c25l\nRmZPUmdDREN4VHFRWVZuMW01MkRxc1ZDUHlFCk83L3N3ajNITzA3VFZHR3loNGNV\nUmZCR2ZvWUtNQXZHemQwTzRRZytZMWMKLS0tIHhWR2ZTWGVNN2RKUmdmMzNqOFFk\nNzYvbTlkejFUNnEvTEgvSlZ4akhHRUUKCDVur1pWEDjUSbqjaEp4iNxod8IAJu1R\nVQpCJg0TDyigAEHfPhG0uxv6tBMha/Pv2WyW1j2n9ekezo3vHQAqtg==\n-----END AGE ENCRYPTED FILE-----\n",
+        "recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
+      }
+    ],
+    "encrypted_regex": "^password$",
+    "lastmodified": "2026-08-13T03:05:04Z",
+    "mac": "ENC[AES256_GCM,data:VTBfzM2QoUwcI+YbfMqAEi7GKTHPzbB3bV7nLeuXrETE9kV6gmkfXO2J4cc+c0XxhbqNeIgQMnN3a5MpJP86j96bliO6Bl4gPqBbX02BRVB8B/fNUaJjvii+76YUgc1LDvJnGVRaqOqMt/pIej8Zi7lzGEq9EDixPY3W8vMUUug=,iv:rZLBcqGCTCWZn/1DNc5VUPjyANmqJ7k6y1EBBAB4XHc=,tag:0tuuN4PwvOnCPsm9I990dg==,type:str]",
+    "version": "3.13.3"
+  }
 }
