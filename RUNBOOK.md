@@ -1029,6 +1029,214 @@ mDNSResponder`.
 Set it back to `192.168.8.240` once the cable is fixed. Wifi is the slower
 path and drops when the router reboots.
 
+## Grafana dashboards
+
+The dashboards are generated. `scripts/build_dashboards.py` holds the panel
+spec; the JSON under `grafana/provisioning/dashboards/json/` is its output and
+is committed because Grafana provisioning reads files and the boat has no
+build step. After changing the spec:
+
+```bash
+python3 scripts/build_dashboards.py
+python3 scripts/test_dashboards.py
+```
+
+The second one is not optional. It asserts the committed JSON still matches
+the spec, that every unit label is backed by the matching conversion in its
+query, that panels do not overlap, and that each query reads the bucket its
+measurement is actually written to. A dashboard is wrong silently -- nothing
+about a blank or mis-scaled panel raises an error at runtime -- so this check
+is the only thing standing between a typo and a gauge that confidently reads
+3.6 knots when the boat is doing 7.
+
+Grafana's file provider is `editable: true`, so panels can be tweaked in the
+UI to try something out. Those tweaks live only in Grafana's database and are
+overwritten on the next provisioning reload. Anything worth keeping goes back
+into the spec.
+
+### Looking at them without being aboard
+
+```bash
+scripts/dev_stack.sh up
+```
+
+Starts InfluxDB and Grafana, creates the buckets, seeds synthetic vessel data
+in SignalK's SI units, checks every panel draws, and prints the URL. Only
+`influxdb` and `grafana` come up -- SignalK wants hardware a laptop does not
+have. `scripts/dev_stack.sh down` removes the volumes.
+
+The seed values are invented but the *shape* is real: same measurement names,
+same `_field`, same tags, same SI units. Seeding in display units would make a
+broken conversion look correct, which is the one thing this has to not do.
+
+### Checking the real thing
+
+Two checks, and they answer different questions:
+
+```bash
+python3 scripts/audit_dashboard_paths.py      # on the boat
+python3 scripts/verify_dashboards_live.py --grafana https://grafana.<DOMAIN> \
+    --user <admin> --password <password>
+```
+
+`audit_dashboard_paths.py` asks InfluxDB directly whether each referenced
+measurement exists and is fresh, per bucket. It has to run on the boat -- it
+reads the token out of the live plugin config.
+
+`verify_dashboards_live.py` runs every panel's query through Grafana's own
+`/api/ds/query`. That is the end-to-end one: datasource uid, token, Flux mode,
+org, bucket and a publishing path all have to be right for a panel to pass.
+The audit can pass while this fails, and that gap is exactly the datasource
+wiring.
+
+Both exit non-zero on a problem, so either can go in a cron or a check-in.
+
+## InfluxDB buckets
+
+Four buckets, each named after whoever writes it:
+
+| Bucket | Writer | Retention |
+|---|---|---|
+| `signalk` | `signalk-to-influxdb2`, full rate | 90d |
+| `signalk_archive` | the same plugin, second entry, decimated to 1/min | years |
+| `telegraf` | Telegraf | 30d |
+| `influxdb` | InfluxDB scraping its own `/metrics` | 7d |
+
+Retention is a per-bucket property. That is the entire reason for the split:
+one bucket cannot express "years of state-of-charge, two weeks of CPU." The
+second reason is tokens -- Telegraf can hold a write-only token scoped to its
+own bucket instead of borrowing captain's all-access one.
+
+Splitting costs nothing at query time. **The bucket is named in the Flux
+query, not in the datasource** -- `defaultBucket` is only Grafana's default for
+ad-hoc exploration. One datasource and one read token reach all four, and a
+panel can `union()` across them.
+
+`signalk_archive` is deliberately the *same paths* at lower rate rather than a
+chosen subset. Splitting by topic would mean deciding today which paths matter
+in three years, and giving every panel a lookup table of which bucket its path
+lives in. A superset at lower resolution needs neither: long-range panels read
+the archive, live ones read `signalk`.
+
+One caveat to record: the plugin's `resolution` **decimates** -- it drops
+updates arriving inside the window -- rather than averaging. The archive keeps
+trends and loses spikes between samples. An InfluxDB task doing
+`aggregateWindow(fn: max)` would keep the extremes, at the cost of CPU and RAM
+on a Pi where memory is already the constraint.
+
+### Creating them
+
+Run on the boat. Idempotent -- `influx bucket create` fails harmlessly if the
+bucket is there.
+
+```bash
+# The CLI is not installed; these go through the HTTP API. Token comes from
+# the live plugin config, same as the audit script.
+python3 - <<'EOF'
+import glob, json, os, urllib.request
+
+cfg = glob.glob(os.path.expanduser(
+    "~/.signalk/plugin-config-data/signalk-to-influxdb2.json"))[0]
+token = json.load(open(cfg))["configuration"]["influxes"][0]["token"]
+
+def api(path, data=None, method=None):
+    req = urllib.request.Request("http://localhost:8086" + path,
+                                 data=data, method=method)
+    req.add_header("Authorization", "Token " + token)
+    req.add_header("Content-Type", "application/json")
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.loads(r.read().decode() or "{}")
+
+org_id = api("/api/v2/orgs?org=symphony")["orgs"][0]["id"]
+DAY = 86400
+for name, days in [("signalk", 90), ("signalk_archive", 0),
+                   ("telegraf", 30), ("influxdb", 7)]:
+    if api(f"/api/v2/buckets?name={name}").get("buckets"):
+        print(f"{name}: exists")
+        continue
+    rules = [{"type": "expire", "everySeconds": days * DAY}] if days else []
+    api("/api/v2/buckets", json.dumps(
+        {"orgID": org_id, "name": name, "retentionRules": rules}).encode(),
+        "POST")
+    print(f"{name}: created")
+EOF
+```
+
+Then repoint the writers. Telegraf reads `TELEGRAF_INFLUX_BUCKET` from the
+rendered `.env`, so:
+
+```bash
+python3 scripts/render.py
+sudo systemctl restart telegraf
+```
+
+Nothing needs migrating. The existing points in the old `symphony` bucket age
+out on their own, and the dashboards stop reading it the moment the new
+buckets have data.
+
+### The signalk-to-influxdb2 change
+
+This one is a plugin config edit, and the config file is sops-tracked -- make
+it in SignalK's plugin UI (or on the live file on the boat, where the age key
+is), not by hand-editing the committed copy. Target state for
+`configuration.influxes`:
+
+```json
+[
+  {
+    "url": "http://localhost:8086",
+    "token": "<unchanged>",
+    "bucket": "signalk",
+    "onlySelf": true,
+    "useSKTimestamp": true,
+    "resolution": 1000,
+    "ignoredPaths": [
+      "^observations\\.noaa\\.",
+      "^pointsOfInterest\\.",
+      "^vhfdata\\.",
+      "^notifications\\.noaa\\.",
+      "^environment\\.noaa\\.swpc\\.scales\\.",
+      "^environment\\.forecast\\."
+    ],
+    "ignoredSources": [],
+    "filteringRules": []
+  },
+  {
+    "url": "http://localhost:8086",
+    "token": "<same token>",
+    "bucket": "signalk_archive",
+    "onlySelf": true,
+    "useSKTimestamp": true,
+    "resolution": 60000,
+    "ignoredPaths": ["<same list>"],
+    "ignoredSources": [],
+    "filteringRules": []
+  }
+]
+```
+
+`influxes` is an array and each entry is an independent writer with its own
+bucket, filters and resolution, so the archive tier needs no InfluxDB task.
+
+`ignoredPaths` takes JS regular expressions and both lists were empty, which
+is why roughly 1,400 measurements of NOAA shore stations, Wikipedia points of
+interest and VHF directory entries were being written to an SD card every
+interval. Filtering them is a larger win on write volume than the bucket split
+is. Note `ignoredPaths` is disabled entirely if `filteringRules` is non-empty
+-- use one mechanism or the other, not both.
+
+The `notifications.noaa.` entry matters for a second reason: those arrive as
+`notifications.noaa.urn:oid:<unique>`, one new measurement per NWS alert,
+never retired. That was the only unbounded series growth in the database.
+
+### Turning off InfluxDB's self-scrape
+
+If nothing is watching `influxdb` bucket data, the cheapest change of all is
+to stop generating it -- InfluxDB scraping its own `/metrics` into the same
+database it is trying to keep small is self-inflicted SD wear. The System
+health dashboard's series-cardinality panel is the only consumer; drop that
+panel and the scrape can go.
+
 ## When a plugin isn't in the config UI
 
 A plugin that crashes on load doesn't appear in Server → Plugin Config at

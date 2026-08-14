@@ -210,6 +210,25 @@ def check_layout():
                     occupied.add((row, col))
 
 
+def check_bucket_routing():
+    """Every query's bucket must match what bucket_for() decides."""
+    for _t, _u, filename, *_ in bd.DASHBOARDS:
+        dashboard = load(filename)
+        for panel in dashboard["panels"]:
+            for target in panel.get("targets", []):
+                query = target.get("query", "")
+                buckets = re.findall(r'from\(bucket:\s*"([^"]+)"\)', query)
+                measurements = MEASUREMENT_RE.findall(query)
+                if not buckets or not measurements:
+                    continue
+                self_only = 'r["self"] == "true"' in query
+                expected = bd.bucket_for(measurements[0], self_only)
+                if buckets[0] != expected:
+                    fail(f"{filename}: panel {panel.get('title')!r} target "
+                         f"{target.get('refId')} reads bucket {buckets[0]!r} "
+                         f"but {measurements[0]!r} routes to {expected!r}")
+
+
 def check_seed_coverage():
     """Every referenced path must have seed values, or the dev stack lies."""
     known = (set(seed.RANGES) | set(seed.STRINGS) | set(seed.BOOLEANS)
@@ -241,6 +260,7 @@ def main():
     check_query_shape()
     check_unit_conversions()
     check_layout()
+    check_bucket_routing()
     check_seed_coverage()
 
     if failures:
@@ -249,7 +269,7 @@ def main():
             print(f"  {message}")
         return 1
     print(f"OK: {len(bd.DASHBOARDS)} dashboards pass structure, datasource, "
-          "unit-conversion, layout and seed-coverage checks.")
+          "unit-conversion, layout, bucket-routing and seed-coverage checks.")
     return 0
 
 

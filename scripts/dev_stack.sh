@@ -40,18 +40,18 @@ write_env_if_absent() {
 		DOCKER_INFLUXDB_INIT_USERNAME=dev
 		DOCKER_INFLUXDB_INIT_PASSWORD=devpassword123
 		DOCKER_INFLUXDB_INIT_ORG=symphony
-		DOCKER_INFLUXDB_INIT_BUCKET=symphony
+		DOCKER_INFLUXDB_INIT_BUCKET=signalk
 		DOCKER_INFLUXDB_INIT_RETENTION=30d
 		DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${DEV_TOKEN}
 
 		INFLUX_TOKEN=${DEV_TOKEN}
 		INFLUX_URL=http://influxdb:8086
 		INFLUX_ORG=symphony
-		INFLUX_BUCKET=symphony
+		INFLUX_BUCKET=signalk
 
 		TELEGRAF_INFLUX_TOKEN=${DEV_TOKEN}
 		TELEGRAF_INFLUX_ORG=symphony
-		TELEGRAF_INFLUX_BUCKET=symphony
+		TELEGRAF_INFLUX_BUCKET=telegraf
 
 		GF_SECURITY_ADMIN_USER=admin
 		GF_SECURITY_ADMIN_PASSWORD=${DEV_ADMIN_PASSWORD}
@@ -103,10 +103,13 @@ cmd_up() {
 }
 
 cmd_seed() {
+	# Buckets are created on demand and picked per measurement by the same
+	# routing the dashboards use, so this covers signalk, telegraf and
+	# influxdb without naming them here.
 	python3 scripts/seed_dev_influx.py \
 		--url "${INFLUX_URL_LOCAL}" \
 		--token "$(token_from_env)" \
-		--org symphony --bucket symphony
+		--org symphony
 }
 
 cmd_verify() {

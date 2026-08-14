@@ -50,8 +50,46 @@ import os
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(REPO_ROOT, "grafana", "provisioning", "dashboards", "json")
 
-BUCKET = "symphony"
 DS = {"type": "influxdb", "uid": "influxdb-symphony"}
+
+# --------------------------------------------------------------------------
+# Buckets, named after whoever writes them.
+#
+# Retention is a per-bucket property, which is the whole reason these are
+# split: one bucket cannot express "years of state-of-charge, two weeks of
+# CPU". Splitting also lets Telegraf hold a token scoped to its own bucket
+# instead of the all-access one it borrows today.
+#
+# The bucket is named in the Flux query, not in the datasource -- the
+# datasource's defaultBucket is only a UI convenience. So one datasource and
+# one read token still reach all of these, and a panel can union across them.
+#
+# BUCKET_ARCHIVE is the same vessel paths at reduced resolution, written by a
+# second `influxes` entry in signalk-to-influxdb2 rather than by a
+# downsampling task. It is a superset of BUCKET_SIGNALK at lower rate, so no
+# panel has to know which bucket a path "belongs" to: long-range panels read
+# the archive, live ones read the raw bucket.
+# --------------------------------------------------------------------------
+BUCKET_SIGNALK = "signalk"
+BUCKET_ARCHIVE = "signalk_archive"
+BUCKET_TELEGRAF = "telegraf"
+BUCKET_INFLUXDB = "influxdb"
+
+# InfluxDB's own scraped metrics. Everything else without a `self` tag is
+# Telegraf's.
+INFLUX_INTERNAL_PREFIXES = (
+    "storage_", "task_", "qc_", "http_", "service_", "influxdb_", "go_",
+    "boltdb_", "query_", "influxql_",
+)
+
+
+def bucket_for(measurement, self_only):
+    """Which bucket a measurement lives in, from how it is written."""
+    if measurement.startswith(INFLUX_INTERNAL_PREFIXES):
+        return BUCKET_INFLUXDB
+    if self_only:
+        return BUCKET_SIGNALK
+    return BUCKET_TELEGRAF
 
 # --------------------------------------------------------------------------
 # Unit conversions: SignalK SI -> what a person reads.
@@ -111,7 +149,7 @@ BASE = steps((None, TEXT))
 # Flux query construction
 # --------------------------------------------------------------------------
 def flux(measurement, conv=None, mode="series", field="value", self_only=True,
-         extra_filters=(), fn="mean"):
+         extra_filters=(), fn="mean", bucket=None):
     """
     Build a Flux query for one SignalK path.
 
@@ -123,10 +161,12 @@ def flux(measurement, conv=None, mode="series", field="value", self_only=True,
     self_only filters on the self="true" tag that signalk-to-influxdb2 stamps
     on this vessel's own data. Telegraf and InfluxDB's internal metrics carry
     no such tag, so anything not written by SignalK must pass self_only=False
-    or the query silently returns nothing.
+    or the query silently returns nothing. That same flag picks the bucket,
+    since it is the writer that determines both.
     """
+    bucket = bucket or bucket_for(measurement, self_only)
     lines = [
-        f'from(bucket: "{BUCKET}")',
+        f'from(bucket: "{bucket}")',
         "  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)",
         f'  |> filter(fn: (r) => r["_measurement"] == "{measurement}")',
         f'  |> filter(fn: (r) => r["_field"] == "{field}")',
@@ -159,7 +199,7 @@ def flux(measurement, conv=None, mode="series", field="value", self_only=True,
 def flux_position(measurement="navigation.position"):
     """Positions are the one path written as two fields rather than one."""
     return "\n".join([
-        f'from(bucket: "{BUCKET}")',
+        f'from(bucket: "{BUCKET_SIGNALK}")',
         "  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)",
         f'  |> filter(fn: (r) => r["_measurement"] == "{measurement}")',
         '  |> filter(fn: (r) => r["_field"] == "lat" or r["_field"] == "lon")',
@@ -334,7 +374,8 @@ def _render(panel, x, y):
                      self_only=opts.get("self_only", True),
                      field=opts.get("field", "value"),
                      extra_filters=opts.get("extra_filters", ()),
-                     fn=opts.get("fn", "mean")),
+                     fn=opts.get("fn", "mean"),
+                     bucket=opts.get("bucket")),
                 ref))
             overrides.append({
                 "matcher": {"id": "byFrameRefID", "options": ref},

@@ -137,23 +137,68 @@ rewrites `electrical.batteries.279`. The two JBD packs stay as `0146` and
 `5C90`, fragments of their serial numbers. Notifications still fire against
 the pre-mapping name — `notifications.electrical.batteries.279.lowVoltage`.
 
+## Org and buckets
+
+One org, `symphony`. The org is InfluxDB's tenancy boundary -- tokens, users,
+buckets and dashboards all hang off it, a token belongs to exactly one org,
+and a bucket cannot be reassigned to another. That makes it the one boundary
+that is expensive to get wrong, and the one there is no reason to cross here:
+a second org would put data permanently out of reach of the same query.
+
+It is named for the vessel rather than the owning LLC because neither name is
+durable and the vessel's is the one a person reading a dashboard recognises.
+Renaming an org is cheap and non-destructive -- the ID is stable, buckets stay
+attached -- so this is reversible; putting data in *separate* orgs is not.
+
+Buckets are named after whoever writes them:
+
+| Bucket | Writer | Retention |
+| --- | --- | --- |
+| `signalk` | `signalk-to-influxdb2`, full rate | 90d |
+| `signalk_archive` | the same plugin, second entry, decimated to 1/min | years |
+| `telegraf` | Telegraf | 30d |
+| `influxdb` | InfluxDB's own `/metrics` scrape | 7d |
+
+Retention is a per-bucket property, and that is the whole argument for the
+split: one bucket cannot express "years of state-of-charge, two weeks of CPU."
+The second argument is credentials -- Telegraf currently borrows captain's
+all-access token because there was nothing narrower to scope to.
+
+The split costs nothing at query time, because the bucket is named in the Flux
+query rather than in the datasource. `defaultBucket` is only Grafana's
+starting point for ad-hoc exploration; one datasource and one read token reach
+all four, and a panel can `union()` across them.
+
+`signalk_archive` holds the same paths at lower rate rather than a chosen
+subset of paths. Splitting by topic would mean deciding today which paths
+matter in three years, and giving every panel a lookup table of which bucket
+its path lives in. A superset at lower resolution needs neither.
+
+The mechanism is that `influxes` in the plugin config is an array, and each
+entry is an independent writer with its own bucket, filters and `resolution` --
+so the archive tier needs no InfluxDB task, and no task competes for RAM on a
+Pi where memory is the constraint. The cost is that `resolution` *decimates*
+rather than averages: it drops updates arriving inside the window, so the
+archive keeps trends and loses spikes between samples.
+
 ## Cardinality
 
-The `symphony` bucket holds roughly 1,400 more measurements than the vessel
-itself produces, and the growth is not in vessel data:
+The `symphony` bucket accumulated roughly 1,400 more measurements than the
+vessel produces, because `signalk-to-influxdb2` had both `filteringRules` and
+`ignoredPaths` empty and so wrote everything SignalK knew:
 
-- `observations.noaa.*` — around 150 shore and airport stations, eight paths
+- `observations.noaa.*` -- around 150 shore and airport stations, eight paths
   each, at a top-level `observations.` branch outside `environment`
-- `vhfdata.nearest.*` and `pointsOfInterest.wikipedia.*` — a few hundred more
-- `notifications.noaa.urn:oid:...` — one measurement per NWS alert, each with
+- `vhfdata.nearest.*` and `pointsOfInterest.wikipedia.*` -- a few hundred more
+- `notifications.noaa.urn:oid:...` -- one measurement per NWS alert, each with
   a unique identifier, and nothing retires them
-- InfluxDB scrapes its own `/metrics` into this bucket: `go_*`, `storage_*`,
-  `task_*`, `qc_*`, `http_*`, `service_*`, `influxdb_*`
-- `<empty>` — the plugin's sentinel for a delta arriving with an empty path
+- InfluxDB scrapes its own `/metrics` into the same database: `go_*`,
+  `storage_*`, `task_*`, `qc_*`, `http_*`, `service_*`, `influxdb_*`
+- `<empty>` -- the plugin's sentinel for a delta arriving with an empty path
 
-The NWS alert measurements are the only unbounded one. On a box whose SD card
-is already the constraint, that is the growth worth watching; the System
-health dashboard graphs `storage_bucket_series_num` for exactly this reason.
+The NWS alert measurements were the only unbounded growth. `ignoredPaths` in
+RUNBOOK.md ("The signalk-to-influxdb2 change") covers all of these, and is a
+larger win on SD-card write volume than the bucket split is.
 
 ## Two Grafanas, two InfluxDBs
 

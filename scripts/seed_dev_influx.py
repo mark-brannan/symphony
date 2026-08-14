@@ -5,7 +5,11 @@ boat's, so the provisioned dashboards can be brought up and looked at without
 being aboard.
 
     python3 scripts/seed_dev_influx.py --url http://localhost:8086 \
-        --token dev-token --org symphony --bucket symphony
+        --token dev-token --org symphony
+
+Buckets are created if absent and chosen per measurement by the same routing
+the dashboards use (build_dashboards.bucket_for), so seeded data lands where
+the panels look for it.
 
 NOT for the boat. It writes to whatever bucket you point it at, and the
 values are invented. Point it at a throwaway InfluxDB.
@@ -18,6 +22,7 @@ stores and what the panels' conversions expect. Seeding in display units
 would make a broken conversion look correct.
 """
 import argparse
+import json
 import math
 import os
 import random
@@ -27,6 +32,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from audit_dashboard_paths import referenced_measurements  # noqa: E402
+from build_dashboards import bucket_for  # noqa: E402
 
 # Plausible SI ranges per path, so a seeded dashboard looks like a boat rather
 # than like noise. (low, high) for a slow sinusoid plus jitter.
@@ -189,6 +195,13 @@ def wave(low, high, phase, jitter=0.04):
 
 
 def build_lines(measurements, points, step_s, unranged=None):
+    """Yield (bucket, line-protocol) pairs.
+
+    Bucket comes from the same routing the dashboards use, so seeded data
+    lands where the panels look for it. Getting this wrong would leave every
+    panel blank in the local stack for a reason that has nothing to do with
+    the dashboards being wrong.
+    """
     now_ns = int(time.time() * 1e9)
     lines = []
     if unranged is None:
@@ -200,22 +213,23 @@ def build_lines(measurements, points, step_s, unranged=None):
         for measurement in measurements:
             key = escape_key(measurement)
             base = f"{key},context={escape_key(CONTEXT)},source=dev,self=true"
+            vessel_bucket = bucket_for(measurement, True)
 
             if measurement in STRINGS:
                 options = STRINGS[measurement]
                 value = options[(index // max(points // (len(options) * 3), 1))
                                 % len(options)]
-                lines.append(f'{base} value="{escape_str(value)}" {ts}')
+                lines.append((vessel_bucket, f'{base} value="{escape_str(value)}" {ts}'))
             elif measurement in BOOLEANS:
                 value = "false" if (index % 97) == 0 else "true"
-                lines.append(f"{base} value={value} {ts}")
+                lines.append((vessel_bucket, f"{base} value={value} {ts}"))
             elif measurement == "navigation.position":
                 lat = wave(47.62, 47.66, phase, 0.01)
                 lon = wave(-122.38, -122.34, phase * 0.7, 0.01)
-                lines.append(f"{base} lat={lat},lon={lon} {ts}")
+                lines.append((vessel_bucket, f"{base} lat={lat},lon={lon} {ts}"))
             elif measurement in RANGES:
                 low, high = RANGES[measurement]
-                lines.append(f"{base} value={wave(low, high, phase)} {ts}")
+                lines.append((vessel_bucket, f"{base} value={wave(low, high, phase)} {ts}"))
             elif measurement in HOST_MEASUREMENTS or measurement == "procstat":
                 continue  # handled below: no self tag, and named fields
             else:
@@ -226,7 +240,7 @@ def build_lines(measurements, points, step_s, unranged=None):
                 # multiplies by 100, which looks like a conversion bug in the
                 # dashboard rather than a gap in this table.
                 unranged.add(measurement)
-                lines.append(f"{base} value={wave(0.0, 100.0, phase)} {ts}")
+                lines.append((vessel_bucket, f"{base} value={wave(0.0, 100.0, phase)} {ts}"))
 
         for measurement, fields in HOST_MEASUREMENTS.items():
             if measurement not in measurements:
@@ -238,16 +252,43 @@ def build_lines(measurements, points, step_s, unranged=None):
             body = ",".join(
                 f"{name}={wave(low, high, phase)}"
                 for name, (low, high) in fields.items())
-            lines.append(f"{measurement},{tags} {body} {ts}")
+            lines.append((bucket_for(measurement, False), f"{measurement},{tags} {body} {ts}"))
 
         if "procstat" in measurements:
             for unit in PROCSTAT_UNITS:
                 rss = wave(4.0e7, 5.0e8, phase)
-                lines.append(
+                lines.append((
+                    bucket_for("procstat", False),
                     f"procstat,host=dev,systemd_unit={escape_key(unit)} "
-                    f"memory_rss={rss} {ts}")
+                    f"memory_rss={rss} {ts}"))
 
     return lines
+
+
+def ensure_bucket(url, token, org, bucket, retention_seconds=0):
+    """Create the bucket if it isn't there. Idempotent."""
+    base = url.rstrip("/")
+
+    def api(path, data=None, method=None):
+        req = urllib.request.Request(base + path, data=data, method=method)
+        req.add_header("Authorization", "Token " + token)
+        req.add_header("Content-Type", "application/json")
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return json.loads(resp.read().decode() or "{}")
+
+    existing = api(f"/api/v2/buckets?name={bucket}")
+    if existing.get("buckets"):
+        return
+    org_id = api(f"/api/v2/orgs?org={org}")["orgs"][0]["id"]
+    payload = json.dumps({
+        "orgID": org_id,
+        "name": bucket,
+        "retentionRules": ([{"type": "expire",
+                             "everySeconds": retention_seconds}]
+                           if retention_seconds else []),
+    }).encode()
+    api("/api/v2/buckets", payload, "POST")
+    print(f"created bucket {bucket}")
 
 
 def write(url, token, org, bucket, lines, chunk=4000):
@@ -268,7 +309,6 @@ def main():
     parser.add_argument("--url", default="http://localhost:8086")
     parser.add_argument("--token", required=True)
     parser.add_argument("--org", default="symphony")
-    parser.add_argument("--bucket", default="symphony")
     parser.add_argument("--hours", type=float, default=24.0,
                         help="how far back to seed (default 24)")
     parser.add_argument("--step", type=int, default=60,
@@ -283,15 +323,22 @@ def main():
     unranged = set()
     lines = build_lines(measurements, points, args.step, unranged)
 
+    by_bucket = {}
+    for bucket, line in lines:
+        by_bucket.setdefault(bucket, []).append(line)
+
     print(f"seeding {len(measurements)} measurements x {points} points "
-          f"= {len(lines)} lines into {args.bucket}")
+          f"= {len(lines)} lines across {len(by_bucket)} bucket(s)")
     if unranged:
         print(f"WARNING: {len(unranged)} path(s) have no entry in RANGES "
               "and were seeded 0..100, which is wrong for ratios, "
               "radians and Kelvin:")
         for name in sorted(unranged):
             print(f"  {name}")
-    write(args.url, args.token, args.org, args.bucket, lines)
+    for bucket in sorted(by_bucket):
+        ensure_bucket(args.url, args.token, args.org, bucket)
+        write(args.url, args.token, args.org, bucket, by_bucket[bucket])
+        print(f"  {bucket}: {len(by_bucket[bucket])} lines")
     print("done")
 
 

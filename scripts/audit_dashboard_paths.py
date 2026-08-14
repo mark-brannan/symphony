@@ -25,27 +25,45 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DASH_DIR = os.path.join(REPO_ROOT, "grafana", "provisioning", "dashboards", "json")
 
 MEASUREMENT_RE = re.compile(r'r\["_measurement"\]\s*==\s*"([^"]+)"')
+BUCKET_RE = re.compile(r'from\(bucket:\s*"([^"]+)"\)')
 
 
 def referenced_measurements():
     """measurement -> sorted list of "dashboard: panel" that reference it."""
     found = {}
+    for _bucket, measurement, where in _references():
+        found.setdefault(measurement, set()).add(where)
+    return {m: sorted(v) for m, v in found.items()}
+
+
+def referenced_by_bucket():
+    """bucket -> {measurement -> sorted list of "dashboard: panel"}."""
+    found = {}
+    for bucket, measurement, where in _references():
+        found.setdefault(bucket, {}).setdefault(measurement, set()).add(where)
+    return {b: {m: sorted(v) for m, v in ms.items()} for b, ms in found.items()}
+
+
+def _references():
     for path in sorted(glob.glob(os.path.join(DASH_DIR, "*.json"))):
         with open(path) as f:
             dash = json.load(f)
         label = os.path.basename(path)
         for panel in dash.get("panels", []):
             for target in panel.get("targets", []):
-                for measurement in MEASUREMENT_RE.findall(target.get("query", "")):
-                    where = f"{label}: {panel.get('title') or panel['type']}"
-                    found.setdefault(measurement, set()).add(where)
-    return {m: sorted(v) for m, v in found.items()}
+                query = target.get("query", "")
+                buckets = BUCKET_RE.findall(query)
+                bucket = buckets[0] if buckets else "?"
+                where = f"{label}: {panel.get('title') or panel['type']}"
+                for measurement in MEASUREMENT_RE.findall(query):
+                    yield bucket, measurement, where
 
 
 def influx_client():
@@ -57,7 +75,7 @@ def influx_client():
         sys.exit("no signalk-to-influxdb2.json under " + home
                  + " -- this script has to run on the boat")
     config = json.load(open(candidates[0]))["configuration"]["influxes"][0]
-    token, bucket = config["token"], config["bucket"]
+    token = config["token"]
     if token.startswith("ENC["):
         sys.exit("token is still sops-encrypted in " + candidates[0])
 
@@ -70,7 +88,7 @@ def influx_client():
         return urllib.request.urlopen(req, timeout=120).read().decode()
 
     org = json.loads(call("/api/v2/orgs"))["orgs"][0]["name"]
-    return call, org, bucket
+    return call, org
 
 
 def measurements_since(call, org, bucket, window):
@@ -96,39 +114,54 @@ def main():
                         help="window treated as 'has ever existed' (default -30d)")
     args = parser.parse_args()
 
-    referenced = referenced_measurements()
-    if not referenced:
+    by_bucket = referenced_by_bucket()
+    if not by_bucket:
         sys.exit("no measurements found in " + DASH_DIR)
 
-    call, org, bucket = influx_client()
-    fresh = measurements_since(call, org, bucket, args.window)
-    historic = measurements_since(call, org, bucket, args.history)
+    call, org = influx_client()
+    print(f"org={org}")
 
-    missing = sorted(m for m in referenced if m not in historic)
-    stale = sorted(m for m in referenced if m in historic and m not in fresh)
-    live = sorted(m for m in referenced if m in fresh)
+    all_stale, all_missing, total, live_count = [], [], 0, 0
+    for bucket in sorted(by_bucket):
+        referenced = by_bucket[bucket]
+        total += len(referenced)
+        try:
+            fresh = measurements_since(call, org, bucket, args.window)
+            historic = measurements_since(call, org, bucket, args.history)
+        except urllib.error.HTTPError as exc:
+            print(f"\nbucket {bucket}: CANNOT QUERY ({exc.code}) -- "
+                  "does it exist, and does the token read it?")
+            all_missing.extend((bucket, m, referenced[m]) for m in referenced)
+            continue
 
-    print(f"bucket={bucket} org={org}")
-    print(f"{len(referenced)} measurements referenced by dashboards in {DASH_DIR}")
-    print(f"  live within {args.window}: {len(live)}")
-    print(f"  seen in {args.history} but not {args.window}: {len(stale)}")
-    print(f"  never seen in {args.history}: {len(missing)}")
+        missing = sorted(m for m in referenced if m not in historic)
+        stale = sorted(m for m in referenced if m in historic and m not in fresh)
+        live = sorted(m for m in referenced if m in fresh)
+        live_count += len(live)
+        all_stale.extend((bucket, m, referenced[m]) for m in stale)
+        all_missing.extend((bucket, m, referenced[m]) for m in missing)
 
-    if stale:
+        print(f"  bucket {bucket}: {len(referenced)} referenced, "
+              f"{len(live)} live, {len(stale)} stale, {len(missing)} missing")
+
+    print(f"\n{total} measurement references across {len(by_bucket)} bucket(s); "
+          f"{live_count} live within {args.window}")
+
+    if all_stale:
         print(f"\nSTALE (no data in {args.window}):")
-        for m in stale:
-            print(f"  {m}")
-            for where in referenced[m]:
+        for bucket, m, wheres in all_stale:
+            print(f"  [{bucket}] {m}")
+            for where in wheres:
                 print(f"      {where}")
 
-    if missing:
+    if all_missing:
         print(f"\nMISSING (nothing in {args.history}):")
-        for m in missing:
-            print(f"  {m}")
-            for where in referenced[m]:
+        for bucket, m, wheres in all_missing:
+            print(f"  [{bucket}] {m}")
+            for where in wheres:
                 print(f"      {where}")
 
-    return 1 if (missing or stale) else 0
+    return 1 if (all_missing or all_stale) else 0
 
 
 if __name__ == "__main__":
