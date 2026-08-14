@@ -29,6 +29,12 @@ covered here.
   with no date yet.
 
 ## priorities.md
+- **Physical boat work is tracked in Evernote, not here.** When the owner asks
+  for a hands-on task — rewiring something, a paint job, a fitting to replace —
+  Evernote is the authoritative list; don't answer from this file and don't add
+  the task to it. What's still listed here overlaps by history, which is fine
+  and gets pruned over time. This file stays authoritative for the SignalK /
+  IoT section.
 - Kanban-flavored, not GTD: **In Progress** (keep this small — WIP limit of
   roughly 2-3 items, matching the owner's stated preference for steady
   completion over a sprawling backlog) / **Blocked** / **Backlog** (ordered —

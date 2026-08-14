@@ -14,7 +14,7 @@ Working log of deferred maintenance, in-progress
 work, and planned improvements.
 
 ### Structure
-- `priorities.md` — current triage: In Progress / Blocked / Backlog / Someday-Maybe
+- `priorities.md` — current triage: In Progress / Blocked / Backlog / Someday-Maybe. Physical boat work is tracked in Evernote instead; this file is authoritative only for the SignalK / IoT section.
 - `log.md` — chronological ship's-log record, oldest entry first, real append (tail-friendly)
 - `systems/` — one file per system, empty for now; populate as it makes sense
 - `reference/specs.md` — vessel identity, registration, and physical particulars
