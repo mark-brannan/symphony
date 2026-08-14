@@ -267,6 +267,20 @@ This file remains authoritative for the SignalK / IoT section below.
     argument against an audible alarm.
   Open: whether to reinstate, and if so with what config. Its removed config
   is recoverable from git history.
+- Boat-side orphan configs, re-derived 2026-08-14 the only way that works:
+  **ask the server which plugin ids it actually loaded** (`/skServer/plugins`),
+  rather than inferring from package names or config filenames. Four are real —
+  `signalk-fixedstation`, `signalk-saillogger`, `signalk-tide-watch`,
+  `signalk-to-influxdb` — and `signalk-saillogger` is the odd one, enabled with
+  no plugin behind it. Deliberately not removed: per the parked rule, a config
+  without a plugin may be something Mark installed to try and later uninstalled,
+  and the config is the only record of how it was set up.
+  Both earlier counts were wrong and neither method should be reused. Matching
+  config filenames against `signalk/package.json` undercounts, because that file
+  is keyed by npm package name while configs are named for plugin id. Deriving
+  ids by scanning installed packages overcounts — it returned 13 here, 9 of them
+  false, including `charts`, `derived-data` and `venus`, all of which are loaded
+  and working. The server is the only source that knows.
 - Add a weather term to `ACTOR_HINTS` in `scripts/signalk_plugin_census.py`.
   `open-meteo` is an actor by the script's own definition — its product is a
   registered v2 API, not published paths — but the hint list has no weather
