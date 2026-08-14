@@ -68,6 +68,21 @@ repos:
         pass_filenames: false
         files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|test_.*)\.py|\.sops\.yaml|\.pseudonyms\.yaml)$'
 
+      # Rules whose absence has already cost real downtime on this boat. Each
+      # one carries its incident in its docstring. Repo-only and CI-safe;
+      # the host-state equivalents are scripts/lint_host_state.py, which needs
+      # the machine and is run there by hand.
+      #
+      # The one that earns its place on its own: a .gitattributes filter that
+      # git has no config for. Found unconfigured here on 2026-08-14, which is
+      # the state in which a secret commits to a public repo in cleartext.
+      - id: repo-hygiene
+        name: repo hygiene (declared filters, alarm scope)
+        entry: python3 scripts/lint_repo_hygiene.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       # Cheap syntax gate. A config file that doesn't parse can strand the
       # boat's services on next restart, and it's the same check CI runs.
       - id: validate-configs
