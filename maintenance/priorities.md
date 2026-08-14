@@ -244,6 +244,29 @@ This file remains authoritative for the SignalK / IoT section below.
     Nobody has traced it. Flagged, not resolved.
   - Everything else on that list is the parked category above — a question for
     Mark, not a measurement.
+- **Open decision for Mark: put `signalk-healthcheck` back for the onboard
+  alarm?** It was removed 2026-08-14 and the case for reinstating it is
+  stronger than the case that removed it. Measured facts, no verdict:
+  - Nothing else aboard *alarms* on host health. Telegraf, rpi-monitor and
+    rpi-stats all record; recording is not alarming.
+  - Its threshold is sound, contrary to the assumption behind removing it.
+    `freeMemPercentage` comes from node-os-utils, which reads `MemAvailable`
+    from `/proc/meminfo` — not `MemFree`. So `memAlarm: 10` fires at ~389 MB
+    available on the 3.9 GB Pi, which is the same condition this repo already
+    calls real pressure, and the same number `host/boat-heartbeat` now uses.
+  - Its email path is dead (SMTP host never configured) but `sendNotification`
+    works and `signalk-notification-player` is enabled to consume it.
+  - The objection that removed it was the 08-13 feedback loop, where playing
+    the low-memory alarm consumed the memory it warned about. That path is
+    now cheaper: OpenPlotter's `cvlc`-per-notification player was silenced
+    2026-08-14, leaving `mpg321` via `signalk-notification-player`.
+  - Mark's framing, which settles the direction if not the details: the boat
+    computer is passive from the crew's point of view. Nobody watches memory
+    or CPU aboard, which is the same reason nobody watches depth or battery —
+    that is what the box is *for*. So "someone would notice" is not an
+    argument against an audible alarm.
+  Open: whether to reinstate, and if so with what config. Its removed config
+  is recoverable from git history.
 - Add a weather term to `ACTOR_HINTS` in `scripts/signalk_plugin_census.py`.
   `open-meteo` is an actor by the script's own definition — its product is a
   registered v2 API, not published paths — but the hint list has no weather
