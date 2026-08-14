@@ -1,5 +1,12 @@
 # Priorities
 
+Physical boat work — anything hands-on that isn't SignalK or embedded software
+— is tracked in Evernote, not here. That's the authoritative list for what
+Mark is actually working on aboard. This file is not the place to look up or
+add a physical task, and the two overlapping in the short term is fine.
+
+This file remains authoritative for the SignalK / IoT section below.
+
 ## In Progress
 - Chain plate removal, cleaning, and resealing — 1 of the chain plates removed so far.
   - Next: take the removed chain plate to Ballard Sheet Metal for a fabrication quote.
