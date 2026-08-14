@@ -353,6 +353,21 @@
   had never been able to run at all. It passes now.
   Note the Docker apt repo is outside the Debian security origin that
   unattended-upgrades is limited to, so Docker will not upgrade itself.
+- Moved Dex into a container, the first service off systemd. Chosen first on
+  Mark's call: Caddy is the front door, so if it breaks the SignalK UI,
+  Grafana and the OIDC callback all go dark together, while Dex failing only
+  stops SSO login and leaves the local `captain` password working. It also
+  turned out to be the easiest — `storage: memory`, so there was no state to
+  migrate and a restart just re-logs people in.
+  Published on 127.0.0.1:5556 as a transitional step: the compose file
+  assumes Caddy is a container too and reaches Dex over `symphony-net`, which
+  it can't yet. Loopback only, since Dex terminates no TLS of its own.
+  Verified through Caddy on the public URL: discovery issuer unchanged and
+  /dex/keys returns 200. Disabled the native unit — it would have raced the
+  container for 5556 on the next boot. That is an exception to the standing
+  'stop, don't disable' rule, which is about relieving memory pressure, not
+  about a service that has been replaced.
+  Rollback if needed: `docker compose stop dex && sudo systemctl enable --now dex`.
 - Turned on unattended security updates. The package wasn't installed at all,
   so the `apt-daily` timers had been refreshing package lists for nothing.
   Config lives in `host/` and installs through `host/install.sh`: Debian
