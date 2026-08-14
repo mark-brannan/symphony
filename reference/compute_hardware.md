@@ -133,7 +133,11 @@ Pi 4B:
   holes for two SMA antenna connectors. Further CAN or RS485 ports come from
   Waveshare isolated HATs.
 
-Listed at €651.61, currently sold out.
+Listed at €651.61. Availability is intermittent rather than simply absent:
+Compute Module 5 supply is short worldwide, and the vendor's own notice says
+configurations go out of stock with little notice. Check the shop rather than
+any statement here, and treat a suitable variant being in stock as the signal
+to buy.
 
 ### Hal OS
 
