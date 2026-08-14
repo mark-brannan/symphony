@@ -33,6 +33,8 @@ INSTALL=(
 	"signalk-ble-check:/usr/local/sbin/signalk-ble-check:0755:root:root"
 	"signalk-ble-check.service:/etc/systemd/system/signalk-ble-check.service:0644:root:root"
 	"signalk-ble-check.timer:/etc/systemd/system/signalk-ble-check.timer:0644:root:root"
+	"apt-auto-upgrades.conf:/etc/apt/apt.conf.d/20auto-upgrades:0644:root:root"
+	"apt-unattended-boat.conf:/etc/apt/apt.conf.d/52unattended-upgrades-boat:0644:root:root"
 )
 
 # System services to restart after their config lands. Skipped when the unit

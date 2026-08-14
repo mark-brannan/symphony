@@ -328,6 +328,24 @@
   boat. The plugin itself hasn't existed on this box for some time and chrony
   owns the clock now, so an enabled config for it was only ever a trap for
   whoever read it next.
+- Turned on unattended security updates. The package wasn't installed at all,
+  so the `apt-daily` timers had been refreshing package lists for nothing.
+  Config lives in `host/` and installs through `host/install.sh`: Debian
+  security only, no automatic reboot ever, and a blacklist covering `nodejs`,
+  `signalk-server`, `bluez`, the kernel and `openplotter-*` — every one of
+  which has broken this boat when it moved. Dry run applied cleanly.
+- Measured what the SD card actually takes, because a figure recorded earlier
+  the same day was wrong. The kernel's since-boot counter gives about
+  10.7 GB/day (2,062 MB over 4h36m); a 60-second sample read 4 GB/day. The
+  270 GB/day "burst" written down earlier came from misreading
+  `/proc/diskstats` and is impossible against a ~2 GB lifetime counter. It was
+  informing a decision about replacing the boot media, which is why it was
+  worth chasing rather than leaving.
+- Dropped the idea of forking `signalk-fixed-position` to slow its writes.
+  86,000 writes a day sounds bad until you compare it to the total: at roughly
+  350 MB/day it's a few percent of what the card takes anyway. Forking a
+  working plugin to buy that back isn't worth carrying a second fork. The
+  count was alarming; the volume wasn't.
 
 - Connected SignalK to the NMEA 2000 bus. One `pipedProvider`, `n2k-can0`,
   canboatjs on `can0`. `navigation.position`, `speedOverGround`,
