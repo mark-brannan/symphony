@@ -453,6 +453,27 @@
   repo, along with its sops stanza. The staleness idea is worth rebuilding in
   the heartbeat rather than in a plugin that rings the boat's beeper for a full
   disk.
+- Silenced OpenPlotter's notification sound player, leaving
+  `signalk-notification-player` as the only thing that makes noise aboard.
+  OpenPlotter spawns one `openplotter-notifications-sound` process per
+  notification path and each one loops `cvlc` until the state clears, which is
+  how a single weather feed turned into the process storm behind the 08-13
+  watchdog resets. `soundignore` in `~/.openplotter/openplotter.conf` now lists
+  every state; visual notifications still fire, confirmed by watching it spawn
+  a visual-only process for a live Victron BT warning. Also set the player's
+  `repeatGap` to 20s — note this debounces warns and alerts only, since the
+  plugin bypasses it for `alarm` and `emergency` by design, so it was not what
+  closed the loop.
+- Reclaimed 3.3 GB on the SD card: 79% full down to 67%, 9.2 GB free. Most of
+  it was npm's download cache under `~/.npm` and `/root/.npm`, 2.1 GB between
+  them. The rest was `apt autoremove` clearing ten stale kernels and their
+  headers, `apt clean`, 31 abandoned npm staging directories, and the module
+  stubs autoremove leaves behind in `/usr/lib/modules`. Held back
+  `chromium-browser`, its codecs and `opencpn-sglock-arm64`, which autoremove
+  wanted and which are decisions rather than garbage. Kept
+  `/root/.cache/node-gyp`; 110 MB is a poor trade for the ability to rebuild a
+  native module without a network. Verified after: all six services up, `can0`
+  up, running kernel's modules intact, module resolution clean.
 
 ## Date unknown
 - Cleaned fuel filter.
