@@ -15,24 +15,34 @@ logged in `maintenance/log.md`.
 
 ## Remote SSH access
 
-rpi-connect gives browser-based screen/shell access but has been
-unreliable, and its shell doesn't tunnel plain `ssh` — no good for things
-like a Claude Code session. Tailscale is the primary path: normal `ssh`
-over a WireGuard mesh, no port forwarding, no public exposure.
+Connect to the boat:
 
-**One-time setup on a new host:**
+```bash
+ssh pi@symphony-pi
+```
+
+Attach to the resident Claude session once you're on:
+
+```bash
+tmux attach -t claude
+```
+
+`Ctrl-b` then `d` detaches and leaves it running — see "The resident Claude
+session on the boat Pi".
+
+Tailscale carries this: plain `ssh` over a WireGuard mesh, no port forwarding,
+no public exposure. rpi-connect's browser shell can't tunnel `ssh`, so it's no
+use for a Claude Code session.
+
+**Adding a host to the tailnet** (substitute its name for `symphony-pi`):
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up --ssh --hostname=<host>
+sudo tailscale up --ssh --hostname=symphony-pi
 ```
 
-Follow the printed login URL to join the tailnet.
-
-*Verify:* `tailscale status` lists the host; `ssh pi@<hostname>` from
-another device on the tailnet connects.
-
-Symphony's Pi is already on the tailnet as `symphony-pi`.
+Follow the printed login URL. *Verify:* `tailscale status` lists it, and
+`ssh pi@symphony-pi` connects from another device on the tailnet.
 
 ## Bringing up a host
 
