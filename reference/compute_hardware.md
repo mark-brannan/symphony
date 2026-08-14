@@ -33,25 +33,37 @@ base board has no onboard supply and can't be.) So bus power and computer
 power are the same thing — anything that drops the N2K bus drops the Pi,
 with no buffer and no orderly shutdown.
 
-### There is no GNSS receiver attached
+### GNSS arrives over NMEA 2000, and nothing on the Pi reads it
 
-Nothing on this box produces a real position or a real GPS time. Measured
-2026-08-13:
+The position and time are on the bus. Nothing on this box is consuming them.
+Measured 2026-08-13:
 
-- `gpsd` runs with `DEVICES="/dev/ttyOP_gps"`, and that device does not
-  exist. Neither does any other serial or USB device — `/dev/serial/by-id`,
-  `/dev/ttyUSB*`, `/dev/ttyACM*` and `/dev/ttyOP_*` are all absent.
-- `gpspipe -w` reports `"devices":[]`, and `ntpshmmon` produces no samples,
-  so the NTP shared-memory segments `gpsd` would publish into stay empty.
-- `navigation.position` in SignalK has `$source: signalk-fixed-position` — a
-  plugin emitting a fixed dock coordinate, not a fix.
+- A GNSS device at N2K source address `0x02` publishes continuously:
+  `129025` Position Rapid Update, `129026` COG & SOG, `129029` GNSS Position
+  Data, `129539` DOPs, `129540` Satellites in View, and `126992` System Time.
+  In one 12-second sample that was 58, 25, 42, 7, 151 and 7 frames.
+- Decoding a `129025` frame off the wire gives 47.657794, -122.377303, and
+  the last digit moves between frames — a live fix, not a stored value.
+- `settings.json` has **zero** `pipedProviders`. SignalK has no NMEA 2000
+  input configured at all, so none of the above reaches it.
+- `navigation.position` therefore reads `$source: signalk-fixed-position`, a
+  plugin emitting a fixed dock coordinate. It happens to sit about two metres
+  from the real fix, which is why this went unnoticed.
 
-`can0` is up and carrying NMEA 2000 traffic, so the bus itself is alive; the
-GPS is simply not part of it, or not reporting. This matters twice over.
-Chartplotting and AIS aside, it is why chrony's `refclock SHM 2` sits
-unreachable and the clock depends entirely on an internet connection — see
-`host/chrony-gpsd.conf`. Offline, this boat's time drifts with nothing to
-correct it and no RTC to fall back on.
+There is no *serial* GPS, which is a different statement: `gpsd` runs with
+`DEVICES="/dev/ttyOP_gps"` and that device does not exist, nor does any other
+serial or USB device (`/dev/serial/by-id`, `/dev/ttyUSB*`, `/dev/ttyACM*`,
+`/dev/ttyOP_*` are all absent). `gpspipe -w` reports `"devices":[]` and
+`ntpshmmon` produces no samples.
+
+That distinction is the trap. `host/chrony-gpsd.conf` points chrony at the
+NTP shared-memory segments gpsd would publish into, and chrony's `GPS`
+refclock consequently sits at Reach 0 — it has never received a sample. The
+drop-in is inert rather than harmful; chrony falls back to internet NTP and
+tracks it at stratum 3. But it was written for a serial receiver this boat
+does not have, and the GPS time it was reaching for is sitting on the N2K bus
+in `126992` and `129029`. Offline, the clock still has nothing to correct it
+and no RTC to fall back on.
 
 ### Display
 
