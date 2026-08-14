@@ -172,34 +172,33 @@ This file remains authoritative for the SignalK / IoT section below.
 - ~~Fork `signalk-fixed-position` to debounce its writes.~~ Considered and rejected 2026-08-13, keeping the note because the write rate is real and will get re-discovered. Measured: 20 rewrites in 20 one-second samples, roughly 86,000 disk writes a day. The plugin subscribes to `navigation.position` at a hardcoded 1000 ms period and calls `savePluginOptions` on every delta, so its stored fallback position is persisted at GPS rate. Its `interval` setting does not affect this. Note this cost did not exist until the N2K input was connected — with no real GPS there was nothing to persist. The plugin's behaviour is wanted, and the write rate does not justify forking it: at roughly 350 MB/day it is 3-9% of the box's ~10 GB/day total, so a fork would buy a few percent of SD life in exchange for maintaining a second fork forever. The count is what makes it sound alarming; the volume is what matters. Stays enabled. If it ever gets fixed, an upstream issue is the right route, not a fork.
 - Get GPS time off the N2K bus instead of a serial receiver that isn't there. `126992` System Time and `129029` GNSS Position Data both carry it, and chrony's current `GPS` refclock has never received a sample because it is fed from `gpsd`, which has no device. Depends on the N2K input item above. Doesn't remove the case for an RTC — a GNSS clock needs a fix and the bus powered, so it doesn't cover a cold offline boot.
 - Fit a DS3231 RTC to the boat Pi. It has no real-time clock, so the box boots with a wrong clock and stays wrong whenever it's offline — which breaks TLS validity, OIDC token windows and every timestamp written to InfluxDB. The PiCAN-M exposes a Qwiic (I2C) connector, and `dtoverlay=i2c-rtc,ds3231` plus a udev rule is the whole software side (`tkurki/marinepi-provisioning` role `rtc` has it). Cheap, independent of the GNSS question, and it makes the offline case survivable rather than merely detectable.
-- **For the dev-box session:** run `scripts/signalk_plugin_census.py` against the
-  container and commit the output, so the two SignalK installs can be diffed
-  instead of argued about. The boat's census is done. Command:
-  `docker logs signalk-server 2>&1 | python3 scripts/signalk_plugin_census.py --url http://localhost:3000 --token "$TOK" --access-log - --out census-container.json`
-  — get `$TOK` from `POST /signalk/v1/auth/login`. Read the script's docstring
-  first; it explains why the obvious version of this census is wrong. The short
-  form: a plugin publishing nothing under its own id is usually fine, because
-  plugins rename their `$source` (`bt-sensors-plugin-sk` publishes as "House
-  Battery 1"), or they're webapps, exporters, or actors whose product is an
-  effect rather than a value. Only the `unmatched` bucket is a question, and
-  even that is a question rather than a verdict. On the boat it came to 6 of
-  105, five of which the unattributed-sources list explains.
-  What's wanted back: the container census committed, plus which of the 15
-  plugins the container runs and the boat doesn't are **inert** there — which is
-  what the census can actually show. It cannot show which ones Mark wants, and
-  shouldn't be asked to: webapp-load counts run near zero on the dev box because
-  nobody routinely opens its webapps, and loads are positive evidence only. The
-  15 are `open-meteo`, `signalk-checklist`, `signalk-container`,
-  `signalk-crows-nest`, `signalk-doctor`, `signalk-dsc`, `signalk-grafana`,
-  `signalk-questdb`, `signalk-usage`, `signalk-windy-plugin`,
-  `signalk-marinetraffic-public`, `signalk-mob-notifier`,
-  `signalk-basic-tide-widgets`, `signalk-restricted-areas`, `signalk-rpi-stats`.
-  On container-side orphans: don't take a number from this file. `noaa-sonar-chart-provider`
-  and `vedirect-signalk` were counted only across the 17 configs the repo has and
-  the boat doesn't, not across all 55 — a full sweep finds more, and some of
-  those are SignalK 2.x built-ins rather than orphans (`course-provider` ships
-  with the server). Resolving built-in from orphan is exactly what the census
-  does, by asking the server what it actually loaded. Run it first.
+- ~~Census the dev container's SignalK install.~~ Done 2026-08-14,
+  `census-container.json`. Two results settled, everything else from that pass
+  was inconclusive and deliberately not written down.
+  **Container-side orphans: none.** All four candidates resolve. `signalk-noaa-sonar-charts`
+  and `@signalk/vedirect-serial-usb` are already in `signalk/package.json` under
+  their package names rather than their plugin ids; `@signalk/course-provider`
+  and `@signalk/app-dock` ship inside `signalk-server` itself. Nothing to install
+  and nothing to add — declaring a bundled package would pin a version against
+  the one the server already carries. Note the id-vs-package trap for whoever
+  compares these files next: a config is named for the plugin id, the manifest
+  for the npm package, and they differ often enough to manufacture phantom
+  orphans in both directions.
+  **Webapp-load counts do not measure people.** Eight webapps sit at exactly 12,
+  and `signalk-doctor`/`signalk-questdb`/`signalk-container`/`signalk-crows-nest`
+  are hit together in fixed ratios at repeating intervals. Something enumerates
+  them; a high count is not evidence of use. The column is still useful as
+  positive evidence for a *single* webapp with an irregular burst, and useless
+  for ranking.
+- Don't sync `signalk-questdb` to the boat. It has never worked on the dev box:
+  QuestDB holds zero tables, and the plugin is configured with
+  `questdbHost: 127.0.0.1`, which from inside the SignalK container addresses
+  that container rather than QuestDB. They aren't on a shared network either —
+  `sk-signalk-questdb` is on `symphony-net`, `signalk-server` on
+  `symphony_symphony-net`. Both measured 2026-08-14. Fixing it is a dev-box
+  question; it stays off the boat until it demonstrably works somewhere, and
+  even then it is a second time-series store beside InfluxDB on a Pi already
+  tight on memory and SD writes.
 - Rotate the shared `captain` password, and split it in two. `signalk_captain_password`
   and `influxdb_captain_password` in `secrets/symphony.sops.yaml` hold the *same
   value* — verified 2026-08-14 by decrypting both. Two keys reading as two
