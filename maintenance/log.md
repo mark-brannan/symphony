@@ -253,6 +253,17 @@
   `~/.npm` alone for now — the cache earns its keep during a plugin install.
 - Confirmed all six expected services (SignalK, InfluxDB, Grafana, Caddy,
   Dex, Telegraf) are enabled and active.
+- Checked how current the plugins actually are. `npm outdated` reports
+  Current == Wanted for every package, so the rebuild left the boat fully up
+  to date within its declared version ranges. Nine plugins have a newer major
+  available; those are a decision rather than maintenance, and two of them are
+  the anchor alarm and the autopilot, so they aren't something to land while
+  nobody is aboard. Listed in `priorities.md`.
+- Established that `signalk-healthcheck` cannot send mail and never could.
+  Its `mail` config has one key, `secure: false`, while `sendEmail` is on with
+  an address set, and it falls back to `127.0.0.1:587` where nothing listens.
+  Every alarm it has raised has gone nowhere. The boat currently has no
+  outbound alerting at all.
 
 ## Date unknown
 - Cleaned fuel filter.
