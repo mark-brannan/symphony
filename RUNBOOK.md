@@ -852,15 +852,21 @@ scripts/provision_influxdb.sh
 shown once, at creation. To rotate:
 
 ```bash
-# find the old authorization's id
-curl -H "Authorization: Token $(sops --decrypt --extract '["influxdb_operator_token"]' secrets/symphony.sops.yaml)" \
-  "http://localhost:8086/api/v2/authorizations?orgID=<org>"
+export INFLUX_TOKEN=$(sops --decrypt --extract '["influxdb_operator_token"]' secrets/symphony.sops.yaml)
 
-curl -X DELETE -H "Authorization: Token <operator_token>" \
-  "http://localhost:8086/api/v2/authorizations/<old_id>"
+# list authorizations and note the id you want gone
+curl -s -H "Authorization: Token $INFLUX_TOKEN" \
+  http://localhost:8086/api/v2/authorizations |
+  python3 -c 'import sys,json;[print(a["id"], a.get("description","")) for a in json.load(sys.stdin)["authorizations"]]'
+
+curl -X DELETE -H "Authorization: Token $INFLUX_TOKEN" \
+  http://localhost:8086/api/v2/authorizations/<id>
 
 scripts/provision_influxdb.sh   # mints a fresh one now that the old one's gone
 ```
+
+Don't pass `?orgID=` a name — it takes the org's hex id, and listing without it
+returns everything this token can see anyway.
 
 Then update `secrets/symphony.sops.yaml` and (for the SignalK token)
 `signalk/plugin-config-data/signalk-to-influxdb2.json`.
@@ -1509,16 +1515,22 @@ their plaintext-on-disk copies, which losing the key does not touch — only the
 git-stored encrypted copies become unreadable.
 
 One exception. `influxdb_operator_token` has no plaintext copy anywhere, being
-used only by provisioning scripts. Sign in to InfluxDB with
-`influxdb_init_username` / `_password` — a real login, not a token — and mint a
-replacement:
+used only by provisioning scripts. Recover it with a *session*, not a token —
+username and password are the only credential that still works when every
+token is lost:
 
 ```bash
-curl -X POST http://localhost:8086/api/v2/authorizations \
-  -H "Authorization: Token $SESSION_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"orgID":"<org>","permissions":[{"action":"write","resource":{"type":"authorizations"}}]}'
+curl -s -c /tmp/influx-session -X POST http://localhost:8086/api/v2/signin \
+  -u "$DOCKER_INFLUXDB_INIT_USERNAME:$DOCKER_INFLUXDB_INIT_PASSWORD"
+
+curl -s -b /tmp/influx-session http://localhost:8086/api/v2/orgs |
+  python3 -c 'import sys,json;[print(o["name"], o["id"]) for o in json.load(sys.stdin)["orgs"]]'
 ```
+
+Then mint the replacement in the UI at `http://localhost:8086` — an
+all-access token is a long permission list to hand-write, and the UI does it in
+two clicks. Put the new value in `secrets/symphony.sops.yaml`, then
+`rm -f /tmp/influx-session` and run `scripts/provision_influxdb.sh`.
 
 Last resort: `~/symphony-backups/` holds a plaintext snapshot of the live
 SignalK config from 2026-08-07, deliberately outside the repo. It is a full set
