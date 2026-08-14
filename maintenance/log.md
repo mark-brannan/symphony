@@ -483,6 +483,30 @@
   it reaches a remote. Verified afterwards with a full-repo run: passed. Note
   the group only takes effect for new logins, so a session open across the
   change has to use `sg docker -c` or log out first.
+- Disabled `signalk-gpio-beeper-plugin` on the boat. It was enabled with an
+  empty configuration and throwing `Cannot read properties of undefined
+  (reading 'forEach')` on every subscription callback. The repo's copy has the
+  real settings — `gpioPin` 17, `gpioChip`, `duration`, `interval` — but is
+  itself disabled, so neither copy worked alone and the union of the two would
+  have. Left disabled deliberately rather than merged: what goes on the GPIO
+  header isn't decided, and enabling it means a beeper that actually beeps.
+  Applied over the API, so no server restart.
+- Started reconciling the boat's SignalK install against the repo's, and the
+  first useful result was that the framing was wrong. These are two live
+  installs that have drifted — the boat natively, the dev box in a container —
+  not a repo and a deployment. 15 of the 17 configs that exist only in the repo
+  are in `signalk/package.json`, so the container runs them today and the boat
+  doesn't. Of the 34 that exist only on the boat, four have no plugin behind
+  them at all. Wrote `scripts/signalk_plugin_census.py` to inventory either
+  server the same way so the two can be diffed instead of argued about.
+  The census also killed a tempting mistake: attributing data-model paths to
+  the plugin id that published them says almost nothing, because plugins rename
+  their `$source` at will. `bt-sensors-plugin-sk` publishes as "House Battery 1"
+  and `i2c-reader` as "OpenPlotter.I2C.BME680/688-1"; a first cut scored both as
+  idle while they were working perfectly. The script now separates webapps and
+  outward-writing exporters, for which silence is correct, and prints the
+  unexplained source names beside the unmatched plugins so the pairing is done
+  by eye rather than guessed.
 
 ## Date unknown
 - Cleaned fuel filter.
