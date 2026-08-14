@@ -58,7 +58,8 @@
         "params": {
           "name": "House Battery 1",
           "sensorClass": "JBDBMS",
-          "batteryID": "0146"
+          "batteryID": "0146",
+          "pollFreq": 60
         }
       },
       {
@@ -68,7 +69,8 @@
         "params": {
           "name": "House Battery 2",
           "sensorClass": "JBDBMS",
-          "batteryID": "5C90"
+          "batteryID": "5C90",
+          "pollFreq": 60
         }
       }
     ]
