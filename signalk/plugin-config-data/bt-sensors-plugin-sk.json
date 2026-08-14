@@ -60,6 +60,24 @@
           "sensorClass": "JBDBMS",
           "batteryID": "0146",
           "pollFreq": 60
+        },
+        "paths": {
+          "voltage": "electrical.batteries.0146.voltage",
+          "current": "electrical.batteries.0146.current",
+          "SOC": "electrical.batteries.0146.capacity.stateOfCharge",
+          "capacity": "electrical.batteries.0146.capacity.actual",
+          "remainingCapacity": "electrical.batteries.0146.capacity.remaining",
+          "timeRemaining": "electrical.batteries.0146.capacity.timeRemaining",
+          "cycles": "electrical.batteries.0146.cycles",
+          "temp0": "electrical.batteries.0146.temperature",
+          "protectionStatus": "electrical.batteries.0146.protectionStatus",
+          "FETCharging": "electrical.batteries.0146.FETStatus.charging",
+          "FETDischarging": "electrical.batteries.0146.FETStatus.discharging",
+          "cell0Voltage": "electrical.batteries.0146.cell0.voltage",
+          "cell1Voltage": "electrical.batteries.0146.cell1.voltage",
+          "cell2Voltage": "electrical.batteries.0146.cell2.voltage",
+          "cell3Voltage": "electrical.batteries.0146.cell3.voltage",
+          "RSSI": "sensors.houseBattery1.signalStrength"
         }
       },
       {
@@ -71,6 +89,24 @@
           "sensorClass": "JBDBMS",
           "batteryID": "5C90",
           "pollFreq": 60
+        },
+        "paths": {
+          "voltage": "electrical.batteries.5C90.voltage",
+          "current": "electrical.batteries.5C90.current",
+          "SOC": "electrical.batteries.5C90.capacity.stateOfCharge",
+          "capacity": "electrical.batteries.5C90.capacity.actual",
+          "remainingCapacity": "electrical.batteries.5C90.capacity.remaining",
+          "timeRemaining": "electrical.batteries.5C90.capacity.timeRemaining",
+          "cycles": "electrical.batteries.5C90.cycles",
+          "temp0": "electrical.batteries.5C90.temperature",
+          "protectionStatus": "electrical.batteries.5C90.protectionStatus",
+          "FETCharging": "electrical.batteries.5C90.FETStatus.charging",
+          "FETDischarging": "electrical.batteries.5C90.FETStatus.discharging",
+          "cell0Voltage": "electrical.batteries.5C90.cell0.voltage",
+          "cell1Voltage": "electrical.batteries.5C90.cell1.voltage",
+          "cell2Voltage": "electrical.batteries.5C90.cell2.voltage",
+          "cell3Voltage": "electrical.batteries.5C90.cell3.voltage",
+          "RSSI": "sensors.houseBattery2.signalStrength"
         }
       }
     ]
