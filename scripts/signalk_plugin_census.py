@@ -40,6 +40,7 @@ import argparse
 import collections
 import datetime
 import json
+import re
 import sys
 import urllib.request
 
@@ -87,13 +88,51 @@ def self_vessel(model):
 
 
 def classify(pid, keywords, published):
-    if published:
-        return 'publishing'
+    # Webapps are checked before publishing on purpose. Publishing paths is not
+    # what a webapp is for, so it is the wrong question to ask of one either
+    # way -- a webapp that happens to publish is still judged on whether anyone
+    # opens it, which is what --access-log measures.
     if 'signalk-webapp' in keywords:
         return 'webapp'
+    if published:
+        return 'publishing'
     if any(h in pid.lower() for h in EXPORTER_HINTS):
         return 'exporter'
     return 'unmatched'
+
+
+# Matches the request lines SignalK's express logger emits, scoped
+# (@meri-imperiumi/signalk-logbook) and unscoped (galadrielmap_sk) alike.
+WEBAPP_REQ = re.compile(r'GET /(@[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|[A-Za-z0-9_.-]+)')
+
+# Request prefixes that are the server itself, not a webapp being opened.
+NOT_A_WEBAPP = ('skServer', 'signalk', 'plugins', 'favicon.ico', 'data',
+                'admin', 'apple-touch-icon', 'manifest.json', 'robots.txt')
+
+
+def webapp_loads(stream):
+    """Count webapp opens from a stream of server request-log lines.
+
+    Deliberately reads a stream rather than calling journalctl: the boat runs
+    SignalK under systemd and the dev box runs it in a container, so the caller
+    pipes in whichever of these applies --
+
+        journalctl -u signalk --since '7 days ago' | ... --access-log -
+        docker logs signalk 2>&1 | ... --access-log -
+
+    Read the result as positive evidence only. A webapp with loads is being
+    used. A webapp with none is unproven, not unused: the count only covers
+    however far back the log happens to reach, which on the boat is whatever
+    journald has not yet rotated away.
+    """
+    counts = collections.Counter()
+    for line in stream:
+        for m in WEBAPP_REQ.finditer(line):
+            name = m.group(1)
+            if name.split('/')[0] in NOT_A_WEBAPP:
+                continue
+            counts[name] += 1
+    return counts
 
 
 def main():
@@ -104,7 +143,15 @@ def main():
     ap.add_argument('--out', help='write JSON census here (default: stdout summary only)')
     ap.add_argument('--model', help='read a saved data model instead of fetching')
     ap.add_argument('--plugins', help='read a saved /skServer/plugins instead of fetching')
+    ap.add_argument('--access-log', metavar='FILE',
+                    help="server request log to count webapp opens from; '-' for stdin. "
+                         "Positive evidence only -- see webapp_loads().")
     args = ap.parse_args()
+
+    loads = collections.Counter()
+    if args.access_log:
+        fh = sys.stdin if args.access_log == '-' else open(args.access_log, errors='ignore')
+        loads = webapp_loads(fh)
 
     model = (json.load(open(args.model)) if args.model
              else api(args.url, args.token, '/signalk/v1/api/'))
@@ -134,6 +181,7 @@ def main():
             'paths_published': published,
             'status_message': (p.get('statusMessage') or '').strip() or None,
             'bucket': classify(pid, keywords, published) if data.get('enabled') else 'disabled',
+            'webapp_loads': loads.get(p.get('packageName') or pid) or loads.get(pid) or 0,
         }
 
     explained = {s for s in paths_by_source
@@ -157,6 +205,13 @@ def main():
     for pid, v in sorted(census.items()):
         if v['bucket'] == 'unmatched':
             print("  %-36s configured=%s" % (pid, v['configured_values']))
+    if args.access_log:
+        print("\nwebapps, by opens in the supplied log (absence is unproven, not unused):")
+        apps = sorted(((v['webapp_loads'], k) for k, v in census.items() if v['is_webapp']),
+                      reverse=True)
+        for n, pid in apps:
+            print("  %-40s %s" % (pid, n or '-- none seen --'))
+
     print("\nsource names no plugin id explains -- renamed publishers hide here:")
     for s in unattributed[:25]:
         print("  %-52s %4d paths" % (s, paths_by_source[s]))
