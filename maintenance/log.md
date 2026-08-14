@@ -474,6 +474,15 @@
   `/root/.cache/node-gyp`; 110 MB is a poor trade for the ability to rebuild a
   native module without a network. Verified after: all six services up, `can0`
   up, running kernel's modules intact, module resolution clean.
+- Added `pi` to the `docker` group so pre-commit's secret scanner can actually
+  run on the boat Pi. The hook is the `gitleaks-docker` variant, and without
+  socket access it failed to start on every local commit — which looks like a
+  passing repo but means nothing was scanned. CI was still catching it on push,
+  so this was a gap in the fast feedback rather than in the enforcement
+  boundary, but the whole point of the local hook is to catch a secret before
+  it reaches a remote. Verified afterwards with a full-repo run: passed. Note
+  the group only takes effect for new logins, so a session open across the
+  change has to use `sg docker -c` or log out first.
 
 ## Date unknown
 - Cleaned fuel filter.
