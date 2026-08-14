@@ -267,6 +267,22 @@ This file remains authoritative for the SignalK / IoT section below.
     argument against an audible alarm.
   Open: whether to reinstate, and if so with what config. Its removed config
   is recoverable from git history.
+- Fix `better-sqlite3` so `signalk-polar` can run. It is stuck at 7.6.2, which
+  does not build on Node 22 — the release predates the removal of
+  `v8::AccessorSignature` and `v8::Object::CreationContext`, so compilation
+  fails and no `.node` artifact exists. `signalk-polar` is the only thing on the
+  boat that needs it; **postgsail does not**, contrary to what this file and the
+  log said before 2026-08-14. The fix is a newer better-sqlite3, but polar pins
+  `^7.6.2`, so it needs either an upstream bump or an override — decide which
+  before installing anything, and remember npm rolls the whole tree back on a
+  build failure here.
+- Confirm PostgSail is actually receiving. The plugin is enabled and configured
+  against the hosted `api.openplotter.cloud`, which answers 200 from the boat,
+  but the only evidence visible from this side is an hourly "removing metrics
+  from buffer" line, which is the plugin finding nothing to delete rather than a
+  failure. Checking whether voyages are landing needs Mark's PostgSail account.
+  If it is working, the saillogger question mostly answers itself: postgsail is
+  free and already running, saillogger is $7.99/month.
 - Boat-side orphan configs, re-derived 2026-08-14 the only way that works:
   **ask the server which plugin ids it actually loaded** (`/skServer/plugins`),
   rather than inferring from package names or config filenames. Four are real —

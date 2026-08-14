@@ -507,6 +507,33 @@
   outward-writing exporters, for which silence is correct, and prints the
   unexplained source names beside the unmatched plugins so the pairing is done
   by eye rather than guessed.
+- Deleted `signalk-to-influxdb.json` from the boat. It configures the InfluxDB
+  *1.x* plugin — `username`, `password`, `database` are the 1.x write API — and
+  the box runs InfluxDB 2.8.0 with `signalk-to-influxdb2` and
+  `-v2-buffering` installed instead. The plugin itself was already gone and the
+  config already disabled. Deleting it also removed a stale cleartext password
+  from disk. The repo never carried this file.
+- Evaluated the two voyage-logging plugins, and corrected a claim this session
+  had been repeating. **`signalk-postgsail` is not blocked by `better-sqlite3`.**
+  It declares no dependencies at all; `signalk-polar` is the only thing here
+  that needs better-sqlite3, and that is still unbuilt on Node 22. postgsail is
+  enabled, loaded, and pointed at the *hosted* PostgSail at
+  `api.openplotter.cloud` with a token — which also means it is not the
+  self-hosted-versus-SaaS contrast it looked like. That endpoint answers 200,
+  so its hourly "removing metrics from buffer" line is not a connectivity
+  failure; it is the plugin finding nothing to delete after a submit. Whether
+  data is actually landing needs Mark's account to confirm.
+  `signalk-saillogger` costs **USD $7.99/month** after a 45-day trial, monthly
+  billing only. It is the only plugin in this stack that ships its own passing
+  test suite, and it carries critical npm audit vulnerabilities. Not installed
+  here; its orphaned config holds only a `uuid`.
+- `signalk-tide-watch` is not worth reconnecting the depth transducer for. It
+  fails the SignalK registry's *Loads* check outright — "plugin constructor did
+  not return a valid object" — and *Activates* with it, scoring 20, the lowest
+  in the stack. The question of whether it would add noise to depth data does
+  not arise, because it does not start. Its config on the boat is detailed and
+  was clearly set up with care at some point, so the plugin regressed rather
+  than the setup being wrong. Left disabled, config kept.
 
 ## Date unknown
 - Cleaned fuel filter.
