@@ -24,7 +24,7 @@ INSTALL=(
 	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
-	"chrony-gpsd.conf:/etc/chrony/conf.d/gpsd.conf:0644:root:root"
+	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
 	"telegraf-rpi-health:/usr/local/bin/telegraf-rpi-health:0755:root:root"
 	"boat-heartbeat:/usr/local/sbin/boat-heartbeat:0755:root:root"
 	"boat-heartbeat.service:/etc/systemd/system/boat-heartbeat.service:0644:root:root"

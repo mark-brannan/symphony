@@ -201,30 +201,24 @@ Expect `Watchdog running with a hardware timeout of 15s` and
 `RuntimeWatchdogUSec=15s`. It won't catch a wedged service while systemd
 keeps running — that needs a separate check.
 
-`chrony-gpsd.conf` points chrony at the GPS time gpsd already publishes in
-shared memory. The installer places the file but does not install packages —
-do that first, or the config sits there inert:
+`chrony.conf` sets the clock policy: step by any amount at any time, and serve
+time to the boat's own networks. chrony replaces `systemd-timesyncd`, which
+`apt` removes on install. The installer places config but does not install
+packages — do that first, or it sits there inert:
 
 ```bash
 sudo apt install chrony
 sudo host/install.sh
 ```
 
-*Verify:* `chronyc sources` lists `GPS` and it's reachable (`^*` or `^+`, not
-`^?`). If it stays `^?`, the segment number is wrong — gpsd's `NTP0`/`NTP1`
-are root-only and chronyd runs as `_chrony`, so try `SHM 2` vs `SHM 3` and
-re-check. `ipcs -m` shows which segments exist.
+*Verify:* `chronyc tracking` names a reference and reports a small offset, and
+`chronyc sources` shows one peer selected with `^*`.
 
-Before chasing the segment number, check that gpsd has a device at all:
-
-```bash
-gpspipe -w -n 2 | grep -o '"devices":\[[^]]*\]'
-ntpshmmon -n 3
-```
-
-An empty `devices` list or no `ntpshmmon` samples means there is no GPS to
-read and no segment number will help — see `reference/compute_hardware.md` →
-"There is no GNSS receiver attached".
+Don't add a GPS refclock. The usual `refclock SHM` recipe reads gpsd's shared
+memory, and this boat's GNSS is on NMEA 2000 rather than a serial port, so
+those segments are never written — `ntpshmmon` returns no samples no matter
+which segment number you pick. See `reference/compute_hardware.md` → "GNSS
+arrives on NMEA 2000, and SignalK isn't reading it".
 
 Don't add `rtcsync`: the Pi 4B has no RTC, which is the reason `makestep 1.0
 -1` is there. Without it chronyd slews rather than steps, and a clock that
