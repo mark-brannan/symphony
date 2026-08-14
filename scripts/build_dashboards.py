@@ -716,9 +716,14 @@ WEATHER = [
         ("Cloud cover", "environment.outside.cloudCover", CONV_RATIO_TO_PCT),
     ], U_PCT, w=12, h=8, decimals=0, fill=0),
 
-    ROW("Forecast, tide and sky"),
-    TEXTVAL("Today", "environment.forecast.today.detailedForecast", w=12, h=6),
-    TEXTVAL("Tonight", "environment.forecast.tonight.detailedForecast", w=12, h=6),
+    # No forecast-text panels here. The day-named `environment.forecast.*`
+    # tree (today.detailedForecast, tonight.shortForecast, and the rest) came
+    # from signalk-noaa-weather, which is disabled -- those paths are frozen at
+    # whatever they last held, and a stat panel would show stale prose with no
+    # indication it had stopped updating. The numeric `environment.forecast.*`
+    # paths from the open-meteo provider share the same prefix; until the two
+    # are told apart by source tag, nothing under that prefix is safe to plot.
+    ROW("Tide and sky"),
     STAT("Tide now", "environment.tide.heightNow", CONV_M_TO_FT, U_FT,
          w=3, h=5, decimals=1),
     STAT("Next high", "environment.tide.heightHigh", CONV_M_TO_FT, U_FT,

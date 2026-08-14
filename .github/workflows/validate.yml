@@ -67,6 +67,22 @@ jobs:
           python-version: "3.x"
       - run: python3 -m py_compile scripts/*.py
 
+  # The Grafana dashboards are generated (scripts/build_dashboards.py) and the
+  # output is committed, so the two can drift -- most easily by someone
+  # exporting a UI edit back into the repo. This asserts they haven't, and
+  # checks the things a JSON parser can't see: datasource uids that
+  # provisioning actually creates, unit labels backed by a matching conversion
+  # in the query, and panels that don't overlap. A dashboard is wrong silently;
+  # nothing about a blank or mis-scaled panel raises an error at runtime.
+  dashboards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 scripts/test_dashboards.py
+
   # Asserts .sops.yaml and .gitattributes still describe the same set of
   # files. A file with a sops rule but no filter entry commits as PLAINTEXT
   # and nothing else would notice.
