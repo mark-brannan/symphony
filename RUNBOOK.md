@@ -201,6 +201,24 @@ Expect `Watchdog running with a hardware timeout of 15s` and
 `RuntimeWatchdogUSec=15s`. It won't catch a wedged service while systemd
 keeps running — that needs a separate check.
 
+`chrony-gpsd.conf` points chrony at the GPS time gpsd already publishes in
+shared memory. The installer places the file but does not install packages —
+do that first, or the config sits there inert:
+
+```bash
+sudo apt install chrony
+sudo host/install.sh
+```
+
+*Verify:* `chronyc sources` lists `GPS` and it's reachable (`^*` or `^+`, not
+`^?`). If it stays `^?`, the segment number is wrong — gpsd's `NTP0`/`NTP1`
+are root-only and chronyd runs as `_chrony`, so try `SHM 2` vs `SHM 3` and
+re-check. `ipcs -m` shows which segments exist.
+
+Don't add `rtcsync`: the Pi 4B has no RTC, which is the reason `makestep 1.0
+-1` is there. Without it chronyd slews rather than steps, and a clock that
+booted years wrong stays wrong for hours.
+
 `nightly-reboot` is still installed, but its line in root's crontab is
 commented out. It rebooted the Pi at 04:00 **unless** an `npm` or `node-gyp`
 process was running. Keep that guard if you ever turn it back on, and don't

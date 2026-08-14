@@ -24,6 +24,14 @@ INSTALL=(
 	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
+	"chrony-gpsd.conf:/etc/chrony/conf.d/gpsd.conf:0644:root:root"
+)
+
+# System services to restart after their config lands. Skipped when the unit
+# isn't present, so this file can carry config for a package that hasn't been
+# installed yet.
+RESTART=(
+	"chrony"
 )
 
 # Root cron entries this installer owns. Matched for removal by the command
@@ -65,6 +73,25 @@ if [ "${reexec:-}" = yes ]; then
 	systemctl daemon-reexec
 	systemctl show -p RuntimeWatchdogUSec -p RebootWatchdogUSec | sed 's/^/  /'
 fi
+
+# Services whose config lives in host/. A dropped-in config file does nothing
+# until its daemon rereads it, and skipping this is how a change looks applied
+# while the running service still has the old settings. Units that aren't
+# installed are skipped, not an error — this installer places config, it does
+# not install packages. Prerequisites are in RUNBOOK.
+for unit in "${RESTART[@]:-}"; do
+	[ -n "$unit" ] || continue
+	if [ -z "${restart_header:-}" ]; then
+		echo "== service restarts =="
+		restart_header=done
+	fi
+	if systemctl cat "$unit" >/dev/null 2>&1; then
+		systemctl restart "$unit"
+		echo "  $unit  ($(systemctl is-active "$unit" || true))"
+	else
+		echo "  $unit  not installed, skipped"
+	fi
+done
 
 # A systemd --user unit only runs while that user has a session, unless
 # lingering is on. Enabling it here is what lets the resident Claude session
