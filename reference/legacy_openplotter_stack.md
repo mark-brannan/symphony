@@ -158,6 +158,32 @@ SignalK's own app store starts `npm` without knowing whether one is already
 running, so a manual install and a plugin install can write the same tree at
 once.
 
+**A reboot loop here is the watchdog, not a crash.** The BCM2835 hardware
+watchdog runs with `RuntimeWatchdogUSec=15s`. If the box gets starved enough
+that systemd can't pet `/dev/watchdog0` inside 15 seconds, the board resets —
+no panic, no OOM message, no clean shutdown record, the log just stops
+mid-stream. On 2026-08-13 it reset at 16:32 and again at 17:06, about 33
+minutes apart.
+
+Tell it apart from the alternatives before chasing anything else:
+`vcgencmd get_throttled` returning `0x0` rules out the undervoltage that
+usually explains a rebooting Pi, and `vcgencmd measure_temp` rules out
+thermal. `last -x shutdown` is the useful one — an orderly reboot leaves a
+record there and a watchdog reset does not.
+
+What starvation looks like in the last minutes before a reset: telegraf
+logging `context deadline exceeded` while listing systemd units, pypilot
+`running too _slowly_`, caddy taking seventeen seconds to resolve
+`localhost`, InfluxDB write timeouts. Those are symptoms of a box that can't
+schedule, not four separate faults.
+
+The 2026-08-13 cause was a notification storm. `signalk-noaa-weather` was
+configured for all of Washington state and raised a dozen NWS alerts, each
+with sound; OpenPlotter spawns a pair of Python players plus a VLC per
+notification. `signalk-healthcheck`'s low-memory alarm then joined in, and
+playing that alarm consumed the memory it was complaining about. Disabling
+`signalk-noaa-weather` broke it.
+
 **`better-sqlite3@7.6.2` cannot build on this box, and it sinks a plain
 `npm install`.** `signalk-polar` and `signalk-postgsail` both depend on it. The
 pinned version predates Node 22 and its source still references

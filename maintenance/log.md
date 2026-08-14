@@ -221,8 +221,26 @@
   `signalk-solar-forecast` and `signalk-to-influxdb-v2-buffering`, both on
   unconfigured settings. `signalk-polar` and `signalk-postgsail` are the
   `better-sqlite3` casualties.
-- Left `~/.signalk/.node_modules_old` in place as the fallback. It is 1.8 GB
-  and the disk is at 84%; delete it once the new tree has proven itself.
+- Deleted `~/.signalk/.node_modules_old` and a leftover
+  `node_modules.partial-20260811-231403` once the new tree had proven itself.
+  With an `npm cache clean` earlier in the day the disk went from 89% to 76%.
+- Found the Pi resetting itself roughly every half hour. It is the hardware
+  watchdog, not a crash: no clean shutdown record, no panic, no undervoltage,
+  temperature fine. The box was too starved to pet the watchdog inside its
+  15-second timeout.
+- The starvation was a notification storm, and this repair is what surfaced
+  it. With the plugin tree working again, `signalk-noaa-weather` resumed
+  pulling NWS alerts — configured for the whole of Washington state, so a
+  dozen air-quality and fire-weather alerts for the far side of the Cascades,
+  each set to play a sound. OpenPlotter spawns two Python players and a VLC
+  per notification. `signalk-healthcheck`'s low-memory alarm then fed itself,
+  because playing it consumed the memory it was warning about.
+- Disabled `signalk-noaa-weather`. Took effect on the next reboot, which also
+  picked up the bt-sensors symlink, so the fork is now the running plugin.
+  Wrote the watchdog signature up in `reference/legacy_openplotter_stack.md`.
+- Noted `openplotter-i2c-read` crash-restarting about 15 times a minute — 305
+  restarts in one 33-minute boot. Not the cause of the resets, but constant
+  churn on a box with none to spare.
 
 ## Date unknown
 - Cleaned fuel filter.
