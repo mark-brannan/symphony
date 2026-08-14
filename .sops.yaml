@@ -73,11 +73,6 @@ creation_rules:
     key_groups:
       - age: *recipients
 
-  - path_regex: signalk/plugin-config-data/signalk-healthcheck\.json$
-    encrypted_regex: '^password$'
-    key_groups:
-      - age: *recipients
-
   - path_regex: signalk/plugin-config-data/signalk-windy-plugin\.json$
     encrypted_regex: '^key$'
     key_groups:

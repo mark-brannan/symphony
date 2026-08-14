@@ -442,6 +442,18 @@
   left the Bluetooth controller unable to complete GATT service discovery,
   which a clean reboot cleared.
 
+- Removed `signalk-healthcheck`. Its three jobs are covered better elsewhere:
+  Telegraf measures CPU, memory and disk with history and higher resolution,
+  the off-boat heartbeat carries the same numbers somewhere that survives the
+  box dying, and its own email alarms went to an SMTP host that was never
+  configured. The one thing it did uniquely — warn that a data provider had
+  gone stale — it was not doing either, being pointed at an "OpenPlotter GPSD"
+  provider that doesn't exist. Its low-memory alarm was also the one that fed
+  itself into the watchdog resets on 08-13. Removed from the boat and from the
+  repo, along with its sops stanza. The staleness idea is worth rebuilding in
+  the heartbeat rather than in a plugin that rings the boat's beeper for a full
+  disk.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.

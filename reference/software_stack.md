@@ -96,10 +96,19 @@ per-process and systemd unit state into the `symphony` InfluxDB bucket
 every sixty seconds, batched into a single write to spare the SD card.
 
 It exists because nothing else was recording the machine. SignalK's plugins
-report vessel data and `signalk-healthcheck` alarms on a CPU, memory, or
-disk threshold, but neither keeps history — so a hang or an out-of-memory
-event left nothing to look at afterwards, and diagnosis meant a trip to the
-boat.
+report vessel data and keep no history of the host, so a hang or an
+out-of-memory event left nothing to look at afterwards, and diagnosis meant a
+trip to the boat.
+
+`signalk-healthcheck` used to raise alarms on CPU, memory and disk thresholds
+and was removed on 2026-08-14. Telegraf measures the same things with history
+and higher resolution; the off-boat heartbeat carries them somewhere that
+survives the box dying; and the plugin's own alarms went to an SMTP host that
+was never configured. What it did uniquely — warn that a data provider had
+gone stale — it was no longer doing either, being configured to watch an
+"OpenPlotter GPSD" provider that does not exist. That capability is worth
+rebuilding in the heartbeat payload rather than in a plugin whose alarms ring
+the boat's beeper.
 
 Its credential is `influxdb_captain_token`, which is captain's all-access
 token rather than a scoped one. That's a stopgap: the other InfluxDB tokens
