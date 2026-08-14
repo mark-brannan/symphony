@@ -82,6 +82,22 @@ covered here.
 - When a claim can't be verified, leave it out or flag it in conversation.
   A gap is better than a confident guess.
 
+## The boat Pi's memory headroom
+- Expected state: SignalK, InfluxDB, Grafana, Caddy, Dex and Telegraf all run
+  and stay enabled. Telegraf is the intended host-metrics source, not a
+  leftover — don't remove it.
+- InfluxDB and Grafana are the release valve. Any session may `systemctl stop`
+  them to recover roughly 600 MB when the Pi is under real memory pressure,
+  without asking first. Say so in your session so the others aren't surprised.
+- **Stop, don't disable.** They come back at the next reboot, which is what we
+  want: the pressure is normally transient (an `npm install`, a rebuild), not
+  a standing condition. A stop that survives a reboot is a decision for the
+  owner. This already bit us once — both were stopped on 2026-08-11 and
+  silently came back on 2026-08-13.
+- Real pressure means swap activity or available memory under ~400 MB, not a
+  high load average on its own. Check `free -m` and `grep ^pswp /proc/vmstat`
+  before stopping anything.
+
 ## Working style, generally
 - No unsolicited notes, hedges, or "this may have changed" commentary
   embedded in any doc — flag uncertainty in conversation, keep the files
