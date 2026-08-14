@@ -12,6 +12,7 @@ covered here.
 - `reference/specs.md` — vessel identity, registration, and physical particulars.
 - `reference/vendors-parts.md` — vendor contacts and parts sourcing.
 - `reference/software_stack.md` — how the SignalK stack is built and why.
+- `reference/host_provisioning.md` — how hosts get built, and the Ansible plan.
 - `RUNBOOK.md` — operating procedures for the software stack.
 - `systems/*.md` — one file per boat system, intentionally empty for now.
   Don't impose section structure on these until asked — the owner wants to
