@@ -259,6 +259,23 @@
   available; those are a decision rather than maintenance, and two of them are
   the anchor alarm and the autopilot, so they aren't something to land while
   nobody is aboard. Listed in `priorities.md`.
+- Verified the off-boat heartbeat end to end by pointing it at a listener on
+  the box: it posted a full vitals body and logged `ping ok`. Removed the test
+  URL afterwards, so it is still unarmed. Arming it is now one file away and
+  carries no unknowns — it needs a ping URL from whichever service gets
+  chosen, which is the only part nobody aboard can do for you.
+- Found GNSS on the NMEA 2000 bus, contradicting the note written earlier the
+  same day that this box has no GNSS at all. A device at source address `0x02`
+  publishes position, COG/SOG, satellites, DOP and system time continuously;
+  decoding a `129025` frame off the wire gave a live fix that moves between
+  frames. What's actually true is narrower: there is no *serial* GPS, and
+  SignalK has no NMEA 2000 input configured — zero `pipedProviders` — so none
+  of the bus reaches it and `signalk-fixed-position` supplies a dock
+  coordinate instead. It sits about two metres from the real fix, which is how
+  this stayed hidden. `host/chrony-gpsd.conf` was aimed at the serial receiver
+  that doesn't exist; the GPS time it wanted is on the bus. Backed that out
+  the same evening — the refclock is gone and the drop-in is now
+  `host/chrony.conf`, doing clock policy only.
 - Established that `signalk-healthcheck` cannot send mail and never could.
   Its `mail` config has one key, `secure: false`, while `sendEmail` is on with
   an address set, and it falls back to `127.0.0.1:587` where nothing listens.

@@ -33,35 +33,40 @@ base board has no onboard supply and can't be.) So bus power and computer
 power are the same thing — anything that drops the N2K bus drops the Pi,
 with no buffer and no orderly shutdown.
 
-### GNSS arrives on NMEA 2000, and SignalK isn't reading it
+### GNSS arrives over NMEA 2000, and nothing on the Pi reads it
 
-The bus carries a working GPS. A 15-second `candump` of `can0` on 2026-08-13
-decoded, among others:
+The position and time are on the bus. Nothing on this box is consuming them.
+Measured 2026-08-13:
 
-| PGN | | Count in 15 s |
-|---|---|---|
-| 129029 | GNSS Position Data | 42 |
-| 129025 | Position Rapid Update | 56 |
-| 129026 | COG/SOG | 25 |
-| 126992 | System Time | 7 |
-| 129540 | GNSS Sats in View | 148 |
+- A GNSS device at N2K source address `0x02` publishes continuously:
+  `129025` Position Rapid Update, `129026` COG & SOG, `129029` GNSS Position
+  Data, `129539` DOPs, `129540` Satellites in View, and `126992` System Time.
+  In one 12-second sample that was 58, 25, 42, 7, 151 and 7 frames.
+- Decoding a `129025` frame off the wire gives 47.657794, -122.377303, and
+  the last digit moves between frames — a live fix, not a stored value.
+- `settings.json` has **zero** `pipedProviders`, and has had zero in every
+  version of `signalk/settings.json` in this repo's history. SignalK has no
+  NMEA 2000 input configured at all, so none of the above reaches it.
+- `navigation.position` therefore reads `$source: signalk-fixed-position`, a
+  plugin emitting a fixed dock coordinate. It happens to sit about two metres
+  from the real fix, which is why this went unnoticed. There is no
+  `navigation.gnss` or `navigation.datetime` at all.
 
-So position, course and GPS time are all present on the wire. None of it
-reaches SignalK: `pipedProviders` in `~/.signalk/settings.json` is an empty
-list, and has been empty in every version of `signalk/settings.json` in this
-repo's history. SignalK has no data connection to `can0` at all. Its sources
-are plugins and the Victron/Venus and Bluetooth paths; `navigation.position`
-comes from `signalk-fixed-position`, a plugin emitting a fixed dock
-coordinate, and `navigation.datetime` and `navigation.gnss` do not exist.
+There is no *serial* GPS, which is a different statement: `gpsd` runs with
+`DEVICES="/dev/ttyOP_gps"` and that device does not exist, nor does any other
+serial or USB device (`/dev/serial/by-id`, `/dev/ttyUSB*`, `/dev/ttyACM*`,
+`/dev/ttyOP_*` are all absent). `gpspipe -w` reports `"devices":[]` and
+`ntpshmmon` produces no samples.
 
-There is no serial GPS either — `/dev/serial/by-id`, `/dev/ttyUSB*`,
-`/dev/ttyACM*` and `/dev/ttyOP_*` are all absent, and `gpsd` runs configured
-for a `/dev/ttyOP_gps` that does not exist, reporting `"devices":[]`. That
-matters for the clock: gpsd's NTP shared-memory segments are the usual way to
-hand GPS time to chrony, and with N2K as the source they stay empty. Getting
-126992 to chrony needs a bridge that doesn't exist yet, so `host/chrony.conf`
-carries no refclock and the clock depends on an internet connection. Offline,
-it free-runs, with no RTC to fall back on.
+That distinction is what made the first attempt at GPS time wrong. The usual
+recipe — `refclock SHM`, reading the NTP shared-memory segments gpsd
+publishes into — assumes a serial receiver this boat does not have, so the
+segments are never written and the refclock sat at Reach 0 having never
+received a sample. It has been removed; `host/chrony.conf` now carries no
+refclock and chrony tracks internet NTP alone. The GPS time it was reaching
+for is on the N2K bus in `126992` and `129029`, and getting it to chrony
+needs a bridge that doesn't exist yet. Offline, the clock has nothing to
+correct it and no RTC to fall back on.
 
 ### Display
 

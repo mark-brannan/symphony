@@ -189,17 +189,22 @@ manager settings like the watchdog don't apply on a plain `daemon-reload`.
 Currently installed:
 
 `systemd-watchdog.conf` turns on the Pi's BCM2835 hardware watchdog with a
-15-second timeout, so a hang that stops answering ping and SSH resets the
+60-second timeout, so a hang that stops answering ping and SSH resets the
 board instead of waiting for someone aboard to pull power. Confirm it took:
 
 ```bash
 journalctl -b | grep -i "hardware watchdog"
 systemctl show -p RuntimeWatchdogUSec
+cat /sys/class/watchdog/watchdog0/timeout
 ```
 
-Expect `Watchdog running with a hardware timeout of 15s` and
-`RuntimeWatchdogUSec=15s`. It won't catch a wedged service while systemd
-keeps running — that needs a separate check.
+Expect `Watchdog running with a hardware timeout of 1min`,
+`RuntimeWatchdogUSec=1min`, and `60`. Read all three: 15s is the bcm2835
+hardware heartbeat and the kernel extends past it in software, so a value
+above 15 is honoured rather than clamped — but check rather than assume it.
+
+It won't catch a wedged service while systemd keeps running — that needs a
+separate check.
 
 `chrony.conf` sets the clock policy: step by any amount at any time, and serve
 time to the boat's own networks. chrony replaces `systemd-timesyncd`, which
@@ -278,6 +283,28 @@ sudo systemctl start boat-heartbeat.service
 journalctl -t boat-heartbeat -n 5
 systemctl list-timers boat-heartbeat.timer
 ```
+
+`ping ok` means it reached the endpoint. `ping failed` is logged for both a
+dead endpoint and no uplink at all — the script can't tell them apart, and
+deliberately exits 0 either way so a boat that is merely offline doesn't leave
+a failed unit behind.
+
+You can prove the plumbing before signing up for anything, by pointing it at a
+listener on the box and reading what actually gets posted:
+
+```bash
+python3 -m http.server 8899 --bind 127.0.0.1 &     # or any listener
+echo 'http://127.0.0.1:8899/test' | sudo tee /etc/boat-heartbeat.url >/dev/null
+sudo systemctl start boat-heartbeat.service
+journalctl -t boat-heartbeat -n 2
+sudo rm /etc/boat-heartbeat.url                    # don't leave this armed
+```
+
+Verified working this way on 2026-08-13. The body is one `key: value` per
+line — uptime, load, mem available, disk, temp, throttled, clock, failed
+units — so whichever service you choose needs to accept a POST body, or ignore
+it. Remove the file afterwards: a URL that never answers logs a failure every
+five minutes.
 
 Expect `ping ok` in the log and a `NEXT` about five minutes out. `ping failed`
 means the box couldn't reach the endpoint — check the uplink first, the URL
