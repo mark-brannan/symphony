@@ -175,7 +175,7 @@ This file remains authoritative for the SignalK / IoT section below.
 - **For the dev-box session:** run `scripts/signalk_plugin_census.py` against the
   container and commit the output, so the two SignalK installs can be diffed
   instead of argued about. The boat's census is done. Command:
-  `docker logs signalk 2>&1 | python3 scripts/signalk_plugin_census.py --url http://localhost:3000 --token "$TOK" --access-log - --out census-container.json`
+  `docker logs signalk-server 2>&1 | python3 scripts/signalk_plugin_census.py --url http://localhost:3000 --token "$TOK" --access-log - --out census-container.json`
   — get `$TOK` from `POST /signalk/v1/auth/login`. Read the script's docstring
   first; it explains why the obvious version of this census is wrong. The short
   form: a plugin publishing nothing under its own id is usually fine, because
@@ -185,15 +185,29 @@ This file remains authoritative for the SignalK / IoT section below.
   even that is a question rather than a verdict. On the boat it came to 6 of
   105, five of which the unattributed-sources list explains.
   What's wanted back: the container census committed, plus which of the 15
-  plugins the container runs and the boat doesn't are actually earning their
-  place there — `open-meteo`, `signalk-checklist`, `signalk-container`,
+  plugins the container runs and the boat doesn't are **inert** there — which is
+  what the census can actually show. It cannot show which ones Mark wants, and
+  shouldn't be asked to: webapp-load counts run near zero on the dev box because
+  nobody routinely opens its webapps, and loads are positive evidence only. The
+  15 are `open-meteo`, `signalk-checklist`, `signalk-container`,
   `signalk-crows-nest`, `signalk-doctor`, `signalk-dsc`, `signalk-grafana`,
   `signalk-questdb`, `signalk-usage`, `signalk-windy-plugin`,
   `signalk-marinetraffic-public`, `signalk-mob-notifier`,
   `signalk-basic-tide-widgets`, `signalk-restricted-areas`, `signalk-rpi-stats`.
-  Note also `noaa-sonar-chart-provider` and `vedirect-signalk` have configs in
-  the repo but are absent from `signalk/package.json`, so they're orphans on the
-  container side the way four configs are orphans on the boat.
+  On container-side orphans: don't take a number from this file. `noaa-sonar-chart-provider`
+  and `vedirect-signalk` were counted only across the 17 configs the repo has and
+  the boat doesn't, not across all 55 — a full sweep finds more, and some of
+  those are SignalK 2.x built-ins rather than orphans (`course-provider` ships
+  with the server). Resolving built-in from orphan is exactly what the census
+  does, by asking the server what it actually loaded. Run it first.
+- Rotate the shared `captain` password, and split it in two. `signalk_captain_password`
+  and `influxdb_captain_password` in `secrets/symphony.sops.yaml` hold the *same
+  value* — verified 2026-08-14 by decrypting both. Two keys reading as two
+  secrets while being one is the trap: rotating either leaves the other believing
+  it changed. It is also 9 characters and is the break-glass credential for both
+  SignalK admin and InfluxDB, the latter now being the only route back in if the
+  all-access token is lost. Fix is one rotation per system, not one shared value
+  copied to two keys.
 - Decide what to do about Chromium on the boat Pi. Its profile under
   `~/.config/chromium` is 1.9 GB — 692 MB of extensions across 23 of them, 335 MB
   of service workers, 231 MB of File System storage — and it is the single

@@ -140,7 +140,7 @@ def webapp_loads(stream):
     pipes in whichever of these applies --
 
         journalctl -u signalk --since '7 days ago' | ... --access-log -
-        docker logs signalk 2>&1 | ... --access-log -
+        docker logs signalk-server 2>&1 | ... --access-log -
 
     Read the result as positive evidence only. A webapp with loads is being
     used. A webapp with none is unproven, not unused: the count only covers
