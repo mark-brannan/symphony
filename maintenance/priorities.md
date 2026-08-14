@@ -153,13 +153,16 @@ This file remains authoritative for the SignalK / IoT section below.
 - 3D-print IMU case
 
 ### Infrastructure
-- Finish dockerizing the boat computer — SignalK, Grafana, Dex, and Caddy run as
-  native systemd services today; the repo's compose files and `RUNBOOK.md`
-  describe the Docker deploy meant to replace them. Docker is now installed
-  (29.7.2, Compose v5.4.0, 2026-08-14), so the compose files can finally be
-  exercised on the Pi. Migrate one service at a time rather than in one move:
-  the four images come to roughly 2 GB against 6.5 GB free on the SD card, and
-  anything mid-migration runs native and containerized at once.
+- Finish dockerizing the boat computer. Docker 29.7.2 / Compose v5.4.0 installed
+  2026-08-14. **Dex is done** — running as a container, native unit disabled,
+  verified through Caddy. SignalK, Grafana and Caddy are still native systemd
+  services. Migrate one at a time, not in one move: the remaining images come to
+  roughly 2 GB against ~6 GB free on the SD card, and anything mid-migration runs
+  native and containerized at once. Caddy is the one to do carefully — it is the
+  front door, so a bad move takes the SignalK UI, Grafana and the OIDC callback
+  with it, including remote access to fix it. When Caddy does move, drop the
+  transitional `127.0.0.1:5556` port publish from `compose-idp.yml`; Caddy will
+  reach Dex by service name on `symphony-net` instead.
 - Rebuild boat computer
 - Ansible for host provisioning — research and build out, decided 2026-08-13. The plan, scope boundaries and open decisions are written up in `reference/host_provisioning.md`; the repo question is settled (the SignalK/Ansible repo is `tkurki/marinepi-provisioning`, upstream and not ours — read its roles, don't push to it). Next step is the `clock` and `watchdog` roles, since `host/install.sh` already has those two fully described and they're the smallest honest slice.
 - Set source priorities for position once the AIS is powered. The chartplotter and the AIS each carry their own GPS, so there will be two sources publishing `navigation.position` and SignalK will pick between them in arrival order. `~/.signalk/priorities.json` is `{}` today. The procedure is in `RUNBOOK.md` → "When the AIS is powered, there will be two GPS sources"; it can't be done in advance because N2K addresses are claimed dynamically and have to be read off the running bus.
