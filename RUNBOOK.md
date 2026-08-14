@@ -335,34 +335,29 @@ journalctl -t boat-heartbeat -n 5
 systemctl list-timers boat-heartbeat.timer
 ```
 
-`ping ok` means it reached the endpoint. `ping failed` is logged for both a
-dead endpoint and no uplink at all — the script can't tell them apart, and
-deliberately exits 0 either way so a boat that is merely offline doesn't leave
-a failed unit behind.
+Expect `ping ok` and a `NEXT` about five minutes out. `ping failed` covers both
+a dead endpoint and no uplink at all — the script can't tell them apart, so
+check the uplink first and the URL second. It exits 0 either way on purpose,
+so a boat that is merely offline doesn't leave a failed unit behind; the log
+line is the only place a failure shows.
 
-You can prove the plumbing before signing up for anything, by pointing it at a
-listener on the box and reading what actually gets posted:
+To see what actually gets posted, point it at a listener on the box. Move the
+live file aside first — overwriting it in place loses the real ping URL:
 
 ```bash
-python3 -m http.server 8899 --bind 127.0.0.1 &     # or any listener
-echo 'http://127.0.0.1:8899/test' | sudo tee /etc/boat-heartbeat.url >/dev/null
+python3 -m http.server 8899 --bind 127.0.0.1 &
+sudo mv /etc/boat-heartbeat.json /etc/boat-heartbeat.json.real
+echo '{"url":"http://127.0.0.1:8899/test"}' | sudo tee /etc/boat-heartbeat.json >/dev/null
 sudo systemctl start boat-heartbeat.service
 journalctl -t boat-heartbeat -n 2
-sudo rm /etc/boat-heartbeat.url                    # don't leave this armed
+sudo mv /etc/boat-heartbeat.json.real /etc/boat-heartbeat.json
 ```
 
-Verified working this way on 2026-08-13. The body is one `key: value` per
-line — uptime, load, mem available, disk, temp, throttled, clock, failed
-units — so whichever service you choose needs to accept a POST body, or ignore
-it. Remove the file afterwards: a URL that never answers logs a failure every
-five minutes.
+The body is one `key: value` per line — uptime, load, mem available, disk,
+temp, throttled, clock, failed units — so whichever service you choose needs
+to accept a POST body, or ignore it.
 
-Expect `ping ok` in the log and a `NEXT` about five minutes out. `ping failed`
-means the box couldn't reach the endpoint — check the uplink first, the URL
-second. The unit exits 0 either way on purpose, so a dropped uplink doesn't
-leave a failed unit behind; the log line is the only place a failure shows.
-
-To turn it off, delete `/etc/boat-heartbeat.url`. Don't disable the timer —
+To turn it off, delete `/etc/boat-heartbeat.json`. Don't disable the timer —
 leaving it running means re-enabling is one file away, and the check on the
 other end is what tells you the boat went quiet.
 
