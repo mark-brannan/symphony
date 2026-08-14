@@ -381,6 +381,27 @@
   persists its stored position on every delta at a hardcoded 1 Hz, measured at
   20 config-file rewrites in 20 seconds. Left enabled deliberately — the
   fallback is worth more than the wear — and logged as a thing to debounce.
+- Both house batteries now report to SignalK over Bluetooth — voltage,
+  current, SOC, temperature, cycles, protection state and all four cell
+  voltages, every 60 seconds, stored in InfluxDB.
+- Identified which physical pack is which, which the advertised name cannot
+  do: both advertise as `DP04S007L4S200A`, so a capture taken by name can't be
+  attributed. By MAC, `A5:C2:37:3C:5C:90` is the pack wired into the system —
+  it tracks the Victron shunt to within 10 mV — and `A5:C2:37:40:01:46` is the
+  spare sitting disconnected with its terminals plugged. The spare reads 13.19
+  V at 61%, which is a sensible storage state, not a fault.
+- Fixed two bugs in the JBDBMS sensor class that dropped data silently:
+  temperature was registered under a tag nothing emitted, and the protection
+  callback returned before the code that raises the alert, so protection
+  alerts could never fire. Submitted upstream with a regression test built on
+  a checksum-verified frame captured from the boat.
+- The plugin also needs `pollFreq` and an explicit `paths` block per device or
+  it connects, decodes and publishes nothing at all, with no error anywhere.
+  Cost most of the session. Written up in RUNBOOK.
+- Raised the hardware watchdog from 15s to 30s after it hard-reset the box
+  twice in 33 minutes on a load spike it would have ridden out. Those resets
+  left the Bluetooth controller unable to complete GATT service discovery,
+  which a clean reboot cleared.
 
 ## Date unknown
 - Cleaned fuel filter.
