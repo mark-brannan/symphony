@@ -329,6 +329,23 @@
   owns the clock now, so an enabled config for it was only ever a trap for
   whoever read it next.
 
+- Connected SignalK to the NMEA 2000 bus. One `pipedProvider`, `n2k-can0`,
+  canboatjs on `can0`. `navigation.position`, `speedOverGround`,
+  `courseOverGroundTrue`, `datetime` and the whole `gnss` subtree now come from
+  the GPS at N2K address 2, and `magneticVariation` from address 7. Five
+  devices answer on the bus. Pinned the connection's `uniqueNumber` so the Pi
+  keeps one N2K identity instead of claiming a new one on every config change.
+- Learned what had been hiding it. `signalk-fixed-position` is a fallback that
+  stores the last fix and re-emits it when GPS goes quiet; with no GPS ever
+  connected it had become the only source, serving a stored dock coordinate two
+  metres from the truth. Everything downstream saw a plausible position, so
+  nothing looked broken. Briefly disabled it as a competing source, which was
+  wrong — it self-suppresses whenever real position is arriving. Re-enabled.
+- Found the cost of that plugin, which only started when the GPS did: it
+  persists its stored position on every delta at a hardcoded 1 Hz, measured at
+  20 config-file rewrites in 20 seconds. Left enabled deliberately — the
+  fallback is worth more than the wear — and logged as a thing to debounce.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.

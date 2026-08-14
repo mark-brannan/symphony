@@ -33,10 +33,29 @@ base board has no onboard supply and can't be.) So bus power and computer
 power are the same thing — anything that drops the N2K bus drops the Pi,
 with no buffer and no orderly shutdown.
 
-### GNSS arrives over NMEA 2000, and nothing on the Pi reads it
+### GNSS arrives over NMEA 2000
 
-The position and time are on the bus. Nothing on this box is consuming them.
-Measured 2026-08-13:
+Connected 2026-08-13. `signalk/settings.json` carries one `pipedProvider`,
+`n2k-can0`, of type `canbus-canboatjs` on interface `can0`. SignalK now
+publishes `navigation.position`, `speedOverGround`, `courseOverGroundTrue`,
+`datetime` and the full `navigation.gnss` subtree from source `n2k-can0.2`,
+plus `magneticVariation` from `n2k-can0.7`.
+
+The `uniqueNumber` in that config is pinned to `368391` deliberately. It forms
+part of the NAME this box claims on the bus; left unset, SignalK generates a
+random one, so the Pi would appear as a different N2K device after every
+config change.
+
+Five devices answer on the bus: a GNSS at address 2, Navigation at 7, a
+Display at 8, Steering and Control at 10, and SignalK's own claimed address at
+100. The chartplotter and the AIS each carry their own GPS, so expect a second
+position source once the AIS is powered — see the source-priority note in
+`RUNBOOK.md`.
+
+#### What this looked like before, and why it hid
+
+Worth keeping, because the failure was invisible for a long time and the shape
+of it will recur. Measured 2026-08-13, before the connection existed:
 
 - A GNSS device at N2K source address `0x02` publishes continuously:
   `129025` Position Rapid Update, `129026` COG & SOG, `129029` GNSS Position
@@ -44,13 +63,22 @@ Measured 2026-08-13:
   In one 12-second sample that was 58, 25, 42, 7, 151 and 7 frames.
 - Decoding a `129025` frame off the wire gives 47.657794, -122.377303, and
   the last digit moves between frames — a live fix, not a stored value.
-- `settings.json` has **zero** `pipedProviders`, and has had zero in every
-  version of `signalk/settings.json` in this repo's history. SignalK has no
-  NMEA 2000 input configured at all, so none of the above reaches it.
-- `navigation.position` therefore reads `$source: signalk-fixed-position`, a
-  plugin emitting a fixed dock coordinate. It happens to sit about two metres
-  from the real fix, which is why this went unnoticed. There is no
-  `navigation.gnss` or `navigation.datetime` at all.
+- `settings.json` had **zero** `pipedProviders`, and had zero in every version
+  of `signalk/settings.json` in this repo's history. SignalK had no NMEA 2000
+  input configured at all, so none of the above reached it. It was never
+  configured rather than lost.
+- `navigation.position` therefore read `$source: signalk-fixed-position`, and
+  there was no `navigation.gnss` or `navigation.datetime` at all.
+
+The reason this hid for so long is worth stating plainly, because it is a
+general trap. `signalk-fixed-position` is a *fallback* — it stores the last
+known fix and re-emits it when GPS goes quiet, so position-dependent systems
+keep working. With no real GPS ever connected, the fallback was the only
+source, and it had stored a fix from whenever position last worked. It sat
+about two metres from the true position. Every consumer saw a plausible
+position at the right dock, so nothing looked broken. A fallback that has
+silently become the primary is indistinguishable from a working system right
+up until the boat moves.
 
 There is no *serial* GPS, which is a different statement: `gpsd` runs with
 `DEVICES="/dev/ttyOP_gps"` and that device does not exist, nor does any other
@@ -64,7 +92,8 @@ publishes into — assumes a serial receiver this boat does not have, so the
 segments are never written and the refclock sat at Reach 0 having never
 received a sample. It has been removed; `host/chrony.conf` now carries no
 refclock and chrony tracks internet NTP alone. The GPS time it was reaching
-for is on the N2K bus in `126992` and `129029`, and getting it to chrony
+for is on the N2K bus in `126992` and `129029` — and now reaches SignalK as
+`navigation.datetime`, which is the likely bridge — but getting it to chrony
 needs a bridge that doesn't exist yet. Offline, the clock has nothing to
 correct it and no RTC to fall back on.
 
