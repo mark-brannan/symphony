@@ -565,52 +565,58 @@ ELECTRICITY = [
          "electrical.batteries.house.capacity.dischargedEnergy", CONV_JOULE_TO_WH),
     ], U_NONE, w=12, h=8, decimals=1),
 
-    ROW("Battery pack 0146"),
-    STAT("Pack 0146 SOC", "electrical.batteries.0146.capacity.stateOfCharge",
+    # 5C90 first, and 0146 second, because they are not peers: log entry
+    # b6c7dfc identified 5C90 as the pack actually wired into the system (it
+    # tracks the Victron shunt to within 10 mV) and 0146 as a spare sitting
+    # disconnected with its terminals plugged. Both advertise the same BLE
+    # name, so only the MAC distinguishes them. Rendering them as a matched
+    # pair invites reading the spare's numbers as half the house bank.
+    ROW("House pack 5C90 -- wired in"),
+    STAT("House 5C90 SOC", "electrical.batteries.5C90.capacity.stateOfCharge",
          CONV_RATIO_TO_PCT, U_PCT, w=3, h=5, decimals=0, thresholds=SOC_STEPS),
-    STAT("Pack 0146 voltage", "electrical.batteries.0146.voltage", None, U_VOLT,
+    STAT("House 5C90 voltage", "electrical.batteries.5C90.voltage", None, U_VOLT,
          w=3, h=5, decimals=2, thresholds=LIFEPO4_V_STEPS),
-    STAT("Pack 0146 current", "electrical.batteries.0146.current", None, U_AMP,
+    STAT("House 5C90 current", "electrical.batteries.5C90.current", None, U_AMP,
          w=3, h=5, decimals=1),
-    STAT("Pack 0146 temp", "electrical.batteries.0146.temperature",
+    STAT("House 5C90 temp", "electrical.batteries.5C90.temperature",
          CONV_K_TO_F, U_F, w=3, h=5, decimals=1),
-    STAT("Pack 0146 cycles", "electrical.batteries.0146.cycles", None, U_SHORT,
+    STAT("House 5C90 cycles", "electrical.batteries.5C90.cycles", None, U_SHORT,
          w=3, h=5, decimals=0),
-    STAT("Pack 0146 capacity", "electrical.batteries.0146.capacity.remaining",
+    STAT("House 5C90 capacity", "electrical.batteries.5C90.capacity.remaining",
          CONV_COULOMB_TO_AH, U_AH, w=3, h=5, decimals=1),
-    TS("Pack 0146 cell voltages", [
-        ("Cell 0", "electrical.batteries.0146.cell0.voltage", None),
-        ("Cell 1", "electrical.batteries.0146.cell1.voltage", None),
-        ("Cell 2", "electrical.batteries.0146.cell2.voltage", None),
-        ("Cell 3", "electrical.batteries.0146.cell3.voltage", None),
-    ], U_VOLT, w=12, h=8, decimals=3, fill=0, thresholds=CELL_V_STEPS),
-    STATE("Pack 0146 protection and FETs", [
-        ("Protection", "electrical.batteries.0146.protectionStatus"),
-        ("FETs", "electrical.batteries.0146.FETStatus"),
-    ], w=12, h=6),
-
-    ROW("Battery pack 5C90"),
-    STAT("Pack 5C90 SOC", "electrical.batteries.5C90.capacity.stateOfCharge",
-         CONV_RATIO_TO_PCT, U_PCT, w=3, h=5, decimals=0, thresholds=SOC_STEPS),
-    STAT("Pack 5C90 voltage", "electrical.batteries.5C90.voltage", None, U_VOLT,
-         w=3, h=5, decimals=2, thresholds=LIFEPO4_V_STEPS),
-    STAT("Pack 5C90 current", "electrical.batteries.5C90.current", None, U_AMP,
-         w=3, h=5, decimals=1),
-    STAT("Pack 5C90 temp", "electrical.batteries.5C90.temperature",
-         CONV_K_TO_F, U_F, w=3, h=5, decimals=1),
-    STAT("Pack 5C90 cycles", "electrical.batteries.5C90.cycles", None, U_SHORT,
-         w=3, h=5, decimals=0),
-    STAT("Pack 5C90 capacity", "electrical.batteries.5C90.capacity.remaining",
-         CONV_COULOMB_TO_AH, U_AH, w=3, h=5, decimals=1),
-    TS("Pack 5C90 cell voltages", [
+    TS("House 5C90 cell voltages", [
         ("Cell 0", "electrical.batteries.5C90.cell0.voltage", None),
         ("Cell 1", "electrical.batteries.5C90.cell1.voltage", None),
         ("Cell 2", "electrical.batteries.5C90.cell2.voltage", None),
         ("Cell 3", "electrical.batteries.5C90.cell3.voltage", None),
     ], U_VOLT, w=12, h=8, decimals=3, fill=0, thresholds=CELL_V_STEPS),
-    STATE("Pack 5C90 protection and FETs", [
+    STATE("House 5C90 protection and FETs", [
         ("Protection", "electrical.batteries.5C90.protectionStatus"),
         ("FETs", "electrical.batteries.5C90.FETStatus"),
+    ], w=12, h=6),
+
+    ROW("Spare pack 0146 -- disconnected, stored"),
+    STAT("Spare 0146 SOC", "electrical.batteries.0146.capacity.stateOfCharge",
+         CONV_RATIO_TO_PCT, U_PCT, w=3, h=5, decimals=0, thresholds=SOC_STEPS),
+    STAT("Spare 0146 voltage", "electrical.batteries.0146.voltage", None, U_VOLT,
+         w=3, h=5, decimals=2, thresholds=LIFEPO4_V_STEPS),
+    STAT("Spare 0146 current", "electrical.batteries.0146.current", None, U_AMP,
+         w=3, h=5, decimals=1),
+    STAT("Spare 0146 temp", "electrical.batteries.0146.temperature",
+         CONV_K_TO_F, U_F, w=3, h=5, decimals=1),
+    STAT("Spare 0146 cycles", "electrical.batteries.0146.cycles", None, U_SHORT,
+         w=3, h=5, decimals=0),
+    STAT("Spare 0146 capacity", "electrical.batteries.0146.capacity.remaining",
+         CONV_COULOMB_TO_AH, U_AH, w=3, h=5, decimals=1),
+    TS("Spare 0146 cell voltages", [
+        ("Cell 0", "electrical.batteries.0146.cell0.voltage", None),
+        ("Cell 1", "electrical.batteries.0146.cell1.voltage", None),
+        ("Cell 2", "electrical.batteries.0146.cell2.voltage", None),
+        ("Cell 3", "electrical.batteries.0146.cell3.voltage", None),
+    ], U_VOLT, w=12, h=8, decimals=3, fill=0, thresholds=CELL_V_STEPS),
+    STATE("Spare 0146 protection and FETs", [
+        ("Protection", "electrical.batteries.0146.protectionStatus"),
+        ("FETs", "electrical.batteries.0146.FETStatus"),
     ], w=12, h=6),
 
     ROW("Cerbo GX and shore charging"),

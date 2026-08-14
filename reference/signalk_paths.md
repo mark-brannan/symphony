@@ -131,11 +131,20 @@ appeared as `Victron_VictronACCharger_Model_ID_27054_...`,
 `Victron_Blue_Smart_IP22_Charger_12_30_3_...`, all against the same MAC. The
 dashboards read the most recent.
 
-**Battery instance identifiers are mixed.** The house bank is
-`electrical.batteries.house`, reached by a `signalk-path-mapper` rule that
-rewrites `electrical.batteries.279`. The two JBD packs stay as `0146` and
-`5C90`, fragments of their serial numbers. Notifications still fire against
-the pre-mapping name — `notifications.electrical.batteries.279.lowVoltage`.
+**Battery instance identifiers are mixed, and the two JBD packs are not
+peers.** The house bank is `electrical.batteries.house`, reached by a
+`signalk-path-mapper` rule that rewrites `electrical.batteries.279`. The two
+JBD packs stay as `0146` and `5C90`, fragments of their serial numbers.
+Notifications still fire against the pre-mapping name —
+`notifications.electrical.batteries.279.lowVoltage`.
+
+Any renaming scheme here has to account for what the packs actually are:
+`5C90` is wired into the system and tracks the Victron shunt to within 10 mV;
+`0146` is a spare sitting disconnected with its terminals plugged (log entry
+of 2026-08-13). A symmetric pair of names — `houseA`/`houseB` or similar —
+would assert a two-pack bank that does not exist, and would invite reading the
+spare's state of charge as half the house capacity. Both packs advertise the
+same BLE name, `DP04S007L4S200A`, so only the MAC distinguishes them.
 
 ## Org and buckets
 

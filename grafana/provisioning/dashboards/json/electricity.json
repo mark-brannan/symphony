@@ -871,7 +871,7 @@
       },
       "id": 14,
       "panels": [],
-      "title": "Battery pack 0146",
+      "title": "House pack 5C90 -- wired in",
       "type": "row"
     },
     {
@@ -938,11 +938,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.capacity.stateOfCharge\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.capacity.stateOfCharge\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 0146 SOC",
+      "title": "House 5C90 SOC",
       "type": "stat"
     },
     {
@@ -1005,11 +1005,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 0146 voltage",
+      "title": "House 5C90 voltage",
       "type": "stat"
     },
     {
@@ -1064,11 +1064,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.current\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.current\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 0146 current",
+      "title": "House 5C90 current",
       "type": "stat"
     },
     {
@@ -1123,11 +1123,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 0146 temp",
+      "title": "House 5C90 temp",
       "type": "stat"
     },
     {
@@ -1182,11 +1182,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cycles\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cycles\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 0146 cycles",
+      "title": "House 5C90 cycles",
       "type": "stat"
     },
     {
@@ -1241,11 +1241,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.capacity.remaining\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value / 3600.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.capacity.remaining\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value / 3600.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 0146 capacity",
+      "title": "House 5C90 capacity",
       "type": "stat"
     },
     {
@@ -1376,7 +1376,7 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cell0.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cell0.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         },
         {
@@ -1384,7 +1384,7 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cell1.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cell1.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "B"
         },
         {
@@ -1392,7 +1392,7 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cell2.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cell2.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "C"
         },
         {
@@ -1400,11 +1400,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cell3.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cell3.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "D"
         }
       ],
-      "title": "Pack 0146 cell voltages",
+      "title": "House 5C90 cell voltages",
       "type": "timeseries"
     },
     {
@@ -1488,7 +1488,7 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.protectionStatus\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.protectionStatus\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         },
         {
@@ -1496,11 +1496,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.FETStatus\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.FETStatus\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "B"
         }
       ],
-      "title": "Pack 0146 protection and FETs",
+      "title": "House 5C90 protection and FETs",
       "type": "state-timeline"
     },
     {
@@ -1513,7 +1513,7 @@
       },
       "id": 23,
       "panels": [],
-      "title": "Battery pack 5C90",
+      "title": "Spare pack 0146 -- disconnected, stored",
       "type": "row"
     },
     {
@@ -1580,11 +1580,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.capacity.stateOfCharge\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.capacity.stateOfCharge\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 5C90 SOC",
+      "title": "Spare 0146 SOC",
       "type": "stat"
     },
     {
@@ -1647,11 +1647,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 5C90 voltage",
+      "title": "Spare 0146 voltage",
       "type": "stat"
     },
     {
@@ -1706,11 +1706,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.current\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.current\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 5C90 current",
+      "title": "Spare 0146 current",
       "type": "stat"
     },
     {
@@ -1765,11 +1765,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 5C90 temp",
+      "title": "Spare 0146 temp",
       "type": "stat"
     },
     {
@@ -1824,11 +1824,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cycles\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cycles\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 5C90 cycles",
+      "title": "Spare 0146 cycles",
       "type": "stat"
     },
     {
@@ -1883,11 +1883,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.capacity.remaining\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value / 3600.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.capacity.remaining\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value / 3600.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         }
       ],
-      "title": "Pack 5C90 capacity",
+      "title": "Spare 0146 capacity",
       "type": "stat"
     },
     {
@@ -2018,7 +2018,7 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cell0.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cell0.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         },
         {
@@ -2026,7 +2026,7 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cell1.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cell1.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "B"
         },
         {
@@ -2034,7 +2034,7 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cell2.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cell2.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "C"
         },
         {
@@ -2042,11 +2042,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.cell3.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.cell3.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "D"
         }
       ],
-      "title": "Pack 5C90 cell voltages",
+      "title": "Spare 0146 cell voltages",
       "type": "timeseries"
     },
     {
@@ -2130,7 +2130,7 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.protectionStatus\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.protectionStatus\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "A"
         },
         {
@@ -2138,11 +2138,11 @@
             "type": "influxdb",
             "uid": "influxdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.5C90.FETStatus\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.0146.FETStatus\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
           "refId": "B"
         }
       ],
-      "title": "Pack 5C90 protection and FETs",
+      "title": "Spare 0146 protection and FETs",
       "type": "state-timeline"
     },
     {
