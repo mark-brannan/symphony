@@ -1,0 +1,8 @@
+[Unit]
+Description=Ping the off-boat dead man's switch
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/boat-heartbeat

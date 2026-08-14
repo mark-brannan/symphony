@@ -1,0 +1,50 @@
+#!/bin/sh
+# Dead man's switch. Pings an external URL every few minutes with a short
+# vitals summary; the external service alerts when the pings stop.
+#
+# This exists because every other monitor on this boat writes to InfluxDB on
+# the Pi. When the Pi dies, the evidence and the alarm die with it, and the
+# failure is invisible until someone drives to the marina. A watchdog reset
+# leaves no log tail at all (reference/legacy_openplotter_stack.md), so
+# silence is the only signal that survives the box it is reporting on.
+#
+# Inert until configured: it reads the URL from /etc/boat-heartbeat.url, which
+# is deliberately not in this repo and absent by default. Write the ping URL
+# from whichever service is chosen into that file, one line, and the timer
+# starts reporting. Removing the file turns it off again. See RUNBOOK ->
+# "Turning on the off-boat heartbeat".
+set -eu
+
+URL_FILE=/etc/boat-heartbeat.url
+
+[ -r "$URL_FILE" ] || exit 0
+URL=$(sed -e 's/[[:space:]]*$//' -e '/^$/d' -e '/^#/d' "$URL_FILE" | head -n 1)
+[ -n "$URL" ] || exit 0
+
+# Every field is optional. A box sick enough to be worth alerting on is also
+# a box where any one of these commands can hang or vanish, and a heartbeat
+# that dies collecting its own payload reports the wrong thing.
+v_uptime=$(uptime -p 2>/dev/null || echo "unknown")
+v_load=$(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null || echo "unknown")
+v_mem=$(awk '/MemAvailable/ {printf "%d MB", $2/1024}' /proc/meminfo 2>/dev/null || echo "unknown")
+v_disk=$(df -h / 2>/dev/null | awk 'NR==2 {print $5" of "$2}' || echo "unknown")
+v_temp=$(vcgencmd measure_temp 2>/dev/null | cut -d= -f2 || echo "unknown")
+v_throttled=$(vcgencmd get_throttled 2>/dev/null | cut -d= -f2 || echo "unknown")
+v_clock=$(chronyc tracking 2>/dev/null | awk -F': *' '/^System time/ {print $2}' || echo "unknown")
+v_failed=$(systemctl list-units --state=failed --no-legend --plain 2>/dev/null | awk '{print $1}' | paste -sd, - || echo "unknown")
+[ -n "$v_failed" ] || v_failed="none"
+
+BODY=$(printf 'uptime: %s\nload: %s\nmem available: %s\ndisk: %s\ntemp: %s\nthrottled: %s\nclock: %s\nfailed units: %s\n' \
+	"$v_uptime" "$v_load" "$v_mem" "$v_disk" "$v_temp" "$v_throttled" "$v_clock" "$v_failed")
+
+# A boat loses its uplink routinely. A missed ping is the expected case, not a
+# fault, so this exits 0 either way rather than leaving a failed unit behind
+# for someone to chase.
+if printf '%s' "$BODY" | curl -fsS --max-time 20 --retry 2 --retry-delay 5 \
+	--data-binary @- "$URL" >/dev/null 2>&1; then
+	logger -t boat-heartbeat "ping ok"
+else
+	logger -t boat-heartbeat "ping failed (offline or endpoint down)"
+fi
+
+exit 0

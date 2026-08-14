@@ -26,6 +26,9 @@ INSTALL=(
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
 	"chrony-gpsd.conf:/etc/chrony/conf.d/gpsd.conf:0644:root:root"
 	"telegraf-rpi-health:/usr/local/bin/telegraf-rpi-health:0755:root:root"
+	"boat-heartbeat:/usr/local/sbin/boat-heartbeat:0755:root:root"
+	"boat-heartbeat.service:/etc/systemd/system/boat-heartbeat.service:0644:root:root"
+	"boat-heartbeat.timer:/etc/systemd/system/boat-heartbeat.timer:0644:root:root"
 )
 
 # System services to restart after their config lands. Skipped when the unit
@@ -34,6 +37,13 @@ INSTALL=(
 RESTART=(
 	"chrony"
 	"telegraf"
+)
+
+# System units this installer enables and starts. Timers belong here; a unit
+# file that lands in /etc/systemd/system does nothing until something enables
+# it, and forgetting that is how a change looks installed but never runs.
+ENABLE=(
+	"boat-heartbeat.timer"
 )
 
 # Root cron entries this installer owns. Matched for removal by the command
@@ -93,6 +103,16 @@ for unit in "${RESTART[@]:-}"; do
 	else
 		echo "  $unit  not installed, skipped"
 	fi
+done
+
+for unit in "${ENABLE[@]:-}"; do
+	[ -n "$unit" ] || continue
+	if [ -z "${enable_header:-}" ]; then
+		echo "== enable =="
+		enable_header=done
+	fi
+	systemctl enable --now "$unit" >/dev/null 2>&1 || true
+	echo "  $unit  ($(systemctl is-enabled "$unit" 2>&1), $(systemctl is-active "$unit" 2>&1))"
 done
 
 # A systemd --user unit only runs while that user has a session, unless

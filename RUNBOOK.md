@@ -215,9 +215,37 @@ sudo host/install.sh
 are root-only and chronyd runs as `_chrony`, so try `SHM 2` vs `SHM 3` and
 re-check. `ipcs -m` shows which segments exist.
 
+Before chasing the segment number, check that gpsd has a device at all:
+
+```bash
+gpspipe -w -n 2 | grep -o '"devices":\[[^]]*\]'
+ntpshmmon -n 3
+```
+
+An empty `devices` list or no `ntpshmmon` samples means there is no GPS to
+read and no segment number will help — see `reference/compute_hardware.md` →
+"There is no GNSS receiver attached".
+
 Don't add `rtcsync`: the Pi 4B has no RTC, which is the reason `makestep 1.0
 -1` is there. Without it chronyd slews rather than steps, and a clock that
 booted years wrong stays wrong for hours.
+
+`telegraf-rpi-health` feeds telegraf's `exec` input, turning
+`vcgencmd get_throttled` into the `rpi_health` measurement. Run it by hand to
+check it works; it prints one line of InfluxDB line protocol:
+
+```bash
+/usr/local/bin/telegraf-rpi-health
+```
+
+All-zero fields are the healthy answer. A `1` in any `_since_boot` field means
+the SoC saw under-voltage or throttling at some point since the last boot,
+which on this boat means the NMEA 2000 bus sagged.
+
+`boat-heartbeat` and its timer ping an external dead man's switch every five
+minutes with a vitals summary, so that the box going silent raises an alarm
+somewhere that isn't the box. **It does nothing until you give it a URL** —
+see "Turning on the off-boat heartbeat" below.
 
 `nightly-reboot` is still installed, but its line in root's crontab is
 commented out. It rebooted the Pi at 04:00 **unless** an `npm` or `node-gyp`
@@ -230,6 +258,41 @@ installed. On a night it runs, check which way it went with:
 ```bash
 journalctl -t nightly-reboot --since yesterday
 ```
+
+## Turning on the off-boat heartbeat
+
+`boat-heartbeat` is installed and its timer is running, but it exits
+immediately until `/etc/boat-heartbeat.url` exists. To enable it:
+
+1. Create a check on any service that hands out a ping URL — Healthchecks.io,
+   Better Stack, Cronitor all work, and the script doesn't care which. Set the
+   expected period to **5 minutes** and the grace period to **20 minutes or
+   more**. The boat's uplink drops routinely; a tight grace turns a normal
+   marina wifi hiccup into a 3 a.m. alarm, and alarms you learn to ignore are
+   worse than none.
+2. Put the URL on the host, readable only by root, and never in this repo:
+
+```bash
+sudo install -m 0600 /dev/null /etc/boat-heartbeat.url
+echo 'https://hc-ping.com/YOUR-UUID-HERE' | sudo tee /etc/boat-heartbeat.url >/dev/null
+```
+
+3. Fire one ping by hand and read the result:
+
+```bash
+sudo systemctl start boat-heartbeat.service
+journalctl -t boat-heartbeat -n 5
+systemctl list-timers boat-heartbeat.timer
+```
+
+Expect `ping ok` in the log and a `NEXT` about five minutes out. `ping failed`
+means the box couldn't reach the endpoint — check the uplink first, the URL
+second. The unit exits 0 either way on purpose, so a dropped uplink doesn't
+leave a failed unit behind; the log line is the only place a failure shows.
+
+To turn it off, delete `/etc/boat-heartbeat.url`. Don't disable the timer —
+leaving it running means re-enabling is one file away, and the check on the
+other end is what tells you the boat went quiet.
 
 ## Don't autostart a browser on the boat Pi
 
