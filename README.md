@@ -26,8 +26,8 @@ work, and planned improvements.
 - `systems/*.md` are living reference, edited in place — git tracks the history
 
 ### Open items
-- Electrical/IoT sensor and SignalK-integration tasks are tracked separately from the main backlog for now, pending re-integration once `priorities.md` and `log.md` are in good shape.
-- Physical specs that also live as SignalK config (calibration curves, sensor mappings) aren't yet reconciled between this repo and the SignalK/Ansible repo.
+- Electrical/IoT sensor and SignalK-integration tasks live in the SignalK / IoT section of `priorities.md`, separate from the physical-work items above them. Those physical items are the historical copy; Evernote is the authoritative list now, and they get pruned from here over time.
+- Physical specs that also live as SignalK config (calibration curves, sensor mappings) aren't yet reconciled between this repo and the boat's running SignalK. (The "SignalK/Ansible repo" this used to point at is `tkurki/marinepi-provisioning`, which is upstream and not ours — see `reference/host_provisioning.md`.)
 
 ## Links
 - [Sailboatdata — Hans Christian 38T](https://sailboatdata.com/sailboat/hans-christian-38t/)
