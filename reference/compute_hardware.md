@@ -33,6 +33,26 @@ base board has no onboard supply and can't be.) So bus power and computer
 power are the same thing — anything that drops the N2K bus drops the Pi,
 with no buffer and no orderly shutdown.
 
+### There is no GNSS receiver attached
+
+Nothing on this box produces a real position or a real GPS time. Measured
+2026-08-13:
+
+- `gpsd` runs with `DEVICES="/dev/ttyOP_gps"`, and that device does not
+  exist. Neither does any other serial or USB device — `/dev/serial/by-id`,
+  `/dev/ttyUSB*`, `/dev/ttyACM*` and `/dev/ttyOP_*` are all absent.
+- `gpspipe -w` reports `"devices":[]`, and `ntpshmmon` produces no samples,
+  so the NTP shared-memory segments `gpsd` would publish into stay empty.
+- `navigation.position` in SignalK has `$source: signalk-fixed-position` — a
+  plugin emitting a fixed dock coordinate, not a fix.
+
+`can0` is up and carrying NMEA 2000 traffic, so the bus itself is alive; the
+GPS is simply not part of it, or not reporting. This matters twice over.
+Chartplotting and AIS aside, it is why chrony's `refclock SHM 2` sits
+unreachable and the clock depends entirely on an internet connection — see
+`host/chrony-gpsd.conf`. Offline, this boat's time drifts with nothing to
+correct it and no RTC to fall back on.
+
 ### Display
 
 No HDMI display is attached (`/sys/class/drm/card1-HDMI-A-*/status` reads
