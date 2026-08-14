@@ -1046,6 +1046,41 @@ Start again in reverse order. A service killed while running comes back
 `failed`, so clear it with `sudo systemctl reset-failed signalk.service`
 first.
 
+## A local plugin fork keeps reverting to the registry build
+
+`~/.signalk/node_modules/<plugin>` was a symlink to a local fork and is now a
+real directory holding the registry version. Any `npm install` in `~/.signalk`
+does this, and so does the app store on its own.
+
+Relink it, with SignalK stopped:
+
+```bash
+rm -rf ~/.signalk/node_modules/bt-sensors-plugin-sk
+ln -s ~/bt-sensors-plugin-sk ~/.signalk/node_modules/bt-sensors-plugin-sk
+```
+
+Then pin the exact version the fork declares, in `~/.signalk/package.json`:
+
+```json
+"bt-sensors-plugin-sk": "1.3.8-beta10"
+```
+
+Relinking without repinning buys you nothing — it will be replaced again. A
+caret range like `^1.3.7` never matches a prerelease such as `1.3.8-beta10`,
+because npm's semver excludes prereleases from a range unless the range names
+one, so the fork permanently reads as a version needing repair. Compare the
+two before assuming a link will hold:
+
+```bash
+node -e 'console.log("pin: ", require("/home/pi/.signalk/package.json").dependencies["bt-sensors-plugin-sk"])'
+node -e 'console.log("fork:", require("/home/pi/bt-sensors-plugin-sk/package.json").version)'
+```
+
+Restart SignalK before judging any of this. The server keeps whatever it
+loaded at startup, so swapping the directory changes nothing until it
+restarts — the fork you just linked is not yet the code that's running, and a
+plugin you think you're testing may be the one you replaced.
+
 ## Never use OpenPlotter's "Reinstall" for Signal K
 
 Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf` on
