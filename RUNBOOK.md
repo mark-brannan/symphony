@@ -189,6 +189,11 @@ before running it:
 - On a **fresh** volume it runs `/api/v2/setup` (org `darkstarllc`, bucket
   `symphony`) and stores the resulting operator token. On an **existing**
   one it uses the operator token already in `secrets/symphony.sops.yaml`.
+  Everything under `DOCKER_INFLUXDB_INIT_*` is fresh-volume-only in the same
+  way. That is why the boat's database says org `symphony` while `.env` says
+  `darkstarllc`, and why the admin user `.env` names does not exist: the
+  volume predates both. Changing those values on a running install does
+  nothing and silently disagrees with reality.
 - Either way it creates the `captain` user as an org *member*, not owner —
   InfluxDB OSS has only those two levels — and mints read/write-scoped
   tokens for the SignalK plugin and Grafana's datasource if they don't
@@ -1540,23 +1545,15 @@ their plaintext-on-disk copies, which losing the key does not touch — only the
 git-stored encrypted copies become unreadable.
 
 One exception. `influxdb_operator_token` has no plaintext copy anywhere, being
-used only by provisioning scripts. Recover it with a *session*, not a token —
-username and password are the only credential that still works when every
-token is lost:
+used only by provisioning scripts. Recovering it is its own procedure —
+[reference/influxdb_token_rotation.md](reference/influxdb_token_rotation.md),
+"When every stored token is dead".
 
-```bash
-cd ~/symphony && set -a && . ./.env && set +a
-curl -s -c /tmp/influx-session -X POST http://localhost:8086/api/v2/signin \
-  -u "$DOCKER_INFLUXDB_INIT_USERNAME:$DOCKER_INFLUXDB_INIT_PASSWORD"
-
-curl -s -b /tmp/influx-session http://localhost:8086/api/v2/orgs |
-  python3 -c 'import sys,json;[print(o["name"], o["id"]) for o in json.load(sys.stdin)["orgs"]]'
-```
-
-Then mint the replacement in the UI at `http://localhost:8086` — an
-all-access token is a long permission list to hand-write, and the UI does it in
-two clicks. Put the new value in `secrets/symphony.sops.yaml`, then
-`rm -f /tmp/influx-session` and run `scripts/provision_influxdb.sh`.
+**Don't reach for `DOCKER_INFLUXDB_INIT_USERNAME` / `_PASSWORD` as the
+break-glass login.** Those apply only when InfluxDB initialises a *fresh*
+volume. This volume already existed when they were set, so the user they name
+was never created and signing in with them returns 401 — which reads as a wrong
+password rather than a missing account. The login that exists is `captain`.
 
 Last resort: `~/symphony-backups/` holds a plaintext snapshot of the live
 SignalK config from 2026-08-07, deliberately outside the repo. It is a full set
