@@ -285,6 +285,28 @@ journalctl -t boat-heartbeat -n 5
 systemctl list-timers boat-heartbeat.timer
 ```
 
+`ping ok` means it reached the endpoint. `ping failed` is logged for both a
+dead endpoint and no uplink at all — the script can't tell them apart, and
+deliberately exits 0 either way so a boat that is merely offline doesn't leave
+a failed unit behind.
+
+You can prove the plumbing before signing up for anything, by pointing it at a
+listener on the box and reading what actually gets posted:
+
+```bash
+python3 -m http.server 8899 --bind 127.0.0.1 &     # or any listener
+echo 'http://127.0.0.1:8899/test' | sudo tee /etc/boat-heartbeat.url >/dev/null
+sudo systemctl start boat-heartbeat.service
+journalctl -t boat-heartbeat -n 2
+sudo rm /etc/boat-heartbeat.url                    # don't leave this armed
+```
+
+Verified working this way on 2026-08-13. The body is one `key: value` per
+line — uptime, load, mem available, disk, temp, throttled, clock, failed
+units — so whichever service you choose needs to accept a POST body, or ignore
+it. Remove the file afterwards: a URL that never answers logs a failure every
+five minutes.
+
 Expect `ping ok` in the log and a `NEXT` about five minutes out. `ping failed`
 means the box couldn't reach the endpoint — check the uplink first, the URL
 second. The unit exits 0 either way on purpose, so a dropped uplink doesn't
