@@ -3,10 +3,14 @@ apiVersion: 1
 datasources:
   - name: InfluxDB
     type: influxdb
-    # Every provisioned dashboard names this uid -- 162 panel references across
-    # the five JSON files. Without it Grafana assigns a random one at startup
-    # and the dashboards come up empty, which reads as "no data" rather than as
-    # a wiring fault.
+    # Every provisioned dashboard names this uid. Without it Grafana assigns a
+    # random one at startup and the dashboards come up empty, which reads as
+    # "no data" rather than as a wiring fault.
+    #
+    # `version: Flux` below is load-bearing: the dashboards are generated with
+    # Flux queries (scripts/build_dashboards.py). A datasource left in the
+    # default InfluxQL mode renders every panel blank against this InfluxDB 2.x
+    # bucket, with no error anywhere.
     uid: influxdb-symphony
     access: proxy
     url: http://influxdb:8086
