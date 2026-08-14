@@ -3,7 +3,7 @@
     "adapter": "hci0",
     "transport": "auto",
     "discoveryTimeout": 30,
-    "discoveryInterval": 10,
+    "discoveryInterval": 0,
     "peripherals": [
       {
         "active": true,
