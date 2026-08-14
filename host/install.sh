@@ -28,6 +28,7 @@ INSTALL=(
 	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
 	"telegraf-rpi-health:/usr/local/bin/telegraf-rpi-health:0755:root:root"
 	"boat-heartbeat:/usr/local/sbin/boat-heartbeat:0755:root:root"
+	"boat-heartbeat.json:/etc/boat-heartbeat.json:0600:root:root"
 	"boat-heartbeat.service:/etc/systemd/system/boat-heartbeat.service:0644:root:root"
 	"boat-heartbeat.timer:/etc/systemd/system/boat-heartbeat.timer:0644:root:root"
 	"signalk-ble-check:/usr/local/sbin/signalk-ble-check:0755:root:root"

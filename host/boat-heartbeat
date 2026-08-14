@@ -8,18 +8,29 @@
 # leaves no log tail at all (reference/legacy_openplotter_stack.md), so
 # silence is the only signal that survives the box it is reporting on.
 #
-# Inert until configured: it reads the URL from /etc/boat-heartbeat.url, which
-# is deliberately not in this repo and absent by default. Write the ping URL
-# from whichever service is chosen into that file, one line, and the timer
-# starts reporting. Removing the file turns it off again. See RUNBOOK ->
-# "Turning on the off-boat heartbeat".
+# Inert until configured: it reads the ping URL from /etc/boat-heartbeat.json,
+# which host/install.sh places from host/boat-heartbeat.json in the repo. That
+# file's `url` field is sops-encrypted, so the URL lives in version control
+# without sitting in a public repo in the clear. Removing the installed file
+# turns the heartbeat off again. See RUNBOOK -> "Turning on the off-boat
+# heartbeat".
+#
+# The URL is a bearer credential: anyone holding it can send false "alive"
+# pings, which masks a dead boat rather than leaking anything. Hence 0600.
 set -eu
 
-URL_FILE=/etc/boat-heartbeat.url
+URL_FILE=/etc/boat-heartbeat.json
 
 [ -r "$URL_FILE" ] || exit 0
-URL=$(sed -e 's/[[:space:]]*$//' -e '/^$/d' -e '/^#/d' "$URL_FILE" | head -n 1)
+# Deliberately not a JSON parser. This file is generated and single-purpose,
+# and a heartbeat that needs python to find its own URL is one more thing that
+# can fail on a box sick enough to be worth alerting about.
+URL=$(sed -n 's/.*"url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$URL_FILE" | head -n 1)
 [ -n "$URL" ] || exit 0
+# An unrendered sops file means the smudge filter never ran where this was
+# installed from. Pinging the literal string "ENC[...]" would look like a
+# working heartbeat, so refuse instead.
+case "$URL" in ENC\[*) logger -t boat-heartbeat "url is still sops ciphertext, not pinging"; exit 0 ;; esac
 
 # Every field is optional. A box sick enough to be worth alerting on is also
 # a box where any one of these commands can hang or vanish, and a heartbeat

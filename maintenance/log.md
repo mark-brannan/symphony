@@ -336,6 +336,16 @@
   and the alarm with it, and the two watchdog resets earlier today reached
   nobody. Still unproven is that a *missed* ping raises an alert — worth
   testing deliberately rather than finding out the hard way.
+- Moved the heartbeat's ping URL into the repo as `host/boat-heartbeat.json`,
+  sops-encrypted, installed to `/etc/boat-heartbeat.json` by
+  `host/install.sh`. Nothing about this box should need hand-editing under
+  `/etc` to be reproducible.
+- Doing that turned up two problems with this checkout. The sops clean/smudge
+  filter was not configured at all, so any secret-bearing file committed from
+  here would have gone into a public repo in cleartext, and twelve tracked
+  files were sitting on disk as ciphertext. pre-commit was not installed
+  either, so nothing was scanning commits locally. Both fixed with
+  `scripts/setup-git-filters.sh`; the encryption round-trip is verified.
 - Turned on unattended security updates. The package wasn't installed at all,
   so the `apt-daily` timers had been refreshing package lists for nothing.
   Config lives in `host/` and installs through `host/install.sh`: Debian

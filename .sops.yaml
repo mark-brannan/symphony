@@ -122,3 +122,8 @@ creation_rules:
     encrypted_regex: '^uuid$'
     key_groups:
       - age: *recipients
+
+  - path_regex: host/boat-heartbeat\.json$
+    encrypted_regex: '^url$'
+    key_groups:
+      - age: *recipients
