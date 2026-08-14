@@ -133,11 +133,13 @@ Pi 4B:
   holes for two SMA antenna connectors. Further CAN or RS485 ports come from
   Waveshare isolated HATs.
 
-Listed at €651.61. Availability is intermittent rather than simply absent:
-Compute Module 5 supply is short worldwide, and the vendor's own notice says
-configurations go out of stock with little notice. Check the shop rather than
-any statement here, and treat a suitable variant being in stock as the signal
-to buy.
+Orderable. The 8 GB / 512 GB SSD configuration was $614.35 and added to cart
+without issue on 2026-08-13.
+
+The shop carries a notice about Compute Module 5 being in short supply
+worldwide, but it applies per-variant — some configurations may be out at any
+given time, not the product as a whole. Don't read it as the machine being
+unavailable.
 
 ### Hal OS
 
