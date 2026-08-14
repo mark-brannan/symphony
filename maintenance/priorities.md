@@ -190,15 +190,35 @@ This file remains authoritative for the SignalK / IoT section below.
   them; a high count is not evidence of use. The column is still useful as
   positive evidence for a *single* webapp with an irregular burst, and useless
   for ranking.
-- Don't sync `signalk-questdb` to the boat. It has never worked on the dev box:
-  QuestDB holds zero tables, and the plugin is configured with
-  `questdbHost: 127.0.0.1`, which from inside the SignalK container addresses
-  that container rather than QuestDB. They aren't on a shared network either —
-  `sk-signalk-questdb` is on `symphony-net`, `signalk-server` on
-  `symphony_symphony-net`. Both measured 2026-08-14. Fixing it is a dev-box
-  question; it stays off the boat until it demonstrably works somewhere, and
-  even then it is a second time-series store beside InfluxDB on a Pi already
-  tight on memory and SD writes.
+- Evaluate the parked plugins on the dev container. These were installed on
+  purpose to be tried and then never got the time — they are **not** broken
+  candidates for removal, and reading them as idle is the mistake to avoid.
+  A census can't tell this category from a fault, because both look like
+  "enabled, configured, publishing nothing." Only Mark knows which is which,
+  so the state below is measurement to start from, not a verdict:
+  - `open-meteo` — **works today, nothing blocking it.** Serves SignalK's v2
+    weather API via `registerWeatherProvider`, so publishing zero paths is
+    correct rather than idle. `GET /signalk/v2/api/weather/observations?lat=&lon=`
+    returned live, sane, correctly-united data on 2026-08-14. The API key is
+    optional and buys premium content only (the plugin's own README), so the
+    empty `apiKey` in its config is not the blocker it looks like.
+  - `signalk-questdb` — enabled, and QuestDB holds zero tables. Configured with
+    `questdbHost: 127.0.0.1`, which from inside the SignalK container addresses
+    that container rather than QuestDB, and the two aren't on a shared network
+    anyway (`sk-signalk-questdb` on `symphony-net`, `signalk-server` on
+    `symphony_symphony-net`). So it has never written a row. Whether that's
+    worth fixing depends on what it's wanted for; note it would be a second
+    time-series store beside InfluxDB, which is a real cost on the Pi but not
+    on the dev box.
+  - `signalk-doctor`, `signalk-container`, `signalk-crows-nest` — installed,
+    unevaluated. Their webapp-load counts are the enumeration artifact above,
+    not use. `signalk-questdb` sets `managedContainer: true`, so there is some
+    relationship between it and `signalk-container` that nobody has traced.
+- Add a weather term to `ACTOR_HINTS` in `scripts/signalk_plugin_census.py`.
+  `open-meteo` is an actor by the script's own definition — its product is a
+  registered v2 API, not published paths — but the hint list has no weather
+  entry, so it scores `unmatched` and reads like a fault. Any other provider
+  plugin will land the same way.
 - Rotate the shared `captain` password, and split it in two. `signalk_captain_password`
   and `influxdb_captain_password` in `secrets/symphony.sops.yaml` hold the *same
   value* — verified 2026-08-14 by decrypting both. Two keys reading as two
