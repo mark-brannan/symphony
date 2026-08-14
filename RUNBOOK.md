@@ -260,8 +260,12 @@ journalctl -t nightly-reboot --since yesterday
 
 ## Turning on the off-boat heartbeat
 
-`boat-heartbeat` is installed and its timer is running, but it exits
-immediately until `/etc/boat-heartbeat.url` exists. To enable it:
+Armed on the boat Pi as of 2026-08-13; this is how to change it or set it up
+elsewhere. The ping URL lives in `host/boat-heartbeat.json`, whose `url` field
+is sops-encrypted, so it is in version control without being readable in a
+public repo. `host/install.sh` places it at `/etc/boat-heartbeat.json`, mode
+0600 root. The script exits immediately if that file is missing, so removing
+it turns the heartbeat off.
 
 1. Create a check on any service that hands out a ping URL — Healthchecks.io,
    Better Stack, Cronitor all work, and the script doesn't care which. Set the
@@ -269,12 +273,19 @@ immediately until `/etc/boat-heartbeat.url` exists. To enable it:
    more**. The boat's uplink drops routinely; a tight grace turns a normal
    marina wifi hiccup into a 3 a.m. alarm, and alarms you learn to ignore are
    worse than none.
-2. Put the URL on the host, readable only by root, and never in this repo:
+2. Put the URL in the repo file and install it. Edit the `url` field in
+   `host/boat-heartbeat.json` — on disk it is plaintext, and the clean filter
+   encrypts it on the way into git:
 
 ```bash
-sudo install -m 0600 /dev/null /etc/boat-heartbeat.url
-echo 'https://hc-ping.com/YOUR-UUID-HERE' | sudo tee /etc/boat-heartbeat.url >/dev/null
+git diff --cached host/boat-heartbeat.json   # must show ENC[...], not the URL
+sudo host/install.sh
 ```
+
+   If that diff shows the URL in the clear, **stop**: the sops filter isn't
+   wired in this checkout. Run `bash scripts/setup-git-filters.sh` and
+   re-stage. This is not hypothetical — it was found unconfigured here on
+   2026-08-13, which is the state in which a secret gets committed in public.
 
 3. Fire one ping by hand and read the result:
 

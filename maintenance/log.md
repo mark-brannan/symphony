@@ -328,6 +328,81 @@
   boat. The plugin itself hasn't existed on this box for some time and chrony
   owns the clock now, so an enabled config for it was only ever a trap for
   whoever read it next.
+- Armed the off-boat heartbeat. It had been installed and firing every five
+  minutes for hours, exiting immediately each time because no URL file
+  existed. With a healthchecks.io URL in `/etc/boat-heartbeat.url` it now
+  reports `ping ok`. That closes the gap this box has had all along: every
+  monitor aboard wrote to InfluxDB on the Pi, so a dead Pi took the evidence
+  and the alarm with it, and the two watchdog resets earlier today reached
+  nobody. Still unproven is that a *missed* ping raises an alert — worth
+  testing deliberately rather than finding out the hard way.
+- Moved the heartbeat's ping URL into the repo as `host/boat-heartbeat.json`,
+  sops-encrypted, installed to `/etc/boat-heartbeat.json` by
+  `host/install.sh`. Nothing about this box should need hand-editing under
+  `/etc` to be reproducible.
+- Doing that turned up two problems with this checkout. The sops clean/smudge
+  filter was not configured at all, so any secret-bearing file committed from
+  here would have gone into a public repo in cleartext, and twelve tracked
+  files were sitting on disk as ciphertext. pre-commit was not installed
+  either, so nothing was scanning commits locally. Both fixed with
+  `scripts/setup-git-filters.sh`; the encryption round-trip is verified.
+- Installed Docker (29.7.2) and Compose v5.4.0 from Docker's own repo, since
+  Debian's `docker.io` doesn't carry compose v2. Cost 400 MB of disk and about
+  120 MB of RAM for the daemons. This also completes local secret scanning:
+  the repo's gitleaks pre-commit hook runs in a container, so on this box it
+  had never been able to run at all. It passes now.
+  Note the Docker apt repo is outside the Debian security origin that
+  unattended-upgrades is limited to, so Docker will not upgrade itself.
+- Moved Dex into a container, the first service off systemd. Chosen first on
+  Mark's call: Caddy is the front door, so if it breaks the SignalK UI,
+  Grafana and the OIDC callback all go dark together, while Dex failing only
+  stops SSO login and leaves the local `captain` password working. It also
+  turned out to be the easiest — `storage: memory`, so there was no state to
+  migrate and a restart just re-logs people in.
+  Published on 127.0.0.1:5556 as a transitional step: the compose file
+  assumes Caddy is a container too and reaches Dex over `symphony-net`, which
+  it can't yet. Loopback only, since Dex terminates no TLS of its own.
+  Verified through Caddy on the public URL: discovery issuer unchanged and
+  /dex/keys returns 200. Disabled the native unit — it would have raced the
+  container for 5556 on the next boot. That is an exception to the standing
+  'stop, don't disable' rule, which is about relieving memory pressure, not
+  about a service that has been replaced.
+  Rollback if needed: `docker compose stop dex && sudo systemctl enable --now dex`.
+- Tested the off-boat heartbeat's alerting, which is the half that had never
+  been exercised. First attempt looked like a failure: 39 minutes of silence
+  and nothing fired. The cause was the check's own defaults — period 1 day,
+  grace 1 hour — so it would not have called the boat down for about 25
+  hours. Worth knowing generally: arming a dead man's switch is not the same
+  as configuring it, and the default schedule is useless for this purpose.
+  Reset to period 5 minutes, grace 20. An explicit `/fail` ping then reached
+  Discord within seconds, proving ping delivery, check state and the
+  notification channel end to end.
+- Upgraded `@signalk/signalk-node-red` to 4.4.0. npm installed the package and
+  then died writing the manifest, leaving the tree at 4.4.0 and package.json
+  at ^3.2.1 — a split that a later install would have silently reverted.
+  Verified the package was complete and reconciled the manifest by hand.
+- Removed the `debug-bt-sensors.conf` drop-in, which was forcing
+  `DEBUG=bt-sensors-plugin-sk*` on the server long after the debugging session
+  that wanted it. That was 402 of 2,518 SignalK journal lines an hour, all of
+  it written to the SD card.
+- Turned on unattended security updates. The package wasn't installed at all,
+  so the `apt-daily` timers had been refreshing package lists for nothing.
+  Config lives in `host/` and installs through `host/install.sh`: Debian
+  security only, no automatic reboot ever, and a blacklist covering `nodejs`,
+  `signalk-server`, `bluez`, the kernel and `openplotter-*` — every one of
+  which has broken this boat when it moved. Dry run applied cleanly.
+- Measured what the SD card actually takes, because a figure recorded earlier
+  the same day was wrong. The kernel's since-boot counter gives about
+  10.7 GB/day (2,062 MB over 4h36m); a 60-second sample read 4 GB/day. The
+  270 GB/day "burst" written down earlier came from misreading
+  `/proc/diskstats` and is impossible against a ~2 GB lifetime counter. It was
+  informing a decision about replacing the boot media, which is why it was
+  worth chasing rather than leaving.
+- Dropped the idea of forking `signalk-fixed-position` to slow its writes.
+  86,000 writes a day sounds bad until you compare it to the total: at roughly
+  350 MB/day it's a few percent of what the card takes anyway. Forking a
+  working plugin to buy that back isn't worth carrying a second fork. The
+  count was alarming; the volume wasn't.
 
 - Connected SignalK to the NMEA 2000 bus. One `pipedProvider`, `n2k-can0`,
   canboatjs on `can0`. `navigation.position`, `speedOverGround`,
@@ -345,6 +420,27 @@
   persists its stored position on every delta at a hardcoded 1 Hz, measured at
   20 config-file rewrites in 20 seconds. Left enabled deliberately — the
   fallback is worth more than the wear — and logged as a thing to debounce.
+- Both house batteries now report to SignalK over Bluetooth — voltage,
+  current, SOC, temperature, cycles, protection state and all four cell
+  voltages, every 60 seconds, stored in InfluxDB.
+- Identified which physical pack is which, which the advertised name cannot
+  do: both advertise as `DP04S007L4S200A`, so a capture taken by name can't be
+  attributed. By MAC, `A5:C2:37:3C:5C:90` is the pack wired into the system —
+  it tracks the Victron shunt to within 10 mV — and `A5:C2:37:40:01:46` is the
+  spare sitting disconnected with its terminals plugged. The spare reads 13.19
+  V at 61%, which is a sensible storage state, not a fault.
+- Fixed two bugs in the JBDBMS sensor class that dropped data silently:
+  temperature was registered under a tag nothing emitted, and the protection
+  callback returned before the code that raises the alert, so protection
+  alerts could never fire. Submitted upstream with a regression test built on
+  a checksum-verified frame captured from the boat.
+- The plugin also needs `pollFreq` and an explicit `paths` block per device or
+  it connects, decodes and publishes nothing at all, with no error anywhere.
+  Cost most of the session. Written up in RUNBOOK.
+- Raised the hardware watchdog from 15s to 30s after it hard-reset the box
+  twice in 33 minutes on a load spike it would have ridden out. Those resets
+  left the Bluetooth controller unable to complete GATT service discovery,
+  which a clean reboot cleared.
 
 ## Date unknown
 - Cleaned fuel filter.

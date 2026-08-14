@@ -10,5 +10,13 @@ services:
     user: "1000:1000"
     volumes:
       - ./dex/config.yaml:/etc/dex/config.docker.yaml:ro
+    # Transitional, for as long as Caddy is still a native systemd service on
+    # the boat Pi. Once Caddy is a container on symphony-net it reaches dex by
+    # service name and this can go: container-to-container traffic never
+    # touches the host. Bound to loopback deliberately -- Caddy is local, and
+    # dex terminates no TLS of its own, so publishing this on 0.0.0.0 would put
+    # the identity provider on the network in the clear.
+    ports:
+      - "127.0.0.1:5556:5556"
     networks:
       - symphony-net
