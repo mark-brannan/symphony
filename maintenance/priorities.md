@@ -48,6 +48,11 @@ This file remains authoritative for the SignalK / IoT section below.
 - Deep-clean water tank (due again)
 
 ### Electrical (core, non-IoT)
+- Bring the second house battery into service — `A5:C2:37:40:01:46` sits
+  disconnected with its terminals plugged while `A5:C2:37:3C:5C:90` carries the
+  bank alone. Charge it to match before paralleling. Its state is already
+  visible over Bluetooth, so no need to open anything to check on it.
+  *(Parked here for transfer to Evernote.)*
 - GFCI outlet in head
 - Secure batteries with straps; cover exposed positive battery terminals
 - Wrap up DC-DC converter install (Victron Orion-Tr, purchased 2025-05-08)
