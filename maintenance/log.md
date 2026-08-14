@@ -368,6 +368,23 @@
   'stop, don't disable' rule, which is about relieving memory pressure, not
   about a service that has been replaced.
   Rollback if needed: `docker compose stop dex && sudo systemctl enable --now dex`.
+- Tested the off-boat heartbeat's alerting, which is the half that had never
+  been exercised. First attempt looked like a failure: 39 minutes of silence
+  and nothing fired. The cause was the check's own defaults — period 1 day,
+  grace 1 hour — so it would not have called the boat down for about 25
+  hours. Worth knowing generally: arming a dead man's switch is not the same
+  as configuring it, and the default schedule is useless for this purpose.
+  Reset to period 5 minutes, grace 20. An explicit `/fail` ping then reached
+  Discord within seconds, proving ping delivery, check state and the
+  notification channel end to end.
+- Upgraded `@signalk/signalk-node-red` to 4.4.0. npm installed the package and
+  then died writing the manifest, leaving the tree at 4.4.0 and package.json
+  at ^3.2.1 — a split that a later install would have silently reverted.
+  Verified the package was complete and reconciled the manifest by hand.
+- Removed the `debug-bt-sensors.conf` drop-in, which was forcing
+  `DEBUG=bt-sensors-plugin-sk*` on the server long after the debugging session
+  that wanted it. That was 402 of 2,518 SignalK journal lines an hour, all of
+  it written to the SD card.
 - Turned on unattended security updates. The package wasn't installed at all,
   so the `apt-daily` timers had been refreshing package lists for nothing.
   Config lives in `host/` and installs through `host/install.sh`: Debian
