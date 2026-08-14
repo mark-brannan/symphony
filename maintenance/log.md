@@ -241,6 +241,18 @@
 - Noted `openplotter-i2c-read` crash-restarting about 15 times a minute — 305
   restarts in one 33-minute boot. Not the cause of the resets, but constant
   churn on a box with none to spare.
+- Fixed that crash loop. It was version skew, not hardware: Blinka's `busio`
+  expects an `RP2350` constant that the installed `adafruit-platformdetect`
+  predates, so every start died in `busio.init`. Upgraded 3.75.0 to 3.89.1;
+  the service now runs clean with no restarts.
+- Deleted `/etc/systemd/system/signalk.service.d/override.conf`. It had no
+  `[Unit]` header so systemd ignored it anyway, and it ordered against a
+  `socketcan-interface.service` that doesn't exist on this host.
+- Disk down to 73% from 89% earlier in the week: `apt clean`, journald
+  vacuumed to 150 MB, and 627 MB of Chromium browser cache cleared. Left
+  `~/.npm` alone for now — the cache earns its keep during a plugin install.
+- Confirmed all six expected services (SignalK, InfluxDB, Grafana, Caddy,
+  Dex, Telegraf) are enabled and active.
 
 ## Date unknown
 - Cleaned fuel filter.
