@@ -313,6 +313,11 @@
 - Decided how host provisioning gets built and wrote it up in
   `reference/host_provisioning.md`. The SignalK/Ansible repo the README points
   at turns out to be upstream and not ours, so Ansible will live in this repo.
+- Raised the watchdog timeout from 15s to 60s, authorized. At 15s it hard-reset
+  the box twice in 33 minutes against a storm it would have ridden out. Also
+  corrected a wrong claim in the config: 15s is the bcm2835 hardware heartbeat,
+  not a ceiling — the kernel pets the hardware itself and enforces the longer
+  timeout in software.
 - Deleted the orphaned `set-system-time` config from both the repo and the
   boat. The plugin itself hasn't existed on this box for some time and chrony
   owns the clock now, so an enabled config for it was only ever a trap for
