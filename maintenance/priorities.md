@@ -286,14 +286,15 @@ This file remains authoritative for the SignalK / IoT section below.
   registered v2 API, not published paths — but the hint list has no weather
   entry, so it scores `unmatched` and reads like a fault. Any other provider
   plugin will land the same way.
-- Rotate the shared `captain` password, and split it in two. `signalk_captain_password`
-  and `influxdb_captain_password` in `secrets/symphony.sops.yaml` hold the *same
-  value* — verified 2026-08-14 by decrypting both. Two keys reading as two
-  secrets while being one is the trap: rotating either leaves the other believing
-  it changed. It is also 9 characters and is the break-glass credential for both
-  SignalK admin and InfluxDB, the latter now being the only route back in if the
-  all-access token is lost. Fix is one rotation per system, not one shared value
-  copied to two keys.
+- **Do not touch the `captain` credentials.** `signalk_captain_password` and
+  `influxdb_captain_password` in `secrets/symphony.sops.yaml` are frozen at
+  Mark's instruction until his own hardening pass, which is scheduled work and
+  not something a session should get ahead of. Do not rotate them, do not split
+  them, do not "helpfully" strengthen them, and do not offer to — the offer
+  itself is the thing he asked to stop, because it recurs in every session that
+  reads this file. He knows their current state and has decided when it changes.
+  `scripts/lint_repo_hygiene.py` fails the commit if a diff touches them, since
+  prose in this file is context and not a constraint.
 - Decide what to do about Chromium on the boat Pi. Its profile under
   `~/.config/chromium` is 1.9 GB — 692 MB of extensions across 23 of them, 335 MB
   of service workers, 231 MB of File System storage — and it is the single
