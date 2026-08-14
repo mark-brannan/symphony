@@ -873,30 +873,130 @@ scripts/provision_grafana_users.sh
 scripts/provision_influxdb.sh
 ```
 
-**InfluxDB tokens** can't be reset in place — a token's value is only ever
-shown once, at creation. To rotate:
+**InfluxDB tokens** can't be reset in place — a value is shown once, at
+creation. So the order is mint, migrate, verify, *then* revoke: the old token
+keeps working until the new one is proven, and no writes are lost mid-rotation.
+
+Everything below is plain HTTP against `:8086` and is identical bare-metal or
+containerized. Only step 5 forks.
+
+**1. Get a credential that works, and the org id.** Of the four InfluxDB
+tokens in sops, only `influxdb_captain_token` authenticates — the other three
+returned 401 when last checked on 2026-08-14. Don't assume; check the code:
 
 ```bash
-export INFLUX_TOKEN=$(sops --decrypt --extract '["influxdb_operator_token"]' secrets/symphony.sops.yaml)
-
-# list authorizations and note the id you want gone
-curl -s -H "Authorization: Token $INFLUX_TOKEN" \
-  http://localhost:8086/api/v2/authorizations |
-  python3 -c 'import sys,json;[print(a["id"], a.get("description","")) for a in json.load(sys.stdin)["authorizations"]]'
-
-curl -X DELETE -H "Authorization: Token $INFLUX_TOKEN" \
-  http://localhost:8086/api/v2/authorizations/<id>
-
-scripts/provision_influxdb.sh   # mints a fresh one now that the old one's gone
+cd ~/symphony
+TOK=$(sops --decrypt --extract '["influxdb_captain_token"]' secrets/symphony.sops.yaml)
+ORG=$(curl -s -H "Authorization: Token $TOK" http://localhost:8086/api/v2/orgs \
+      | python3 -c 'import json,sys;print(json.load(sys.stdin)["orgs"][0]["id"])')
+curl -s -o /dev/null -w "auth check: %{http_code}\n" \
+     -H "Authorization: Token $TOK" http://localhost:8086/api/v2/authorizations
 ```
 
-Don't pass `?orgID=` a name — it takes the org's hex id, and listing without it
-returns everything this token can see anyway.
+`200` and you can continue. `401` means that one is dead too — see "When every
+stored token is dead" below.
 
-Then update `secrets/symphony.sops.yaml` and (for the SignalK token)
-`signalk/plugin-config-data/signalk-to-influxdb2.json`.
+**2. Find the authorization you're replacing.** `?orgID=` takes the hex id, not
+a name:
 
-`ROTATION.md` records credentials already rotated and why.
+```bash
+curl -s -H "Authorization: Token $TOK" \
+     "http://localhost:8086/api/v2/authorizations?orgID=$ORG" \
+  | python3 -c '
+import json,sys
+for a in json.load(sys.stdin)["authorizations"]:
+    print(a["id"], repr(a.get("description","")), "perms=%d" % len(a["permissions"]))
+'
+OLD_ID=<paste the id>
+```
+
+**3. Mint the replacement with the same permissions:**
+
+```bash
+curl -s -H "Authorization: Token $TOK" \
+     "http://localhost:8086/api/v2/authorizations/$OLD_ID" > /tmp/oldauth.json
+python3 -c '
+import json
+a=json.load(open("/tmp/oldauth.json"))
+json.dump({"orgID":a["orgID"],"userID":a["userID"],
+           "description":a.get("description","")+" (rotated)",
+           "permissions":a["permissions"]}, open("/tmp/newauth-req.json","w"))
+'
+curl -s -X POST -H "Authorization: Token $TOK" -H "Content-Type: application/json" \
+     -d @/tmp/newauth-req.json http://localhost:8086/api/v2/authorizations \
+  > /tmp/newauth.json
+NEW=$(python3 -c 'import json;print(json.load(open("/tmp/newauth.json"))["token"])')
+```
+
+Don't echo `$NEW`. Terminal scrollback persists, and in a Claude session it
+lands in a transcript — which is what caused the 2026-08-14 rotation.
+
+**4. Update every consumer. Find them, don't trust a list** — the list grows:
+
+```bash
+grep -rl -- "$TOK" ~/.signalk/plugin-config-data/ /etc/telegraf/ 2>/dev/null
+grep -c -- "$TOK" ~/symphony/.env
+
+for f in $(grep -rl -- "$TOK" ~/.signalk/plugin-config-data/); do
+  OLD="$TOK" NEW="$NEW" python3 -c '
+import os,io,sys
+p=sys.argv[1]; s=io.open(p,encoding="utf-8").read()
+io.open(p,"w",encoding="utf-8").write(s.replace(os.environ["OLD"],os.environ["NEW"]))
+print("updated", p)
+' "$f"
+done
+
+sops --set "[\"influxdb_captain_token\"] \"$NEW\"" secrets/symphony.sops.yaml
+python3 scripts/render.py
+```
+
+Two of those files are easy to miss by hand: in
+`signalk-to-influxdb2.json` the token is nested at
+`configuration.influxes[].token`, not top-level, and the buffering plugin's
+file is `signalk-to-influxdb-v2-buffer.json` — `-buffer`, though the plugin is
+named `-buffering`.
+
+**5. Restart consumers, then prove writes land** *before* revoking:
+
+```bash
+sudo systemctl restart signalk telegraf                      # bare metal
+# docker compose up -d --force-recreate signalk telegraf     # containerized
+
+curl -s -H "Authorization: Token $NEW" -H "Content-Type: application/vnd.flux" \
+     -H "Accept: application/csv" -XPOST \
+     "http://localhost:8086/api/v2/query?org=symphony" \
+     -d 'from(bucket:"symphony")|>range(start:-2m)|>limit(n:3)' | head -3
+```
+
+Rows means the new credential is carrying traffic. No rows means stop and fix
+it — the old token still works, so nothing is lost yet.
+
+**6. Revoke, and prove it's dead:**
+
+```bash
+curl -s -o /dev/null -w "delete: %{http_code}\n" -X DELETE \
+     -H "Authorization: Token $NEW" \
+     "http://localhost:8086/api/v2/authorizations/$OLD_ID"
+curl -s -o /dev/null -w "old token now: %{http_code}  (401 = revoked)\n" \
+     -H "Authorization: Token $TOK" http://localhost:8086/api/v2/authorizations
+shred -u /tmp/oldauth.json /tmp/newauth.json /tmp/newauth-req.json
+```
+
+Expect `204` then `401`. Record it in `ROTATION.md`, which is where credentials
+already rotated and the reason are kept.
+
+### When every stored token is dead
+
+`influxdb_operator_token`, `influxdb_signalk_token` and `influx_token` all
+return 401 as of 2026-08-14, and the repo's tracked copy of
+`signalk/plugin-config-data/signalk-to-influxdb2.json` carries a *third* dead
+token, different again from the boat's live value. Following any procedure
+that reaches for one of those propagates a 401 credential.
+
+If nothing authenticates, what's left is the InfluxDB UI at `:8086` with the
+`captain` login, or `scripts/provision_influxdb.sh` against a fresh volume.
+Neither has been exercised from a fully locked-out state, so treat them as
+untested rather than as a procedure.
 
 ## Rotating the age key
 
@@ -1540,9 +1640,9 @@ their plaintext-on-disk copies, which losing the key does not touch — only the
 git-stored encrypted copies become unreadable.
 
 One exception. `influxdb_operator_token` has no plaintext copy anywhere, being
-used only by provisioning scripts. Recovering it is its own procedure —
-[reference/influxdb_token_rotation.md](reference/influxdb_token_rotation.md),
-"When every stored token is dead".
+used only by provisioning scripts — and it is already dead. Recovering from
+that is its own procedure: "When every stored token is dead", under "Rotating
+a secret" above.
 
 **Don't reach for `DOCKER_INFLUXDB_INIT_USERNAME` / `_PASSWORD` as the
 break-glass login.** Those apply only when InfluxDB initialises a *fresh*
