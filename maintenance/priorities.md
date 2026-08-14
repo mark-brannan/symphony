@@ -214,6 +214,21 @@ This file remains authoritative for the SignalK / IoT section below.
     unevaluated. Their webapp-load counts are the enumeration artifact above,
     not use. `signalk-questdb` sets `managedContainer: true`, so there is some
     relationship between it and `signalk-container` that nobody has traced.
+- **Answering the census's question 2 — "which of the 15 container-only plugins
+  are earning their place" — cannot be done from the container**, and the
+  attempt is what produced today's wrong verdicts. Webapp loads don't rank (see
+  the enumeration artifact above), and "publishes nothing" is correct behaviour
+  for every webapp, exporter, provider and actor among them. What the census
+  does settle, and all it settles:
+  - `signalk-rpi-stats` publishes 29 paths. It demonstrably works.
+  - `signalk-marinetraffic-public`, `signalk-mob-notifier` and
+    `signalk-basic-tide-widgets` have never been configured (`configured_values:
+    false`), so they have had no chance to do anything either way.
+  - One unexplained thing: `marinetraffic-public` reads unconfigured, yet
+    `marinetraffic.XX` publishes one path and shows in `unattributed_sources`.
+    Nobody has traced it. Flagged, not resolved.
+  - Everything else on that list is the parked category above — a question for
+    Mark, not a measurement.
 - Add a weather term to `ACTOR_HINTS` in `scripts/signalk_plugin_census.py`.
   `open-meteo` is an actor by the script's own definition — its product is a
   registered v2 API, not published paths — but the hint list has no weather
