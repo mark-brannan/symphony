@@ -1130,6 +1130,99 @@ Start again in reverse order. A service killed while running comes back
 `failed`, so clear it with `sudo systemctl reset-failed signalk.service`
 first.
 
+## Setting up a BLE sensor in bt-sensors-plugin-sk
+
+Read this before adding a sensor or rebuilding this box. Two config keys are
+required that nothing warns you about: leave either out and the sensor
+connects, polls, decodes correctly and publishes **nothing**, with no error in
+any log. Both are per-peripheral, in
+`signalk/plugin-config-data/bt-sensors-plugin-sk.json`.
+
+```json
+{
+  "active": true,
+  "mac_address": "A5:C2:37:40:01:46",
+  "params": {
+    "name": "House Battery 1",
+    "sensorClass": "JBDBMS",
+    "batteryID": "0146",
+    "pollFreq": 60
+  },
+  "paths": {
+    "voltage": "electrical.batteries.0146.voltage",
+    "SOC": "electrical.batteries.0146.capacity.stateOfCharge",
+    "temp0": "electrical.batteries.0146.temperature"
+  }
+}
+```
+
+`params.pollFreq` (seconds) is what selects `initGATTInterval()`. Without it
+`BTSensor::activateGATT` falls through to `initGATTNotifications()`, which some
+sensor classes — JBDBMS among them — implement as an empty method. The device
+connects, sends one read request and then sits idle forever.
+
+`paths` must name every tag you want published. `initPaths()` subscribes a tag
+only when `deviceConfig.paths[tag]` exists; the `.default` on each metadatum is
+a suggestion for the config UI, **not** a runtime fallback. Saving the sensor
+through the plugin's own config UI writes this block for you, which is why a
+hand-written or hand-merged config is where this bites.
+
+Confirm the whole plugin is publishing, not just one sensor:
+
+```bash
+curl -s http://localhost:3000/signalk/v1/api/vessels/self \
+  | python3 -c 'import sys,json,collections
+d=json.load(sys.stdin); c=collections.Counter()
+def w(o):
+    if isinstance(o,dict):
+        if "value" in o and "$source" in o: c[str(o["$source"])]+=1
+        for k,v in o.items():
+            if k!="meta": w(v)
+w(d)
+print(c.most_common(20))'
+```
+
+Each configured sensor should appear as its own `$source` (the sensor's
+`name`). If **no** sensor from the plugin appears, it is config, not the radio
+— don't go debugging BLE.
+
+Identify a device by MAC, never by advertised name. Symphony's two house
+batteries both advertise as `DP04S007L4S200A`; only the MAC distinguishes them,
+and BlueZ exposes it.
+
+## BLE sensors go silent after a reboot
+
+Known, unfixed, and the thing most likely to confuse someone. On some boots
+`bt-sensors-plugin-sk` fails its D-Bus handshake to `org.bluez` as it loads:
+
+```
+Uncaught exception: Error: write EPIPE
+  at auth (.../@jellybrick/dbus-next/lib/handshake.js:67)
+```
+
+It does not retry. Every BLE sensor stays silent for the life of that process,
+and nothing else in the log says anything is wrong.
+
+Restart SignalK once the box has settled:
+
+```bash
+sudo systemctl stop signalk.socket
+sudo systemctl stop signalk.service
+sudo systemctl start signalk.socket
+curl -s -o /dev/null http://localhost:3000/signalk/    # socket-activates it
+```
+
+It is **not** a boot-ordering race, so don't spend time there. Measured
+2026-08-13 with `After=bluetooth.service` in place: bluetoothd owned the bus at
+18:35:15 and the handshake still failed at 18:37:15, a hundred seconds later.
+`host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
+hygiene, not because it fixes this.
+
+This matters more than it looks: the hardware watchdog exists to reboot the box
+when nobody is aboard, so an unattended reboot can come back with every BLE
+sensor dead until someone restarts SignalK by hand. If you depend on remote
+battery monitoring, either check after any reboot or add a self-healing check.
+
 ## A BLE sensor connects but never delivers data
 
 bt-sensors logs `le-connection-abort-by-local` and `Unable to connect to
