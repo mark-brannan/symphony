@@ -1445,61 +1445,84 @@ repo are world-readable.
 
 ## A secret was committed in plaintext
 
-**Rotate first. Everything else is secondary.**
+**Rotate first. Everything else is secondary.** Assume it's compromised the
+moment it's pushed — it's in GitHub's API, in forks, and in anything scraping
+new commits. Rewriting history does **not** un-publish it; GitHub keeps
+unreferenced commits reachable by SHA.
 
-Once a secret is pushed to a public repo, assume it's compromised — it's in
-GitHub's API, in forks, and in anything that scrapes new commits. Rewriting
-history does **not** un-publish it: GitHub keeps unreferenced commits
-reachable by SHA.
+1. Revoke and reissue the credential at its provider. This is the only step
+   that fixes anything — see "Rotating a secret" above.
 
-1. **Revoke and reissue the credential at its provider.** This is the only
-   step that actually fixes anything. See "Rotating a secret" above.
-2. Confirm the new value is encrypted before it goes back:
-   `bash scripts/verify_encrypted.sh`
-3. Work out how it got through. Usually: the file had no `.sops.yaml` rule.
-   Add one with `scripts/add_inplace_secret.sh`.
-4. Check whether it's still live anywhere:
-   `scripts/scan_verified_secrets.sh`
-5. Only *then* consider history rewriting, and only if the value can't be
-   rotated (rare — a hardcoded key in a third-party device, say). It
-   requires a force-push, breaks every existing clone, and does not remove
-   the data from GitHub's servers without also contacting GitHub Support.
+2. Add the `.sops.yaml` rule it was missing, which is usually how it got
+   through:
+
+```bash
+scripts/add_inplace_secret.sh <file> <field>
+```
+
+3. Confirm the new value is encrypted and nothing else is still live:
+
+```bash
+bash scripts/verify_encrypted.sh
+scripts/scan_verified_secrets.sh
+```
+
+Consider history rewriting only if the value genuinely cannot be rotated — a
+hardcoded key in a third-party device, say. It force-pushes, breaks every
+existing clone, and still does not remove the data from GitHub's servers
+without contacting GitHub Support.
 
 ## Recovering a lost age key
 
-The age private key is the single point of failure — anyone provisioning a
-new host, or recovering this one, needs it. It is never in git.
+The age private key is the single point of failure — anyone provisioning a new
+host, or recovering this one, needs it, and it is never in git.
 
-You can avoid most of this section by keeping two valid recipients: run
-`scripts/rotate_age_key.sh add --generate`, store the second key somewhere
-separate from the first, and never retire it. Losing one key then costs you
-nothing.
+**Prevent this.** Keep two valid recipients, store the second away from the
+first, and never retire it. Losing one then costs nothing:
 
-- **If you have a backup** (recommended: store the contents of
-  `~/.config/sops/age/keys.txt` in a password manager or a printed offline
-  copy at provisioning time): restore it to `~/.config/sops/age/keys.txt` on
-  the new host and everything above works normally.
-- **If the key is truly gone:** every sops-encrypted value — the whole
-  `secrets/symphony.sops.yaml` store, and the encrypted fields inside the
-  in-place files as they exist in git — is unrecoverable from git alone.
-  Recovery path: generate a fresh keypair (`age-keygen`), update the
-  recipient in `.sops.yaml`, then re-populate from live sources.
-  `secrets/symphony.sops.yaml` values come from whatever's currently live in
-  the running containers/`.env`; the in-place files come from their current
-  plaintext-on-disk copies, which are unaffected by losing the key — only
-  the *git-stored* encrypted copies become unreadable. Then `git add` them
-  again under the new key.
+```bash
+scripts/rotate_age_key.sh add --generate
+```
 
-  Exception: `influxdb_operator_token` has no plaintext-on-disk copy
-  anywhere (it's not consumed by any container, only by provisioning
-  scripts). If it's gone, sign in to InfluxDB with
-  `influxdb_init_username`/`_password` — a real login, not a token — and
-  mint a replacement via `POST /api/v2/authorizations`.
+**If you have a backup**, restore it and everything works normally:
 
-  **The `~/symphony-backups/` directory holds a plaintext snapshot of the
-  live SignalK config** taken 2026-08-07. It is deliberately outside the
-  repo. Treat it as sensitive: it is a full set of live credentials in the
-  clear, and it is a recovery source of last resort.
+```bash
+mkdir -p ~/.config/sops/age
+cp <the backup> ~/.config/sops/age/keys.txt
+chmod 600 ~/.config/sops/age/keys.txt
+sops --decrypt secrets/symphony.sops.yaml | head -1   # expect readable YAML
+```
+
+**If the key is truly gone**, every sops-encrypted value is unrecoverable from
+git alone. Generate a fresh keypair, repoint `.sops.yaml`, then re-populate
+from live sources:
+
+```bash
+age-keygen -o ~/.config/sops/age/keys.txt
+# put the new public key in .sops.yaml, then re-add each file:
+git add secrets/symphony.sops.yaml signalk/security.json
+```
+
+What re-populates from where: `secrets/symphony.sops.yaml` values come from
+what's live in the running containers and `.env`. The in-place files come from
+their plaintext-on-disk copies, which losing the key does not touch — only the
+git-stored encrypted copies become unreadable.
+
+One exception. `influxdb_operator_token` has no plaintext copy anywhere, being
+used only by provisioning scripts. Sign in to InfluxDB with
+`influxdb_init_username` / `_password` — a real login, not a token — and mint a
+replacement:
+
+```bash
+curl -X POST http://localhost:8086/api/v2/authorizations \
+  -H "Authorization: Token $SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"orgID":"<org>","permissions":[{"action":"write","resource":{"type":"authorizations"}}]}'
+```
+
+Last resort: `~/symphony-backups/` holds a plaintext snapshot of the live
+SignalK config from 2026-08-07, deliberately outside the repo. It is a full set
+of live credentials in the clear — treat it accordingly.
 
 ## Upgrading the scanners
 
