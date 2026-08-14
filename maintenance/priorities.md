@@ -190,9 +190,24 @@ This file remains authoritative for the SignalK / IoT section below.
   them; a high count is not evidence of use. The column is still useful as
   positive evidence for a *single* webapp with an irregular burst, and useless
   for ranking.
+- **Dev-container plugin configs are a workbench, not state, until the
+  first-pass evaluation lands.** A session was started 2026-08-14 to actually
+  use the installed plugins — opening webapps, filling in configs, enabling and
+  disabling things to see what they do — and to write up
+  `intermediate_files/plugin-first-pass.md` for Mark to read before any of it
+  is committed. Until that report exists, do not diff, sync or reconcile the
+  container's `plugin-config-data` against the boat or the repo: churn there is
+  someone experimenting, not intent. `census-container.json` is the snapshot
+  taken before that began, so use it rather than the live container.
 - Evaluate the parked plugins on the dev container. These were installed on
   purpose to be tried and then never got the time — they are **not** broken
   candidates for removal, and reading them as idle is the mistake to avoid.
+  **Reconciliation rule while this stays open: a parked plugin is not drift.**
+  Don't install one on the boat because the dev box has it, don't remove one
+  from the dev box because the boat doesn't, and don't file the difference as
+  something to fix. Unevaluated software does not belong on the boat, and the
+  dev box is exactly where it should sit until Mark has judged it — so the two
+  installs are *expected* to differ here, and that difference is not a defect.
   A census can't tell this category from a fault, because both look like
   "enabled, configured, publishing nothing." Only Mark knows which is which,
   so the state below is measurement to start from, not a verdict:
