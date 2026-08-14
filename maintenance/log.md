@@ -328,6 +328,14 @@
   boat. The plugin itself hasn't existed on this box for some time and chrony
   owns the clock now, so an enabled config for it was only ever a trap for
   whoever read it next.
+- Armed the off-boat heartbeat. It had been installed and firing every five
+  minutes for hours, exiting immediately each time because no URL file
+  existed. With a healthchecks.io URL in `/etc/boat-heartbeat.url` it now
+  reports `ping ok`. That closes the gap this box has had all along: every
+  monitor aboard wrote to InfluxDB on the Pi, so a dead Pi took the evidence
+  and the alarm with it, and the two watchdog resets earlier today reached
+  nobody. Still unproven is that a *missed* ping raises an alert — worth
+  testing deliberately rather than finding out the hard way.
 - Turned on unattended security updates. The package wasn't installed at all,
   so the `apt-daily` timers had been refreshing package lists for nothing.
   Config lives in `host/` and installs through `host/install.sh`: Debian
