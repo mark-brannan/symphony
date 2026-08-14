@@ -1109,6 +1109,51 @@ Start again in reverse order. A service killed while running comes back
 `failed`, so clear it with `sudo systemctl reset-failed signalk.service`
 first.
 
+## A BLE sensor connects but never delivers data
+
+bt-sensors logs `le-connection-abort-by-local` and `Unable to connect to
+Bluetooth device after 5 attempts`, and nothing appears under
+`electrical.batteries.<id>`.
+
+First find out whether the radio link is forming at all:
+
+```bash
+bluetoothctl --timeout 20 scan on >/dev/null 2>&1
+bluetoothctl info <MAC> | grep -E 'RSSI|Connected'
+{ printf 'connect <MAC>\n'; sleep 25; printf 'quit\n'; } | bluetoothctl
+```
+
+A healthy RSSI plus `Connected: yes` immediately followed by
+`le-connection-abort-by-local` and `Connected: no` means the link forms and
+GATT service discovery is what dies. That pattern rules out range, the plugin
+and the sensor class in one shot — don't go hunting in any of them.
+
+None of these clear it, so don't spend time on them:
+
+```bash
+bluetoothctl power off && bluetoothctl power on
+sudo hciconfig hci0 reset
+sudo systemctl restart bluetooth
+bluetoothctl remove <MAC>          # even followed by a fresh scan
+```
+
+Reboot the Pi. The controller is the onboard BCM4345C0 on UART, and its
+firmware patch (`brcm/BCM4345C0.raspberrypi,4-model-b.hcd`) is loaded only at
+boot, so nothing short of a reboot re-initialises it. Confirm no install is in
+flight first — a reboot landing on an `npm install` in `~/.signalk` truncates
+the plugin tree:
+
+```bash
+pgrep -a -f 'npm |node-gyp|apt-get|dpkg'
+```
+
+Reading BLE directly is unaffected by the plugin and is the fastest way to
+tell a radio problem from a decode problem:
+
+```bash
+scripts/ble-probe.sh poll <MAC> ff02 dda50300fffd77 ff01 15   # JBD packs
+```
+
 ## A local plugin fork keeps reverting to the registry build
 
 `~/.signalk/node_modules/<plugin>` was a symlink to a local fork and is now a
