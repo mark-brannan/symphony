@@ -13,6 +13,31 @@ data paths, the encryption design — see
 (engine, rigging, ground tackle, plumbing) live in `systems/*.md`, with work
 logged in `maintenance/log.md`.
 
+## Two deployments, one runbook
+
+The compose files are the intended deployment. **The boat Pi does not match
+them** — SignalK, InfluxDB, Grafana, Caddy and Dex run there as systemd units
+(why, in [reference/software_stack.md](reference/software_stack.md)). Commands
+below are written for compose. On the boat, translate:
+
+| Compose | Boat Pi |
+|---|---|
+| `docker compose up -d <svc>` | `sudo systemctl start <svc>` |
+| `docker compose restart <svc>`, `--force-recreate` | `sudo systemctl restart <svc>` |
+| `docker compose stop <svc>` | `sudo systemctl stop <svc>` |
+| `docker exec grafana grafana cli …` | `sudo grafana cli …` |
+| service `grafana` | unit `grafana-server` |
+
+Ports are the same either way — SignalK 3000, Grafana 3001, InfluxDB 8086 — so
+every `curl http://localhost:…` in this file works unchanged on both.
+
+Both deployments read the same rendered `.env`, but only containers get it
+loaded automatically. In a shell, source it first:
+
+```bash
+cd ~/symphony && set -a && . ./.env && set +a
+```
+
 ## Remote SSH access
 
 Connect to the boat:
@@ -1520,6 +1545,7 @@ username and password are the only credential that still works when every
 token is lost:
 
 ```bash
+cd ~/symphony && set -a && . ./.env && set +a
 curl -s -c /tmp/influx-session -X POST http://localhost:8086/api/v2/signin \
   -u "$DOCKER_INFLUXDB_INIT_USERNAME:$DOCKER_INFLUXDB_INIT_PASSWORD"
 
