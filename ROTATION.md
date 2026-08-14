@@ -12,3 +12,25 @@
 
 Re-run with `scripts/scan_verified_secrets.sh` and the gitleaks command in
 `RUNBOOK.md` → "Scanning for leaks by hand".
+
+## 2026-08-14 — `influxdb_captain_token`
+
+Rotated because the value was printed into a Claude session transcript by a
+redaction bug (the filter matched `token` exactly and missed `influxToken`).
+
+It mattered more than it first looked: this was *captain's Token*, all-access,
+and the only working InfluxDB credential on the box — the sops
+`influxdb_operator_token` and the repo's tracked `signalk-to-influxdb2.json`
+token both return 401.
+
+Four consumers: `signalk-barograph`, `signalk-to-influxdb2`,
+`signalk-to-influxdb-v2-buffer`, and `.env` via `influxdb_captain_token`.
+
+Order was mint, migrate, verify writes, then revoke — so nothing lost data
+mid-rotation. Old authorization `0de6f590b7e23000` deleted; the old value now
+returns 401. Also synced the repo's tracked `signalk-to-influxdb2.json`, which
+had been carrying a third, already-dead token.
+
+Still open: this remains one all-access token doing four jobs. Least privilege
+wants scoped write-only tokens per consumer — see the InfluxDB reconciliation
+item in `maintenance/priorities.md`.
