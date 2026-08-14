@@ -25,6 +25,7 @@ INSTALL=(
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
 	"chrony-gpsd.conf:/etc/chrony/conf.d/gpsd.conf:0644:root:root"
+	"telegraf-rpi-health:/usr/local/bin/telegraf-rpi-health:0755:root:root"
 )
 
 # System services to restart after their config lands. Skipped when the unit
@@ -32,6 +33,7 @@ INSTALL=(
 # installed yet.
 RESTART=(
 	"chrony"
+	"telegraf"
 )
 
 # Root cron entries this installer owns. Matched for removal by the command

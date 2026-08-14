@@ -1,0 +1,22 @@
+#!/bin/sh
+# Raspberry Pi power and thermal health, as InfluxDB line protocol for
+# telegraf's exec input.
+#
+# The Pi is powered from the NMEA 2000 bus through the PiCAN-M's SMPS, with no
+# battery buffer between the bus and the board (reference/compute_hardware.md).
+# A sagging bus shows up here as under-voltage long before it shows up as a
+# crash, and `vcgencmd get_throttled` is the only place the SoC reports it.
+# Without this, brownout and software fault look identical after the fact.
+#
+# The "_now" fields are the live state; the "_since_boot" fields latch and stay
+# set until the next reboot, so a brief sag at 03:00 is still visible at noon.
+set -eu
+
+t=$(vcgencmd get_throttled 2>/dev/null | cut -d= -f2) || exit 0
+[ -n "$t" ] || exit 0
+v=$((t))
+
+b() { echo $(( (v >> $1) & 1 )); }
+
+printf 'rpi_health under_voltage_now=%di,freq_capped_now=%di,throttled_now=%di,soft_temp_limit_now=%di,under_voltage_since_boot=%di,freq_capped_since_boot=%di,throttled_since_boot=%di,soft_temp_limit_since_boot=%di\n' \
+	"$(b 0)" "$(b 1)" "$(b 2)" "$(b 3)" "$(b 16)" "$(b 17)" "$(b 18)" "$(b 19)"
