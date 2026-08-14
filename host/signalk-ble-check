@@ -1,29 +1,34 @@
 #!/bin/sh
-# Restart SignalK when bt-sensors-plugin-sk lost its D-Bus connection at load.
+# Restart SignalK when bt-sensors-plugin-sk is loaded but publishing nothing.
 #
-# The plugin opens a connection to org.bluez as it starts. On some boots the
-# handshake dies with `write EPIPE` and it never retries, so every BLE sensor
-# stays silent for the life of that process with nothing in the log to say so.
-# See RUNBOOK -> "BLE sensors go silent after a reboot". This is not a boot
-# ordering race; ordering after bluetooth.service was tried and measured not to
-# help, so this treats the symptom on purpose.
+# The plugin opens a D-Bus connection to org.bluez as it starts. On some starts
+# the handshake dies and it never retries, so every BLE sensor stays silent for
+# the life of that process. See RUNBOOK -> "BLE sensors go silent after a
+# reboot". Ordering after bluetooth.service was tried and measured not to help,
+# so this treats the symptom on purpose.
 #
 # It matters because the hardware watchdog exists to reset this box when nobody
 # is aboard. Without this, an unattended reboot can come back with the house
-# battery monitoring dead until someone notices and restarts SignalK by hand.
+# battery monitoring dead until someone notices.
 #
-# The trigger is the handshake error itself, scoped to the current SignalK
-# start, rather than "are the batteries publishing". Sensor names and paths are
-# config, and a check keyed to config goes stale the first time someone renames
-# a sensor.
+# The test is "is the plugin publishing anything at all", not a journal grep.
+# An earlier version matched the dbus-next handshake error in the log, which
+# tied a recovery mechanism to log verbosity -- turn off the plugin's debug
+# drop-in and the check silently becomes dead code. This asks SignalK what it
+# is actually serving instead, which is true regardless of logging.
+#
+# Expected source names come from the plugin's own config rather than being
+# hardcoded here, so renaming a sensor doesn't quietly disable the check.
 set -eu
 
 TAG=signalk-ble-check
-SIGNATURE='dbus-next/lib/handshake'
 STATE=/run/signalk-ble-check.state
+CONFIG=/home/pi/.signalk/plugin-config-data/bt-sensors-plugin-sk.json
+API=http://localhost:3000/signalk/v1/api/vessels/self
 
-# SignalK needs roughly 100s to reach its plugins and longer for sensors to
-# connect, so a young service has not failed yet -- it just hasn't finished.
+# SignalK needs roughly 100s to reach its plugins and longer for BLE sensors to
+# connect and complete a first poll. A young service has not failed, it just
+# hasn't finished.
 MIN_SERVICE_AGE=300
 COOLDOWN=1800
 MAX_RESTARTS=3
@@ -31,31 +36,83 @@ MAX_RESTARTS=3
 log() { logger -t "$TAG" -p user.notice "$1"; }
 
 systemctl is-active --quiet signalk.service || exit 0
+[ -r "$CONFIG" ] || exit 0
 
 # Never restart on top of a package install. A restart landing on an
 # `npm install` in ~/.signalk is what truncated the plugin tree once already,
-# and this script running unattended is exactly how that would happen again.
-if pgrep -f 'npm |node-gyp|apt-get|dpkg' >/dev/null 2>&1; then
+# and this running unattended is exactly how that would happen again.
+# `pgrep -f` matches whole command lines, so anything in this script's own
+# ancestry that merely mentions dpkg counts as an install -- an ssh command,
+# a shell invocation, this check being run by hand. Exclude the whole ancestor
+# chain rather than just the parent.
+mine=$(mktemp) || exit 0
+pid=$$
+while [ "${pid:-0}" -gt 1 ]; do
+	echo "$pid" >>"$mine"
+	pid=$(awk '{print $4}' "/proc/$pid/stat" 2>/dev/null) || break
+done
+busy=$(pgrep -f 'npm |node-gyp|apt-get|dpkg' 2>/dev/null | grep -vxF -f "$mine" || true)
+rm -f "$mine"
+if [ -n "$busy" ]; then
 	log "install in flight, skipping"
 	exit 0
 fi
 
 started=$(systemctl show signalk.service -p ActiveEnterTimestamp --value)
-[ -n "$started" ] || exit 0
-since=$(echo "$started" | cut -d' ' -f2-3)
+since=$(echo "${started:-}" | cut -d' ' -f2-3)
 [ -n "$since" ] || exit 0
-
 start_epoch=$(date -d "$since" +%s 2>/dev/null || echo 0)
 now_epoch=$(date +%s)
 [ "$start_epoch" -gt 0 ] || exit 0
 [ $((now_epoch - start_epoch)) -ge "$MIN_SERVICE_AGE" ] || exit 0
 
-# Only this run's journal. The previous run's failure is still on disk and
-# would otherwise retrigger forever.
-if ! journalctl -u signalk.service --since "$since" --no-pager 2>/dev/null |
-	grep -q "$SIGNATURE"; then
-	exit 0
-fi
+# 0 = publishing (or nothing is expected to), 10 = enabled but silent,
+# anything else = could not tell, in which case do nothing.
+#
+# The verdict is the exit status, not stdout. An earlier version captured
+# stdout and defaulted to 99 on any non-zero exit, which folded the meaningful
+# 10 into "could not tell" and made the whole check incapable of ever firing.
+verdict=0
+python3 - "$CONFIG" "$API" >/dev/null 2>&1 <<'PY' || verdict=$?
+import json, sys, urllib.request
+
+cfg_path, api = sys.argv[1], sys.argv[2]
+
+with open(cfg_path) as fh:
+	cfg = json.load(fh)
+if not cfg.get("enabled"):
+	sys.exit(0)
+
+expected = {
+	str(p["params"]["name"])
+	for p in cfg.get("configuration", {}).get("peripherals", [])
+	if p.get("active") and p.get("params", {}).get("name") and p.get("paths")
+}
+# Only peripherals with a paths block can publish at all; if none are
+# configured to, silence is correct and there is nothing to heal.
+if not expected:
+	sys.exit(0)
+
+with urllib.request.urlopen(api, timeout=25) as fh:
+	tree = json.load(fh)
+
+seen = set()
+def walk(node):
+	if isinstance(node, dict):
+		if "$source" in node and "value" in node:
+			seen.add(str(node["$source"]))
+		for key, val in node.items():
+			if key != "meta":
+				walk(val)
+walk(tree)
+
+sys.exit(0 if expected & seen else 10)
+PY
+case "$verdict" in
+0) exit 0 ;;
+10) : ;;
+*) exit 0 ;;
+esac
 
 count=0
 last=0
@@ -66,16 +123,16 @@ fi
 : "${count:=0}"
 
 # /run is cleared on boot, so the budget is per boot. If three restarts have
-# not cleared it, restarting again is not going to, and something wants a human.
+# not fixed it, a fourth will not either, and something wants a human.
 if [ "$count" -ge "$MAX_RESTARTS" ]; then
-	log "handshake still failing after $count restarts this boot; leaving it alone"
+	log "still publishing nothing after $count restarts this boot; leaving it alone"
 	exit 0
 fi
 if [ $((now_epoch - last)) -lt "$COOLDOWN" ]; then
 	exit 0
 fi
 
-log "bt-sensors D-Bus handshake failed this run; restarting SignalK (attempt $((count + 1)))"
+log "bt-sensors is loaded but publishing nothing; restarting SignalK (attempt $((count + 1)))"
 
 # Socket first, or the socket unit reactivates the service mid-stop.
 systemctl stop signalk.socket || true
