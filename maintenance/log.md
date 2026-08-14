@@ -264,6 +264,38 @@
   an address set, and it falls back to `127.0.0.1:587` where nothing listens.
   Every alarm it has raised has gone nowhere. The boat currently has no
   outbound alerting at all.
+- Host side, same day. Found Chromium autostarting into an HDMI output with
+  nothing plugged into it, wedging the v3d driver at eight or nine GPU hangs a
+  minute until kworkers blocked permanently. Removed the autostart; hangs went
+  to zero, load 3.4 to 2.0, available memory 769 MB to 1,840 MB. Left lightdm
+  and the desktop alone — this box is not headless by choice.
+- Turned off the nightly 04:00 reboot. It had been covering for that hang
+  rather than preventing anything. Confirmed no reboot scheduling remains in
+  either crontab, `/etc/cron.d`, `cron.daily`, systemd timers or `at`.
+- Stopped and disabled raspotify, cups, cups-browsed and ModemManager.
+- Installed a resident Claude session as a systemd user unit with lingering,
+  reachable by Remote Control instead of a held-open SSH connection. Proved it
+  survives a reboot on its own.
+- Replaced systemd-timesyncd with chrony, which also serves time to the rest
+  of the boat. Found while wiring the GPS refclock that **there is no GNSS
+  receiver attached at all** — gpsd points at a device that doesn't exist, no
+  serial or USB device is present, and `navigation.position` is a fixed dock
+  coordinate from a plugin. So the clock depends entirely on an internet
+  connection, on a box with no RTC. Written up in
+  `reference/compute_hardware.md`.
+- Expanded what Telegraf records: blocked-process count, kernel context
+  switches, its own dropped-metric counters, chrony's offset, and SoC
+  under-voltage and throttle bits from `vcgencmd`. Between them they cover the
+  three failure modes seen this week — a wedged task, a starved box, and a
+  power sag — none of which left usable evidence before. Verified all of it
+  landing in InfluxDB.
+- Installed `boat-heartbeat`: a five-minute ping to an external dead man's
+  switch carrying a vitals summary, so the box going quiet raises an alarm
+  somewhere that isn't the box. Inert until someone writes a URL to
+  `/etc/boat-heartbeat.url`; that step is in `RUNBOOK.md`.
+- Decided how host provisioning gets built and wrote it up in
+  `reference/host_provisioning.md`. The SignalK/Ansible repo the README points
+  at turns out to be upstream and not ours, so Ansible will live in this repo.
 
 ## Date unknown
 - Cleaned fuel filter.
