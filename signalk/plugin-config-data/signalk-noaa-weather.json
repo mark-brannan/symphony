@@ -9,5 +9,5 @@
     "observationsInterval": 60,
     "notificationsInterval": 60
   },
-  "enabled": true
+  "enabled": false
 }
