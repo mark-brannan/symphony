@@ -172,6 +172,28 @@ This file remains authoritative for the SignalK / IoT section below.
 - ~~Fork `signalk-fixed-position` to debounce its writes.~~ Considered and rejected 2026-08-13, keeping the note because the write rate is real and will get re-discovered. Measured: 20 rewrites in 20 one-second samples, roughly 86,000 disk writes a day. The plugin subscribes to `navigation.position` at a hardcoded 1000 ms period and calls `savePluginOptions` on every delta, so its stored fallback position is persisted at GPS rate. Its `interval` setting does not affect this. Note this cost did not exist until the N2K input was connected — with no real GPS there was nothing to persist. The plugin's behaviour is wanted, and the write rate does not justify forking it: at roughly 350 MB/day it is 3-9% of the box's ~10 GB/day total, so a fork would buy a few percent of SD life in exchange for maintaining a second fork forever. The count is what makes it sound alarming; the volume is what matters. Stays enabled. If it ever gets fixed, an upstream issue is the right route, not a fork.
 - Get GPS time off the N2K bus instead of a serial receiver that isn't there. `126992` System Time and `129029` GNSS Position Data both carry it, and chrony's current `GPS` refclock has never received a sample because it is fed from `gpsd`, which has no device. Depends on the N2K input item above. Doesn't remove the case for an RTC — a GNSS clock needs a fix and the bus powered, so it doesn't cover a cold offline boot.
 - Fit a DS3231 RTC to the boat Pi. It has no real-time clock, so the box boots with a wrong clock and stays wrong whenever it's offline — which breaks TLS validity, OIDC token windows and every timestamp written to InfluxDB. The PiCAN-M exposes a Qwiic (I2C) connector, and `dtoverlay=i2c-rtc,ds3231` plus a udev rule is the whole software side (`tkurki/marinepi-provisioning` role `rtc` has it). Cheap, independent of the GNSS question, and it makes the offline case survivable rather than merely detectable.
+- **For the dev-box session:** run `scripts/signalk_plugin_census.py` against the
+  container and commit the output, so the two SignalK installs can be diffed
+  instead of argued about. The boat's census is done. Command:
+  `docker logs signalk 2>&1 | python3 scripts/signalk_plugin_census.py --url http://localhost:3000 --token "$TOK" --access-log - --out census-container.json`
+  — get `$TOK` from `POST /signalk/v1/auth/login`. Read the script's docstring
+  first; it explains why the obvious version of this census is wrong. The short
+  form: a plugin publishing nothing under its own id is usually fine, because
+  plugins rename their `$source` (`bt-sensors-plugin-sk` publishes as "House
+  Battery 1"), or they're webapps, exporters, or actors whose product is an
+  effect rather than a value. Only the `unmatched` bucket is a question, and
+  even that is a question rather than a verdict. On the boat it came to 6 of
+  105, five of which the unattributed-sources list explains.
+  What's wanted back: the container census committed, plus which of the 15
+  plugins the container runs and the boat doesn't are actually earning their
+  place there — `open-meteo`, `signalk-checklist`, `signalk-container`,
+  `signalk-crows-nest`, `signalk-doctor`, `signalk-dsc`, `signalk-grafana`,
+  `signalk-questdb`, `signalk-usage`, `signalk-windy-plugin`,
+  `signalk-marinetraffic-public`, `signalk-mob-notifier`,
+  `signalk-basic-tide-widgets`, `signalk-restricted-areas`, `signalk-rpi-stats`.
+  Note also `noaa-sonar-chart-provider` and `vedirect-signalk` have configs in
+  the repo but are absent from `signalk/package.json`, so they're orphans on the
+  container side the way four configs are orphans on the boat.
 - Decide what to do about Chromium on the boat Pi. Its profile under
   `~/.config/chromium` is 1.9 GB — 692 MB of extensions across 23 of them, 335 MB
   of service workers, 231 MB of File System storage — and it is the single
