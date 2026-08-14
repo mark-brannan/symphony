@@ -49,13 +49,6 @@ This file remains authoritative for the SignalK / IoT section below.
 
 ### Electrical (core, non-IoT)
 - GFCI outlet in head
-- Bring the second house battery into service. `A5:C2:37:40:01:46` is sitting
-  disconnected with silicone plugs on its terminals while `A5:C2:37:3C:5C:90`
-  carries the bank alone. Both already report over Bluetooth, so the spare's
-  state is visible without touching it: 13.19 V at 61% and cells within 2 mV,
-  healthy and at a reasonable storage charge. Bring its SOC to match the
-  in-service pack before paralleling them, rather than letting the difference
-  equalise through the interconnects.
 - Secure batteries with straps; cover exposed positive battery terminals
 - Wrap up DC-DC converter install (Victron Orion-Tr, purchased 2025-05-08)
 - Charger for starter battery
