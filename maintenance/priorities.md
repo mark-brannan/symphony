@@ -267,19 +267,34 @@ This file remains authoritative for the SignalK / IoT section below.
     argument against an audible alarm.
   Open: whether to reinstate, and if so with what config. Its removed config
   is recoverable from git history.
+- Boat-side orphan configs, re-derived 2026-08-14 the only way that works:
+  **ask the server which plugin ids it actually loaded** (`/skServer/plugins`),
+  rather than inferring from package names or config filenames. Four are real —
+  `signalk-fixedstation`, `signalk-saillogger`, `signalk-tide-watch`,
+  `signalk-to-influxdb` — and `signalk-saillogger` is the odd one, enabled with
+  no plugin behind it. Deliberately not removed: per the parked rule, a config
+  without a plugin may be something Mark installed to try and later uninstalled,
+  and the config is the only record of how it was set up.
+  Both earlier counts were wrong and neither method should be reused. Matching
+  config filenames against `signalk/package.json` undercounts, because that file
+  is keyed by npm package name while configs are named for plugin id. Deriving
+  ids by scanning installed packages overcounts — it returned 13 here, 9 of them
+  false, including `charts`, `derived-data` and `venus`, all of which are loaded
+  and working. The server is the only source that knows.
 - Add a weather term to `ACTOR_HINTS` in `scripts/signalk_plugin_census.py`.
   `open-meteo` is an actor by the script's own definition — its product is a
   registered v2 API, not published paths — but the hint list has no weather
   entry, so it scores `unmatched` and reads like a fault. Any other provider
   plugin will land the same way.
-- Rotate the shared `captain` password, and split it in two. `signalk_captain_password`
-  and `influxdb_captain_password` in `secrets/symphony.sops.yaml` hold the *same
-  value* — verified 2026-08-14 by decrypting both. Two keys reading as two
-  secrets while being one is the trap: rotating either leaves the other believing
-  it changed. It is also 9 characters and is the break-glass credential for both
-  SignalK admin and InfluxDB, the latter now being the only route back in if the
-  all-access token is lost. Fix is one rotation per system, not one shared value
-  copied to two keys.
+- **Do not touch the `captain` credentials.** `signalk_captain_password` and
+  `influxdb_captain_password` in `secrets/symphony.sops.yaml` are frozen at
+  Mark's instruction until his own hardening pass, which is scheduled work and
+  not something a session should get ahead of. Do not rotate them, do not split
+  them, do not "helpfully" strengthen them, and do not offer to — the offer
+  itself is the thing he asked to stop, because it recurs in every session that
+  reads this file. He knows their current state and has decided when it changes.
+  `scripts/lint_repo_hygiene.py` fails the commit if a diff touches them, since
+  prose in this file is context and not a constraint.
 - Decide what to do about Chromium on the boat Pi. Its profile under
   `~/.config/chromium` is 1.9 GB — 692 MB of extensions across 23 of them, 335 MB
   of service workers, 231 MB of File System storage — and it is the single

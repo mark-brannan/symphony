@@ -70,6 +70,12 @@ ACTOR_HINTS = (
     'notification-player', 'alarm-silencer', 'path-mapper', 'zones',
     'flags', 'autostate', 'beeper', 'course-provider', 'resources-provider',
     'activecaptain', 'wilhelmsk', 'alternator-engine-on', 'ais-status',
+    # Providers register a v2 API and serve it on request. Their product is the
+    # endpoint, not a published path, so they look identical to an idle plugin
+    # from the data model's side. open-meteo scored 'unmatched' and read as a
+    # fault while working correctly, which is the same mistake the renamed
+    # sources caused -- a plugin doing its job filed as a problem.
+    'meteo', 'weather', 'tide', 'chart', 'provider',
 )
 
 

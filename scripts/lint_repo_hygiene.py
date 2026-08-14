@@ -128,11 +128,57 @@ def rule_audible_alarms_are_scoped() -> None:
             )
 
 
+# sops keys the owner has frozen. Not a general "secrets are sensitive" rule --
+# these specific values are staged for a hardening pass he is doing himself, on
+# his own schedule, and a session changing them ahead of that is unwanted work
+# on a credential he still needs to be able to predict.
+FROZEN_SECRET_KEYS = ("signalk_captain_password", "influxdb_captain_password")
+
+
+def rule_frozen_secrets_untouched() -> None:
+    """Some credentials are deliberately not ours to improve.
+
+    The owner froze the captain credentials pending his own hardening work and
+    asked, explicitly, that sessions stop offering to fix them. An offer is
+    cheap to make and costs him the same judgement every time it recurs.
+
+    This is a gate rather than a note because the note already existed. It lived
+    in maintenance/priorities.md, phrased as a task, and read as an invitation to
+    every session that opened the file -- which is exactly what prose does. His
+    own standing orders say it: anything that must happen belongs in a hook, not
+    in a document.
+
+    Passes when the working tree is clean of changes to those keys; fails on a
+    staged diff that touches one. Override needs a human deciding to, which is
+    the point.
+    """
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "-U0", "--", "secrets/"],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout
+    if not staged:
+        return
+    for line in staged.splitlines():
+        if not line.startswith(("+", "-")) or line.startswith(("+++", "---")):
+            continue
+        for key in FROZEN_SECRET_KEYS:
+            if key in line:
+                fail(
+                    "frozen-secret",
+                    f"this commit changes {key}, which the owner froze until "
+                    f"his own hardening pass. Don't rotate, split, or "
+                    f"strengthen it, and don't offer to. See the captain "
+                    f"credentials item in maintenance/priorities.md.",
+                )
+                return
+
+
 def main() -> int:
     warn_only = "--warn-only" in sys.argv
     for rule in (
         rule_declared_filters_are_configured,
         rule_audible_alarms_are_scoped,
+        rule_frozen_secrets_untouched,
     ):
         rule()
 
