@@ -296,6 +296,10 @@
 - Decided how host provisioning gets built and wrote it up in
   `reference/host_provisioning.md`. The SignalK/Ansible repo the README points
   at turns out to be upstream and not ours, so Ansible will live in this repo.
+- Deleted the orphaned `set-system-time` config from both the repo and the
+  boat. The plugin itself hasn't existed on this box for some time and chrony
+  owns the clock now, so an enabled config for it was only ever a trap for
+  whoever read it next.
 
 ## Date unknown
 - Cleaned fuel filter.
