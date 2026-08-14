@@ -391,7 +391,7 @@ tell.
 
 ### A page hangs but the host is reachable — MTU
 
-Symptom: the browser spins forever on `https://signalk.<domain>/`, ssh and
+Symptom: the browser spins forever on `https://signalk.symphony.dark-star-llc.com/`, ssh and
 ping to the same host are fine, and a port check succeeds:
 
 ```powershell
@@ -495,7 +495,7 @@ this is a whole-config restore, not a DNS-only one.
 
 SignalK and Grafana web UIs show a "Sign in with GitHub / Google" button.
 Behind it sits Dex, a small identity provider on the boat at
-`auth.<domain>`: SignalK and Grafana trust only Dex; Dex hands the actual
+`auth.symphony.dark-star-llc.com`: SignalK and Grafana trust only Dex; Dex hands the actual
 login to GitHub or Google. Any account at either provider can sign in and
 view SignalK (readonly). The owner's email also gets Grafana Admin.
 Anything that changes state still uses the local password logins
@@ -512,9 +512,9 @@ too (`DOMAIN` can be `boat.example.com`).
 
 1. In Cloudflare DNS, add one **A** record and three CNAMEs, all DNS
    only / grey cloud (not proxied):
-   - `<domain>` → the host's **tailnet** IP, e.g. `100.113.172.64`
-   - `signalk.<domain>`, `grafana.<domain>`, `auth.<domain>` → CNAME to
-     `<domain>`
+   - `symphony.dark-star-llc.com` → the host's **tailnet** IP, e.g. `100.113.172.64`
+   - `signalk.symphony.dark-star-llc.com`, `grafana.symphony.dark-star-llc.com`, `auth.symphony.dark-star-llc.com` → CNAME to
+     `symphony.dark-star-llc.com`
 
    Public DNS answers for off-boat devices, the boat router answers for
    on-boat ones (step 3), and the same URL works in both places. Give
@@ -534,7 +534,7 @@ too (`DOMAIN` can be `boat.example.com`).
    one zone.
 3. On the **boat router**, add a local DNS override sending the whole
    subdomain to the host's LAN IP (dnsmasq:
-   `address=/<domain>/192.168.1.50`, or the router UI's "local DNS
+   `address=/symphony.dark-star-llc.com/192.168.1.50`, or the router UI's "local DNS
    records"). One wildcard entry covers the apex and every subdomain,
    so adding a service later needs no router change.
 
@@ -544,7 +544,7 @@ too (`DOMAIN` can be `boat.example.com`).
    devices can't resolve the names.
 
 *Verify:* from a device on the boat LAN **with the WAN link
-disconnected**, `nslookup signalk.<domain>` returns the LAN IP.
+disconnected**, `nslookup signalk.symphony.dark-star-llc.com` returns the LAN IP.
 
 ### 2 — OAuth apps (one-time)
 
@@ -553,8 +553,8 @@ disconnected**, `nslookup signalk.<domain>` returns the LAN IP.
 → OAuth Apps → New OAuth App:
 
 - Application name: anything (e.g. "Symphony boat systems")
-- Homepage URL: `https://auth.<domain>`
-- Authorization callback URL: `https://auth.<domain>/dex/callback`
+- Homepage URL: `https://auth.symphony.dark-star-llc.com`
+- Authorization callback URL: `https://auth.symphony.dark-star-llc.com/dex/callback`
 
 Copy the client ID; "Generate a new client secret" and copy it.
 
@@ -569,7 +569,7 @@ Copy the client ID; "Generate a new client secret" and copy it.
    basic scopes used need no Google review.
 3. Credentials → Create credentials → OAuth client ID → type **Web
    application** → one redirect URI:
-   `https://auth.<domain>/dex/callback`
+   `https://auth.symphony.dark-star-llc.com/dex/callback`
 4. Copy the client ID and client secret.
 
 Both providers talk only to Dex, hence the single callback URL each — no
@@ -624,18 +624,18 @@ process.
 *Verify:*
 
 ```bash
-curl -s https://signalk.<domain>/signalk/v1/auth/oidc/status
-curl -s https://auth.<domain>/dex/.well-known/openid-configuration | head -3
+curl -s https://signalk.symphony.dark-star-llc.com/signalk/v1/auth/oidc/status
+curl -s https://auth.symphony.dark-star-llc.com/dex/.well-known/openid-configuration | head -3
 ```
 
 The first expects `"enabled":true` and
-`"issuer":"https://auth.<domain>/dex"`; the second returns JSON if Dex is
+`"issuer":"https://auth.symphony.dark-star-llc.com/dex"`; the second returns JSON if Dex is
 up behind Caddy. If TLS itself fails, certificates haven't issued — check
 `docker logs caddy`. Then from a browser on the LAN:
 
-- `https://signalk.<domain>` → sign in with either provider → Security →
+- `https://signalk.symphony.dark-star-llc.com` → sign in with either provider → Security →
   Users shows the new user with type `readonly`.
-- `https://grafana.<domain>` → the owner's login → Admin; any other
+- `https://grafana.symphony.dark-star-llc.com` → the owner's login → Admin; any other
   account → refused (that's the strict email list working).
 - The `captain` password still logs in on SignalK with admin.
 
