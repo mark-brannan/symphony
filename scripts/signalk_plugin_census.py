@@ -27,6 +27,10 @@ So a plugin that publishes nothing under its own id is not idle. It is one of:
   webapp     - a user interface. Publishing nothing is correct.
   exporter   - writes outward (InfluxDB, NMEA 2000, push notifications). It
                consumes the model rather than adding to it. Silence is correct.
+  actor      - its product is an effect, not a value: it plays a sound, clears
+               a notification, rewrites a path, serves a v2 API. A working
+               signalk-notification-player publishes zero paths, because what
+               it does is make a noise. Silence is correct.
   renamed    - publishes under a source name that isn't its id. Working.
   unmatched  - none of the above. This is the only bucket worth reviewing,
                and it is still a question rather than a verdict.
@@ -50,6 +54,22 @@ EXPORTER_HINTS = (
     'influxdb', 'postgsail', 'questdb', 'aisreporter', 'ntp-server',
     'to-nmea2000', 'nmea0183', 'push-notifications', 'tracks', 'saillogger',
     'internet-speed', 'speedtest', 'set-gps-timezone', 'grafana', 'usage',
+)
+
+# Plugins whose product is an effect, not a value. They mutate existing state,
+# clear it, or do something off the boat's data model entirely -- play a sound,
+# rename a path, edit zone metadata, serve a v2 API. Counting published paths
+# says nothing about them, in either direction: signalk-notification-player
+# working perfectly publishes exactly zero paths, because what it does is make
+# a noise.
+#
+# There is no reliable programmatic test for "did this plugin have its intended
+# effect", so this bucket is a flag for a human, not a verdict. Same asymmetry
+# as webapps: it exists to stop an actor being mistaken for an idle plugin.
+ACTOR_HINTS = (
+    'notification-player', 'alarm-silencer', 'path-mapper', 'zones',
+    'flags', 'autostate', 'beeper', 'course-provider', 'resources-provider',
+    'activecaptain', 'wilhelmsk', 'alternator-engine-on', 'ais-status',
 )
 
 
@@ -98,6 +118,8 @@ def classify(pid, keywords, published):
         return 'publishing'
     if any(h in pid.lower() for h in EXPORTER_HINTS):
         return 'exporter'
+    if any(h in pid.lower() for h in ACTOR_HINTS):
+        return 'actor'
     return 'unmatched'
 
 
