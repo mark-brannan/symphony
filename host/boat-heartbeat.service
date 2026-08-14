@@ -6,3 +6,9 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/boat-heartbeat
+# Firing every 5 minutes, systemd's own Starting/Finished/Deactivated lines
+# come to roughly 900 journal entries a day for a unit that usually has
+# nothing to say -- on a box whose journal size and SD-card writes are both
+# live concerns. These are logged at info; the script's own `logger` output is
+# notice, so it still lands.
+LogLevelMax=notice
