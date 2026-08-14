@@ -346,6 +346,13 @@
   files were sitting on disk as ciphertext. pre-commit was not installed
   either, so nothing was scanning commits locally. Both fixed with
   `scripts/setup-git-filters.sh`; the encryption round-trip is verified.
+- Installed Docker (29.7.2) and Compose v5.4.0 from Docker's own repo, since
+  Debian's `docker.io` doesn't carry compose v2. Cost 400 MB of disk and about
+  120 MB of RAM for the daemons. This also completes local secret scanning:
+  the repo's gitleaks pre-commit hook runs in a container, so on this box it
+  had never been able to run at all. It passes now.
+  Note the Docker apt repo is outside the Debian security origin that
+  unattended-upgrades is limited to, so Docker will not upgrade itself.
 - Turned on unattended security updates. The package wasn't installed at all,
   so the `apt-daily` timers had been refreshing package lists for nothing.
   Config lives in `host/` and installs through `host/install.sh`: Debian
