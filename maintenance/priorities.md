@@ -281,6 +281,18 @@ This file remains authoritative for the SignalK / IoT section below.
   ids by scanning installed packages overcounts — it returned 13 here, 9 of them
   false, including `charts`, `derived-data` and `venus`, all of which are loaded
   and working. The server is the only source that knows.
+- `signalk/security.json` in the repo is the dev container's, not the boat's,
+  which is the same two-live-installs case as the configs above. Compared
+  2026-08-14 against `~/.signalk/security.json` on the Pi: `secretKey` and the
+  `captain` password hash both differ, and the repo carries a `screenshots`
+  user and a `claude-dev-tools` device the boat has never had. So copying
+  either file over the other is not a sync — it invalidates every token
+  SignalK has issued and changes the captain password on whichever box
+  receives it. One difference is a real question rather than drift:
+  `mark-brannan` is `admin` in the repo and `readonly` on the boat, the same
+  permission the "Give an SSO login admin" item below is about. Decide per
+  field, and note the union rule doesn't apply to `secretKey` — there is no
+  superset of two signing keys.
 - Add a weather term to `ACTOR_HINTS` in `scripts/signalk_plugin_census.py`.
   `open-meteo` is an actor by the script's own definition — its product is a
   registered v2 API, not published paths — but the hint list has no weather
@@ -328,7 +340,7 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Decide the nine major-version plugin upgrades. As of 2026-08-13 the boat is fully current *within* its declared semver ranges — `npm outdated` shows Current == Wanted for every package — so everything below is a deliberate major bump, not routine drift. Two are safety-of-navigation and want someone watching the boat when they land: `signalk-anchoralarm-plugin` 1.18.2 → 2.0.1 and `@signalk/signalk-autopilot` 1.7.0 → 2.6.0. Four are large webapps or flows: `@mxtommy/kip` 3.12.0 → 4.8.5, `@signalk/freeboard-sk` 2.24.2 → 3.1.0, `@signalk/signalk-node-red` 3.2.1 → 4.4.0, `signalk-tides` 1.5.0 → 2.1.2. The rest are small: `signalk-postgsail` 0.5.1 → 0.6.0 (broken anyway, see the better-sqlite3 item), `signalk-noaa-space-weather` 0.19.0 → 0.20.0 (Mark's own repo — coordinate with that dev work), `vhfinfo` 0.0.34 → 0.0.37. Note `signalk/package.json` already targets the newer major for kip, freeboard, autopilot, node-red, tides and postgsail, which reads as intent — but that file describes a different install than the boat's, so it isn't authority on its own.
 - Bridge NMEA 2000 time to chrony, once SignalK is reading `can0`. PGN 126992 (System Time) is on the bus, so the boat has a GPS clock it can't use: the standard `refclock SHM` recipe reads gpsd's shared memory and gpsd has no serial device here. Something has to write a SHM segment from the N2K time, or feed chrony over the network. Until then the clock is internet-only and free-runs offline, on a box with no RTC — which is also what makes the DS3231 item worth doing regardless.
 - Install BLE hub for lighting and related devices
-- Set up real off-machine hosting (VPS or existing NAS) for Vaultwarden to hold the sops/age key backup, reachable privately (e.g. Tailscale) — currently only a local Docker proof-of-concept on the boat computer, which doesn't yet solve the single-point-of-failure risk for the key protecting `symphony.sops.yaml` / `signalk/security.json`
+- Set up real off-machine hosting (VPS or existing NAS) for Vaultwarden to hold the sops/age key backup, reachable privately (e.g. Tailscale) — currently only a local Docker proof-of-concept on the boat computer, which doesn't yet solve the single-point-of-failure risk for the key protecting `symphony.sops.yaml` / `signalk/security.json`. The compose file that settled the hosting shape is in `vaultwarden/` in this repo, and this repo is public; Mark expects to use the vault for things that aren't Symphony, so the files want a private repo of their own before the VPS is built. Plain `git rm` when that happens, not a history rewrite — nothing secret is in them.
 - Configure InfluxDB to receive data from SignalK, with appropriate data retention policies
 - Revisit current InfluxDB org/bucket setup (org "darkstarllc", bucket "symphony") — consider alternatives using multiple buckets aboard Symphony
 - Set up Grafana dashboards based on the public examples on GitHub from @meri-imperiumi
