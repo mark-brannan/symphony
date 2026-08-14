@@ -1,0 +1,12 @@
+[Unit]
+Description=Restart SignalK if bt-sensors lost its D-Bus connection at load
+After=signalk.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/signalk-ble-check
+# Usually finds nothing and says nothing. systemd's own Starting/Finished
+# lines would still be four journal entries per run on a box where journal
+# size and SD-card writes are both live concerns. The script's own `logger`
+# output is notice, so anything it actually does still lands.
+LogLevelMax=notice

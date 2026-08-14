@@ -1,0 +1,18 @@
+[Unit]
+Description=Check SignalK's BLE plugin came up healthy, every 15 minutes
+
+[Timer]
+# The failure this catches happens at plugin load, so the boot check is the
+# one that matters. 6min clears the ~100s SignalK needs to reach its plugins
+# plus the time sensors take to connect; the script independently refuses to
+# act on a service younger than 5 minutes.
+OnBootSec=6min
+# Keep checking anyway. The handshake can fail on any start, not just a boot
+# one -- a restart for an unrelated reason can land in the same state.
+OnUnitActiveSec=15min
+# Don't replay checks for time spent powered off; only the current state
+# matters, and a catch-up run would fire against a server still starting.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

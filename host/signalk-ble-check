@@ -1,0 +1,89 @@
+#!/bin/sh
+# Restart SignalK when bt-sensors-plugin-sk lost its D-Bus connection at load.
+#
+# The plugin opens a connection to org.bluez as it starts. On some boots the
+# handshake dies with `write EPIPE` and it never retries, so every BLE sensor
+# stays silent for the life of that process with nothing in the log to say so.
+# See RUNBOOK -> "BLE sensors go silent after a reboot". This is not a boot
+# ordering race; ordering after bluetooth.service was tried and measured not to
+# help, so this treats the symptom on purpose.
+#
+# It matters because the hardware watchdog exists to reset this box when nobody
+# is aboard. Without this, an unattended reboot can come back with the house
+# battery monitoring dead until someone notices and restarts SignalK by hand.
+#
+# The trigger is the handshake error itself, scoped to the current SignalK
+# start, rather than "are the batteries publishing". Sensor names and paths are
+# config, and a check keyed to config goes stale the first time someone renames
+# a sensor.
+set -eu
+
+TAG=signalk-ble-check
+SIGNATURE='dbus-next/lib/handshake'
+STATE=/run/signalk-ble-check.state
+
+# SignalK needs roughly 100s to reach its plugins and longer for sensors to
+# connect, so a young service has not failed yet -- it just hasn't finished.
+MIN_SERVICE_AGE=300
+COOLDOWN=1800
+MAX_RESTARTS=3
+
+log() { logger -t "$TAG" -p user.notice "$1"; }
+
+systemctl is-active --quiet signalk.service || exit 0
+
+# Never restart on top of a package install. A restart landing on an
+# `npm install` in ~/.signalk is what truncated the plugin tree once already,
+# and this script running unattended is exactly how that would happen again.
+if pgrep -f 'npm |node-gyp|apt-get|dpkg' >/dev/null 2>&1; then
+	log "install in flight, skipping"
+	exit 0
+fi
+
+started=$(systemctl show signalk.service -p ActiveEnterTimestamp --value)
+[ -n "$started" ] || exit 0
+since=$(echo "$started" | cut -d' ' -f2-3)
+[ -n "$since" ] || exit 0
+
+start_epoch=$(date -d "$since" +%s 2>/dev/null || echo 0)
+now_epoch=$(date +%s)
+[ "$start_epoch" -gt 0 ] || exit 0
+[ $((now_epoch - start_epoch)) -ge "$MIN_SERVICE_AGE" ] || exit 0
+
+# Only this run's journal. The previous run's failure is still on disk and
+# would otherwise retrigger forever.
+if ! journalctl -u signalk.service --since "$since" --no-pager 2>/dev/null |
+	grep -q "$SIGNATURE"; then
+	exit 0
+fi
+
+count=0
+last=0
+if [ -r "$STATE" ]; then
+	read -r last count <"$STATE" 2>/dev/null || { last=0; count=0; }
+fi
+: "${last:=0}"
+: "${count:=0}"
+
+# /run is cleared on boot, so the budget is per boot. If three restarts have
+# not cleared it, restarting again is not going to, and something wants a human.
+if [ "$count" -ge "$MAX_RESTARTS" ]; then
+	log "handshake still failing after $count restarts this boot; leaving it alone"
+	exit 0
+fi
+if [ $((now_epoch - last)) -lt "$COOLDOWN" ]; then
+	exit 0
+fi
+
+log "bt-sensors D-Bus handshake failed this run; restarting SignalK (attempt $((count + 1)))"
+
+# Socket first, or the socket unit reactivates the service mid-stop.
+systemctl stop signalk.socket || true
+systemctl stop signalk.service || true
+systemctl reset-failed signalk.service 2>/dev/null || true
+systemctl start signalk.socket || true
+# Socket activation needs a connection to actually launch the server.
+curl -s -o /dev/null --max-time 60 http://localhost:3000/signalk/ 2>/dev/null || true
+
+printf '%s %s\n' "$now_epoch" "$((count + 1))" >"$STATE"
+log "SignalK restarted"

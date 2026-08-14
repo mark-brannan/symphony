@@ -30,6 +30,9 @@ INSTALL=(
 	"boat-heartbeat:/usr/local/sbin/boat-heartbeat:0755:root:root"
 	"boat-heartbeat.service:/etc/systemd/system/boat-heartbeat.service:0644:root:root"
 	"boat-heartbeat.timer:/etc/systemd/system/boat-heartbeat.timer:0644:root:root"
+	"signalk-ble-check:/usr/local/sbin/signalk-ble-check:0755:root:root"
+	"signalk-ble-check.service:/etc/systemd/system/signalk-ble-check.service:0644:root:root"
+	"signalk-ble-check.timer:/etc/systemd/system/signalk-ble-check.timer:0644:root:root"
 )
 
 # System services to restart after their config lands. Skipped when the unit
@@ -45,6 +48,7 @@ RESTART=(
 # it, and forgetting that is how a change looks installed but never runs.
 ENABLE=(
 	"boat-heartbeat.timer"
+	"signalk-ble-check.timer"
 )
 
 # Root cron entries this installer owns. Matched for removal by the command

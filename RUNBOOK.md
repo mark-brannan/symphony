@@ -189,7 +189,7 @@ manager settings like the watchdog don't apply on a plain `daemon-reload`.
 Currently installed:
 
 `systemd-watchdog.conf` turns on the Pi's BCM2835 hardware watchdog with a
-60-second timeout, so a hang that stops answering ping and SSH resets the
+30-second timeout, so a hang that stops answering ping and SSH resets the
 board instead of waiting for someone aboard to pull power. Confirm it took:
 
 ```bash
@@ -198,8 +198,8 @@ systemctl show -p RuntimeWatchdogUSec
 cat /sys/class/watchdog/watchdog0/timeout
 ```
 
-Expect `Watchdog running with a hardware timeout of 1min`,
-`RuntimeWatchdogUSec=1min`, and `60`. Read all three: 15s is the bcm2835
+Expect `Watchdog running with a hardware timeout of 30s`,
+`RuntimeWatchdogUSec=30s`, and `30`. Read all three: 15s is the bcm2835
 hardware heartbeat and the kernel extends past it in software, so a value
 above 15 is honoured rather than clamped — but check rather than assume it.
 
@@ -1222,6 +1222,64 @@ This matters more than it looks: the hardware watchdog exists to reboot the box
 when nobody is aboard, so an unattended reboot can come back with every BLE
 sensor dead until someone restarts SignalK by hand. If you depend on remote
 battery monitoring, either check after any reboot or add a self-healing check.
+
+## SignalK's NMEA 2000 input
+
+One connection, `n2k-can0`, reads the bus through canboatjs. It lives in
+`signalk/settings.json` as a `pipedProvider` and is editable in the admin UI
+under Server → Connections.
+
+*Verify it's alive:*
+
+```bash
+curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/position
+curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/gnss
+```
+
+Expect `"$source": "n2k-can0.<addr>"` and coordinates whose last digits move
+between calls. A `$source` of `signalk-fixed-position` means the real GPS has
+gone quiet and the fallback has taken over — see below.
+
+If nothing arrives at all, check the bus before SignalK:
+
+```bash
+ip -br link show can0                  # want UP
+timeout 5 candump -n 20 can0           # want frames
+```
+
+**Don't unset `uniqueNumber`.** It's pinned to `368391` in the connection's
+`subOptions`. It forms part of the NAME this box claims on the bus; left
+unset, SignalK generates a random one on save, and the Pi shows up as a
+brand-new device to every other instrument each time.
+
+### A fallback that has become the primary looks exactly like success
+
+`signalk-fixed-position` (Position Keeper) stores the last known fix and
+re-emits it once GPS has been quiet for its `interval`. That is wanted
+behaviour — position-dependent plugins keep working through a GPS dropout.
+The trap is that it looks identical to a working GPS: for a long time it was
+the *only* position source on this boat, emitting a stored dock coordinate
+about two metres from the truth, and nothing appeared broken.
+
+So don't read "there is a position" as "the GPS works." Read `$source`.
+
+### When the AIS is powered, there will be two GPS sources
+
+The chartplotter and the AIS each have their own receiver, so both publish
+position, and SignalK will pick between them per-path in whatever order they
+arrive. `~/.signalk/priorities.json` is what arbitrates; it is currently `{}`,
+meaning no preference is expressed.
+
+Set it once both are live and their addresses are known — an address is only
+knowable by looking, since it's claimed dynamically:
+
+```bash
+curl -s localhost:3000/signalk/v1/api/sources | python3 -m json.tool | grep -A2 n2k-can0
+```
+
+Then give `navigation.position` an ordered source list with a timeout, so the
+preferred receiver wins and the other takes over only after it goes quiet.
+Doing this before both units are on would mean guessing at an address.
 
 ## A BLE sensor connects but never delivers data
 
