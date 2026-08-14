@@ -307,6 +307,10 @@ public repo. `host/install.sh` places it at `/etc/boat-heartbeat.json`, mode
 0600 root. The script exits immediately if that file is missing, so removing
 it turns the heartbeat off.
 
+Treat the ping URL as a bearer credential — anyone holding it can send false
+"alive" pings, which masks a dead boat rather than leaking anything. If it is
+ever exposed, rotate the check on the provider's side.
+
 1. Create a check on any service that hands out a ping URL — Healthchecks.io,
    Better Stack, Cronitor all work, and the script doesn't care which. Set the
    expected period to **5 minutes** and the grace period to **20 minutes or
