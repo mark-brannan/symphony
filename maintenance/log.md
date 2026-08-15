@@ -684,6 +684,16 @@
   and a UTF-8-locale reboot queued behind both); coordinated a restart order
   between them rather than continuing to collide.
 
+- Rebooted the boat Pi to finish the UTF-8 locale convergence, once the
+  watchdog deploy's restart tests were clear. Layer 3 went from 58 stale
+  processes to zero, confirmed both by
+  `scripts/check_encoding_health.py` and by a root sweep of every
+  `/proc/*/environ` — nothing is left on `LANG=en_US`. pypilot, the Python
+  exposure that motivated the fix, now runs with `LANG=en_US.UTF-8` and
+  `PYTHONUTF8=1`. Everything came back: no failed units, SignalK, InfluxDB,
+  Grafana, Caddy and Telegraf all active, Dex and ntfy up as containers.
+  All three encoding layers now clean.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
