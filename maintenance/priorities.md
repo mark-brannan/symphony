@@ -285,6 +285,13 @@ This file remains authoritative for the SignalK / IoT section below.
     derived from `signalk-rpi-monitor`'s own formula rather than copied from
     the heartbeat's 400 MB.
   Per-role ownership is settled in `reference/monitoring_decisions.md`.
+  **Done on the boat 2026-08-14**: host section disabled, `n2k-can0`
+  provider-staleness watch enabled with `sendNotification: true`. The
+  repo's tracked copy of this plugin's config was deleted from git in a
+  past commit (b8b4cc2) along with its `.gitattributes` sops rule for the
+  mail password field — restoring it to git needs that rewired first
+  (`scripts/add_inplace_secret.sh` or equivalent), so the settled config
+  exists on disk, untracked, rather than committed.
 - Fix `better-sqlite3` so `signalk-polar` can run. It is stuck at 7.6.2, which
   does not build on Node 22 — the release predates the removal of
   `v8::AccessorSignature` and `v8::Object::CreationContext`, so compilation
@@ -393,10 +400,14 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Heartbeat fails-silent escalation. When pings to hc-ping.com fail repeatedly
   while the uplink is otherwise up, `host/boat-heartbeat` should POST directly
   to the Pushover API — "your monitoring is down" — since healthchecks.io can't
-  report its own outage. Same visit: add failed systemd units to the `/fail`
-  conditions (a dead `signalk.service` currently rides the ping body unread)
-  and turn on healthchecks.io's weekly report email as the positive
-  still-monitored signal. Decided in `reference/monitoring_decisions.md`, Role 1.
+  report its own outage. Decided in `reference/monitoring_decisions.md`, Role 1.
+  **Failed systemd units now trip `/fail`, done and deployed 2026-08-14** — it
+  was already riding along in the ping body unread; now it's in the same
+  reasons/debounce path as the memory and disk checks. Still open: the direct
+  Pushover POST (needs a Pushover application token/user key, not in
+  `secrets/symphony.sops.yaml` — Mark's to supply), and turning on
+  healthchecks.io's weekly report email (needs an account login or API key,
+  neither of which is in this checkout).
 - Phone and audible delivery for vessel alarms — build it; shape decided
   2026-08-14. The
   notification bus raises alarms fine; delivery is the gap, owner-confirmed
@@ -409,7 +420,21 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   Note nothing installed can reach a phone with the internet down — Pushover,
   SNS and healthchecks all need cloud. A self-hosted ntfy server on the Pi +
   `signalk-ntfy` + the ntfy Android app delivers over boat WiFi with no
-  internet. Decided: do ntfy *and* a speaker, deliberately redundant — two
+  internet.
+  **ntfy server done 2026-08-14, both places** — up and verified (round-tripped
+  a test message) on the boat Pi (`localhost:8090`) and the dev docker stack
+  (`compose-ntfy.yml`, service name `ntfy` on `symphony-net`). `signalk-ntfy`
+  installed and configured on the dev container only, topic
+  `symphony-alarms`; **not installed on the boat** — the Pi had 825 MB
+  available and a fully used swap when checked, and `npm install` there has
+  bricked SSH access before (RUNBOOK.md; the 08-11 and 08-12 incidents). Needs
+  either a quieter moment to install it, or freeing memory first and someone
+  watching it land.
+  `signalk-pushover-notification-relay` not installed — needs a Pushover
+  application token/user key from Mark, not in the sops secrets.
+  Installing the Android ntfy app and subscribing to `symphony-alarms` on
+  each server is Mark's phone-side step, tracked separately, not a blocker
+  for anything above. Decided: do ntfy *and* a speaker, deliberately redundant — two
   independent wake-ups aboard is what you want when dragging anchor onto a
   lee shore at night, and both pieces are cheap. The speaker (or piezo)
   purchase and wiring is filed in Evernote (2026-08-14, "Symphony Important

@@ -558,6 +558,24 @@
   requested and a prefix on the synthesized name, or it silently produces
   nothing. Not deployed; it only covers Google, since GitHub is OAuth2 and
   can't carry the claim.
+- Worked the monitoring/alarm backlog for easy wins. Self-hosted ntfy is up
+  and verified (round-tripped a test message) both on the boat Pi
+  (`localhost:8090`, native SignalK reaches it directly) and the dev docker
+  stack (`compose-ntfy.yml`, reached over `symphony-net` as `ntfy:80`).
+  `signalk-ntfy` installed and configured on the dev container, topic
+  `symphony-alarms`; not installed on the boat, deliberately — the Pi had
+  825 MB available and a full swap when checked, and `npm install` there has
+  bricked SSH before (RUNBOOK.md, 08-11 and 08-12 incidents).
+  `signalk-healthcheck`'s host CPU/mem/disk section disabled and its
+  `n2k-can0` provider-staleness watch enabled with notifications on, on the
+  boat, per the Role 2/4 split in `reference/monitoring_decisions.md`; the
+  repo's copy of that plugin's config was found already deleted from git
+  (commit b8b4cc2) with no `.gitattributes` sops rule left for its mail
+  password field, so it's back on disk but deliberately not re-added to git
+  until that's wired up properly.
+  `host/boat-heartbeat` now trips `/fail` on any failed systemd unit — it
+  was already collecting the list, just never acting on it — installed and
+  confirmed running on the boat.
 
 ## Date unknown
 - Cleaned fuel filter.
