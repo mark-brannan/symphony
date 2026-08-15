@@ -647,6 +647,21 @@
 - Note for whoever owns the watchdog: it stays vulnerable to this. Any future
   `npm install` in `~/.signalk` deletes it again unless it gets a real entry
   in `package.json`.
+- Migrated the recovered airquality zones to server-native meta: added
+  `meta.zones` for `environment.inside.airquality` to `signalk/baseDeltas.json`
+  (dev container), corrected path, methods mapped to the meta-level
+  `alertMethod`/`emergencyMethod` form the server's zone engine actually reads.
+  Bands kept as recovered — they match the dedicated BME680 plugin's documented
+  0–500 index (`500 − 5×score`, gas + humidity weighted). `zones-edit.json`
+  stays in the repo as recovered history only; the boat's installed
+  `@signalk/zones` is now a removal item, not a debugging item. Boat-side
+  mirror and plugin removal queued in priorities.
+- Closed the BME680 capture gap from the census side: dedicated plugin
+  disabled on both boxes, live data arrives via legacy `openplotter-i2c-read`
+  as source `OpenPlotter.I2C.BME680/688-1` (2 paths, names not recorded).
+  Identifying those paths and choosing the owning mechanism is queued in
+  priorities. Couldn't verify live this session — the cloud container has no
+  ssh client and isn't on the tailnet, so the boat is unreachable from it.
 
 ## Date unknown
 - Cleaned fuel filter.

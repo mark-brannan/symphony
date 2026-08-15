@@ -137,7 +137,8 @@ This file remains authoritative for the SignalK / IoT section below.
 - Rudder position sensor
 - Pump flow sensors
 - Air quality sensors
-- Recover the hand-made airquality zone metadata from the boat's `~/.signalk/` (needs ssh; orphaned on a never-published path), commit it to the repo, then decide whether its bands are keepers or re-derive when the sensors exist
+- BME680: settle which mechanism owns the sensor and get its data into the tree deliberately (needs boat access). Census 2026-08-14: the dedicated plugin `@oehoe83/signalk-raspberry-pi-bme680` is installed but disabled on both boxes, yet the boat receives 2 paths from source `OpenPlotter.I2C.BME680/688-1` — the legacy `openplotter-i2c-read` service. Identify those 2 paths and their units; the dormant airquality zones in `signalk/baseDeltas.json` assume the dedicated plugin's `environment.inside.airquality` 0–500 index and only fire if something publishes that path on that scale. Decide: enable the dedicated plugin, or keep the OpenPlotter service and re-point the zone meta at what it actually publishes.
+- On the boat, remove the deprecated `@signalk/zones` plugin (installed 1.2.0, enabled, never registered) and mirror the airquality zone meta from `signalk/baseDeltas.json` into the boat's own baseDeltas — zones are server-core via `meta.zones` now, the plugin is only a broken editor UI. Fits the next maintenance window.
 - Air pressure sensor
 - Illuminance sensor
 - Additional temperature sensors
