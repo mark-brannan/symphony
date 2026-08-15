@@ -403,24 +403,32 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   report its own outage. Decided in `reference/monitoring_decisions.md`, Role 1.
   **Failed systemd units now trip `/fail`, done and deployed 2026-08-14** — it
   was already riding along in the ping body unread; now it's in the same
-  reasons/debounce path as the memory and disk checks. Still open: the direct
-  Pushover POST (needs a Pushover application token/user key, not in
-  `secrets/symphony.sops.yaml` — Mark's to supply), and turning on
-  healthchecks.io's weekly report email (needs an account login or API key,
-  neither of which is in this checkout). Also decided 2026-08-14: a soft
-  warning tier in the same script — thresholds shy of the alarm ones
-  (roughly disk 80%, memory 600 MB) send a low-priority Pushover message
-  directly: a quiet buzz, not the full fan-out, and never `/fail`.
-- Host-metrics collectors: keep two, delete two — decided 2026-08-14.
-  Telegraf stays the history source. `signalk-rpi-monitor` stays too, with a
-  job it didn't have before: configure warn-band zones on its
-  `environment.rpi.*` paths so host early warnings land on the notification
-  bus and ride the same onboard delivery (speaker/ntfy) as vessel alarms.
-  Derive zone thresholds from the plugin's own utilisation formula, not the
-  heartbeat's MB figures — see `reference/monitoring_posture.md`. Disable
-  `signalk-rpi-uptime` on the boat and `signalk-rpi-stats` on the dev
-  container; before disabling, check KIP and any dashboards for widgets on
-  those plugins' paths. Per `reference/monitoring_decisions.md` Role 3.
+  reasons/debounce path as the memory and disk checks. **Healthchecks.io's
+  weekly report email is on, Mark confirmed 2026-08-14.** **The direct
+  Pushover POST and the soft warning tier (thresholds shy of the alarm ones —
+  disk ≥80%, memory <600MB — a low-priority buzz, never `/fail`) are both
+  written into `host/boat-heartbeat` and tested 2026-08-14** against a local
+  mock server, gated behind an uplink-up probe (a raw-IP request to
+  Cloudflare's resolver, so DNS being down doesn't read as an escalation) and
+  debounced to one Pushover message per outage/crossing rather than one per
+  5-minute cycle. `pushover_api_token`/`pushover_user_key` are now in
+  `secrets/symphony.sops.yaml`; still open is copying those two values into
+  `host/boat-heartbeat.json` (its own in-place-encrypted fields, same pattern
+  as `url`) and running `host/install.sh` on the boat to actually deploy it.
+- Host-metrics collectors: keep two, delete two — decided 2026-08-14, done
+  2026-08-14. Telegraf stays the history source. `signalk-rpi-monitor` stays
+  too, now with the job it didn't have before: warn/alarm zones on
+  `environment.rpi.memory.utilisation` (normal <0.84, warn 0.84–0.89, alarm
+  >0.89), set via `PUT .../meta/zones` as `captain` on both boat and dev and
+  confirmed live on each afterward. Checked both boxes' Grafana dashboards
+  for `environment.rpi.*` panels first — none of the 5 provisioned
+  dashboards (same set on boat and dev) reference `rpi` anywhere, checked at
+  the file level on both and also live via the Grafana API on dev (`captain`
+  authenticates there; the boat's Grafana rejects that password, so the boat
+  side is file-level only — a UI-added panel wouldn't show up in that check).
+  `signalk-rpi-uptime` disabled on the boat, `signalk-rpi-stats` disabled on
+  the dev container, `signalk-server` restarted on each and both confirmed
+  back up with the plugin off. Per `reference/monitoring_decisions.md` Role 3.
 - Phone and audible delivery for vessel alarms — build it; shape decided
   2026-08-14. The
   notification bus raises alarms fine; delivery is the gap, owner-confirmed

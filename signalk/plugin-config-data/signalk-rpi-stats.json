@@ -7,5 +7,5 @@
     "reportThrottle": true,
     "throttleNotify": true
   },
-  "enabled": true
+  "enabled": false
 }
