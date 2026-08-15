@@ -14,7 +14,7 @@ Four roles, one owner each. Every load-bearing claim is tagged **[verified]**
 | 1. Off-boat liveness & host health | **healthchecks.io hosted + `boat-heartbeat`** — keep | extend `/fail` conditions; endpoint-down escalation; weekly report email | nothing | shell edits, no new accounts |
 | 2. Onboard vessel alarming | **SignalK notification bus** (zones, hoekens-anchor-alarm, mob-notifier) — keep | Pushover relay (internet path); self-hosted ntfy + `signalk-ntfy` (LAN path); speaker **[hardware]** | nothing | two plugin installs, one small server, one speaker |
 | 3. History & forensics | **Telegraf → InfluxDB → Grafana** — keep, forensics-only | soft warning tier in the heartbeat; warn zones on `signalk-rpi-monitor` paths | `signalk-rpi-uptime` (boat), `signalk-rpi-stats` (dev) | plugin disable + zone config, reversible |
-| 4. Staleness | split: aboard **signalk-data-age-watchdog**; off-boat a freshness check in the heartbeat's orbit | both small | the bespoke watchdog plugin drops to optional; `signalk-ble-check` stays | an afternoon |
+| 4. Staleness | **off-boat freshness check** — age *and existence* of critical paths → a second healthchecks.io check | nothing else: `signalk-data-age-watchdog` demoted to optional (blind to never-published; core subsumes it, PR #2689) | bespoke watchdog plugin optional; `signalk-ble-check` stays | one script, an afternoon |
 
 Nothing above waits on the VPS. No recommendation needs hardware the boat
 doesn't have, except where flagged under Siren Marine.
@@ -196,28 +196,47 @@ publishes `<path>.dataAge`, and raises
 repo. **[verified — npm metadata and README]** The earlier text-searches
 missed it; the keyword sweep is the reliable query.
 
-**First choice aboard: install it** for the critical few paths — batteries,
-position, depth. Its notifications ride the existing player and push paths
-for free, and it covers the exact failure that motivated the design brief:
-bt-sensors goes mute, batteries vanish, `dataStale` fires. Caveats, honestly:
-it is the hand-configured design the brief warns rots silently on a rename;
-the README reads as one global threshold rather than per-path **[README
-reading — confirm on install]**; and it detects, it cannot restart anything.
-For a short fixed list of paths that don't get renamed, those are acceptable.
+**Corrected same day, from the watchdog session reading its source
+[verified — the 82-line index.js from the npm tarball, plus server source]:**
+it does *not* cover the failure that motivated the design brief. It calls
+`app.getSelfPath(path)` and silently skips any path with no timestamp — so a
+plugin that dies at load and never publishes (the bt-sensors incident:
+`electrical.batteries.*` never enters the tree at all) raises nothing. It
+detects went-quiet-*after*-publishing only. Also source-confirmed: one
+global threshold for every path, a hardcoded 1-second poll, and it publishes
+a `<path>.dataAge` delta every second per monitored path — noise that
+signalk-to-influxdb2 would faithfully write to the SD card.
 
-**Second: a freshness check on the off-boat path.** A plugin inside SignalK
-can't report SignalK wedged. A small sibling timer that queries SignalK's
-REST API on localhost and pings a second healthchecks.io check — `/fail` on
-no-answer or stale timestamps for the critical paths — covers that, and is
-the "rebuild the staleness watch in the heartbeat's orbit" direction
-software_stack.md already records. Kept separate from `boat-heartbeat`
-itself, which is deliberately too dumb to parse JSON and should stay that way.
+**Also material: the server core is getting this.** signalk-server master
+has a merged, unreleased staleness enforcer (PR #2689, merged 2026-07-11,
+missed v2.30.0): it learns per-path cadence and flags `timedOut` per
+path+source. Same blind spot — it walks the delta cache, so never-published
+paths are equally invisible. The durable rule: **every path-level approach
+misses mute-from-startup.** Only per-plugin delta counts
+(`app.providerStatistics` in core today — zero means never published) or an
+external expectation list can catch it.
+
+**So the ranking flips: the freshness check is the load-bearing piece.** A
+small sibling timer queries SignalK's REST API on localhost and pings a
+second healthchecks.io check — `/fail` on stale timestamps, **absent
+paths**, or no answer at all. One script covers went-quiet, never-published,
+and wedged-server alike, and it is the "rebuild the staleness watch in the
+heartbeat's orbit" direction software_stack.md already records. Kept
+separate from `boat-heartbeat` itself, which is deliberately too dumb to
+parse JSON and should stay that way.
+
+`signalk-data-age-watchdog` drops to optional: its remaining niche is a
+sensor going quiet mid-passage ringing the speaker with no uplink, and the
+next server release subsumes that slice with learned cadences and no extra
+plugin. If it is installed anyway, keep its `.dataAge` paths out of
+signalk-to-influxdb2.
 
 **What this demotes:** the bespoke watchdog plugin
 (signalk_plugin_watchdog.md) drops from necessary to optional. Its remaining
-unique value is auto-learning cadences and per-plugin restart. Detection is
-now covered twice over; build it only if restart automation proves worth the
-effort. `signalk-ble-check` stays meanwhile — it is the only *recovery*
+unique value is auto-learning cadences and per-plugin restart — and
+`app.providerStatistics` is the right hook for its never-published
+detection. Detection of the motivating case lands in the freshness check;
+build the plugin only if restart automation proves worth the effort. `signalk-ble-check` stays meanwhile — it is the only *recovery*
 mechanism aboard, and detection without recovery still means a dead battery
 feed until someone acts. That pairing (watchdog detects broadly, ble-check
 recovers narrowly) is redundancy with a purpose, not waste.
