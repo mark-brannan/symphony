@@ -381,6 +381,17 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   conditions (a dead `signalk.service` currently rides the ping body unread)
   and turn on healthchecks.io's weekly report email as the positive
   still-monitored signal. Decided in `reference/monitoring_decisions.md`, Role 1.
+- Phone and audible delivery for vessel alarms — research and decide. The
+  notification bus raises alarms fine; delivery is the gap, owner-confirmed
+  2026-08-14: Mark's phone is Android, WilhelmSK is iOS-only on an
+  occasionally-aboard iPad, and no speaker is wired to the Pi, so
+  notification-player plays to nothing. Likely shape:
+  `signalk-pushover-notification-relay` (2022, unmaintained — audit on
+  install; a Node-RED flow is the fallback) to Pushover on the Android as the
+  primary path. Open: whether any Android-native SignalK alarm app exists.
+  Speaker-vs-piezo is a hardware decision for the Evernote list — the GPIO
+  beeper plugin is already installed, disabled, awaiting a piezo. Per
+  `reference/monitoring_decisions.md` Role 2, as amended.
 - Watch SignalK's memory. `signalk-server` measured 578 MB RSS at 17:16 on 2026-08-13 and 1,173 MB at 17:47 — roughly doubling in half an hour on the same boot, after the plugin tree was rebuilt. The box started swapping in that window (`pswpout` 0 → 8,700 pages) having done none since boot. Not acted on: available memory was still 1.2 GB, load was 0.7 and nothing had failed. It may simply be plugins warming up, but a process that grows like that on a 4 GB box is what starves the watchdog. A third reading at 17:52 was 1,148 MB, so it looks like plugins settling after the rebuild rather than a runaway leak — but it settled at twice where it started, on a box that has 4 GB for everything. Sampling every 20s between 17:46 and 17:49 confirms that read and sharpens it: RSS sawtooths, climbing to 1,229 MB and then dropping to 1,113 MB in a single interval before climbing again. A drop that size is V8 reclaiming, which is what distinguishes a large working set from a leak — a leak doesn't give memory back. `pswpout` did keep moving in that window though, 8,700 to 13,147, before going flat again; so the swapping is occasional rather than finished. Telegraf's `procstat` now records it per-service, so the trend is recoverable rather than needing to be re-measured by hand.
 - Decide whether to cap journald on the Pi. It reached 639 MB on 2026-08-13, largely `user-1000` files fed by the pypilot crash loop, then self-rotated back to 192 MB. A `SystemMaxUse` cap would bound both the size and the SD-card writes, but the right number isn't obvious yet — deferred deliberately, not forgotten.
 - A wedged BLE controller is invisible from off the boat, and only a reboot clears it. `RUNBOOK.md` → "A BLE sensor connects but never delivers data" establishes that nothing short of a reboot re-initialises the BCM4345C0, and nothing reboots this box on a schedule any more — deliberately, since the nightly reboot was covering for the v3d hang and risked landing on an `npm install`. So the house batteries can stop reporting and stay stopped until someone is aboard. The heartbeat payload is the natural place to surface it: add a line for whether `electrical.batteries` has updated recently, so silence in the data shows up in the same place as silence from the box.

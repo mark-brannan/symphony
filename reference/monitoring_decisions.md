@@ -12,7 +12,7 @@ Four roles, one owner each. Every load-bearing claim is tagged **[verified]**
 | Role | Owner | Add | Retire | Cost to switch |
 |---|---|---|---|---|
 | 1. Off-boat liveness & host health | **healthchecks.io hosted + `boat-heartbeat`** — keep | extend `/fail` conditions; endpoint-down escalation; weekly report email | nothing | shell edits, no new accounts |
-| 2. Onboard vessel alarming | **SignalK notification bus** (zones, hoekens-anchor-alarm, mob-notifier → notification-player + WilhelmSK push) — keep | `signalk-pushover-notification-relay` as second phone path | nothing | one plugin install |
+| 2. Onboard vessel alarming | **SignalK notification bus** (zones, hoekens-anchor-alarm, mob-notifier) — keep | `signalk-pushover-notification-relay` as the working phone path | nothing | one plugin install; audible needs hardware |
 | 3. History & forensics | **Telegraf → InfluxDB → Grafana** — keep, forensics-only | nothing | `signalk-rpi-monitor`, `signalk-rpi-uptime` (boat), `signalk-rpi-stats` (dev) | plugin disable, reversible |
 | 4. Staleness | split: aboard **signalk-data-age-watchdog**; off-boat a freshness check in the heartbeat's orbit | both small | the bespoke watchdog plugin drops to optional; `signalk-ble-check` stays | an afternoon |
 
@@ -108,14 +108,17 @@ signalk-notification-player v2.7.0 from 2026-07. **[verified — npm registry]**
 Nothing surveyed replaces this bus; everything else would have to feed it
 anyway.
 
-The weak joint is the phone path. `signalk-push-notifications` relays through
-Amazon SNS to the WilhelmSK app **[verified — README]** — infrastructure run
-by one developer, maintenance cadence unconfirmed **[verified as far as the
-README; commit dates not checked]**, iOS-only **[recall]**. Anchor drag and
-MOB reach a phone through that relay or not at all.
+The weak joint is delivery, and owner facts from 2026-08-14 demote it further
+than first written here. `signalk-push-notifications` relays through Amazon
+SNS to the WilhelmSK app **[verified — README]**, which is iOS-only; Mark's
+phone is Android, and WilhelmSK lives on an iPad that is only occasionally
+aboard. Meanwhile nothing is wired to the Pi's audio output, so
+notification-player plays to a jack with no speaker **[owner-stated]**. The
+bus raises alarms fine; in practice, both delivery ends are missing and
+vessel alarms currently ring nowhere.
 
-So the one place this document *adds* redundancy: a second relay from the bus
-to Pushover, which is already a tested, working channel on this boat.
+So the Pushover relay is not redundancy — it is the primary path to build.
+Pushover is already tested end to end and lives on Mark's Android phone.
 Candidates, ranked:
 
 1. **signalk-pushover-notification-relay** — general notifications→Pushover
@@ -129,15 +132,16 @@ Candidates, ranked:
    introduces a new channel and phone app; channel coverage is already
    settled, so no.
 
-This overlap is real redundancy worth paying for: same uplink, but two
-independent push infrastructures guarding against a silent hobbyist-relay
-failure. Cost: one plugin, one API token, one test.
+WilhelmSK/SNS stays enabled as a freebie for the iPad when it's aboard.
+Whether an Android-native SignalK alarm app exists is an open question,
+parked in priorities.md rather than guessed at here.
 
 Noted in passing: `signalk-pushover-plugin` is anchor-specific but can push
 "everything is okay" at an interval **[verified — README]** — positive
-confirmation for anchor watch, if that's ever wanted. And the audible path
-assumes the Pi's audio output and speaker stay wired; the GPIO beeper plugin
-sits disabled in the dev config and would need a wired piezo **[hardware]**.
+confirmation for anchor watch, if that's ever wanted. Audible alarming aboard
+needs hardware that isn't there: a speaker on the Pi's audio out, or a piezo
+on GPIO — the beeper plugin is already installed, disabled. That purchase and
+wiring decision is physical boat work **[hardware]**.
 
 ## Role 3 — history and forensics
 
