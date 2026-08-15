@@ -396,8 +396,8 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   internet. Decided: do ntfy *and* a speaker, deliberately redundant — two
   independent wake-ups aboard is what you want when dragging anchor onto a
   lee shore at night, and both pieces are cheap. The speaker (or piezo)
-  purchase and wiring is filed in Evernote (2026-08-14, "Symphony Electrical
-  Tasks" → Smart sensors/mods) — the GPIO
+  purchase and wiring is filed in Evernote (2026-08-14, "Symphony Important
+  Tasks") — the GPIO
   beeper plugin is already installed, disabled, awaiting hardware. Per
   `reference/monitoring_decisions.md` Role 2, as amended.
 - Watch SignalK's memory. `signalk-server` measured 578 MB RSS at 17:16 on 2026-08-13 and 1,173 MB at 17:47 — roughly doubling in half an hour on the same boot, after the plugin tree was rebuilt. The box started swapping in that window (`pswpout` 0 → 8,700 pages) having done none since boot. Not acted on: available memory was still 1.2 GB, load was 0.7 and nothing had failed. It may simply be plugins warming up, but a process that grows like that on a 4 GB box is what starves the watchdog. A third reading at 17:52 was 1,148 MB, so it looks like plugins settling after the rebuild rather than a runaway leak — but it settled at twice where it started, on a box that has 4 GB for everything. Sampling every 20s between 17:46 and 17:49 confirms that read and sharpens it: RSS sawtooths, climbing to 1,229 MB and then dropping to 1,113 MB in a single interval before climbing again. A drop that size is V8 reclaiming, which is what distinguishes a large working set from a leak — a leak doesn't give memory back. `pswpout` did keep moving in that window though, 8,700 to 13,147, before going flat again; so the swapping is occasional rather than finished. Telegraf's `procstat` now records it per-service, so the trend is recoverable rather than needing to be re-measured by hand.

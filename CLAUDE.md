@@ -46,6 +46,29 @@ covered here.
   tracked separately from this backlog for now — don't merge them in without
   asking first.
 
+## Evernote (where physical tasks actually live)
+- Sessions can read and write Evernote directly. The MCP tools
+  (`create_task`, `search_tasks`, `search_notes`, `get_note`, …) are
+  **deferred** — they appear by name in the deferred-tools list, currently
+  prefixed `mcp__38e9d000-…`, and must be loaded with ToolSearch
+  (`select:<full tool name>`) before calling. If no such tools are in the
+  deferred list, the connector isn't attached to your session; say so
+  instead of improvising.
+- Everything is in the "Symphony" notebook. The task notes:
+  - **"Symphony Important Tasks"** — the priority list and the catchall,
+    both (owner's description). Default destination for a new physical
+    task unless a per-system note clearly fits better.
+  - "Symphony Electrical Tasks", "Symphony Plumbing Tasks", "Symphony
+    Rigging Tasks", "Symphony Clean/Paint/Finish", "Symphony Woody Tasks" —
+    per-system lists.
+- To add a task to an existing list: `get_note` for the note, take a task
+  group id from the ENML placeholder (`--en-id:` in the group div), pass it
+  as `taskGroupNoteLevelId` to `create_task`. Omitting the group id creates
+  a new group at the end of the note, which clutters — reuse the existing
+  group.
+- `search_tasks` is a case-insensitive substring match on task labels and
+  is the quick answer to "is X already on the list."
+
 ## reference/specs.md
 - Flat `key: value` list, one item per bullet (plain consecutive lines
   collapse into one paragraph in markdown — always use `- ` list items).
