@@ -813,7 +813,54 @@ git log -S 'pid.rj232vx' -- signalk/security.json
 
 ## Adding a secret
 
-**In-place (a plugin config file SignalK/Grafana already owns):**
+Two schemes, and they don't share a procedure. A standalone value — an API
+key, a token, a password nothing reads yet — goes into the Layer 1 store.
+A secret *field inside a config file* SignalK/Grafana reads off disk is
+in-place, via the script. Using the script on the store is the failure mode
+here — see the warning at the end of this section.
+
+### Layer 1: store the value (`secrets/symphony.sops.yaml`)
+
+This file is encrypted as a whole and sits on disk as ciphertext. No git
+filter touches it — `sops` is the only way to edit it, and a plain
+`git add` commits the ciphertext exactly as it is on disk.
+
+Storing a secret is a complete change on its own. Commit it as its own
+commit; wiring a consumer (next subsection) is a separate change that can
+land days later or never:
+
+```bash
+sops secrets/symphony.sops.yaml   # opens decrypted in $EDITOR; add the
+                                  # `healthchecks_api_key: <value>` line, save
+git add secrets/symphony.sops.yaml
+git commit -m "Store healthchecks.io API key" -- secrets/symphony.sops.yaml
+```
+
+*Verify:* `sops --decrypt --extract '["healthchecks_api_key"]' secrets/symphony.sops.yaml`
+prints the value, and
+`git show :secrets/symphony.sops.yaml | grep healthchecks_api_key` shows
+`ENC[`, not the value.
+
+If sops prints `File has not changed, exiting.`, the edit did not take —
+usually the editor quit without saving — and there is nothing to commit.
+Re-run it, and trust the verify line over your memory of having typed the
+key.
+
+### Layer 1: wire a consumer (a new `.env` value)
+
+When something actually starts reading the stored value:
+
+```bash
+$EDITOR .env.example                     # add the same key, blank/dummy value
+$EDITOR .env.j2                          # add the {{ jinja }} line
+python3 scripts/render.py
+```
+
+then restart whatever reads it — a running process picks up `.env` only
+across a restart (`docker compose up -d --force-recreate <svc>`; on the
+boat, `sudo systemctl restart <svc>`).
+
+### In-place (a plugin config file SignalK/Grafana already owns)
 
 ```bash
 scripts/add_inplace_secret.sh <file> <field> [<field2> ...]
@@ -835,14 +882,28 @@ the file, and fails loudly if the field didn't actually encrypt. Idempotent
 Two files get touched, not three: the pre-commit guard and the CI verifier
 read `.sops.yaml` at runtime, so they pick up the new file automatically.
 
-**Layer 1 (a new `.env` value):**
+### Never point `add_inplace_secret.sh` at `secrets/*.sops.yaml`
+
+The script edits before it verifies: by the time it fails on a whole-file
+encrypted store, it has already appended a `.sops.yaml` rule and a
+`.gitattributes` `filter=sops` line for it — and `sops_paths.py check`
+accepts that state as consistent. The stray filter line then makes every
+later `git add` of the file run the clean filter, which fails with sops
+complaining about *"a top-level entry called 'sops'"*.
+
+If a `secrets/` file gives you that error on `git add`, this is what
+happened. To recover, delete the two appended blocks — the `filter=sops`
+line at the end of `.gitattributes`, and the `path_regex` block for the
+file at the end of `.sops.yaml` — then confirm and re-add:
 
 ```bash
-sops secrets/symphony.sops.yaml          # add the key, save
-$EDITOR .env.example                     # add the same key, blank/dummy value
-$EDITOR .env.j2                          # add the {{ jinja }} line
-python3 scripts/render.py
+git check-attr filter -- secrets/symphony.sops.yaml   # want: unspecified
+python3 scripts/sops_paths.py check
+git add secrets/symphony.sops.yaml
 ```
+
+`unspecified` is the correct answer for everything under `secrets/`; those
+files never go through the filter.
 
 ## Rotating a secret
 
