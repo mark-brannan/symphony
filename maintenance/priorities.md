@@ -244,29 +244,31 @@ This file remains authoritative for the SignalK / IoT section below.
     Nobody has traced it. Flagged, not resolved.
   - Everything else on that list is the parked category above — a question for
     Mark, not a measurement.
-- **Open decision for Mark: put `signalk-healthcheck` back for the onboard
-  alarm?** It was removed 2026-08-14 and the case for reinstating it is
-  stronger than the case that removed it. Measured facts, no verdict:
-  - Nothing else aboard *alarms* on host health. Telegraf, rpi-monitor and
-    rpi-stats all record; recording is not alarming.
-  - Its threshold is sound, contrary to the assumption behind removing it.
-    `freeMemPercentage` comes from node-os-utils, which reads `MemAvailable`
-    from `/proc/meminfo` — not `MemFree`. So `memAlarm: 10` fires at ~389 MB
-    available on the 3.9 GB Pi, which is the same condition this repo already
-    calls real pressure, and the same number `host/boat-heartbeat` now uses.
-  - Its email path is dead (SMTP host never configured) but `sendNotification`
-    works and `signalk-notification-player` is enabled to consume it.
-  - The objection that removed it was the 08-13 feedback loop, where playing
-    the low-memory alarm consumed the memory it warned about. That path is
-    now cheaper: OpenPlotter's `cvlc`-per-notification player was silenced
-    2026-08-14, leaving `mpg321` via `signalk-notification-player`.
-  - Mark's framing, which settles the direction if not the details: the boat
-    computer is passive from the crew's point of view. Nobody watches memory
-    or CPU aboard, which is the same reason nobody watches depth or battery —
-    that is what the box is *for*. So "someone would notice" is not an
-    argument against an audible alarm.
-  Open: whether to reinstate, and if so with what config. Its removed config
-  is recoverable from git history.
+- **Retire `signalk-healthcheck`'s host section; keep its provider watch.**
+  Correcting this entry, which previously said the plugin was removed on
+  2026-08-14 and asked whether to reinstate it. Verified on the boat: it was
+  never removed. The package is installed and the config reads
+  `"enabled": true`. What happened on 2026-08-14 was a reconfigure — a POST to
+  its config endpoint at 15:35 stopped the `Could not get statisics for
+  OpenPlotter GPSD` line it had been logging every 60 seconds until 11:47.
+  - It has been raising nothing and sending nothing the whole time. Both
+    `sendNotification` and `sendEmail` are `false` in its config, on the boat
+    and in the repo copy.
+  - Its host CPU/memory/disk section duplicates thresholds
+    `host/boat-heartbeat` already alarms on, and duplicates them worse: no
+    history, thresholds invisible in the UI, a second polling process on a
+    memory-constrained box.
+  - Its provider section is the exception and the reason to keep the plugin.
+    It reads `pipedProviders` from the server settings and watches each one's
+    delta rate, which is the only mechanism aboard that alarms on data
+    *stopping* rather than on a value going bad. The boat has one provider,
+    `n2k-can0`, and the watch for it is currently `"enabled": false`.
+  - The onboard host alarm it was being considered for is better served by
+    zone metadata, which the server core already turns into notifications —
+    see `reference/monitoring_posture.md`. Note the threshold has to be
+    derived from `signalk-rpi-monitor`'s own formula rather than copied from
+    the heartbeat's 400 MB.
+  Per-role ownership is settled in `reference/monitoring_decisions.md`.
 - Fix `better-sqlite3` so `signalk-polar` can run. It is stuck at 7.6.2, which
   does not build on Node 22 — the release predates the removal of
   `v8::AccessorSignature` and `v8::Object::CreationContext`, so compilation
@@ -371,7 +373,7 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 **The HALPI2 is orderable**, which makes it the answer rather than a someday. 8 GB / 512 GB SSD at $614.35, in cart without issue on 2026-08-13. It ends this decision outright: an SSD instead of an SD card, and an RP2040 with an energy store that performs an orderly shutdown on power loss — which is the failure this boat actually has and the one no choice of card or drive fixes. Spending on interim storage for the Pi 4B only makes sense if the HALPI2 is being deferred for its own reasons.
 - Evaluate a read-only root filesystem for the boat Pi. The SD card holds the OS, SignalK's state, the InfluxDB store and Grafana's database on one partition and is the component most likely to fail first; overlayfs root-ro is the standard mitigation and `tkurki/marinepi-provisioning` has a `root-ro` role. It's a real change to how the box gets worked on — every write becomes deliberate — so it's a decision, not a config toggle.
 - Watch the first few unattended-upgrades runs. Enabled 2026-08-13 — the package is installed, `20auto-upgrades` and a boat-specific `52unattended-upgrades-boat` are both managed by `host/install.sh`, and a dry run applied cleanly. It takes Debian security updates only, never reboots on its own, and blacklists `nodejs`, `signalk-server`, `bluez`, the kernel and `openplotter-*` — the packages whose upgrades have actually broken this boat. What's left is confirming it behaves over a few cycles: `journalctl -u unattended-upgrades` and `/var/log/unattended-upgrades/`. Mail reporting is configured but goes nowhere until the box can send mail at all.
-- Add data-source staleness to the heartbeat payload. This is the one thing `signalk-healthcheck` did that nothing else does, and it was the gap that let `signalk-fixed-position` pass for a real GPS for months: the box is healthy, the data is dead, and every liveness check says fine. Carry the age of `navigation.position` and of the house battery readings in the ping, so silence in the data shows up in the same place as silence from the box. The plugin itself was removed 2026-08-14 — it was watching an "OpenPlotter GPSD" provider that doesn't exist, so it wasn't delivering this either.
+- Add data-source staleness to the heartbeat payload. This is the one thing `signalk-healthcheck` did that nothing else does, and it was the gap that let `signalk-fixed-position` pass for a real GPS for months: the box is healthy, the data is dead, and every liveness check says fine. Carry the age of `navigation.position` and of the house battery readings in the ping, so silence in the data shows up in the same place as silence from the box. The plugin is still installed and enabled, but it wasn't delivering this either: it was watching an "OpenPlotter GPSD" provider that doesn't exist, and both its notification and email flags are off.
 - Watch SignalK's memory. `signalk-server` measured 578 MB RSS at 17:16 on 2026-08-13 and 1,173 MB at 17:47 — roughly doubling in half an hour on the same boot, after the plugin tree was rebuilt. The box started swapping in that window (`pswpout` 0 → 8,700 pages) having done none since boot. Not acted on: available memory was still 1.2 GB, load was 0.7 and nothing had failed. It may simply be plugins warming up, but a process that grows like that on a 4 GB box is what starves the watchdog. A third reading at 17:52 was 1,148 MB, so it looks like plugins settling after the rebuild rather than a runaway leak — but it settled at twice where it started, on a box that has 4 GB for everything. Sampling every 20s between 17:46 and 17:49 confirms that read and sharpens it: RSS sawtooths, climbing to 1,229 MB and then dropping to 1,113 MB in a single interval before climbing again. A drop that size is V8 reclaiming, which is what distinguishes a large working set from a leak — a leak doesn't give memory back. `pswpout` did keep moving in that window though, 8,700 to 13,147, before going flat again; so the swapping is occasional rather than finished. Telegraf's `procstat` now records it per-service, so the trend is recoverable rather than needing to be re-measured by hand.
 - Decide whether to cap journald on the Pi. It reached 639 MB on 2026-08-13, largely `user-1000` files fed by the pypilot crash loop, then self-rotated back to 192 MB. A `SystemMaxUse` cap would bound both the size and the SD-card writes, but the right number isn't obvious yet — deferred deliberately, not forgotten.
 - A wedged BLE controller is invisible from off the boat, and only a reboot clears it. `RUNBOOK.md` → "A BLE sensor connects but never delivers data" establishes that nothing short of a reboot re-initialises the BCM4345C0, and nothing reboots this box on a schedule any more — deliberately, since the nightly reboot was covering for the v3d hang and risked landing on an `npm install`. So the house batteries can stop reporting and stay stopped until someone is aboard. The heartbeat payload is the natural place to surface it: add a line for whether `electrical.batteries` has updated recently, so silence in the data shows up in the same place as silence from the box.
