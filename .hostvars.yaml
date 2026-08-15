@@ -1,0 +1,16 @@
+# Files holding values that legitimately differ per machine, and which
+# variable names may appear in each. Read by scripts/hostvars_filter.py;
+# the substitution runs inside the hostvars clean/smudge filter, so a file
+# listed here must also be `filter=hostvars` in .gitattributes.
+#
+# Git stores the placeholder ("{{ ntfy_url }}" as the whole JSON string
+# value); each machine's real value lives in hostvars.local.yaml, which is
+# gitignored -- see hostvars.local.yaml.example for the known values.
+#
+# These are NOT secrets (that's .sops.yaml). They're values like the ntfy
+# server URL, which is a compose-network name on the dev stack and a
+# localhost port on the boat Pi: harmless to publish, wrong to share.
+
+paths:
+  signalk/plugin-config-data/signalk-ntfy.json:
+    - ntfy_url

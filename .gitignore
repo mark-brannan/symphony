@@ -23,6 +23,9 @@ signalk/plugin-config-data/signalk-questdb/
 signalk/plugin-config-data/signalk-restricted-areas/
 signalk/plugin-config-data/tides/
 
+# per-machine values for the hostvars filter -- see scripts/hostvars_filter.py
+hostvars.local.yaml
+
 # secrets / rendered config -- see RUNBOOK.md
 .env
 age.key

@@ -5,7 +5,7 @@
       {
         "id": "local",
         "name": "Self-hosted (dev docker)",
-        "url": "http://ntfy:80",
+        "url": "{{ ntfy_url }}",
         "isDefault": true
       }
     ],

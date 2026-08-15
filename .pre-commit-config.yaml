@@ -62,11 +62,23 @@ repos:
       # so they run on any change to the scripts. Stdlib unittest, no
       # dependency, well under a second.
       - id: secret-tooling-tests
-        name: unit tests (pseudonymize, sops recipients)
-        entry: bash -c 'python3 scripts/test_pseudonymize.py -q && python3 scripts/test_sops_recipients.py -q'
+        name: unit tests (pseudonymize, sops recipients, hostvars)
+        entry: bash -c 'python3 scripts/test_pseudonymize.py -q && python3 scripts/test_sops_recipients.py -q && python3 scripts/test_hostvars_filter.py -q'
         language: system
         pass_filenames: false
-        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|test_.*)\.py|\.sops\.yaml|\.pseudonyms\.yaml)$'
+        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|hostvars_filter|test_.*)\.py|\.sops\.yaml|\.pseudonyms\.yaml|\.hostvars\.yaml)$'
+
+      # The hostvars analogue of the staged-secrets guard: git's copy of a
+      # covered file must hold its {{ placeholders }}, not one machine's
+      # literal value. Catches a clone whose hostvars filter isn't wired, and
+      # a value edited in SignalK's admin UI without hostvars.local.yaml
+      # being brought along (scripts/hostvars_filter.py refresh).
+      - id: hostvars-placeholders
+        name: hostvars guard (placeholders survive into git)
+        entry: python3 scripts/hostvars_filter.py check
+        language: system
+        pass_filenames: false
+        always_run: true
 
       # Rules whose absence has already cost real downtime on this boat. Each
       # one carries its incident in its docstring. Repo-only and CI-safe;

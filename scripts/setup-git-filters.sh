@@ -35,6 +35,15 @@ git config filter.sops.smudge "python3 $(pwd)/scripts/sops_filter.py smudge %f"
 git config filter.sops.required true
 echo "configured: sops clean/smudge filter"
 
+# --- 1b. hostvars clean/smudge filter ---------------------------------------
+# Per-machine values (the ntfy server URL, for now): git stores
+# {{ placeholders }}, this machine's values come from hostvars.local.yaml.
+# See scripts/hostvars_filter.py.
+git config filter.hostvars.clean  "python3 $(pwd)/scripts/hostvars_filter.py clean %f"
+git config filter.hostvars.smudge "python3 $(pwd)/scripts/hostvars_filter.py smudge %f"
+git config filter.hostvars.required true
+echo "configured: hostvars clean/smudge filter"
+
 # --- 2. pre-commit hooks ----------------------------------------------------
 # Hooks used to live in .githooks/ via core.hooksPath. They're managed by
 # the pre-commit framework now, which installs into .git/hooks and refuses
@@ -88,6 +97,36 @@ else
   echo
   echo "skipped decrypting in-place files: no age key available." >&2
   echo "  Provision one, then re-run this script." >&2
+fi
+
+# --- 4. expand per-machine values in place ----------------------------------
+# Same fresh-clone problem as the sops files: hostvars-covered files check
+# out with their {{ placeholders }} intact when the filter wasn't wired yet.
+# A placeholder in the working tree can only be that artifact -- SignalK
+# never writes one -- so re-checking the file out cannot lose local work.
+if [ -f hostvars.local.yaml ]; then
+  pending=()
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    [ -f "$path" ] || continue
+    if grep -qE '"\{\{ *[A-Za-z_]' "$path" 2>/dev/null; then
+      pending+=("$path")
+    fi
+  done < <(python3 scripts/hostvars_filter.py paths)
+
+  if [ "${#pending[@]}" -gt 0 ]; then
+    rm -f -- "${pending[@]}"
+    git checkout -- "${pending[@]}"
+    echo "expanded per-machine values: ${#pending[@]} file(s)"
+  else
+    echo "per-machine values already expanded on disk -- left untouched"
+  fi
+else
+  echo
+  echo "warning: no hostvars.local.yaml -- per-machine plugin values (the ntfy" >&2
+  echo "  server URL) stay as {{ placeholders }} on disk, and SignalK would read" >&2
+  echo "  them literally. Copy hostvars.local.yaml.example to hostvars.local.yaml," >&2
+  echo "  set this machine's values, and re-run this script." >&2
 fi
 
 echo

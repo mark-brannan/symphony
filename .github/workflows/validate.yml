@@ -48,6 +48,10 @@ jobs:
           python-version: "3.x"
       - run: pip install pyyaml
       - run: python3 scripts/validate_configs.py
+      # Per-machine values: assert git's copy of every hostvars-covered file
+      # still holds its {{ placeholders }} rather than one machine's literal
+      # value (same relationship to the local hook as the sops checks).
+      - run: python3 scripts/hostvars_filter.py check
 
   shellcheck:
     runs-on: ubuntu-latest
