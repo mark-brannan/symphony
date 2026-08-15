@@ -891,6 +891,11 @@ accepts that state as consistent. The stray filter line then makes every
 later `git add` of the file run the clean filter, which fails with sops
 complaining about *"a top-level entry called 'sops'"*.
 
+A failed run also leaves the file staged as **deleted** — the script runs
+`git rm --cached` just before the `git add` that fails — so until the
+recovery below is done, a commit that sweeps up the index would remove the
+file from the repo. Don't commit anything else from that checkout first.
+
 If a `secrets/` file gives you that error on `git add`, this is what
 happened. To recover, delete the two appended blocks — the `filter=sops`
 line at the end of `.gitattributes`, and the `path_regex` block for the
