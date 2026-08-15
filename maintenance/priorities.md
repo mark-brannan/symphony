@@ -165,6 +165,15 @@ This file remains authoritative for the SignalK / IoT section below.
   with it, including remote access to fix it. When Caddy does move, drop the
   transitional `127.0.0.1:5556` port publish from `compose-idp.yml`; Caddy will
   reach Dex by service name on `symphony-net` instead.
+- Evaluate QuestDB against InfluxDB as the history store. Two time-series
+  databases holding the same boat data is one too many, and the Pi's SD card
+  can only ever carry one. QuestDB came aboard the dev box with the
+  signalk-grafana plugin experiment; when that plugin was retired
+  (2026-08-15, its Grafana absorbed into the compose one), the
+  `sk-signalk-questdb` container and its data were left running for exactly
+  this comparison, and the compose Grafana keeps the QuestDB datasource
+  plugin installed. The plugin's auto-built QuestDB dashboards are still in
+  `signalk/plugin-config-data/signalk-grafana/grafana-data/`. Low priority.
 - Put fail2ban, or an equivalent rate limit, in front of sshd on the boat Pi.
   Measured 2026-08-14: `PasswordAuthentication yes`, `PermitRootLogin
   prohibit-password`, no fail2ban, and no host firewall — the INPUT policy is
