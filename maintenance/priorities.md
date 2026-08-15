@@ -448,6 +448,13 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   `secrets/symphony.sops.yaml` 2026-08-14 for the heartbeat escalation above
   and are the same values this plugin needs — but the install (and the
   unmaintained-plugin audit) hasn't been done.
+  Node-RED (`@signalk/signalk-node-red`, upgraded to 4.4.0) is currently
+  enabled aboard with no flows — idle rent on the Pi, no monitoring job.
+  It's only in scope as the Role 2 fallback if the relay plugin audit fails:
+  audit `signalk-pushover-notification-relay` first; if it fails, build the
+  Node-RED flow (subscribe `notifications.*`, POST to Pushover); if it
+  passes (or ntfy + relay end up covering delivery on their own), disable
+  the idle Node-RED plugin instead of leaving it running for nothing.
   Installing the Android ntfy app and subscribing to `symphony-alarms` on
   each server is Mark's phone-side step, tracked separately, not a blocker
   for anything above. Decided: do ntfy *and* a speaker, deliberately redundant — two
