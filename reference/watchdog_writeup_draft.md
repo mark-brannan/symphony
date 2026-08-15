@@ -2,7 +2,9 @@
 
 Draft of a community post. Not published. Facts below were measured on
 Symphony (Hans Christian 38T, Raspberry Pi 4, SignalK 2.x) on 2026-08-13/14;
-source references are against signalk-server master at f2bedbf0.
+source references are against signalk-server master at f2bedbf0, re-verified
+2026-08-15 against master b9802a72 and a live v2.31.0 instance (details in
+monitoring_decisions.md, Role 4).
 
 ---
 
@@ -78,20 +80,26 @@ dashboard, where they've been for years.
 Which means the detection problem is already solved, in core, on every
 SignalK server running today. A plugin that's enabled and has produced zero
 deltas is precisely the failure I hit, and it's one integer comparison away
-from an alarm. The sensing exists; the acting doesn't. Nobody watches a
-dashboard from offshore.
+from an alarm (strictly, a mute plugin has no entry at all — the counter is
+created lazily on the first delta). The sensing exists; the acting doesn't.
+Nobody watches a dashboard from offshore.
 
-Two catches. First, `providerStatistics` isn't part of the documented plugin
-API — a plugin can reach it today, but by accident of how the server shares
-its state, not by contract. Second, there's no supported way for a plugin to
-restart another plugin; the internal stop/start machinery exists but isn't
-exposed, and the only clean route is the HTTP endpoint the admin UI uses,
-which wants admin credentials.
+Three catches. First, `providerStatistics` isn't part of the documented
+plugin API — a plugin can reach it today, but by accident of how the server
+shares its state, not by contract. Second, there's no plugin-visible way
+even to list which plugins are enabled: the server has an internal
+`getPluginsList`, but plugins receive their `app` through a snapshot taken
+before it's assigned, so from a plugin it's simply undefined — the only
+recourse is reading the plugin config files off disk. Third, there's no
+supported way for a plugin to restart another plugin; the internal
+stop/start machinery exists but isn't exposed, and the only clean route is
+the HTTP endpoint the admin UI uses, which wants admin credentials.
 
-Worth noting the maintainers are already circling this area: master has an
-unreleased staleness enforcer (#2689) that learns per-path update cadence
-and flags paths that go quiet. It watches data, not plugins, and it notifies
-rather than acts — but it's clear evidence the problem is recognized.
+Worth noting the maintainers are already circling this area: v2.31.0
+(released 2026-08-14) ships a staleness enforcer (#2689), opt-in and off by
+default, that learns per-path update cadence and flags paths that go quiet.
+It watches data, not plugins, and it notifies rather than acts — but it's
+clear evidence the problem is recognized.
 
 ## What I'm proposing
 
@@ -105,7 +113,11 @@ Three small things, not one big one:
 3. **A watchdog plugin, notify-only in v1.** Enabled plugin, zero or stalled
    delta count, sustained past a grace period → SignalK notification, so your
    existing alarm paths pick it up for free. Restart can come later, through
-   (2), once it exists.
+   (2), once it exists. [Status 2026-08-15: v1 is built and tested against a
+   live 2.31.0 — it catches mute-from-startup, learned and explicit, and
+   clears on recovery. Not published; it stands on the undocumented internals
+   above, which is exactly why (1) is worth doing. Source in the Symphony
+   repo, `plugins/signalk-plugin-watchdog`.]
 
 If you've hit this failure — a plugin that was "running" while publishing
 nothing — I'd like to hear what it was, because a supervisor is only as good

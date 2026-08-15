@@ -207,14 +207,16 @@ global threshold for every path, a hardcoded 1-second poll, and it publishes
 a `<path>.dataAge` delta every second per monitored path — noise that
 signalk-to-influxdb2 would faithfully write to the SD card.
 
-**Also material: the server core is getting this.** signalk-server master
-has a merged, unreleased staleness enforcer (PR #2689, merged 2026-07-11,
-missed v2.30.0): it learns per-path cadence and flags `timedOut` per
-path+source. Same blind spot — it walks the delta cache, so never-published
-paths are equally invisible. The durable rule: **every path-level approach
-misses mute-from-startup.** Only per-plugin delta counts
-(`app.providerStatistics` in core today — zero means never published) or an
-external expectation list can catch it.
+**Also material: the server core now has this.** The staleness enforcer
+(PR #2689, merged 2026-07-11) shipped in v2.31.0, tagged 2026-08-14, and is
+opt-in: `enforceDataTimeouts` in settings, default off **[verified —
+signalk-server git tags; src/index.ts gates on `=== true`]**. It learns
+per-path cadence and flags `timedOut` per path+source. Same blind spot — it
+walks the delta cache, so never-published paths are equally invisible. The
+durable rule: **every path-level approach misses mute-from-startup.** Only
+per-plugin delta counts (`app.providerStatistics` in core today — never
+published shows as an *absent key*, since entries are created lazily on the
+first delta) or an external expectation list can catch it.
 
 **So the ranking flips: the freshness check is the load-bearing piece.** A
 small sibling timer queries SignalK's REST API on localhost and pings a
@@ -240,6 +242,51 @@ build the plugin only if restart automation proves worth the effort. `signalk-bl
 mechanism aboard, and detection without recovery still means a dead battery
 feed until someone acts. That pairing (watchdog detects broadly, ble-check
 recovers narrowly) is redundancy with a purpose, not waste.
+
+**Verified 2026-08-15 — the watchdog hypothesis holds, and v1 exists.**
+Checked against signalk-server source (master @ b9802a72) and exercised on a
+live v2.31.0 instance in the dev sandbox; nothing below is from memory.
+
+- The crux from the design brief is settled. `providerStatistics` is real:
+  incremented as the first statement of `handleMessage`, *before* all
+  `$source` rewriting, keyed by the registered plugin id no matter what id
+  or label the plugin supplies; rates recomputed every 5 s; it is what the
+  admin dashboard's rate column reads. **[verified — src/index.ts
+  handleMessage + src/deltastats.ts + admin-ui Dashboard.tsx]**
+- It reaches plugins by accident, not contract: absent from the server-api
+  types and all docs, shared only because the server copies its state into
+  each plugin's `app`. **[verified — grep of packages/server-api; live
+  probe plugin saw the object, counters advancing]**
+- One trap the writeup draft missed: enumerating *enabled plugins* has no
+  plugin-visible API at all. `app.getPluginsList` exists internally but
+  interfaces receive a Proxy over a key-snapshot taken before it is
+  assigned, so plugins never see it — on 2.31.0 and on master alike.
+  **[verified — live probe returned `undefined`; dist and master source
+  agree on the ordering]** Workable fallback: read
+  `plugin-config-data/*.json`, the same on-disk truth the server reads.
+- Restart stays admin-only, as suspected: the sole external path is
+  `POST /plugins/:id/config`, hard-gated to admin auth (`/config` is a
+  reserved path plugins cannot re-permission); `stopPlugin` is
+  module-private and there is no `restartPlugin`. **[verified —
+  src/tokensecurity.ts pluginAuthenticationMiddleware +
+  src/interfaces/plugins.ts]**
+- v1 notify-only is built and tested: `plugins/signalk-plugin-watchdog`.
+  Learned-producer expectations persisted across boots plus an
+  `expectPlugins` list; alarms on `notifications.pluginWatchdog.<id>`. Its
+  three-phase test against a real 2.31.0 fired on simulated
+  mute-from-startup (explicit *and* learned expectation after restart),
+  stayed quiet for a healthy plugin, and cleared on recovery.
+  **[verified — test/run-test.sh, all phases green 2026-08-15]**
+
+Decision: **build-but-don't-publish, and don't deploy yet.** The original
+bar — restart automation — remains unmet and unmeetable cleanly today, so
+the freshness check stays the load-bearing detection. The plugin earns its
+optional slot as the only mechanism that catches mute-from-startup
+*onboard with no uplink*, riding the Role 2 notification bus. Deploying it
+to the boat and proposing the two upstream PRs (official
+`providerStatistics` access; a supported `restartPlugin`) are separate
+owner decisions; publishing to npm waits on those PRs at minimum, since
+today it stands on an undocumented accident.
 
 `signalk-dead-mans-switch` also exists in the registry but is a crew-liveness
 escalation (push a button or alarms escalate) — different problem.
