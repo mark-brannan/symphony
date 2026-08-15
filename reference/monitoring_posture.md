@@ -41,6 +41,17 @@ and the dev container, 2026-08-15: `environment.inside.airquality` doesn't
 exist anywhere in the vessel tree, on either box, so the zone this doc
 previously described here was never actually live.
 
+The recovered airquality bands now live as server-native meta in the repo's
+`signalk/baseDeltas.json` (dev container config), on the corrected path —
+dormant until something publishes there. The zone engine reads notification
+methods from meta-level `alertMethod`/`emergencyMethod`/etc. arrays, not the
+per-zone `method` fields the old plugin format used (`src/zones.ts` in
+signalk-server: explicit `null` means no methods, undefined defaults to
+visual); the migration maps them accordingly. The boat still has `@signalk/zones`
+1.2.0 installed and enabled with its config never registering; the plugin is
+deprecated upstream and superseded by this meta mechanism, so the remaining
+move is removing it on the boat and mirroring the meta there, not debugging it.
+
 The limit that matters: **zones fire on a value arriving out of range. They are
 silent when values stop arriving.**
 

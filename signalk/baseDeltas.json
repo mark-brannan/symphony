@@ -79,6 +79,33 @@
                 }
               ]
             }
+          },
+          {
+            "path": "environment.inside.airquality",
+            "value": {
+              "nominalMethod": null,
+              "alertMethod": ["visual"],
+              "emergencyMethod": ["visual", "sound"],
+              "zones": [
+                {
+                  "lower": 0,
+                  "upper": 100,
+                  "state": "nominal"
+                },
+                {
+                  "lower": 101,
+                  "upper": 200,
+                  "state": "alert",
+                  "message": "AQI is \"Orange\" or \"Red\" - This may cause adverse health effects"
+                },
+                {
+                  "lower": 201,
+                  "upper": 500,
+                  "state": "emergency",
+                  "message": "AQI is in range of \"Very Unhealthy\" to \"Hazardous\""
+                }
+              ]
+            }
           }
         ]
       }
