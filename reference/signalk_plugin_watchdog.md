@@ -71,18 +71,45 @@ Attempt budget and backoff, and stop rather than loop.
 an unreadable state should all mean "do nothing". A supervisor that guesses is
 worse than none.
 
-## The crux to settle first
+## The crux, settled (2026-08-15, read against signalk-server master)
 
 Can a plugin map an observed `$source` back to the plugin that produced it?
+**No — and it turns out not to matter.**
 
-`app.handleMessage(pluginId, delta)` means the **server** knows. Whether that
-association is visible from another plugin is the open question, and the whole
-design rests on it. Settle it before writing anything else.
+- `handleMessage` only falls back to the plugin id when an update carries no
+  source of its own. A plugin that sets `source.label` or `$source` directly
+  wins, and the server records no pluginId→sourceRef association anywhere.
+  Measured aboard: 13 of 37 live sources match no plugin id, four of them
+  bt-sensors' (`House Battery 1`, …) — the plugin that motivated this design
+  is exactly the one label-matching fails on. `$source` conventions are not a
+  fragile fallback; they are no fallback at all.
+- The mapping isn't needed. `incDeltaStatistics(app, providerId)` runs on
+  every `handleMessage` call, before any source rewriting, maintaining
+  `app.providerStatistics[pluginId]` — delta count and rate per true plugin
+  id, recomputed every 5 s, on every 2.x server as shipped. A count of zero
+  *is* the enabled-but-never-published case, first-class. This replaces the
+  sketch's "learn which sources each plugin produces" machinery entirely.
+- The catch: `providerStatistics` is not in the `ServerAPI` type. Plugins
+  can read it only because `doRegisterPlugin` shallow-copies the whole app
+  object. Works everywhere, promised nowhere.
+- Restart has no supported in-process path. `stopPlugin`/`doPluginStart`
+  exist in core but aren't exposed to plugins; calling
+  `pluginsMap[id].stop()` directly skips the `onStopHandlers` teardown and
+  leaks registrations. The only correct route today is what the admin UI
+  itself does — `POST /plugins/<id>/config` — which needs credentials.
+- Core is moving under the staleness half: master has an unreleased
+  enforcer (#2689, merged 2026-07-11, missed v2.30.0) that learns per-path
+  cadence and emits `state.timedOut` per path+source. It walks the delta
+  cache, so never-published paths are invisible to it too — plugin-level
+  supervision stays uncovered.
 
-If it isn't exposed, the fallbacks get worse fast: match on `$source` label
-conventions (fragile), require configuration (the thing we're trying to avoid),
-or push the feature into the server core instead of a plugin — which may be the
-honest answer.
+Plan settled with the owner 2026-08-15: build the plugin on
+`providerStatistics`, notify-only in v1, community-facing; propose two small
+core PRs — `providerStatistics` added to `ServerAPI`, and a supported
+`restartPlugin(id)` — rather than pushing the whole supervisor into core.
+Restart automation waits on that PR (or ships later reading credentials,
+decided then). Publishable account:
+[watchdog_writeup_draft.md](watchdog_writeup_draft.md).
 
 ## Our stopgap, and why it isn't the answer
 
