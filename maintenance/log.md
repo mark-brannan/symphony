@@ -593,6 +593,23 @@
 - Pinned Dex to `v2.45.1` by digest, on the multi-arch index so the boat's
   arm64 and the dev box's amd64 both resolve.
 
+## 2026-08-15
+- Gave the boat Pi a UTF-8 locale. `en_US.UTF-8` was commented out in
+  `/etc/locale.gen` — generated it. Removed `LC_ALL` from
+  `/etc/default/locale` outright rather than editing it, since it was
+  overriding `LANG` system-wide; set `LANG`/`LANGUAGE` to `en_US.UTF-8`.
+  Set `PYTHONUTF8=1` in both `/etc/environment` and systemd's
+  `DefaultEnvironment` — the Python exposure (OpenPlotter's i2c/can
+  services) runs as system-managed services, which don't read
+  `/etc/environment`. Host locale (layer 2) verified clean immediately.
+  Running processes (layer 3) won't fully converge until the boat Pi next
+  reboots — services keep their old environment until they restart.
+  Along the way, found that interactive SSH sessions to the boat over
+  Tailscale don't inherit locale env at all: `pam_env` isn't populating
+  `LANG`/`LANGUAGE` in the session despite being wired into
+  `/etc/pam.d/sshd`. Doesn't affect the fix above (systemd services get
+  their environment from the manager, not from PAM/SSH), so left alone.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
