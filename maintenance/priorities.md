@@ -389,6 +389,11 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   `signalk-pushover-notification-relay` (2022, unmaintained — audit on
   install; a Node-RED flow is the fallback) to Pushover on the Android as the
   primary path. Open: whether any Android-native SignalK alarm app exists.
+  Note nothing installed can reach a phone with the internet down — Pushover,
+  SNS and healthchecks all need cloud. A self-hosted ntfy server on the Pi +
+  `signalk-ntfy` + the ntfy Android app delivers over boat WiFi with no
+  internet, so it competes with (or complements) a speaker for the
+  offline-aboard case.
   Speaker-vs-piezo is a hardware decision for the Evernote list — the GPIO
   beeper plugin is already installed, disabled, awaiting a piezo. Per
   `reference/monitoring_decisions.md` Role 2, as amended.
