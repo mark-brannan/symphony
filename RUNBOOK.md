@@ -106,6 +106,114 @@ sudo tailscale up --ssh --hostname=symphony-pi
 Follow the printed login URL. *Verify:* `tailscale status` lists it, and
 `ssh pi@symphony-pi` connects from another device on the tailnet.
 
+## Reaching the boat over Tailscale
+
+Setup is under [Remote SSH access](#remote-ssh-access); this covers using it
+and the ways it fails. The boat is node `symphony-pi`, tailnet address
+100.113.172.64.
+
+Only devices on the tailnet can reach it — which includes the Windows side
+of a WSL machine *not* being on it, because WSL runs its own tailscaled and
+doesn't share it with the host. If a browser can't load the admin UI,
+install Tailscale on *that* machine before debugging anything else.
+
+```bash
+tailscale status                 # symphony-pi listed and not "offline"
+curl -s http://symphony-pi:3000/signalk    # server version + endpoints
+```
+
+SignalK admin UI: `http://symphony-pi:3000/admin/`.
+
+### SSH users and the periodic check
+
+Tailscale SSH handles auth, so no key setup is needed, but the ACL names
+which local users you may become — `pi` works, other names are rejected with
+"tailnet policy does not permit you to SSH as user X". Change that in the
+[access controls](https://login.tailscale.com/admin/acls) if you need
+another.
+
+The ACL also sets a check period. When it lapses, ssh stops at
+`# Tailscale SSH requires an additional check.` and prints a
+`login.tailscale.com/a/...` URL — open it, approve, then re-run ssh. The URL
+is single-use, so don't bother saving it. Under `-o BatchMode=yes` or any
+non-interactive wrapper this just looks like a hang; that message is the
+tell.
+
+### A page hangs but the host is reachable — MTU
+
+Symptom: the browser spins forever on `https://signalk.symphony.dark-star-llc.com/`, ssh and
+ping to the same host are fine, and a port check succeeds:
+
+```powershell
+Test-NetConnection 100.113.172.64 -Port 443 -InformationLevel Quiet   # True
+```
+
+That combination means small packets get through and large ones don't. TCP
+completes its handshake, then the TLS handshake's full-size packets are
+dropped in silence. It shows up when a device takes a *direct* path to the
+boat over an uplink whose real MTU is below Tailscale's assumed 1280 —
+cellular and Starlink both do this. Relayed connections don't hit it, so one
+machine can work while another fails against the same server.
+
+Confirm by finding where ping stops making it through with
+don't-fragment set:
+
+```powershell
+foreach ($s in 1100,1200,1272,1400) { ping -n 1 -f -l $s 100.113.172.64 }
+```
+
+Fix on Windows — find the adapter's `ifIndex`, then lower its MTU
+(needs an elevated shell):
+
+```powershell
+Get-NetIPInterface -AddressFamily IPv4 | Where-Object InterfaceAlias -like '*Tailscale*'
+netsh interface ipv4 set subinterface <ifIndex> mtu=1180 store=persistent
+```
+
+On macOS or Linux, set it on the Tailscale interface instead:
+
+```bash
+sudo ifconfig utun<N> mtu 1180        # macOS
+sudo ip link set tailscale0 mtu 1180  # Linux
+```
+
+The Windows form survives reboots; the macOS and Linux ones don't survive a
+`tailscaled` restart. It's per-machine either way and doesn't propagate, so
+each new device can need it again.
+
+## The resident Claude session on the boat Pi
+
+The Pi keeps a Claude Code session running in tmux with Remote Control on, so
+work in progress isn't tied to an SSH connection staying up. It starts at
+boot, with nobody logged in.
+
+Attach on the box, and detach without stopping anything:
+
+```bash
+tmux attach -t claude       # attach
+                            # Ctrl-b then d to detach
+```
+
+Detaching, closing the terminal, and dropping the SSH connection all leave the
+session running. Remotely, open the `https://claude.ai/code/session_…` URL the
+session prints at startup; the footer shows `/rc active` when Remote Control is
+live.
+
+If it isn't running:
+
+```bash
+systemctl --user status claude-resident.service
+systemctl --user start claude-resident.service
+```
+
+That's a `--user` unit, so `sudo systemctl` won't find it — run it as `pi`.
+What makes it survive a reboot is lingering (`loginctl show-user pi -p Linger`
+→ `Linger=yes`); without that, a user unit stops when the last login session
+ends. `host/install.sh` sets it.
+
+The wrapper starts the pane with a trailing shell, so if Claude exits the tmux
+session stays up and you can restart it in place instead of losing the window.
+
 ## Bringing up a host
 
 Four phases, in this order: tooling, key material, repo, services. Each ends
@@ -422,460 +530,18 @@ desktop by itself doesn't touch v3d. The Freeboard entry now sits in
 `~/.config/autostart-disabled/`; its Desktop launcher still works when
 someone is actually at a screen.
 
-## Reaching the boat over Tailscale
-
-Setup is under [Remote SSH access](#remote-ssh-access); this covers using it
-and the ways it fails. The boat is node `symphony-pi`, tailnet address
-100.113.172.64.
-
-Only devices on the tailnet can reach it — which includes the Windows side
-of a WSL machine *not* being on it, because WSL runs its own tailscaled and
-doesn't share it with the host. If a browser can't load the admin UI,
-install Tailscale on *that* machine before debugging anything else.
+## Upgrading the scanners
 
 ```bash
-tailscale status                 # symphony-pi listed and not "offline"
-curl -s http://symphony-pi:3000/signalk    # server version + endpoints
+pre-commit autoupdate      # bumps pinned hook revisions
 ```
 
-SignalK admin UI: `http://symphony-pi:3000/admin/`.
-
-### SSH users and the periodic check
-
-Tailscale SSH handles auth, so no key setup is needed, but the ACL names
-which local users you may become — `pi` works, other names are rejected with
-"tailnet policy does not permit you to SSH as user X". Change that in the
-[access controls](https://login.tailscale.com/admin/acls) if you need
-another.
-
-The ACL also sets a check period. When it lapses, ssh stops at
-`# Tailscale SSH requires an additional check.` and prints a
-`login.tailscale.com/a/...` URL — open it, approve, then re-run ssh. The URL
-is single-use, so don't bother saving it. Under `-o BatchMode=yes` or any
-non-interactive wrapper this just looks like a hang; that message is the
-tell.
-
-### A page hangs but the host is reachable — MTU
-
-Symptom: the browser spins forever on `https://signalk.symphony.dark-star-llc.com/`, ssh and
-ping to the same host are fine, and a port check succeeds:
-
-```powershell
-Test-NetConnection 100.113.172.64 -Port 443 -InformationLevel Quiet   # True
-```
-
-That combination means small packets get through and large ones don't. TCP
-completes its handshake, then the TLS handshake's full-size packets are
-dropped in silence. It shows up when a device takes a *direct* path to the
-boat over an uplink whose real MTU is below Tailscale's assumed 1280 —
-cellular and Starlink both do this. Relayed connections don't hit it, so one
-machine can work while another fails against the same server.
-
-Confirm by finding where ping stops making it through with
-don't-fragment set:
-
-```powershell
-foreach ($s in 1100,1200,1272,1400) { ping -n 1 -f -l $s 100.113.172.64 }
-```
-
-Fix on Windows — find the adapter's `ifIndex`, then lower its MTU
-(needs an elevated shell):
-
-```powershell
-Get-NetIPInterface -AddressFamily IPv4 | Where-Object InterfaceAlias -like '*Tailscale*'
-netsh interface ipv4 set subinterface <ifIndex> mtu=1180 store=persistent
-```
-
-On macOS or Linux, set it on the Tailscale interface instead:
-
-```bash
-sudo ifconfig utun<N> mtu 1180        # macOS
-sudo ip link set tailscale0 mtu 1180  # Linux
-```
-
-The Windows form survives reboots; the macOS and Linux ones don't survive a
-`tailscaled` restart. It's per-machine either way and doesn't propagate, so
-each new device can need it again.
-
-## The resident Claude session on the boat Pi
-
-The Pi keeps a Claude Code session running in tmux with Remote Control on, so
-work in progress isn't tied to an SSH connection staying up. It starts at
-boot, with nobody logged in.
-
-Attach on the box, and detach without stopping anything:
-
-```bash
-tmux attach -t claude       # attach
-                            # Ctrl-b then d to detach
-```
-
-Detaching, closing the terminal, and dropping the SSH connection all leave the
-session running. Remotely, open the `https://claude.ai/code/session_…` URL the
-session prints at startup; the footer shows `/rc active` when Remote Control is
-live.
-
-If it isn't running:
-
-```bash
-systemctl --user status claude-resident.service
-systemctl --user start claude-resident.service
-```
-
-That's a `--user` unit, so `sudo systemctl` won't find it — run it as `pi`.
-What makes it survive a reboot is lingering (`loginctl show-user pi -p Linger`
-→ `Linger=yes`); without that, a user unit stops when the last login session
-ends. `host/install.sh` sets it.
-
-The wrapper starts the pane with a trailing shell, so if Claude exits the tmux
-session stays up and you can restart it in place instead of losing the window.
-
-## Router config backup
-
-The boat router holds the local DNS override that makes the hostnames
-resolve on the boat. A factory reset takes it, and on-boat access with it.
-An encrypted copy of the router's full UCI config lives in
-`secrets/router-config.sops.yaml`.
-
-Refresh it after any router change (the pi's key is authorized on the
-router; run this from anywhere on the tailnet):
-
-```bash
-ssh pi@symphony-pi 'ssh root@192.168.8.1 "uci export"' > /tmp/uci.txt
-test -s /tmp/uci.txt && grep -q '^package' /tmp/uci.txt && echo export ok
-python3 -c "import yaml; yaml.safe_dump({'uci_export': open('/tmp/uci.txt').read()}, open('secrets/router-config.sops.yaml','w'), default_style='|')"
-sops --encrypt --in-place secrets/router-config.sops.yaml
-rm /tmp/uci.txt
-```
-
-Check the `export ok` line before going on — a failed ssh leaves
-`/tmp/uci.txt` empty, and the next step overwrites the backup with it.
-
-Overwriting the file with fresh plaintext first is what makes
-`--encrypt --in-place` work: run against the existing *encrypted* file it
-fails with sops's "top-level entry called 'sops'" error. This file is a
-snapshot of one export, so a wholesale replace loses nothing.
-
-*Verify:* `sops --decrypt --extract '["uci_export"]' secrets/router-config.sops.yaml | head -3`
-shows the export. Then `git add secrets/router-config.sops.yaml` and commit.
-
-To read or restore:
-
-```bash
-sops --decrypt secrets/router-config.sops.yaml
-```
-
-Feed the `uci_export` contents back through `uci import` on the router,
-then `reload_config`. Restoring overwrites WiFi and WAN settings too —
-this is a whole-config restore, not a DNS-only one.
-
-## SSO login (GitHub / Google)
-
-SignalK and Grafana web UIs show a "Sign in with GitHub / Google" button.
-Behind it sits Dex, a small identity provider on the boat at
-`auth.symphony.dark-star-llc.com`: SignalK and Grafana trust only Dex; Dex hands the actual
-login to GitHub or Google. Any account at either provider can sign in and
-view SignalK (readonly). The owner's email also gets Grafana Admin.
-Anything that changes state still uses the local password logins
-(`captain`, Grafana's superadmin), which are also the no-internet
-fallback.
-
-Steps 1–3 are one-time setup from any machine. Step 4 runs on the boat.
-
-### 1 — Domain and DNS (one-time)
-
-Prerequisite: a registered domain with its DNS hosted at Cloudflare (the
-free plan is enough). A subdomain of a domain already on Cloudflare works
-too (`DOMAIN` can be `boat.example.com`).
-
-1. In Cloudflare DNS, add one **A** record and three CNAMEs, all DNS
-   only / grey cloud (not proxied):
-   - `symphony.dark-star-llc.com` → the host's **tailnet** IP, e.g. `100.113.172.64`
-   - `signalk.symphony.dark-star-llc.com`, `grafana.symphony.dark-star-llc.com`, `auth.symphony.dark-star-llc.com` → CNAME to
-     `symphony.dark-star-llc.com`
-
-   Public DNS answers for off-boat devices, the boat router answers for
-   on-boat ones (step 3), and the same URL works in both places. Give
-   the host a fixed LAN IP too (DHCP reservation in the boat router) —
-   the router override needs it. A public name resolving to a private
-   or CGNAT address is fine; nothing here is reachable from the
-   internet.
-
-   The tailnet IP is stable, but it belongs to the *machine*, not the
-   hostname. Rebuild the host's SD card, or delete and re-add it in the
-   Tailscale console, and it joins as a new machine with a different
-   100.x — this record then points at nothing. Symptom: off-boat access
-   dies, on-boat keeps working. You can't CNAME to the MagicDNS
-   `.ts.net` name instead; it doesn't resolve off the tailnet.
-2. Create the certificate-issuance token: Cloudflare → My Profile → API
-   Tokens → Create Token → "Edit zone DNS" template → limit it to this
-   one zone.
-3. On the **boat router**, add a local DNS override sending the whole
-   subdomain to the host's LAN IP (dnsmasq:
-   `address=/symphony.dark-star-llc.com/192.168.1.50`, or the router UI's "local DNS
-   records"). One wildcard entry covers the apex and every subdomain,
-   so adding a service later needs no router change.
-
-   Don't skip this. It is what makes the hostname work for anything on
-   the boat that isn't on the tailnet — a guest's phone — and offshore
-   there is no public DNS at all, so without it even already-logged-in
-   devices can't resolve the names.
-
-*Verify:* from a device on the boat LAN **with the WAN link
-disconnected**, `nslookup signalk.symphony.dark-star-llc.com` returns the LAN IP.
-
-### 2 — OAuth apps (one-time)
-
-**GitHub** — under the personal account, no org involved:
-[github.com/settings/developers](https://github.com/settings/developers)
-→ OAuth Apps → New OAuth App:
-
-- Application name: anything (e.g. "Symphony boat systems")
-- Homepage URL: `https://auth.symphony.dark-star-llc.com`
-- Authorization callback URL: `https://auth.symphony.dark-star-llc.com/dex/callback`
-
-Copy the client ID; "Generate a new client secret" and copy it.
-
-**Google** — at
-[console.cloud.google.com](https://console.cloud.google.com):
-
-1. Create a project (any name).
-2. APIs & Services → OAuth consent screen: user type **External**, app
-   name + support email → then **publish to production** (Audience →
-   "Publish app"). Not Testing: testing mode caps sign-ins to a
-   100-address allowlist, and the open readonly door is intended. The
-   basic scopes used need no Google review.
-3. Credentials → Create credentials → OAuth client ID → type **Web
-   application** → one redirect URI:
-   `https://auth.symphony.dark-star-llc.com/dex/callback`
-4. Copy the client ID and client secret.
-
-Both providers talk only to Dex, hence the single callback URL each — no
-signalk/grafana URLs belong in either console.
-
-### 3 — Secrets store (one-time)
-
-```bash
-sops secrets/symphony.sops.yaml
-```
-
-Replace the `REPLACE_WITH_*` placeholders: `boat_domain`,
-`github_oauth_client_id`, `github_oauth_client_secret`,
-`google_oauth_client_id`, `google_oauth_client_secret`,
-`cloudflare_api_token`. `owner_email` is the email that gets Grafana
-Admin. Leave `dex_symphony_client_secret` alone — it's the pre-generated
-secret shared between Dex and SignalK/Grafana; nothing outside this repo
-ever needs it. Commit the file, then:
-
-```bash
-python3 scripts/render.py
-```
-
-(renders both `.env` and `dex/config.yaml` — the latter is gitignored
-plaintext, same trust level as `.env`).
-
-### 4 — Deploy (on the boat)
-
-On the boat Pi today, Dex is a container and Caddy is still a native
-systemd service, so deploy them separately:
-
-```bash
-git pull
-python3 scripts/render.py
-docker compose --profile tls up -d dex
-sudo systemctl restart caddy
-```
-
-**Name `dex` explicitly.** A bare `--profile tls up -d` also starts the
-`caddy` container, which fails to bind `:443` against the native Caddy
-already holding it and proxies to container names that don't exist on
-that host. The front door goes down and the cause isn't obvious.
-
-On a host where everything is containerized, the whole profile is right:
-
-```bash
-docker compose --profile tls up -d --build
-```
-
-The first run builds the caddy image and issues certificates, so it needs
-internet — do it dockside.
-
-Restart Grafana and SignalK too if you changed anything they read —
-`GF_AUTH_GENERIC_OAUTH_*` or `SIGNALK_OIDC_*`. They pick up `.env` through
-an `EnvironmentFile=` drop-in, so a re-render alone doesn't reach a running
-process.
-
-*Verify:*
-
-```bash
-curl -s https://signalk.symphony.dark-star-llc.com/signalk/v1/auth/oidc/status
-curl -s https://auth.symphony.dark-star-llc.com/dex/.well-known/openid-configuration | head -3
-```
-
-The first expects `"enabled":true` and
-`"issuer":"https://auth.symphony.dark-star-llc.com/dex"`; the second returns JSON if Dex is
-up behind Caddy. If TLS itself fails, certificates haven't issued — check
-`docker logs caddy`. Then from a browser on the LAN:
-
-- `https://signalk.symphony.dark-star-llc.com` → sign in as the owner with either provider →
-  Security → Users shows that user with type `admin`. Any other account
-  shows `readonly`. An owner login that comes out `readonly` means
-  `SIGNALK_OIDC_GROUPS_ATTRIBUTE` didn't reach the server — it fails
-  silently, so check the container's environment rather than the logs.
-- `https://grafana.symphony.dark-star-llc.com` → the owner's login → Admin; any other
-  account → refused (that's the strict email list working).
-- The `captain` password still logs in on SignalK with admin.
-
-### Who gets what
-
-| Login | SignalK | Grafana |
-|---|---|---|
-| any GitHub or Google account | readonly | refused |
-| the owner's email, via either provider | admin | Admin |
-| `captain` (local password) | admin | — |
-| Grafana superadmin / provisioned users (password) | — | Admin / as provisioned |
-
-Both services now key off the same thing — the email on the login — so
-either provider gives the same answer.
-
-SSO permissions are re-applied at every login: promoting an SSO user in
-the SignalK admin UI reverts the next time they sign in, and Grafana
-re-evaluates its email list the same way.
-
-### Granting more than readonly
-
-- **Grafana:** add the email to
-  `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH` in `.env.j2` — e.g. append
-  `|| email=='crew@example.com' && 'Editor'` — then
-  `python3 scripts/render.py` and
-  `docker compose up -d --force-recreate grafana`. A hand-managed list,
-  in the repo.
-- **SignalK:** add the address to `SIGNALK_OIDC_ADMIN_GROUPS` in
-  `.env.j2` — comma-separated, e.g.
-  `owner@example.com,crew@example.com` — then `python3 scripts/render.py`
-  and `docker compose up -d --force-recreate signalk`.
-  `SIGNALK_OIDC_READWRITE_GROUPS` takes the same form for a lesser
-  grant. Matched literally and case-sensitively.
-- Both lists are read fresh on every login, so removing an address
-  demotes that person the next time they sign in — no user cleanup
-  needed. Promoting someone by hand in the SignalK admin UI does not
-  stick, for the same reason.
-- **Don't remove `SIGNALK_OIDC_GROUPS_ATTRIBUTE=email`.** It looks
-  redundant and isn't: it's what makes ADMIN_GROUPS read as an email
-  list at all. Without it the server looks for a `groups` claim that
-  nothing sends, and every SSO login silently drops to readonly.
-
-### Removing someone
-
-SSO guests need no removal — they're readonly. To cut a person off
-entirely: delete their user in SignalK (Security → Users — SignalK
-sessions never expire, and deleting the user is what invalidates the
-session), remove their email from the Grafana role path if it's there,
-and delete their Grafana user (Administration → Users).
-
-### Offshore (no internet)
-
-- Devices already signed in stay signed in: SignalK sessions don't
-  expire, Grafana sessions last 30 days idle / 90 days max.
-- SSO login needs internet, so a fresh device offshore uses local login
-  instead: on SignalK, the username/password form below the SSO button
-  (`captain`, password in the secrets store); on Grafana, the password
-  box.
-- After ~60 days fully offline, browsers start warning about an expired
-  certificate. It's only a warning; renewal happens on its own once
-  internet returns.
-
-### Re-testing the login flow without real providers
-
-A local stand-in issuer (`dex-dev`) exercises the whole SignalK OIDC
-flow on a dev machine. It serves two personas: a "Mock upstream"
-connector that logs in as `kilgore@kilgore.trout` in one click, and a
-password user `dev@example.com` / `password`. Both land as `readonly`
-under the boat's config.
-
-```bash
-docker compose --profile dev-idp up -d dex-dev
-# point .env's SIGNALK_OIDC_* at it (gitignored; re-render to undo):
-#   ISSUER=http://dex-dev:5556/dex  CLIENT_ID=symphony-local
-#   CLIENT_SECRET=local-dev-not-a-secret
-#   REDIRECT_URI=http://localhost:3000/signalk/v1/auth/oidc/callback
-docker compose up -d signalk
-```
-
-Log in via the SSO button, then restore:
-
-```bash
-python3 scripts/render.py
-docker compose up -d signalk
-docker compose --profile dev-idp rm -sf dex-dev
-```
-
-and delete the test users in SignalK Security → Users (they land in
-git-tracked `signalk/security.json` otherwise).
-
-## Email pseudonyms in security.json
-
-Email addresses in `signalk/security.json` become `pid.*` tokens on the way
-into git and are restored on the way out. The working tree keeps the real
-addresses, so SignalK is unaffected. GitHub logins arrive as a handle
-(`mark-brannan`) and stay legible.
-
-### Resolve a token
-
-```
-python3 scripts/pseudonymize.py resolve pid.rj232vx
-```
-
-Takes the short form or the full `pid.rj232vx+invalid@gmail.com`. Needs an
-age identity, which is the point — the token is publishable, the address
-behind it isn't.
-
-### Let someone else resolve tokens
-
-Give them the manifest key, not your working key. Copy the block labelled
-`age1n566m5z8e5nmhqkhxqmpd9jr2678t6l6wrzvcxrnckdjn9r2adjs55jgp9` out of
-`~/.config/sops/age/keys.txt` into theirs. Check what it opens first:
-
-```bash
-scripts/rotate_age_key.sh verify age1n566m5z8e5nmhqkhxqmpd9jr2678t6l6wrzvcxrnckdjn9r2adjs55jgp9
-```
-
-It should report one file — `secrets/pseudonyms.sops.yaml` — and say the key
-is scoped. If it reports more, stop: that key now opens the boat's live
-credentials too.
-
-### When someone new logs in
-
-SignalK writes the new address into the file itself, and the clean filter
-picks it up at commit time:
-
-```
-pseudonymize: new address p*****d@yahoo.com -> pid.t8tym9m+invalid@yahoo.com
-pseudonymize: the map changed -- stage secrets/pseudonyms.sops.yaml ...
-```
-
-Stage `secrets/pseudonyms.sops.yaml` in that same commit. Without it the
-token lands in git with nothing that resolves it, for you and everyone else.
-
-### If checkout warns the map is unavailable
-
-```
-pseudonymize: WARNING - cannot decrypt secrets/pseudonyms.sops.yaml
-```
-
-Don't start SignalK against that file. The tokens stay in place, SignalK
-reads them as real addresses, and rewrites them back as the users' identity.
-Get an age identity working, then re-run smudge:
-
-```
-git checkout -- signalk/security.json
-```
-
-### Find when someone had access
-
-```
-git log -S 'pid.rj232vx' -- signalk/security.json
-```
+This fetches from GitHub, so do it **dockside, not underway** — a failed
+fetch mid-passage will block commits until you revert the config. Commit the
+resulting rev change so every machine and CI agree on which scanner version
+cleared a given commit. Bump the pinned image tags in
+`.github/workflows/validate.yml` and `scripts/scan_verified_secrets.sh` to
+match.
 
 ## Adding a secret
 
@@ -1279,425 +945,108 @@ To stop tracking a file's secret (plugin uninstalled, field no longer used):
 Removing the rules does **not** un-publish anything already committed. If
 the secret was ever live in a public commit, rotate it — see below.
 
-## When the boat's hostnames stop resolving
+## Email pseudonyms in security.json
 
-All three names fail on the boat wifi and browsers say the site can't be
-found — a DNS failure, not a certificate or connection error. The services
-themselves are still up: `http://192.168.8.240:3000` loads by IP.
+Email addresses in `signalk/security.json` become `pid.*` tokens on the way
+into git and are restored on the way out. The working tree keeps the real
+addresses, so SignalK is unaffected. GitHub logins arrive as a handle
+(`mark-brannan`) and stay legible.
 
-Confirm which link is down:
+### Resolve a token
+
+```
+python3 scripts/pseudonymize.py resolve pid.rj232vx
+```
+
+Takes the short form or the full `pid.rj232vx+invalid@gmail.com`. Needs an
+age identity, which is the point — the token is publishable, the address
+behind it isn't.
+
+### Let someone else resolve tokens
+
+Give them the manifest key, not your working key. Copy the block labelled
+`age1n566m5z8e5nmhqkhxqmpd9jr2678t6l6wrzvcxrnckdjn9r2adjs55jgp9` out of
+`~/.config/sops/age/keys.txt` into theirs. Check what it opens first:
 
 ```bash
-ping -c2 192.168.8.240   # boat computer, wired
-ping -c2 192.168.8.241   # same host, wifi
+scripts/rotate_age_key.sh verify age1n566m5z8e5nmhqkhxqmpd9jr2678t6l6wrzvcxrnckdjn9r2adjs55jgp9
 ```
 
-Wired dead and wifi alive points at the cable, the switch port, or the Pi's
-`eth0`. The router's wildcard resolves every name to the wired address only,
-so all three go down with that one interface even though the host is still
-reachable.
+It should report one file — `secrets/pseudonyms.sops.yaml` — and say the key
+is scoped. If it reports more, stop: that key now opens the boat's live
+credentials too.
 
-Repoint the wildcard at the wifi reservation:
+### When someone new logs in
+
+SignalK writes the new address into the file itself, and the clean filter
+picks it up at commit time:
+
+```
+pseudonymize: new address p*****d@yahoo.com -> pid.t8tym9m+invalid@yahoo.com
+pseudonymize: the map changed -- stage secrets/pseudonyms.sops.yaml ...
+```
+
+Stage `secrets/pseudonyms.sops.yaml` in that same commit. Without it the
+token lands in git with nothing that resolves it, for you and everyone else.
+
+### If checkout warns the map is unavailable
+
+```
+pseudonymize: WARNING - cannot decrypt secrets/pseudonyms.sops.yaml
+```
+
+Don't start SignalK against that file. The tokens stay in place, SignalK
+reads them as real addresses, and rewrites them back as the users' identity.
+Get an age identity working, then re-run smudge:
+
+```
+git checkout -- signalk/security.json
+```
+
+### Find when someone had access
+
+```
+git log -S 'pid.rj232vx' -- signalk/security.json
+```
+
+## Router config backup
+
+The boat router holds the local DNS override that makes the hostnames
+resolve on the boat. A factory reset takes it, and on-boat access with it.
+An encrypted copy of the router's full UCI config lives in
+`secrets/router-config.sops.yaml`.
+
+Refresh it after any router change (the pi's key is authorized on the
+router; run this from anywhere on the tailnet):
 
 ```bash
-ssh root@192.168.8.1
-uci set dhcp.@dnsmasq[0].address='/symphony.dark-star-llc.com/192.168.8.241'
-uci commit dhcp && /etc/init.d/dnsmasq restart
+ssh pi@symphony-pi 'ssh root@192.168.8.1 "uci export"' > /tmp/uci.txt
+test -s /tmp/uci.txt && grep -q '^package' /tmp/uci.txt && echo export ok
+python3 -c "import yaml; yaml.safe_dump({'uci_export': open('/tmp/uci.txt').read()}, open('secrets/router-config.sops.yaml','w'), default_style='|')"
+sops --encrypt --in-place secrets/router-config.sops.yaml
+rm /tmp/uci.txt
 ```
 
-From a laptop on the boat wifi, `dig +short signalk.symphony.dark-star-llc.com`
-should return `192.168.8.241`. If it still returns the old address, flush the
-client's cache — on macOS, `sudo dscacheutil -flushcache; sudo killall -HUP
-mDNSResponder`.
+Check the `export ok` line before going on — a failed ssh leaves
+`/tmp/uci.txt` empty, and the next step overwrites the backup with it.
 
-Set it back to `192.168.8.240` once the cable is fixed. Wifi is the slower
-path and drops when the router reboots.
+Overwriting the file with fresh plaintext first is what makes
+`--encrypt --in-place` work: run against the existing *encrypted* file it
+fails with sops's "top-level entry called 'sops'" error. This file is a
+snapshot of one export, so a wholesale replace loses nothing.
 
-## When a plugin isn't in the config UI
+*Verify:* `sops --decrypt --extract '["uci_export"]' secrets/router-config.sops.yaml | head -3`
+shows the export. Then `git add secrets/router-config.sops.yaml` and commit.
 
-A plugin that crashes on load doesn't appear in Server → Plugin Config at
-all, which looks identical to not being installed. Check the log first:
+To read or restore:
 
 ```bash
-docker logs signalk-server --since 5m 2>&1 | grep 'failed to start'
-docker inspect <container> --format '{{.State.Error}}'   # for sk-* containers
+sops --decrypt secrets/router-config.sops.yaml
 ```
 
-Missing-module errors usually mean a broken dependency tree. The fix is a
-clean reinstall against `signalk/package.json`, which declares every plugin:
-
-```bash
-docker compose stop signalk
-mv signalk/node_modules signalk/.node_modules_old
-docker run --rm -v "$PWD/signalk:/home/node/.signalk" -w /home/node/.signalk \
-  --entrypoint npm signalk/signalk-server:latest install
-docker compose start signalk
-```
-
-Move the old tree aside rather than deleting it, so you can put it back.
-Note `signalk/.npmrc` sets `package-lock=false`, so versions resolve fresh
-against the `^` ranges each time — this is not a reproducible install. npm 11
-also blocks postinstall scripts by default; if a plugin needs a native binary
-(`sharp`, `esbuild`), run `npm approve-scripts <pkg>` and reinstall it.
-
-## Stopping SignalK on the boat Pi
-
-`systemctl stop signalk` does not keep it down. A `signalk.socket` unit
-re-activates the service on the first connection to port 3000, which in
-practice means seconds — the admin UI polls. Stop the socket first:
-
-```bash
-sudo systemctl stop signalk.socket
-sudo systemctl stop signalk.service
-ss -lntp | grep :3000      # expect no output
-```
-
-Start them in the reverse order. If the service was killed while running it
-shows `failed`; `sudo systemctl reset-failed signalk.service` clears that
-before starting.
-
-Do this before any `npm install` in `~/.signalk`. Otherwise the running server
-is reading the tree while npm rewrites it, and anything that restarts the
-service mid-install brings it up against a half-written plugin directory.
-
-## When SignalK errors about missing packages on the boat Pi
-
-The Pi is a baremetal OpenPlotter install, so the Docker reinstall above
-doesn't apply to it. Read this before running `npm install` there — the
-obvious fix feeds the problem.
-
-A truncated plugin tree makes SignalK log missing-module errors. `npm install`
-in `~/.signalk` looks like the answer, but it wants around 1.7 GB on a box
-with 3.7 GB of RAM and 200 MB of swap. Memory runs out, the Pi climbs to ~90%
-iowait, and SSH stops answering — a banner can take over a minute. Killing or
-rebooting out of that truncates the tree further, so the next start logs more
-missing modules than the last one did.
-
-Never run `npm install` over a broken tree. npm treats a half-written package
-directory as installed and skips it, so a second run repairs nothing. Move the
-tree aside first:
-
-```bash
-sudo systemctl stop signalk.socket     # socket first, see above
-sudo systemctl stop signalk.service
-mv ~/.signalk/node_modules ~/.signalk/.node_modules_old
-cd ~/.signalk
-npm install --ignore-scripts --no-audit --no-fund   # phase 1: lay down the tree
-npm rebuild                                          # phase 2: build the natives
-```
-
-Install in those two phases, not as a plain `npm install`. A single
-`npm install` deletes the entire tree it just wrote if any one package's
-build script fails, and `better-sqlite3@7.6.2` always fails here — see below.
-That costs the whole install and leaves `~/.signalk` with no `node_modules`
-at all. `npm rebuild` reports the same failure and leaves everything else
-built, so the tree survives it.
-
-`npm rebuild` exits non-zero while still having done its job. Judge it by
-what it produced, not its exit code:
-
-```bash
-find ~/.signalk/node_modules -name '*.node' | wc -l   # expect dozens, not 0
-ls -d ~/.signalk/node_modules/@mapbox/node-pre-gyp    # must exist
-```
-
-`@mapbox/node-pre-gyp` is what native modules build through. If it is absent,
-every native build aborts on it and no `.node` is produced anywhere.
-
-Check `free -m` before starting — you want more than 2 GB available. If you
-don't have it, `sudo systemctl stop grafana-server influxdb` frees a few
-hundred MB, and `sudo systemctl stop raspotify cups cups-browsed ModemManager`
-a couple hundred more. Should a previous install have been interrupted, add
-`npm cache clean --force`; it can leave partial tarballs behind, and on a full
-disk it also frees a couple of GB.
-
-Watch it with `vmstat 5` rather than the load average. Load average won't tell
-a stalled install from a GPU hang, where blocked kworkers inflate it just as
-much and only a reboot clears them.
-
-Read the swap columns, not `wa` alone. Phase 1 drives `wa` to 60-80 with `b`
-in double digits purely from SD-card writes, and that finishes fine. What
-means it won't finish is `si`/`so` staying non-zero with `available` falling
-toward zero — that is swapping instead of working. Free more memory then;
-`available` recovering is the confirmation. Don't kill the install to fix it.
-
-Start again in reverse order. A service killed while running comes back
-`failed`, so clear it with `sudo systemctl reset-failed signalk.service`
-first.
-
-## Setting up a BLE sensor in bt-sensors-plugin-sk
-
-Read this before adding a sensor or rebuilding this box. Two config keys are
-required that nothing warns you about: leave either out and the sensor
-connects, polls, decodes correctly and publishes **nothing**, with no error in
-any log. Both are per-peripheral, in
-`signalk/plugin-config-data/bt-sensors-plugin-sk.json`.
-
-```json
-{
-  "active": true,
-  "mac_address": "A5:C2:37:40:01:46",
-  "params": {
-    "name": "House Battery 1",
-    "sensorClass": "JBDBMS",
-    "batteryID": "0146",
-    "pollFreq": 60
-  },
-  "paths": {
-    "voltage": "electrical.batteries.0146.voltage",
-    "SOC": "electrical.batteries.0146.capacity.stateOfCharge",
-    "temp0": "electrical.batteries.0146.temperature"
-  }
-}
-```
-
-`params.pollFreq` (seconds) is what selects `initGATTInterval()`. Without it
-`BTSensor::activateGATT` falls through to `initGATTNotifications()`, which some
-sensor classes — JBDBMS among them — implement as an empty method. The device
-connects, sends one read request and then sits idle forever.
-
-`paths` must name every tag you want published. `initPaths()` subscribes a tag
-only when `deviceConfig.paths[tag]` exists; the `.default` on each metadatum is
-a suggestion for the config UI, **not** a runtime fallback. Saving the sensor
-through the plugin's own config UI writes this block for you, which is why a
-hand-written or hand-merged config is where this bites.
-
-Confirm the whole plugin is publishing, not just one sensor:
-
-```bash
-curl -s http://localhost:3000/signalk/v1/api/vessels/self \
-  | python3 -c 'import sys,json,collections
-d=json.load(sys.stdin); c=collections.Counter()
-def w(o):
-    if isinstance(o,dict):
-        if "value" in o and "$source" in o: c[str(o["$source"])]+=1
-        for k,v in o.items():
-            if k!="meta": w(v)
-w(d)
-print(c.most_common(20))'
-```
-
-Each configured sensor should appear as its own `$source` (the sensor's
-`name`). If **no** sensor from the plugin appears, it is config, not the radio
-— don't go debugging BLE.
-
-Identify a device by MAC, never by advertised name. Symphony's two house
-batteries both advertise as `DP04S007L4S200A`; only the MAC distinguishes them,
-and BlueZ exposes it.
-
-## BLE sensors go silent after a reboot
-
-Known, unfixed, and the thing most likely to confuse someone. On some boots
-`bt-sensors-plugin-sk` fails its D-Bus handshake to `org.bluez` as it loads:
-
-```
-Uncaught exception: Error: write EPIPE
-  at auth (.../@jellybrick/dbus-next/lib/handshake.js:67)
-```
-
-It does not retry. Every BLE sensor stays silent for the life of that process,
-and nothing else in the log says anything is wrong.
-
-Restart SignalK once the box has settled:
-
-```bash
-sudo systemctl stop signalk.socket
-sudo systemctl stop signalk.service
-sudo systemctl start signalk.socket
-curl -s -o /dev/null http://localhost:3000/signalk/    # socket-activates it
-```
-
-It is **not** a boot-ordering race, so don't spend time there. Measured
-2026-08-13 with `After=bluetooth.service` in place: bluetoothd owned the bus at
-18:35:15 and the handshake still failed at 18:37:15, a hundred seconds later.
-`host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
-hygiene, not because it fixes this.
-
-This matters more than it looks: the hardware watchdog exists to reboot the box
-when nobody is aboard, so an unattended reboot can come back with every BLE
-sensor dead until someone restarts SignalK by hand. If you depend on remote
-battery monitoring, either check after any reboot or add a self-healing check.
-
-## SignalK's NMEA 2000 input
-
-One connection, `n2k-can0`, reads the bus through canboatjs. It lives in
-`signalk/settings.json` as a `pipedProvider` and is editable in the admin UI
-under Server → Connections.
-
-*Verify it's alive:*
-
-```bash
-curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/position
-curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/gnss
-```
-
-Expect `"$source": "n2k-can0.<addr>"` and coordinates whose last digits move
-between calls. A `$source` of `signalk-fixed-position` means the real GPS has
-gone quiet and the fallback has taken over — see below.
-
-If nothing arrives at all, check the bus before SignalK:
-
-```bash
-ip -br link show can0                  # want UP
-timeout 5 candump -n 20 can0           # want frames
-```
-
-**Don't unset `uniqueNumber`.** It's pinned to `368391` in the connection's
-`subOptions`. It forms part of the NAME this box claims on the bus; left
-unset, SignalK generates a random one on save, and the Pi shows up as a
-brand-new device to every other instrument each time.
-
-### A fallback that has become the primary looks exactly like success
-
-`signalk-fixed-position` (Position Keeper) stores the last known fix and
-re-emits it once GPS has been quiet for its `interval`. That is wanted
-behaviour — position-dependent plugins keep working through a GPS dropout.
-The trap is that it looks identical to a working GPS: for a long time it was
-the *only* position source on this boat, emitting a stored dock coordinate
-about two metres from the truth, and nothing appeared broken.
-
-So don't read "there is a position" as "the GPS works." Read `$source`.
-
-### When the AIS is powered, there will be two GPS sources
-
-The chartplotter and the AIS each have their own receiver, so both publish
-position, and SignalK will pick between them per-path in whatever order they
-arrive. `~/.signalk/priorities.json` is what arbitrates; it is currently `{}`,
-meaning no preference is expressed.
-
-Set it once both are live and their addresses are known — an address is only
-knowable by looking, since it's claimed dynamically:
-
-```bash
-curl -s localhost:3000/signalk/v1/api/sources | python3 -m json.tool | grep -A2 n2k-can0
-```
-
-Then give `navigation.position` an ordered source list with a timeout, so the
-preferred receiver wins and the other takes over only after it goes quiet.
-Doing this before both units are on would mean guessing at an address.
-
-## A BLE sensor connects but never delivers data
-
-bt-sensors logs `le-connection-abort-by-local` and `Unable to connect to
-Bluetooth device after 5 attempts`, and nothing appears under
-`electrical.batteries.<id>`.
-
-First find out whether the radio link is forming at all:
-
-```bash
-bluetoothctl --timeout 20 scan on >/dev/null 2>&1
-bluetoothctl info <MAC> | grep -E 'RSSI|Connected'
-{ printf 'connect <MAC>\n'; sleep 25; printf 'quit\n'; } | bluetoothctl
-```
-
-A healthy RSSI plus `Connected: yes` immediately followed by
-`le-connection-abort-by-local` and `Connected: no` means the link forms and
-GATT service discovery is what dies. That pattern rules out range, the plugin
-and the sensor class in one shot — don't go hunting in any of them.
-
-None of these clear it, so don't spend time on them:
-
-```bash
-bluetoothctl power off && bluetoothctl power on
-sudo hciconfig hci0 reset
-sudo systemctl restart bluetooth
-bluetoothctl remove <MAC>          # even followed by a fresh scan
-```
-
-Reboot the Pi. The controller is the onboard BCM4345C0 on UART, and its
-firmware patch (`brcm/BCM4345C0.raspberrypi,4-model-b.hcd`) is loaded only at
-boot, so nothing short of a reboot re-initialises it. Confirm no install is in
-flight first — a reboot landing on an `npm install` in `~/.signalk` truncates
-the plugin tree:
-
-```bash
-pgrep -a -f 'npm |node-gyp|apt-get|dpkg'
-```
-
-Reading BLE directly is unaffected by the plugin and is the fastest way to
-tell a radio problem from a decode problem:
-
-```bash
-scripts/ble-probe.sh poll <MAC> ff02 dda50300fffd77 ff01 15   # JBD packs
-```
-
-## A local plugin fork keeps reverting to the registry build
-
-`~/.signalk/node_modules/<plugin>` was a symlink to a local fork and is now a
-real directory holding the registry version. Any `npm install` in `~/.signalk`
-does this, and so does the app store on its own.
-
-Relink it, with SignalK stopped:
-
-```bash
-rm -rf ~/.signalk/node_modules/bt-sensors-plugin-sk
-ln -s ~/bt-sensors-plugin-sk ~/.signalk/node_modules/bt-sensors-plugin-sk
-```
-
-Then pin the exact version the fork declares, in `~/.signalk/package.json`:
-
-```json
-"bt-sensors-plugin-sk": "1.3.8-beta10"
-```
-
-Relinking without repinning buys you nothing — it will be replaced again. A
-caret range like `^1.3.7` never matches a prerelease such as `1.3.8-beta10`,
-because npm's semver excludes prereleases from a range unless the range names
-one, so the fork permanently reads as a version needing repair. Compare the
-two before assuming a link will hold:
-
-```bash
-node -e 'console.log("pin: ", require("/home/pi/.signalk/package.json").dependencies["bt-sensors-plugin-sk"])'
-node -e 'console.log("fork:", require("/home/pi/bt-sensors-plugin-sk/package.json").version)'
-```
-
-Restart SignalK before judging any of this. The server keeps whatever it
-loaded at startup, so swapping the directory changes nothing until it
-restarts — the fork you just linked is not yet the code that's running, and a
-plugin you think you're testing may be the one you replaced.
-
-## Never use OpenPlotter's "Reinstall" for Signal K
-
-Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf` on
-`~/.signalk` first — every plugin's configuration, `security.json`,
-`settings.json`, all of it. That is deliberate on OpenPlotter's part: it
-forces the first-run branch that rewrites the launcher script, which is
-skipped whenever `settings.json` already exists. There is no prompt and
-nothing is backed up.
-
-If you need that branch to run — say, to regenerate the launcher after moving
-Node — back up `~/.signalk` first and put the config files back afterward.
-
-## When a hook blocks your commit
-
-The message names which check failed. In rough order of likelihood:
-
-- **"staged WITHOUT sops encryption markers"** — the clean filter didn't
-  run. Almost always a clone that never ran `scripts/setup-git-filters.sh`.
-  Run it, then re-stage the file.
-- **"looks like a cleartext credential"** — a config file has a
-  password/token/apikey field with a real value. Either wire it up with
-  `scripts/add_inplace_secret.sh`, or if it genuinely isn't a secret, move
-  the value out of a field with that name.
-- **gitleaks finding** — a credential-shaped string anywhere in the diff.
-  The output is redacted; look at the file and line it names. If it's a
-  genuine false positive, add a *narrow* allowlist entry to `.gitleaks.toml`
-  with `condition = "AND"` so you silence one string in one file, never a
-  whole path.
-- **"sops config is inconsistent"** — `.sops.yaml` and `.gitattributes`
-  disagree. The message says which file and which direction. A sops rule
-  without a filter entry is the dangerous one: that file would commit as
-  plaintext.
-
-To see everything without committing:
-
-```bash
-pre-commit run --all-files
-```
-
-**`--no-verify` skips all of it.** It exists for genuine emergencies. CI
-will still catch an unencrypted secret on push — you'll just find out in
-public instead of at your terminal.
+Feed the `uci_export` contents back through `uci import` on the router,
+then `reload_config`. Restoring overwrites WiFi and WAN settings too —
+this is a whole-config restore, not a DNS-only one.
 
 ## Scanning for leaks by hand
 
@@ -1797,15 +1146,666 @@ Last resort: `~/symphony-backups/` holds a plaintext snapshot of the live
 SignalK config from 2026-08-07, deliberately outside the repo. It is a full set
 of live credentials in the clear — treat it accordingly.
 
-## Upgrading the scanners
+## SSO login (GitHub / Google)
+
+SignalK and Grafana web UIs show a "Sign in with GitHub / Google" button.
+Behind it sits Dex, a small identity provider on the boat at
+`auth.symphony.dark-star-llc.com`: SignalK and Grafana trust only Dex; Dex hands the actual
+login to GitHub or Google. Any account at either provider can sign in and
+view SignalK (readonly). The owner's email also gets Grafana Admin.
+Anything that changes state still uses the local password logins
+(`captain`, Grafana's superadmin), which are also the no-internet
+fallback.
+
+Steps 1–3 are one-time setup from any machine. Step 4 runs on the boat.
+
+### 1 — Domain and DNS (one-time)
+
+Prerequisite: a registered domain with its DNS hosted at Cloudflare (the
+free plan is enough). A subdomain of a domain already on Cloudflare works
+too (`DOMAIN` can be `boat.example.com`).
+
+1. In Cloudflare DNS, add one **A** record and three CNAMEs, all DNS
+   only / grey cloud (not proxied):
+   - `symphony.dark-star-llc.com` → the host's **tailnet** IP, e.g. `100.113.172.64`
+   - `signalk.symphony.dark-star-llc.com`, `grafana.symphony.dark-star-llc.com`, `auth.symphony.dark-star-llc.com` → CNAME to
+     `symphony.dark-star-llc.com`
+
+   Public DNS answers for off-boat devices, the boat router answers for
+   on-boat ones (step 3), and the same URL works in both places. Give
+   the host a fixed LAN IP too (DHCP reservation in the boat router) —
+   the router override needs it. A public name resolving to a private
+   or CGNAT address is fine; nothing here is reachable from the
+   internet.
+
+   The tailnet IP is stable, but it belongs to the *machine*, not the
+   hostname. Rebuild the host's SD card, or delete and re-add it in the
+   Tailscale console, and it joins as a new machine with a different
+   100.x — this record then points at nothing. Symptom: off-boat access
+   dies, on-boat keeps working. You can't CNAME to the MagicDNS
+   `.ts.net` name instead; it doesn't resolve off the tailnet.
+2. Create the certificate-issuance token: Cloudflare → My Profile → API
+   Tokens → Create Token → "Edit zone DNS" template → limit it to this
+   one zone.
+3. On the **boat router**, add a local DNS override sending the whole
+   subdomain to the host's LAN IP (dnsmasq:
+   `address=/symphony.dark-star-llc.com/192.168.1.50`, or the router UI's "local DNS
+   records"). One wildcard entry covers the apex and every subdomain,
+   so adding a service later needs no router change.
+
+   Don't skip this. It is what makes the hostname work for anything on
+   the boat that isn't on the tailnet — a guest's phone — and offshore
+   there is no public DNS at all, so without it even already-logged-in
+   devices can't resolve the names.
+
+*Verify:* from a device on the boat LAN **with the WAN link
+disconnected**, `nslookup signalk.symphony.dark-star-llc.com` returns the LAN IP.
+
+### 2 — OAuth apps (one-time)
+
+**GitHub** — under the personal account, no org involved:
+[github.com/settings/developers](https://github.com/settings/developers)
+→ OAuth Apps → New OAuth App:
+
+- Application name: anything (e.g. "Symphony boat systems")
+- Homepage URL: `https://auth.symphony.dark-star-llc.com`
+- Authorization callback URL: `https://auth.symphony.dark-star-llc.com/dex/callback`
+
+Copy the client ID; "Generate a new client secret" and copy it.
+
+**Google** — at
+[console.cloud.google.com](https://console.cloud.google.com):
+
+1. Create a project (any name).
+2. APIs & Services → OAuth consent screen: user type **External**, app
+   name + support email → then **publish to production** (Audience →
+   "Publish app"). Not Testing: testing mode caps sign-ins to a
+   100-address allowlist, and the open readonly door is intended. The
+   basic scopes used need no Google review.
+3. Credentials → Create credentials → OAuth client ID → type **Web
+   application** → one redirect URI:
+   `https://auth.symphony.dark-star-llc.com/dex/callback`
+4. Copy the client ID and client secret.
+
+Both providers talk only to Dex, hence the single callback URL each — no
+signalk/grafana URLs belong in either console.
+
+### 3 — Secrets store (one-time)
 
 ```bash
-pre-commit autoupdate      # bumps pinned hook revisions
+sops secrets/symphony.sops.yaml
 ```
 
-This fetches from GitHub, so do it **dockside, not underway** — a failed
-fetch mid-passage will block commits until you revert the config. Commit the
-resulting rev change so every machine and CI agree on which scanner version
-cleared a given commit. Bump the pinned image tags in
-`.github/workflows/validate.yml` and `scripts/scan_verified_secrets.sh` to
-match.
+Replace the `REPLACE_WITH_*` placeholders: `boat_domain`,
+`github_oauth_client_id`, `github_oauth_client_secret`,
+`google_oauth_client_id`, `google_oauth_client_secret`,
+`cloudflare_api_token`. `owner_email` is the email that gets Grafana
+Admin. Leave `dex_symphony_client_secret` alone — it's the pre-generated
+secret shared between Dex and SignalK/Grafana; nothing outside this repo
+ever needs it. Commit the file, then:
+
+```bash
+python3 scripts/render.py
+```
+
+(renders both `.env` and `dex/config.yaml` — the latter is gitignored
+plaintext, same trust level as `.env`).
+
+### 4 — Deploy (on the boat)
+
+On the boat Pi today, Dex is a container and Caddy is still a native
+systemd service, so deploy them separately:
+
+```bash
+git pull
+python3 scripts/render.py
+docker compose --profile tls up -d dex
+sudo systemctl restart caddy
+```
+
+**Name `dex` explicitly.** A bare `--profile tls up -d` also starts the
+`caddy` container, which fails to bind `:443` against the native Caddy
+already holding it and proxies to container names that don't exist on
+that host. The front door goes down and the cause isn't obvious.
+
+On a host where everything is containerized, the whole profile is right:
+
+```bash
+docker compose --profile tls up -d --build
+```
+
+The first run builds the caddy image and issues certificates, so it needs
+internet — do it dockside.
+
+Restart Grafana and SignalK too if you changed anything they read —
+`GF_AUTH_GENERIC_OAUTH_*` or `SIGNALK_OIDC_*`. They pick up `.env` through
+an `EnvironmentFile=` drop-in, so a re-render alone doesn't reach a running
+process.
+
+*Verify:*
+
+```bash
+curl -s https://signalk.symphony.dark-star-llc.com/signalk/v1/auth/oidc/status
+curl -s https://auth.symphony.dark-star-llc.com/dex/.well-known/openid-configuration | head -3
+```
+
+The first expects `"enabled":true` and
+`"issuer":"https://auth.symphony.dark-star-llc.com/dex"`; the second returns JSON if Dex is
+up behind Caddy. If TLS itself fails, certificates haven't issued — check
+`docker logs caddy`. Then from a browser on the LAN:
+
+- `https://signalk.symphony.dark-star-llc.com` → sign in as the owner with either provider →
+  Security → Users shows that user with type `admin`. Any other account
+  shows `readonly`. An owner login that comes out `readonly` means
+  `SIGNALK_OIDC_GROUPS_ATTRIBUTE` didn't reach the server — it fails
+  silently, so check the container's environment rather than the logs.
+- `https://grafana.symphony.dark-star-llc.com` → the owner's login → Admin; any other
+  account → refused (that's the strict email list working).
+- The `captain` password still logs in on SignalK with admin.
+
+### Who gets what
+
+| Login | SignalK | Grafana |
+|---|---|---|
+| any GitHub or Google account | readonly | refused |
+| the owner's email, via either provider | admin | Admin |
+| `captain` (local password) | admin | — |
+| Grafana superadmin / provisioned users (password) | — | Admin / as provisioned |
+
+Both services now key off the same thing — the email on the login — so
+either provider gives the same answer.
+
+SSO permissions are re-applied at every login: promoting an SSO user in
+the SignalK admin UI reverts the next time they sign in, and Grafana
+re-evaluates its email list the same way.
+
+### Granting more than readonly
+
+- **Grafana:** add the email to
+  `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH` in `.env.j2` — e.g. append
+  `|| email=='crew@example.com' && 'Editor'` — then
+  `python3 scripts/render.py` and
+  `docker compose up -d --force-recreate grafana`. A hand-managed list,
+  in the repo.
+- **SignalK:** add the address to `SIGNALK_OIDC_ADMIN_GROUPS` in
+  `.env.j2` — comma-separated, e.g.
+  `owner@example.com,crew@example.com` — then `python3 scripts/render.py`
+  and `docker compose up -d --force-recreate signalk`.
+  `SIGNALK_OIDC_READWRITE_GROUPS` takes the same form for a lesser
+  grant. Matched literally and case-sensitively.
+- Both lists are read fresh on every login, so removing an address
+  demotes that person the next time they sign in — no user cleanup
+  needed. Promoting someone by hand in the SignalK admin UI does not
+  stick, for the same reason.
+- **Don't remove `SIGNALK_OIDC_GROUPS_ATTRIBUTE=email`.** It looks
+  redundant and isn't: it's what makes ADMIN_GROUPS read as an email
+  list at all. Without it the server looks for a `groups` claim that
+  nothing sends, and every SSO login silently drops to readonly.
+
+### Removing someone
+
+SSO guests need no removal — they're readonly. To cut a person off
+entirely: delete their user in SignalK (Security → Users — SignalK
+sessions never expire, and deleting the user is what invalidates the
+session), remove their email from the Grafana role path if it's there,
+and delete their Grafana user (Administration → Users).
+
+### Offshore (no internet)
+
+- Devices already signed in stay signed in: SignalK sessions don't
+  expire, Grafana sessions last 30 days idle / 90 days max.
+- SSO login needs internet, so a fresh device offshore uses local login
+  instead: on SignalK, the username/password form below the SSO button
+  (`captain`, password in the secrets store); on Grafana, the password
+  box.
+- After ~60 days fully offline, browsers start warning about an expired
+  certificate. It's only a warning; renewal happens on its own once
+  internet returns.
+
+### Re-testing the login flow without real providers
+
+A local stand-in issuer (`dex-dev`) exercises the whole SignalK OIDC
+flow on a dev machine. It serves two personas: a "Mock upstream"
+connector that logs in as `kilgore@kilgore.trout` in one click, and a
+password user `dev@example.com` / `password`. Both land as `readonly`
+under the boat's config.
+
+```bash
+docker compose --profile dev-idp up -d dex-dev
+# point .env's SIGNALK_OIDC_* at it (gitignored; re-render to undo):
+#   ISSUER=http://dex-dev:5556/dex  CLIENT_ID=symphony-local
+#   CLIENT_SECRET=local-dev-not-a-secret
+#   REDIRECT_URI=http://localhost:3000/signalk/v1/auth/oidc/callback
+docker compose up -d signalk
+```
+
+Log in via the SSO button, then restore:
+
+```bash
+python3 scripts/render.py
+docker compose up -d signalk
+docker compose --profile dev-idp rm -sf dex-dev
+```
+
+and delete the test users in SignalK Security → Users (they land in
+git-tracked `signalk/security.json` otherwise).
+
+## Stopping SignalK on the boat Pi
+
+`systemctl stop signalk` does not keep it down. A `signalk.socket` unit
+re-activates the service on the first connection to port 3000, which in
+practice means seconds — the admin UI polls. Stop the socket first:
+
+```bash
+sudo systemctl stop signalk.socket
+sudo systemctl stop signalk.service
+ss -lntp | grep :3000      # expect no output
+```
+
+Start them in the reverse order. If the service was killed while running it
+shows `failed`; `sudo systemctl reset-failed signalk.service` clears that
+before starting.
+
+Do this before any `npm install` in `~/.signalk`. Otherwise the running server
+is reading the tree while npm rewrites it, and anything that restarts the
+service mid-install brings it up against a half-written plugin directory.
+
+## SignalK's NMEA 2000 input
+
+One connection, `n2k-can0`, reads the bus through canboatjs. It lives in
+`signalk/settings.json` as a `pipedProvider` and is editable in the admin UI
+under Server → Connections.
+
+*Verify it's alive:*
+
+```bash
+curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/position
+curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/gnss
+```
+
+Expect `"$source": "n2k-can0.<addr>"` and coordinates whose last digits move
+between calls. A `$source` of `signalk-fixed-position` means the real GPS has
+gone quiet and the fallback has taken over — see below.
+
+If nothing arrives at all, check the bus before SignalK:
+
+```bash
+ip -br link show can0                  # want UP
+timeout 5 candump -n 20 can0           # want frames
+```
+
+**Don't unset `uniqueNumber`.** It's pinned to `368391` in the connection's
+`subOptions`. It forms part of the NAME this box claims on the bus; left
+unset, SignalK generates a random one on save, and the Pi shows up as a
+brand-new device to every other instrument each time.
+
+### A fallback that has become the primary looks exactly like success
+
+`signalk-fixed-position` (Position Keeper) stores the last known fix and
+re-emits it once GPS has been quiet for its `interval`. That is wanted
+behaviour — position-dependent plugins keep working through a GPS dropout.
+The trap is that it looks identical to a working GPS: for a long time it was
+the *only* position source on this boat, emitting a stored dock coordinate
+about two metres from the truth, and nothing appeared broken.
+
+So don't read "there is a position" as "the GPS works." Read `$source`.
+
+### When the AIS is powered, there will be two GPS sources
+
+The chartplotter and the AIS each have their own receiver, so both publish
+position, and SignalK will pick between them per-path in whatever order they
+arrive. `~/.signalk/priorities.json` is what arbitrates; it is currently `{}`,
+meaning no preference is expressed.
+
+Set it once both are live and their addresses are known — an address is only
+knowable by looking, since it's claimed dynamically:
+
+```bash
+curl -s localhost:3000/signalk/v1/api/sources | python3 -m json.tool | grep -A2 n2k-can0
+```
+
+Then give `navigation.position` an ordered source list with a timeout, so the
+preferred receiver wins and the other takes over only after it goes quiet.
+Doing this before both units are on would mean guessing at an address.
+
+## Setting up a BLE sensor in bt-sensors-plugin-sk
+
+Read this before adding a sensor or rebuilding this box. Two config keys are
+required that nothing warns you about: leave either out and the sensor
+connects, polls, decodes correctly and publishes **nothing**, with no error in
+any log. Both are per-peripheral, in
+`signalk/plugin-config-data/bt-sensors-plugin-sk.json`.
+
+```json
+{
+  "active": true,
+  "mac_address": "A5:C2:37:40:01:46",
+  "params": {
+    "name": "House Battery 1",
+    "sensorClass": "JBDBMS",
+    "batteryID": "0146",
+    "pollFreq": 60
+  },
+  "paths": {
+    "voltage": "electrical.batteries.0146.voltage",
+    "SOC": "electrical.batteries.0146.capacity.stateOfCharge",
+    "temp0": "electrical.batteries.0146.temperature"
+  }
+}
+```
+
+`params.pollFreq` (seconds) is what selects `initGATTInterval()`. Without it
+`BTSensor::activateGATT` falls through to `initGATTNotifications()`, which some
+sensor classes — JBDBMS among them — implement as an empty method. The device
+connects, sends one read request and then sits idle forever.
+
+`paths` must name every tag you want published. `initPaths()` subscribes a tag
+only when `deviceConfig.paths[tag]` exists; the `.default` on each metadatum is
+a suggestion for the config UI, **not** a runtime fallback. Saving the sensor
+through the plugin's own config UI writes this block for you, which is why a
+hand-written or hand-merged config is where this bites.
+
+Confirm the whole plugin is publishing, not just one sensor:
+
+```bash
+curl -s http://localhost:3000/signalk/v1/api/vessels/self \
+  | python3 -c 'import sys,json,collections
+d=json.load(sys.stdin); c=collections.Counter()
+def w(o):
+    if isinstance(o,dict):
+        if "value" in o and "$source" in o: c[str(o["$source"])]+=1
+        for k,v in o.items():
+            if k!="meta": w(v)
+w(d)
+print(c.most_common(20))'
+```
+
+Each configured sensor should appear as its own `$source` (the sensor's
+`name`). If **no** sensor from the plugin appears, it is config, not the radio
+— don't go debugging BLE.
+
+Identify a device by MAC, never by advertised name. Symphony's two house
+batteries both advertise as `DP04S007L4S200A`; only the MAC distinguishes them,
+and BlueZ exposes it.
+
+## When the boat's hostnames stop resolving
+
+All three names fail on the boat wifi and browsers say the site can't be
+found — a DNS failure, not a certificate or connection error. The services
+themselves are still up: `http://192.168.8.240:3000` loads by IP.
+
+Confirm which link is down:
+
+```bash
+ping -c2 192.168.8.240   # boat computer, wired
+ping -c2 192.168.8.241   # same host, wifi
+```
+
+Wired dead and wifi alive points at the cable, the switch port, or the Pi's
+`eth0`. The router's wildcard resolves every name to the wired address only,
+so all three go down with that one interface even though the host is still
+reachable.
+
+Repoint the wildcard at the wifi reservation:
+
+```bash
+ssh root@192.168.8.1
+uci set dhcp.@dnsmasq[0].address='/symphony.dark-star-llc.com/192.168.8.241'
+uci commit dhcp && /etc/init.d/dnsmasq restart
+```
+
+From a laptop on the boat wifi, `dig +short signalk.symphony.dark-star-llc.com`
+should return `192.168.8.241`. If it still returns the old address, flush the
+client's cache — on macOS, `sudo dscacheutil -flushcache; sudo killall -HUP
+mDNSResponder`.
+
+Set it back to `192.168.8.240` once the cable is fixed. Wifi is the slower
+path and drops when the router reboots.
+
+## When a plugin isn't in the config UI
+
+A plugin that crashes on load doesn't appear in Server → Plugin Config at
+all, which looks identical to not being installed. Check the log first:
+
+```bash
+docker logs signalk-server --since 5m 2>&1 | grep 'failed to start'
+docker inspect <container> --format '{{.State.Error}}'   # for sk-* containers
+```
+
+Missing-module errors usually mean a broken dependency tree. The fix is a
+clean reinstall against `signalk/package.json`, which declares every plugin:
+
+```bash
+docker compose stop signalk
+mv signalk/node_modules signalk/.node_modules_old
+docker run --rm -v "$PWD/signalk:/home/node/.signalk" -w /home/node/.signalk \
+  --entrypoint npm signalk/signalk-server:latest install
+docker compose start signalk
+```
+
+Move the old tree aside rather than deleting it, so you can put it back.
+Note `signalk/.npmrc` sets `package-lock=false`, so versions resolve fresh
+against the `^` ranges each time — this is not a reproducible install. npm 11
+also blocks postinstall scripts by default; if a plugin needs a native binary
+(`sharp`, `esbuild`), run `npm approve-scripts <pkg>` and reinstall it.
+
+## When SignalK errors about missing packages on the boat Pi
+
+The Pi is a baremetal OpenPlotter install, so the Docker reinstall above
+doesn't apply to it. Read this before running `npm install` there — the
+obvious fix feeds the problem.
+
+A truncated plugin tree makes SignalK log missing-module errors. `npm install`
+in `~/.signalk` looks like the answer, but it wants around 1.7 GB on a box
+with 3.7 GB of RAM and 200 MB of swap. Memory runs out, the Pi climbs to ~90%
+iowait, and SSH stops answering — a banner can take over a minute. Killing or
+rebooting out of that truncates the tree further, so the next start logs more
+missing modules than the last one did.
+
+Never run `npm install` over a broken tree. npm treats a half-written package
+directory as installed and skips it, so a second run repairs nothing. Move the
+tree aside first:
+
+```bash
+sudo systemctl stop signalk.socket     # socket first, see above
+sudo systemctl stop signalk.service
+mv ~/.signalk/node_modules ~/.signalk/.node_modules_old
+cd ~/.signalk
+npm install --ignore-scripts --no-audit --no-fund   # phase 1: lay down the tree
+npm rebuild                                          # phase 2: build the natives
+```
+
+Install in those two phases, not as a plain `npm install`. A single
+`npm install` deletes the entire tree it just wrote if any one package's
+build script fails, and `better-sqlite3@7.6.2` always fails here — see below.
+That costs the whole install and leaves `~/.signalk` with no `node_modules`
+at all. `npm rebuild` reports the same failure and leaves everything else
+built, so the tree survives it.
+
+`npm rebuild` exits non-zero while still having done its job. Judge it by
+what it produced, not its exit code:
+
+```bash
+find ~/.signalk/node_modules -name '*.node' | wc -l   # expect dozens, not 0
+ls -d ~/.signalk/node_modules/@mapbox/node-pre-gyp    # must exist
+```
+
+`@mapbox/node-pre-gyp` is what native modules build through. If it is absent,
+every native build aborts on it and no `.node` is produced anywhere.
+
+Check `free -m` before starting — you want more than 2 GB available. If you
+don't have it, `sudo systemctl stop grafana-server influxdb` frees a few
+hundred MB, and `sudo systemctl stop raspotify cups cups-browsed ModemManager`
+a couple hundred more. Should a previous install have been interrupted, add
+`npm cache clean --force`; it can leave partial tarballs behind, and on a full
+disk it also frees a couple of GB.
+
+Watch it with `vmstat 5` rather than the load average. Load average won't tell
+a stalled install from a GPU hang, where blocked kworkers inflate it just as
+much and only a reboot clears them.
+
+Read the swap columns, not `wa` alone. Phase 1 drives `wa` to 60-80 with `b`
+in double digits purely from SD-card writes, and that finishes fine. What
+means it won't finish is `si`/`so` staying non-zero with `available` falling
+toward zero — that is swapping instead of working. Free more memory then;
+`available` recovering is the confirmation. Don't kill the install to fix it.
+
+Start again in reverse order. A service killed while running comes back
+`failed`, so clear it with `sudo systemctl reset-failed signalk.service`
+first.
+
+## BLE sensors go silent after a reboot
+
+Known, unfixed, and the thing most likely to confuse someone. On some boots
+`bt-sensors-plugin-sk` fails its D-Bus handshake to `org.bluez` as it loads:
+
+```
+Uncaught exception: Error: write EPIPE
+  at auth (.../@jellybrick/dbus-next/lib/handshake.js:67)
+```
+
+It does not retry. Every BLE sensor stays silent for the life of that process,
+and nothing else in the log says anything is wrong.
+
+Restart SignalK once the box has settled:
+
+```bash
+sudo systemctl stop signalk.socket
+sudo systemctl stop signalk.service
+sudo systemctl start signalk.socket
+curl -s -o /dev/null http://localhost:3000/signalk/    # socket-activates it
+```
+
+It is **not** a boot-ordering race, so don't spend time there. Measured
+2026-08-13 with `After=bluetooth.service` in place: bluetoothd owned the bus at
+18:35:15 and the handshake still failed at 18:37:15, a hundred seconds later.
+`host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
+hygiene, not because it fixes this.
+
+This matters more than it looks: the hardware watchdog exists to reboot the box
+when nobody is aboard, so an unattended reboot can come back with every BLE
+sensor dead until someone restarts SignalK by hand. If you depend on remote
+battery monitoring, either check after any reboot or add a self-healing check.
+
+## A BLE sensor connects but never delivers data
+
+bt-sensors logs `le-connection-abort-by-local` and `Unable to connect to
+Bluetooth device after 5 attempts`, and nothing appears under
+`electrical.batteries.<id>`.
+
+First find out whether the radio link is forming at all:
+
+```bash
+bluetoothctl --timeout 20 scan on >/dev/null 2>&1
+bluetoothctl info <MAC> | grep -E 'RSSI|Connected'
+{ printf 'connect <MAC>\n'; sleep 25; printf 'quit\n'; } | bluetoothctl
+```
+
+A healthy RSSI plus `Connected: yes` immediately followed by
+`le-connection-abort-by-local` and `Connected: no` means the link forms and
+GATT service discovery is what dies. That pattern rules out range, the plugin
+and the sensor class in one shot — don't go hunting in any of them.
+
+None of these clear it, so don't spend time on them:
+
+```bash
+bluetoothctl power off && bluetoothctl power on
+sudo hciconfig hci0 reset
+sudo systemctl restart bluetooth
+bluetoothctl remove <MAC>          # even followed by a fresh scan
+```
+
+Reboot the Pi. The controller is the onboard BCM4345C0 on UART, and its
+firmware patch (`brcm/BCM4345C0.raspberrypi,4-model-b.hcd`) is loaded only at
+boot, so nothing short of a reboot re-initialises it. Confirm no install is in
+flight first — a reboot landing on an `npm install` in `~/.signalk` truncates
+the plugin tree:
+
+```bash
+pgrep -a -f 'npm |node-gyp|apt-get|dpkg'
+```
+
+Reading BLE directly is unaffected by the plugin and is the fastest way to
+tell a radio problem from a decode problem:
+
+```bash
+scripts/ble-probe.sh poll <MAC> ff02 dda50300fffd77 ff01 15   # JBD packs
+```
+
+## A local plugin fork keeps reverting to the registry build
+
+`~/.signalk/node_modules/<plugin>` was a symlink to a local fork and is now a
+real directory holding the registry version. Any `npm install` in `~/.signalk`
+does this, and so does the app store on its own.
+
+Relink it, with SignalK stopped:
+
+```bash
+rm -rf ~/.signalk/node_modules/bt-sensors-plugin-sk
+ln -s ~/bt-sensors-plugin-sk ~/.signalk/node_modules/bt-sensors-plugin-sk
+```
+
+Then pin the exact version the fork declares, in `~/.signalk/package.json`:
+
+```json
+"bt-sensors-plugin-sk": "1.3.8-beta10"
+```
+
+Relinking without repinning buys you nothing — it will be replaced again. A
+caret range like `^1.3.7` never matches a prerelease such as `1.3.8-beta10`,
+because npm's semver excludes prereleases from a range unless the range names
+one, so the fork permanently reads as a version needing repair. Compare the
+two before assuming a link will hold:
+
+```bash
+node -e 'console.log("pin: ", require("/home/pi/.signalk/package.json").dependencies["bt-sensors-plugin-sk"])'
+node -e 'console.log("fork:", require("/home/pi/bt-sensors-plugin-sk/package.json").version)'
+```
+
+Restart SignalK before judging any of this. The server keeps whatever it
+loaded at startup, so swapping the directory changes nothing until it
+restarts — the fork you just linked is not yet the code that's running, and a
+plugin you think you're testing may be the one you replaced.
+
+## When a hook blocks your commit
+
+The message names which check failed. In rough order of likelihood:
+
+- **"staged WITHOUT sops encryption markers"** — the clean filter didn't
+  run. Almost always a clone that never ran `scripts/setup-git-filters.sh`.
+  Run it, then re-stage the file.
+- **"looks like a cleartext credential"** — a config file has a
+  password/token/apikey field with a real value. Either wire it up with
+  `scripts/add_inplace_secret.sh`, or if it genuinely isn't a secret, move
+  the value out of a field with that name.
+- **gitleaks finding** — a credential-shaped string anywhere in the diff.
+  The output is redacted; look at the file and line it names. If it's a
+  genuine false positive, add a *narrow* allowlist entry to `.gitleaks.toml`
+  with `condition = "AND"` so you silence one string in one file, never a
+  whole path.
+- **"sops config is inconsistent"** — `.sops.yaml` and `.gitattributes`
+  disagree. The message says which file and which direction. A sops rule
+  without a filter entry is the dangerous one: that file would commit as
+  plaintext.
+
+To see everything without committing:
+
+```bash
+pre-commit run --all-files
+```
+
+**`--no-verify` skips all of it.** It exists for genuine emergencies. CI
+will still catch an unencrypted secret on push — you'll just find out in
+public instead of at your terminal.
+
+## Never use OpenPlotter's "Reinstall" for Signal K
+
+Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf` on
+`~/.signalk` first — every plugin's configuration, `security.json`,
+`settings.json`, all of it. That is deliberate on OpenPlotter's part: it
+forces the first-run branch that rewrites the launcher script, which is
+skipped whenever `settings.json` already exists. There is no prompt and
+nothing is backed up.
+
+If you need that branch to run — say, to regenerate the launcher after moving
+Node — back up `~/.signalk` first and put the config files back afterward.
