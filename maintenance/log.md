@@ -577,6 +577,16 @@
   was already collecting the list, just never acting on it — installed and
   confirmed running on the boat.
 
+## 2026-08-15
+- Wrote the upstream signalk-server change for the SSO-admin problem:
+  identity allowlists (`adminUsers`/`readwriteUsers` + `identityClaim`,
+  email matches gated on `email_verified`) beside the existing group
+  mapping. Branch `oidc-identity-permissions` on the fork, preview PR
+  mark-brannan/signalk-server#1, tests and docs included. Proposal with
+  a Discord opener for Matti Airas in
+  `proposals/signalk-oidc-identity-permissions.md` — conversation not
+  yet opened, nothing sent upstream yet.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
