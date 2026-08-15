@@ -18,5 +18,15 @@ services:
     # the identity provider on the network in the clear.
     ports:
       - "127.0.0.1:5556:5556"
+    # Dex's log is the only record of who signed in and when, and the default
+    # json-file driver never rotates -- on a box whose SD card is the part
+    # most likely to fail, an unbounded log is a slow leak. Capped rather
+    # than shipped anywhere: two files is enough to answer "was that login
+    # today", which is all this log is for.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
     networks:
       - symphony-net

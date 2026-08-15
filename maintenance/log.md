@@ -535,6 +535,30 @@
   was clearly set up with care at some point, so the plugin regressed rather
   than the setup being wrong. Left disabled, config kept.
 
+## 2026-08-14
+- Audited the SSO setup end to end. It is deployed and working: certificates
+  for all three hostnames good through 2026-11-10, Dex answering behind Caddy,
+  and both the GitHub and the Google login already exercised. Nothing is
+  reachable from the internet — the router drops inbound on the WAN zone, there
+  are no port forwards, and Tailscale Funnel is off.
+- Wrote down the boat's security posture rather than re-deriving it every
+  session. `reference/security_posture.md`, pointed at from `CLAUDE.md`: the
+  LAN is the trust boundary, plain HTTP alongside the TLS front door stays
+  because the raw-IP path is the offshore fallback, the local password logins
+  stay for the same reason, and certificate warnings after months offline are
+  expected.
+- Found `reference/software_stack.md` recording SignalK's anonymous no-login
+  readonly mode as off. It is on, and stays on — the decision had been written
+  down backwards, which is why it kept coming back up as an open question.
+- Proved that Dex can hand an SSO login SignalK admin without any org or team
+  membership: its `oidc` connector will synthesize a group from the email
+  claim, which SignalK's existing `adminGroups` mapping then matches. Verified
+  on a throwaway two-Dex chain and a scratch SignalK — the allowlisted address
+  came out admin, everyone else readonly. Needs the `groups` scope explicitly
+  requested and a prefix on the synthesized name, or it silently produces
+  nothing. Not deployed; it only covers Google, since GitHub is OAuth2 and
+  can't carry the claim.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.

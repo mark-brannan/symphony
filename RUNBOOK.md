@@ -627,23 +627,29 @@ plaintext, same trust level as `.env`).
 
 ### 4 — Deploy (on the boat)
 
+On the boat Pi today, Dex is a container and Caddy is still a native
+systemd service, so deploy them separately:
+
 ```bash
 git pull
 python3 scripts/render.py
+docker compose --profile tls up -d dex
+sudo systemctl restart caddy
+```
+
+**Name `dex` explicitly.** A bare `--profile tls up -d` also starts the
+`caddy` container, which fails to bind `:443` against the native Caddy
+already holding it and proxies to container names that don't exist on
+that host. The front door goes down and the cause isn't obvious.
+
+On a host where everything is containerized, the whole profile is right:
+
+```bash
 docker compose --profile tls up -d --build
 ```
 
-The `tls` profile adds `caddy` (HTTPS for all three hostnames, Let's
-Encrypt via Cloudflare DNS-01) and `dex`. The first run builds the caddy
-image and issues certificates, so it needs internet — do it dockside.
-
-**On a host without Docker, the third command does nothing.** Caddy, Dex
-and Telegraf run as systemd units there instead; restart those directly:
-
-```bash
-python3 scripts/render.py
-sudo systemctl restart caddy dex telegraf
-```
+The first run builds the caddy image and issues certificates, so it needs
+internet — do it dockside.
 
 Restart Grafana and SignalK too if you changed anything they read —
 `GF_AUTH_GENERIC_OAUTH_*` or `SIGNALK_OIDC_*`. They pick up `.env` through

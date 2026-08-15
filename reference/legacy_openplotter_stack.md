@@ -22,7 +22,7 @@ Three active interfaces, which is why the box answers on more than one address:
 mDNS advertises `signalk.local` and `_signalk-http._tcp`. Which address
 `signalk.local` resolves to depends on which interface the client sees first —
 both eth0 and wlan0 answer. The DHCP reservation and A record called for in
-`SSO-SETUP.md` need to pick one deliberately.
+`RUNBOOK.md` → "SSO login (GitHub / Google)" need to pick one deliberately.
 
 Resources are the binding constraint: 3.7 GiB RAM total with roughly 800 MiB
 available under normal load, and a 29 GB SD card. Observed load average around
