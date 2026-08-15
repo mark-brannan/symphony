@@ -283,8 +283,11 @@ exist on this vessel today.
   is built.
 - SOC-based load shedding — **gap**. No relay-actuation flow tied to SOC
   found.
-- Generator auto-start/stop by SOC — **gap, n/a**. No generator found
-  anywhere in Symphony's documented equipment.
+- Generator auto-start/stop by SOC — **gap, n/a**, confirmed. Owner
+  confirmed 2026-08-15: no generator, none planned — the future charging
+  plan is solar + alternator with a DC-DC charger when not at the dock.
+  Worth revisiting the other solar-dependent gaps in section D against
+  that plan once solar is actually installed.
 - Scheduled/off-peak battery charging — **gap**. No schedule-driven
   charging flow found.
 - Excess-solar diversion to a water heater — **gap, blocked**.
@@ -332,10 +335,14 @@ exist on this vessel today.
   dashboards.
 
 ### H. Safety & security
-- MOB detection via BLE beacon proximity — **unconfirmed, needs
-  verification**. `signalk-mob-notifier` is installed, but its detection
-  mechanism (DSC/AIS vs. BLE-tag proximity) hasn't been checked — don't
-  assume this pattern is covered until that's confirmed.
+- MOB detection via BLE beacon proximity — **gap, blocked**, confirmed.
+  Owner confirmed 2026-08-15: no MOB button or crew-tag hardware of any
+  kind aboard — the BLE-tag pattern specifically needs hardware that
+  doesn't exist. What does exist: a handheld VHF with DSC and an
+  emergency button, and an AIS Class B transceiver. `signalk-mob-notifier`
+  is installed; still unconfirmed whether it consumes a DSC distress
+  alert, an AIS MOB beacon message, or neither — narrower question than
+  before, still open.
 - Door/hatch/motion intruder alarm — **gap, blocked**. No door/hatch/motion
   sensors or Zigbee gateway aboard.
 
@@ -366,10 +373,8 @@ exist on this vessel today.
   (a raw-IP probe gating its Pushover escalation).
 - Virtual N2K switch/indicator (e.g. router status on a chartplotter
   display) — **gap**. No such indicator exists.
-- Starlink monitoring dashboard — **unconfirmed, needs verification**.
-  Whether Symphony's internet uplink is actually Starlink isn't documented
-  anywhere read for this pass — check with the owner before assuming this
-  applies.
+- Starlink monitoring dashboard — **gap, n/a**, confirmed. Owner confirmed
+  2026-08-15: no Starlink aboard.
 
 ### L. Specialty equipment control
 - Spectra/Brineomatic watermaker control — **gap, n/a**. No watermaker
