@@ -16,10 +16,10 @@
 #
 # Inert until configured: it reads the ping URL from /etc/boat-heartbeat.json,
 # which host/install.sh places from host/boat-heartbeat.json in the repo. That
-# file's `url` field is sops-encrypted, so the URL lives in version control
-# without sitting in a public repo in the clear. Removing the installed file
-# turns the heartbeat off again. See RUNBOOK -> "Turning on the off-boat
-# heartbeat".
+# file's `url`, `pushover_token` and `pushover_user` fields are sops-encrypted,
+# so they live in version control without sitting in a public repo in the
+# clear. Removing the installed file turns the heartbeat off again. See
+# RUNBOOK -> "Turning on the off-boat heartbeat".
 #
 # The URL is a bearer credential: anyone holding it can send false "alive"
 # pings, which masks a dead boat rather than leaking anything. Hence 0600.
@@ -37,6 +37,14 @@ URL=$(sed -n 's/.*"url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$URL_FILE" 
 # installed from. Pinging the literal string "ENC[...]" would look like a
 # working heartbeat, so refuse instead.
 case "$URL" in ENC\[*) logger -t boat-heartbeat "url is still sops ciphertext, not pinging"; exit 0 ;; esac
+
+# Pushover escalation credentials, same file, same extraction style. Both
+# optional -- empty or still-ciphertext just skips the escalation below,
+# it isn't fatal to the heartbeat's actual job.
+PUSHOVER_TOKEN=$(sed -n 's/.*"pushover_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$URL_FILE" | head -n 1)
+PUSHOVER_USER=$(sed -n 's/.*"pushover_user"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$URL_FILE" | head -n 1)
+case "$PUSHOVER_TOKEN" in ENC\[*) PUSHOVER_TOKEN="" ;; esac
+case "$PUSHOVER_USER" in ENC\[*) PUSHOVER_USER="" ;; esac
 
 # Every field is optional. A box sick enough to be worth alerting on is also
 # a box where any one of these commands can hang or vanish, and a heartbeat
@@ -58,6 +66,13 @@ v_failed=$(systemctl list-units --state=failed --no-legend --plain 2>/dev/null |
 # deliberately the same number so the boat and the phone agree.
 MEM_ALARM_MB=400
 DISK_ALARM_PCT=90
+
+# Consecutive failed heartbeat pings, uplink otherwise up, before escalating
+# straight to Pushover. healthchecks.io's own grace period (20 min, see
+# RUNBOOK) is what eventually declares the check down on its end; this is a
+# faster, independent signal from the box's own failed curl, debounced the
+# same way as the thresholds above so one bad request doesn't page.
+PING_ESCALATE_AFTER=3
 
 # Numeric forms, separate from the display strings above. Both may come back
 # empty on a box too sick to read /proc -- in that case say nothing rather
@@ -106,8 +121,12 @@ BODY=$(printf 'status: %s\nuptime: %s\nload: %s\nmem available: %s\ndisk: %s\nte
 # A boat loses its uplink routinely. A missed ping is the expected case, not a
 # fault, so this exits 0 either way rather than leaving a failed unit behind
 # for someone to chase.
+PING_FAILS=/run/boat-heartbeat.pingfails
+PING_ESCALATED=/run/boat-heartbeat.pingescalated
+
 if printf '%s' "$BODY" | curl -fsS --max-time 20 --retry 2 --retry-delay 5 \
 	--data-binary @- "$PING_URL" >/dev/null 2>&1; then
+	rm -f "$PING_FAILS" "$PING_ESCALATED" 2>/dev/null || true
 	if [ -n "$reasons" ]; then
 		logger -t boat-heartbeat "ping sent to /fail -- $reasons"
 	else
@@ -115,6 +134,34 @@ if printf '%s' "$BODY" | curl -fsS --max-time 20 --retry 2 --retry-delay 5 \
 	fi
 else
 	logger -t boat-heartbeat "ping failed (offline or endpoint down)"
+	# Fails-silent escalation: healthchecks.io can't report its own outage,
+	# so if this box's pings are failing for reasons other than the uplink
+	# being down, POST straight to Pushover -- a different company's
+	# infrastructure -- rather than let it sit unread in this log.
+	if [ -n "$PUSHOVER_TOKEN" ] && [ -n "$PUSHOVER_USER" ]; then
+		n=$(cat "$PING_FAILS" 2>/dev/null || echo 0)
+		case "$n" in ''|*[!0-9]*) n=0 ;; esac
+		n=$((n + 1))
+		echo "$n" > "$PING_FAILS" 2>/dev/null || true
+		if [ "$n" -ge "$PING_ESCALATE_AFTER" ] && [ ! -e "$PING_ESCALATED" ]; then
+			if curl -fsS --max-time 5 -o /dev/null https://1.1.1.1/cdn-cgi/trace 2>/dev/null; then
+				if curl -fsS --max-time 20 --retry 2 --retry-delay 5 \
+					--data-urlencode "token=$PUSHOVER_TOKEN" \
+					--data-urlencode "user=$PUSHOVER_USER" \
+					--data-urlencode "title=boat-heartbeat" \
+					--data-urlencode "message=$n heartbeat pings have failed with the uplink otherwise up -- healthchecks.io is not hearing from Symphony." \
+					--data-urlencode "priority=1" \
+					https://api.pushover.net/1/messages.json >/dev/null 2>&1; then
+					touch "$PING_ESCALATED" 2>/dev/null || true
+					logger -t boat-heartbeat "escalated to pushover after $n failed pings"
+				else
+					logger -t boat-heartbeat "pushover escalation POST failed"
+				fi
+			else
+				logger -t boat-heartbeat "ping failed and uplink also appears down, not escalating"
+			fi
+		fi
+	fi
 fi
 
 exit 0
