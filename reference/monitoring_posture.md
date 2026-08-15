@@ -36,8 +36,10 @@ path carrying `meta.zones` raises a notification when its value crosses a zone
 boundary, with no plugin involved. `@signalk/zones` ("zones-edit") is the
 editor UI for that metadata, not the mechanism.
 
-One zone is configured: `self.environment.inside.airquality`, with nominal /
-alert / emergency bands.
+No zones are configured outside space weather. Checked live on both the boat
+and the dev container, 2026-08-15: `environment.inside.airquality` doesn't
+exist anywhere in the vessel tree, on either box, so the zone this doc
+previously described here was never actually live.
 
 The limit that matters: **zones fire on a value arriving out of range. They are
 silent when values stop arriving.**
