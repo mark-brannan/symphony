@@ -173,6 +173,23 @@ This file remains authoritative for the SignalK / IoT section below.
   data points (this and the BME680 path-naming mismatch) don't yet justify
   building and maintaining a new plugin when Node-RED, already running,
   covers it generically — revisit if a third case shows up.
+- New custom plugin: navigation-lights switching per COLREGs, driven off
+  NMEA 2000 / relay switch state rather than manual toggles alone —
+  e.g. enforce the correct combination for the vessel's current condition
+  (underway/sailing vs. power, at anchor, restricted in ability to
+  manoeuvre) and flag an invalid or incomplete combination rather than
+  silently allowing it. Not scoped yet: which physical switches/relays
+  this reads and drives (see `systems/electrical.md`'s lighting sub-panel —
+  nav lights running/off/anchor and sailing/steaming are separate circuits
+  today, not obviously behind a single NMEA 2000 switch bank), which
+  vessel-condition input it trusts (AIS nav status? a manual mode switch?
+  autopilot engaged state?), and whether it should only *warn* on a wrong
+  combination or actively *switch* lights. Worth deciding early whether
+  this is a SignalK plugin (packaged, testable, installable elsewhere) or
+  a Node-RED flow (faster to iterate, but per the pattern above, don't
+  reach for it as a way to dodge writing a real plugin when the logic
+  outgrows a couple of nodes — COLREGs light-combination logic has enough
+  branching that it likely does).
 - Finish dockerizing the boat computer. Docker 29.7.2 / Compose v5.4.0 installed
   2026-08-14. **Dex is done** — running as a container, native unit disabled,
   verified through Caddy. SignalK, Grafana and Caddy are still native systemd
@@ -461,18 +478,31 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   the boat: real alerts landed on the topic within two minutes of restart.
   Remaining: subscribe the phone (below), which needs the Pi's tailnet or LAN
   address rather than `localhost`.
-  `signalk-pushover-notification-relay` not installed. The credential
-  blocker is gone — `pushover_api_token`/`pushover_user_key` landed in
+  `signalk-pushover-notification-relay` not installed as of this bullet's
+  last edit — flag: `signalk/plugin-config-data/signalk-pushover-notification-relay.json`
+  now exists in the repo with `enabled: true` (landed in the 2026-08-15
+  "bringing over more extant plugins from the boat" commit), which
+  contradicts "not installed" above. Unclear whether that means it's live
+  on the boat and this paragraph is stale, or the config was copied in
+  without the plugin actually running — check on the boat before trusting
+  either. The credential blocker is gone either way —
+  `pushover_api_token`/`pushover_user_key` landed in
   `secrets/symphony.sops.yaml` 2026-08-14 for the heartbeat escalation above
-  and are the same values this plugin needs — but the install (and the
-  unmaintained-plugin audit) hasn't been done.
-  Node-RED (`@signalk/signalk-node-red`, upgraded to 4.4.0) is currently
-  enabled aboard with no flows — idle rent on the Pi, no monitoring job.
-  It's only in scope as the Role 2 fallback if the relay plugin audit fails:
-  audit `signalk-pushover-notification-relay` first; if it fails, build the
-  Node-RED flow (subscribe `notifications.*`, POST to Pushover); if it
-  passes (or ntfy + relay end up covering delivery on their own), disable
-  the idle Node-RED plugin instead of leaving it running for nothing.
+  and are the same values this plugin needs.
+  License checked 2026-08-15: ISC (npm registry), permissive — forking and
+  republishing under a new name is clear. So the audit's real branches are
+  three, not two: audit `signalk-pushover-notification-relay` first; if it's
+  basically sound and just stale (four years untouched, single-dependency
+  drift is the likely failure mode for a plugin this small), **fork it,
+  fix what the audit finds, publish under our own name** rather than
+  discard the working parts; only if the plugin is fundamentally broken or
+  the SignalK plugin API has moved past it does it drop to the Node-RED
+  flow (subscribe `notifications.*`, POST to Pushover). Node-RED
+  (`@signalk/signalk-node-red`, upgraded to 4.4.0, now has one small flow —
+  the openweather humidity fix, see Infrastructure below) is otherwise idle
+  rent on the Pi; if the fork or the existing config turns out to already
+  cover delivery, don't leave Node-RED's Pushover fallback flow half-built
+  as dead weight.
   Installing the Android ntfy app and subscribing to `symphony-alarms` on
   each server is Mark's phone-side step, tracked separately, not a blocker
   for anything above. Decided: do ntfy *and* a speaker, deliberately redundant — two
