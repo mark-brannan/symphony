@@ -335,14 +335,21 @@ exist on this vessel today.
   dashboards.
 
 ### H. Safety & security
-- MOB detection via BLE beacon proximity — **gap, blocked**, confirmed.
-  Owner confirmed 2026-08-15: no MOB button or crew-tag hardware of any
-  kind aboard — the BLE-tag pattern specifically needs hardware that
-  doesn't exist. What does exist: a handheld VHF with DSC and an
-  emergency button, and an AIS Class B transceiver. `signalk-mob-notifier`
-  is installed; still unconfirmed whether it consumes a DSC distress
-  alert, an AIS MOB beacon message, or neither — narrower question than
-  before, still open.
+- MOB detection — **gap, blocked**, confirmed. Owner confirmed 2026-08-15:
+  no MOB button or crew-tag hardware of any kind aboard — the BLE-tag
+  pattern specifically needs hardware that doesn't exist. What does exist:
+  a handheld VHF with DSC and an emergency button, and an AIS Class B
+  transceiver. `signalk-mob-notifier` is installed; whether it (or
+  anything else) consumes a DSC distress alert, an AIS MOB beacon message,
+  or neither is unconfirmed. **Verification has to come from documentation
+  or source, never from live-testing the DSC emergency button** — that
+  sends a real distress call to the Coast Guard on Ch 16, with possible
+  legal/regulatory consequences. Owner confirmed 2026-08-15 this is a
+  standing rule, not a one-off caution — see `maintenance/priorities.md`.
+  Owner wants MOB detection eventually (medium-low priority, open research
+  item as of 2026-08-15, not immediately planned) and is only willing to
+  adopt a solution already proven elsewhere to work reliably — not
+  something built and validated on this boat.
 - Door/hatch/motion intruder alarm — **gap, blocked**. No door/hatch/motion
   sensors or Zigbee gateway aboard.
 
