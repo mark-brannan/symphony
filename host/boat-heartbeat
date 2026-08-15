@@ -38,6 +38,13 @@ URL=$(sed -n 's/.*"url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$URL_FILE" 
 # working heartbeat, so refuse instead.
 case "$URL" in ENC\[*) logger -t boat-heartbeat "url is still sops ciphertext, not pinging"; exit 0 ;; esac
 
+# Pushover, for the two escalation paths below. Optional like everything
+# else here: an unconfigured box just skips both and behaves as before.
+PUSHOVER_TOKEN=$(sed -n 's/.*"pushover_api_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$URL_FILE" | head -n 1)
+PUSHOVER_USER=$(sed -n 's/.*"pushover_user_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$URL_FILE" | head -n 1)
+case "$PUSHOVER_TOKEN" in ENC\[*) PUSHOVER_TOKEN="" ;; esac
+case "$PUSHOVER_USER" in ENC\[*) PUSHOVER_USER="" ;; esac
+
 # Every field is optional. A box sick enough to be worth alerting on is also
 # a box where any one of these commands can hang or vanish, and a heartbeat
 # that dies collecting its own payload reports the wrong thing.
@@ -92,6 +99,39 @@ else
 	rm -f "$TRIPS" 2>/dev/null || true
 fi
 
+# Soft warning tier: a quiet Pushover buzz for the band below the alarm
+# thresholds above, so trouble shows up on the phone before it's bad enough
+# to page. Never touches /fail -- that's the alarm path's job. Only checked
+# when not already alarming, and only sent once per crossing (WARN_FLAG),
+# so a sustained warning doesn't repeat every 5-minute cycle.
+MEM_WARN_MB=600
+DISK_WARN_PCT=80
+WARN_FLAG=/run/boat-heartbeat.warned
+if [ -z "$reasons" ] && [ -n "$PUSHOVER_TOKEN" ] && [ -n "$PUSHOVER_USER" ]; then
+	warn_reasons=""
+	case "$n_mem" in ''|*[!0-9]*) ;; *)
+		[ "$n_mem" -lt "$MEM_WARN_MB" ] && warn_reasons="memory available ${n_mem} MB < ${MEM_WARN_MB}" ;;
+	esac
+	case "$n_disk" in ''|*[!0-9]*) ;; *)
+		[ "$n_disk" -ge "$DISK_WARN_PCT" ] &&
+			warn_reasons="${warn_reasons:+$warn_reasons; }disk ${n_disk}% >= ${DISK_WARN_PCT}%" ;;
+	esac
+	if [ -n "$warn_reasons" ]; then
+		if [ ! -f "$WARN_FLAG" ]; then
+			curl -fsS --max-time 15 \
+				--form-string "token=$PUSHOVER_TOKEN" \
+				--form-string "user=$PUSHOVER_USER" \
+				--form-string "title=Symphony: early warning" \
+				--form-string "message=$warn_reasons" \
+				--form-string "priority=-1" \
+				https://api.pushover.net/1/messages.json >/dev/null 2>&1 \
+				&& touch "$WARN_FLAG"
+		fi
+	else
+		rm -f "$WARN_FLAG" 2>/dev/null || true
+	fi
+fi
+
 if [ -n "$reasons" ]; then
 	v_status="ALARM: $reasons"
 	PING_URL="${URL%/}/fail"
@@ -106,8 +146,21 @@ BODY=$(printf 'status: %s\nuptime: %s\nload: %s\nmem available: %s\ndisk: %s\nte
 # A boat loses its uplink routinely. A missed ping is the expected case, not a
 # fault, so this exits 0 either way rather than leaving a failed unit behind
 # for someone to chase.
+#
+# Fails-silent escalation: healthchecks.io can't report its own outage, so a
+# run of failed pings needs a second channel. Only escalates if a probe to an
+# unrelated host (Cloudflare's resolver, by IP so DNS can't be the reason it
+# fails) succeeds -- otherwise this is just the boat's uplink being down,
+# which is the expected case above, not an escalation. PING_FAILS persists
+# the count across runs on tmpfs, same as TRIPS; ESCALATED gates it to one
+# Pushover message per outage rather than one every 5 minutes.
+PING_FAILS=/run/boat-heartbeat.pingfails
+ESCALATED=/run/boat-heartbeat.escalated
+PUSHOVER_FAILS_THRESHOLD=3
+
 if printf '%s' "$BODY" | curl -fsS --max-time 20 --retry 2 --retry-delay 5 \
 	--data-binary @- "$PING_URL" >/dev/null 2>&1; then
+	rm -f "$PING_FAILS" "$ESCALATED" 2>/dev/null || true
 	if [ -n "$reasons" ]; then
 		logger -t boat-heartbeat "ping sent to /fail -- $reasons"
 	else
@@ -115,6 +168,22 @@ if printf '%s' "$BODY" | curl -fsS --max-time 20 --retry 2 --retry-delay 5 \
 	fi
 else
 	logger -t boat-heartbeat "ping failed (offline or endpoint down)"
+	pf=$(cat "$PING_FAILS" 2>/dev/null || echo 0)
+	case "$pf" in ''|*[!0-9]*) pf=0 ;; esac
+	pf=$((pf + 1))
+	echo "$pf" > "$PING_FAILS" 2>/dev/null || true
+	if [ "$pf" -ge "$PUSHOVER_FAILS_THRESHOLD" ] && [ ! -f "$ESCALATED" ] \
+		&& [ -n "$PUSHOVER_TOKEN" ] && [ -n "$PUSHOVER_USER" ] \
+		&& curl -fsS --max-time 8 -o /dev/null https://1.1.1.1; then
+		curl -fsS --max-time 15 \
+			--form-string "token=$PUSHOVER_TOKEN" \
+			--form-string "user=$PUSHOVER_USER" \
+			--form-string "title=Symphony monitoring is down" \
+			--form-string "message=$pf consecutive pings to healthchecks.io have failed while the boat's uplink is up. healthchecks.io can't report its own outage -- check it by hand." \
+			--form-string "priority=1" \
+			https://api.pushover.net/1/messages.json >/dev/null 2>&1 \
+			&& touch "$ESCALATED"
+	fi
 fi
 
 exit 0

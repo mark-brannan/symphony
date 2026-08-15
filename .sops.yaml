@@ -119,6 +119,6 @@ creation_rules:
       - age: *recipients
 
   - path_regex: host/boat-heartbeat\.json$
-    encrypted_regex: '^url$'
+    encrypted_regex: '^(url|pushover_api_token|pushover_user_key)$'
     key_groups:
       - age: *recipients
