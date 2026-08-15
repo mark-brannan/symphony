@@ -281,15 +281,33 @@ live v2.31.0 instance in the dev sandbox; nothing below is from memory.
   stayed quiet for a healthy plugin, and cleared on recovery.
   **[verified — test/run-test.sh, all phases green 2026-08-15]**
 
-Decision: **build-but-don't-publish, and don't deploy yet.** The original
+Decision: **build-but-don't-publish, deployed 2026-08-15.** The original
 bar — restart automation — remains unmet and unmeetable cleanly today, so
 the freshness check stays the load-bearing detection. The plugin earns its
 optional slot as the only mechanism that catches mute-from-startup
-*onboard with no uplink*, riding the Role 2 notification bus. Deploying it
-to the boat and proposing the two upstream PRs (official
-`providerStatistics` access; a supported `restartPlugin`) are separate
-owner decisions; publishing to npm waits on those PRs at minimum, since
-today it stands on an undocumented accident.
+*onboard with no uplink*, riding the Role 2 notification bus. Publishing to
+npm still waits on the two upstream PRs (official `providerStatistics`
+access; a supported `restartPlugin`), since today it stands on an
+undocumented accident.
+
+**Deployed and verified on `symphony-pi`, 2026-08-15.** Installed into
+`~/.signalk/node_modules/` (no build step, zero deps) with production
+settings — `checkIntervalSeconds: 60`, `graceSeconds: 600`,
+`stallSeconds: 0`, `expectPlugins: ["bt-sensors-plugin-sk"]`.
+`known-producers.json` populated with the boat's actual producing plugins
+within a minute of restart, and no plugin drew a false notification.
+**[verified — read known-producers.json and the journal directly on the
+boat]** The failure path was proven on the boat, not just in
+`test/run-test.sh`: the `flaky-plugin` fixture was installed, learned as a
+producer, then restarted muted from boot — the alert fired exactly at the
+grace threshold on `notifications.pluginWatchdog.flaky-plugin`, and
+withdrawing the fixture's config cleared it to `normal` on the next tick
+with no restart needed. **[verified — live alert and clear captured via the
+REST API]** Fixture, its config, and its mute marker were all removed after;
+production config is unchanged from the settings above. Stays vulnerable to
+`~/.signalk`'s `package-lock=false` `npm install` behavior, which prunes any
+plugin with no `package.json` dependency entry — logged as an open risk in
+`maintenance/log.md` 2026-08-15, not yet fixed.
 
 `signalk-dead-mans-switch` also exists in the registry but is a crew-liveness
 escalation (push a button or alarms escalate) — different problem.

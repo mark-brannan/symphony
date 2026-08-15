@@ -662,6 +662,27 @@
   Identifying those paths and choosing the owning mechanism is queued in
   priorities. Couldn't verify live this session — the cloud container has no
   ssh client and isn't on the tailnet, so the boat is unreachable from it.
+- Deployed `signalk-plugin-watchdog` to the boat Pi as a proof of concept.
+  Copied into `~/.signalk/node_modules/` (no build step, zero deps) and
+  enabled via `plugin-watchdog.json` with production settings —
+  `checkIntervalSeconds: 60`, `graceSeconds: 600`, `stallSeconds: 0`,
+  `expectPlugins: ["bt-sensors-plugin-sk"]`. `known-producers.json`
+  populated with the boat's actual producing plugins within a minute of
+  restart; no false notification on any healthy plugin.
+- Proved the failure path with the `flaky-plugin` test fixture: installed
+  it, let it publish and get learned as a producer, then restarted with its
+  mute marker in place so it stayed silent from boot. The alert fired right
+  at the grace threshold — `notifications.pluginWatchdog.flaky-plugin` went
+  to `alert`, "enabled but has published no deltas since startup (grace
+  600s exceeded)". Removed the marker, the fixture, and its config
+  afterward; the alarm auto-cleared to `normal` ("was disabled; alarm
+  withdrawn") on the watchdog's next tick, no restart needed.
+- Mid-deploy, another session's `systemctl stop signalk` landed while this
+  one was restarting for the install, and the resulting stop hung and got
+  SIGKILLed — SignalK was down briefly. Three sessions ended up working the
+  Pi in the same window (this deploy, a resident session's npm/ntfy work,
+  and a UTF-8-locale reboot queued behind both); coordinated a restart order
+  between them rather than continuing to collide.
 
 ## Date unknown
 - Cleaned fuel filter.
