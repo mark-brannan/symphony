@@ -323,6 +323,29 @@ This file remains authoritative for the SignalK / IoT section below.
   reads this file. He knows their current state and has decided when it changes.
   `scripts/lint_repo_hygiene.py` fails the commit if a diff touches them, since
   prose in this file is context and not a constraint.
+- **For the dev-box session (host/ is yours): give the boat Pi a UTF-8 locale.**
+  `/etc/default/locale` sets `LANG=en_US`, `LC_ALL=en_US`, `LANGUAGE=en_US` —
+  a locale with no codeset, so glibc falls back to ISO-8859-1 and Python takes
+  that as its default for file I/O. A script opening a UTF-8 document without an
+  explicit encoding reads it as latin-1 and writes latin-1 back. That truncated
+  `maintenance/priorities.md` on 2026-08-14 and would quietly mojibake any
+  degree sign or accented character.
+  Three things the obvious fix misses, all verified on the box:
+  - **`en_US.UTF-8` is not generated.** `locale -a` has only `C.utf8`, `en_US`
+    and `en_US.iso88591`. Selecting an ungenerated locale falls back to C/POSIX
+    silently, so `locale-gen` has to come first.
+  - **`LC_ALL` is set system-wide.** It overrides every other category, so
+    changing `LANG` alone accomplishes nothing. It should be unset, not edited.
+  - **systemd services don't pick this up from a login shell**, so a service
+    keeps its old environment until it restarts.
+  Node is unaffected — it is UTF-8 internally regardless of locale — so SignalK
+  is not at risk. Python is, which here means OpenPlotter and `scripts/`.
+  `PYTHONUTF8=1` is the cheaper belt-and-braces for the Python half and does not
+  depend on locale generation at all.
+  Track it with `scripts/check_encoding_health.py`, which reports all three
+  layers. **Baseline 2026-08-14: 58 running processes on a non-UTF-8 locale.**
+  That number falls as services restart rather than dropping to zero at once,
+  which is the point of measuring it instead of assuming the change took.
 - Decide what to do about Chromium on the boat Pi. Its profile under
   `~/.config/chromium` is 1.9 GB — 692 MB of extensions across 23 of them, 335 MB
   of service workers, 231 MB of File System storage — and it is the single
