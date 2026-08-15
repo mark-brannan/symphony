@@ -505,10 +505,22 @@ router; run this from anywhere on the tailnet):
 
 ```bash
 ssh pi@symphony-pi 'ssh root@192.168.8.1 "uci export"' > /tmp/uci.txt
+test -s /tmp/uci.txt && grep -q '^package' /tmp/uci.txt && echo export ok
+python3 -c "import yaml; yaml.safe_dump({'uci_export': open('/tmp/uci.txt').read()}, open('secrets/router-config.sops.yaml','w'), default_style='|')"
+sops --encrypt --in-place secrets/router-config.sops.yaml
+rm /tmp/uci.txt
 ```
 
-then re-wrap it as the `uci_export` key of that YAML file and
-`sops --encrypt --in-place` it.
+Check the `export ok` line before going on — a failed ssh leaves
+`/tmp/uci.txt` empty, and the next step overwrites the backup with it.
+
+Overwriting the file with fresh plaintext first is what makes
+`--encrypt --in-place` work: run against the existing *encrypted* file it
+fails with sops's "top-level entry called 'sops'" error. This file is a
+snapshot of one export, so a wholesale replace loses nothing.
+
+*Verify:* `sops --decrypt --extract '["uci_export"]' secrets/router-config.sops.yaml | head -3`
+shows the export. Then `git add secrets/router-config.sops.yaml` and commit.
 
 To read or restore:
 
