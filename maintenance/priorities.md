@@ -351,16 +351,20 @@ This file remains authoritative for the SignalK / IoT section below.
   `scripts/lint_repo_hygiene.py` fails the commit if a diff touches them, since
   prose in this file is context and not a constraint.
 - Boat Pi UTF-8 locale — host fix done 2026-08-15 (see `log.md`); layer 3
-  (running processes) still converging. `scripts/check_encoding_health.py`
-  reported 58 stale processes right after the fix, same as the 2026-08-14
-  baseline — expected, since services keep their old environment until they
-  restart. Decide whether to reboot the boat Pi deliberately to finish the
-  convergence now, or let it happen naturally as services restart on their
-  own; re-run the checker afterward either way.
-  Separately, found interactive SSH sessions to the boat over Tailscale
-  don't inherit locale env at all (`pam_env` not populating the session
-  despite being configured in `/etc/pam.d/sshd`) — doesn't affect the fix
-  above, but undecided whether it's worth chasing.
+  (running processes) needs a deliberate reboot. Decided 2026-08-15: waiting
+  for natural convergence won't work. The 58 stale processes are the desktop
+  stack (lightdm, wayfire, gvfs, pipewire), pypilot's 9 processes, pigpiod,
+  tailscaled and PID 1 itself — none of which restart on their own, so the
+  count sits where it is until the box comes up again. Newly started services
+  are already fine: `systemctl show-environment` carries `LANG=en_US.UTF-8`
+  and `PYTHONUTF8=1`, so anything spawned from here inherits the right
+  environment, and the Python exposure that motivated the fix (pypilot,
+  openplotter-notifications) clears on the same reboot.
+  Blocked on a reboot window, not on the decision: as of 2026-08-15 another
+  session is mid-deploy of `signalk-plugin-watchdog` with a two-restart
+  failure-path test to run (~11 min settle each), and the resident session on
+  the Pi is mid npm-upgrade. Reboot once both are clear, then re-run
+  `python3 scripts/check_encoding_health.py` on the box to confirm layer 3.
 - Decide what to do about Chromium on the boat Pi. Its profile under
   `~/.config/chromium` is 1.9 GB — 692 MB of extensions across 23 of them, 335 MB
   of service workers, 231 MB of File System storage — and it is the single

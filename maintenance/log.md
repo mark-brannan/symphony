@@ -609,6 +609,22 @@
   `LANG`/`LANGUAGE` in the session despite being wired into
   `/etc/pam.d/sshd`. Doesn't affect the fix above (systemd services get
   their environment from the manager, not from PAM/SSH), so left alone.
+- Ran down the SSH locale gap. It isn't a PAM misconfiguration: Tailscale
+  SSH is enabled on the boat Pi (`RunSSH: true`), so `tailscaled` answers
+  port 22 on the tailnet itself and `sshd` never sees the connection —
+  `journalctl -u ssh` has no entries for these logins, while `tailscaled`
+  logs each one and spawns `tailscaled be-child ssh`. That path builds the
+  session environment on its own and doesn't run PAM's session stack, so the
+  `pam_env` line in `/etc/pam.d/sshd` is simply never reached. It still
+  applies to sshd logins from the boat LAN. Nothing to fix: Tailscale hands
+  the session `LANG=C.UTF-8`, which is a UTF-8 locale, and Python in it
+  reports `utf-8` for both filesystem and preferred encoding. Noting it as a
+  quirk rather than chasing it.
+- Decided the layer-3 locale convergence needs a deliberate reboot rather
+  than patience. Of the 58 processes still on `LANG=en_US`, the bulk are the
+  desktop stack, pypilot's 9 processes, pigpiod, tailscaled and PID 1 —
+  long-lived things that don't restart on their own. Reboot is queued behind
+  the watchdog deploy's test window.
 
 ## Date unknown
 - Cleaned fuel filter.
