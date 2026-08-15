@@ -160,7 +160,10 @@ under load is not an alarm path. Alarming belongs to Roles 1 and 2.
 and its `telegraf-rpi-health` exec input latches under-voltage and throttling
 since boot **[verified — read the script]** — better power forensics than
 `signalk-rpi-monitor` offers. The rpi plugins' only alarm value was zones
-that were never configured; the sole configured zone aboard is air quality.
+that were never configured; the one zone ever configured aboard — air
+quality — was attached to a path no sensor has ever published
+(`environment.inside.airquality` is absent from the vessel tree on both
+boxes, checked live 2026-08-15), so no zone aboard has ever been live.
 
 First written as: disable all three. Amended 2026-08-14 after the owner asked
 for an early-warning tier on host metrics: `signalk-rpi-monitor` stays,

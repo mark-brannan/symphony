@@ -137,6 +137,7 @@ This file remains authoritative for the SignalK / IoT section below.
 - Rudder position sensor
 - Pump flow sensors
 - Air quality sensors
+- Recover the hand-made airquality zone metadata from the boat's `~/.signalk/` (needs ssh; orphaned on a never-published path), commit it to the repo, then decide whether its bands are keepers or re-derive when the sensors exist
 - Air pressure sensor
 - Illuminance sensor
 - Additional temperature sensors
