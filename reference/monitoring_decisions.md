@@ -12,7 +12,7 @@ Four roles, one owner each. Every load-bearing claim is tagged **[verified]**
 | Role | Owner | Add | Retire | Cost to switch |
 |---|---|---|---|---|
 | 1. Off-boat liveness & host health | **healthchecks.io hosted + `boat-heartbeat`** — keep | extend `/fail` conditions; endpoint-down escalation; weekly report email | nothing | shell edits, no new accounts |
-| 2. Onboard vessel alarming | **SignalK notification bus** (zones, hoekens-anchor-alarm, mob-notifier) — keep | `signalk-pushover-notification-relay` as the working phone path | nothing | one plugin install; audible needs hardware |
+| 2. Onboard vessel alarming | **SignalK notification bus** (zones, hoekens-anchor-alarm, mob-notifier) — keep | Pushover relay (internet path); self-hosted ntfy + `signalk-ntfy` (LAN path); speaker **[hardware]** | nothing | two plugin installs, one small server, one speaker |
 | 3. History & forensics | **Telegraf → InfluxDB → Grafana** — keep, forensics-only | nothing | `signalk-rpi-monitor`, `signalk-rpi-uptime` (boat), `signalk-rpi-stats` (dev) | plugin disable, reversible |
 | 4. Staleness | split: aboard **signalk-data-age-watchdog**; off-boat a freshness check in the heartbeat's orbit | both small | the bespoke watchdog plugin drops to optional; `signalk-ble-check` stays | an afternoon |
 
@@ -128,9 +128,12 @@ Candidates, ranked:
 2. **Node-RED flow** — the engine already runs aboard with zero flows;
    subscribing to `notifications.*` and POSTing to Pushover is a small flow
    and no new plugin. Fallback if 1 is broken.
-3. **signalk-ntfy** — actively maintained (2026-07) **[verified — npm]** but
-   introduces a new channel and phone app; channel coverage is already
-   settled, so no.
+3. **signalk-ntfy** — actively maintained (2026-07) **[verified — npm]**. No
+   as an internet path — channel coverage is settled — but adopted 2026-08-14
+   for what Pushover can't do: pointed at a self-hosted ntfy server on the
+   Pi, it reaches the Android over boat WiFi with the internet down. Owner's
+   call: that *and* a speaker, deliberately redundant for the
+   dragging-anchor-at-night case.
 
 WilhelmSK/SNS stays enabled as a freebie for the iPad when it's aboard.
 Whether an Android-native SignalK alarm app exists is an open question,
@@ -231,9 +234,11 @@ escalation (push a button or alarms escalate) — different problem.
   But it is self-host-only, so as primary it inherits the whole self-hosting
   regress. Possible future role: polling the healthchecks badge from the VPS
   as the independent watcher. Not now.
-- **ntfy / Gotify / Apprise** — channel plumbing. Channel coverage is
-  explicitly settled. ntfy's one unique trick, LAN-only push with no uplink
-  **[recall]**, solves a problem the audible path already covers. No.
+- **ntfy / Gotify / Apprise** — channel plumbing; channel coverage is
+  settled. Written here first as a full no, on the grounds that the audible
+  path covered the offline-aboard case — then the speaker turned out not to
+  exist. Reversed 2026-08-14 for ntfy alone, self-hosted on the Pi as the
+  LAN-only delivery path (see Role 2). Gotify and Apprise stay out.
 - **Siren Marine (Siren 3 Pro)** — $749.99 device; $22/mo, $150/yr seasonal,
   or $225/yr plans; own LTE-M cellular and own sensor inputs. **[verified —
   sirenmarine.com and retailers via search]** The only candidate that still
