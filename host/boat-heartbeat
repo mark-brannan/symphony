@@ -73,6 +73,9 @@ case "$n_disk" in ''|*[!0-9]*) ;; *)
 	[ "$n_disk" -ge "$DISK_ALARM_PCT" ] &&
 		reasons="${reasons:+$reasons; }disk ${n_disk}% >= ${DISK_ALARM_PCT}%" ;;
 esac
+case "$v_failed" in ''|none|unknown) ;; *)
+	reasons="${reasons:+$reasons; }failed units: ${v_failed}" ;;
+esac
 
 # Require two consecutive samples before calling it down, so a value sitting
 # on the threshold doesn't alternate up/down every five minutes and train you
