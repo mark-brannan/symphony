@@ -247,10 +247,13 @@ escalation (push a button or alarms escalate) — different problem.
   staleness", via the watchdog brief) is **overturned** for path-level
   staleness by signalk-data-age-watchdog; plugin-level supervision with
   restart remains genuinely uncovered.
-- monitoring_posture.md's signalk-healthcheck section was true when measured
-  and is already stale: the plugin was removed later the same day
-  (software_stack.md, 2026-08-14). Its one unique capability — provider
-  staleness — is folded into Role 4 above.
+- signalk-healthcheck was **not** removed on 2026-08-14, as this doc first
+  said — that claim came from a same-day software_stack.md edit, and a boat
+  check later that day (recorded in priorities.md) found it still installed
+  and enabled, only reconfigured. The posture doc's description of it stands.
+  Retiring its host section and keeping its provider watch is settled in
+  priorities.md; its provider-staleness capability is folded into Role 4
+  above either way.
 - Everything else in the posture doc survived challenge: the three-stack map,
   zones firing only on arriving values (not re-verified in source, no
   contradiction found), and the dead-man's-switch rationale, which this
