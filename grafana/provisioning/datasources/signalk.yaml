@@ -1,0 +1,21 @@
+apiVersion: 1
+
+datasources:
+  # Live-data datasource, streaming deltas straight from the SignalK server --
+  # no database behind it. Absorbed from the signalk-grafana plugin's managed
+  # container when that was retired in favor of this one Grafana; the
+  # tkurki-signalk-datasource plugin itself is preinstalled via
+  # GF_PLUGINS_PREINSTALL in compose-grafana.yml.
+  - name: Signal K
+    uid: signalk
+    type: tkurki-signalk-datasource
+    access: proxy
+    url: http://${SIGNALK_HOST}
+    editable: false
+    jsonData:
+      context: self
+      hostname: ${SIGNALK_HOST}
+      ssl: false
+      useAuth: true
+    secureJsonData:
+      token: ${SIGNALK_TOKEN}

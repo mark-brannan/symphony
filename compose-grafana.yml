@@ -5,6 +5,13 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Datasource plugins for the provisioned datasources: Signal K live
+      # data (datasources/signalk.yaml) and QuestDB, kept installed while
+      # the QuestDB-vs-InfluxDB history question is still open. Preinstall
+      # is async and non-fatal, so an offline start (at anchor, no uplink)
+      # comes up without them rather than failing.
+      GF_PLUGINS_PREINSTALL: tkurki-signalk-datasource,questdb-questdb-datasource
     ports:
       - "3001:3000" # 3001 externally; SignalK owns 3000
     volumes:
