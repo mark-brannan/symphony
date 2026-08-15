@@ -99,6 +99,16 @@ covered here.
   high load average on its own. Check `free -m` and `grep ^pswp /proc/vmstat`
   before stopping anything.
 
+## Security posture
+- `reference/security_posture.md` records the calls already made about this
+  boat's threat model — the LAN as trust boundary, plain HTTP alongside the
+  TLS front door, local password logins as the offline fallback, certificate
+  expiry offshore. **Read it before reporting any of those as a finding.**
+  They are decisions, not oversights, and re-arguing them each session costs
+  the owner the same judgment twice.
+- Raising a real objection to one of them is fine — one line, then move on.
+  Re-deriving the whole analysis is not.
+
 ## Working style, generally
 - No unsolicited notes, hedges, or "this may have changed" commentary
   embedded in any doc — flag uncertainty in conversation, keep the files
