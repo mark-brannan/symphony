@@ -1,0 +1,17 @@
+# Dev-box-only overrides. Compose loads this automatically, with no extra -f flag.
+#
+# The boat runs SignalK natively, not in Docker (reference/software_stack.md
+# "The boat Pi runs none of this in Docker"), so nothing here can reach it.
+# If Docker ever does land on the Pi, this file must not be deployed with the
+# rest of the compose stack.
+#
+# What it does: pins a few plugin configs to dev values by mounting a
+# replacement file over the repo's copy, so signalk/plugin-config-data/ stays
+# exactly what we intend to push to the boat. See
+# dev/plugin-config-overrides/README.md.
+
+services:
+  signalk:
+    volumes:
+      - ./dev/plugin-config-overrides/signalk-pushover-notification-relay.json:/home/node/.signalk/plugin-config-data/signalk-pushover-notification-relay.json:ro
+      - ./dev/plugin-config-overrides/signalk-healthcheck.json:/home/node/.signalk/plugin-config-data/signalk-healthcheck.json:ro
