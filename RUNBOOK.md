@@ -2031,6 +2031,101 @@ pre-commit run --all-files
 will still catch an unencrypted secret on push — you'll just find out in
 public instead of at your terminal.
 
+## Fixing openweather-signalk's mis-scaled outside humidity
+
+`environment.outside.relativeHumidity` comes from the `openweather-signalk`
+plugin and arrives as OpenWeatherMap's raw percent (e.g. `88`) instead of
+SignalK's spec ratio (`0.88`) — an upstream unit-labeling bug. Every
+dashboard panel on this path multiplies by 100 expecting a true ratio, so
+until the upstream fix ships the outside-humidity panels read ~8800%. The
+stopgap is a Node-RED flow that republishes the same path as a corrected
+ratio. Node-RED already runs inside SignalK (`@signalk/signalk-node-red`).
+
+1. Open the Node-RED editor: `https://<signalk-host>/node-red/` (or
+   `http://<host>:3000/node-red/` if not behind Caddy yet).
+2. Menu (☰, top right) → **Import** → paste the flow JSON below → **Import**
+   to a new tab.
+3. Open the **outside relativeHumidity** node and confirm its path is set to
+   `environment.outside.relativeHumidity` with flattened output enabled —
+   the import may not carry those fields depending on the installed node
+   version; set them by hand if the fields are empty.
+4. **Deploy**.
+5. Verify: open the SignalK Data Browser
+   (`https://<signalk-host>/admin/#/databrowser`) and confirm
+   `environment.outside.relativeHumidity` reads as a ratio (`0.0`–`1.0`),
+   not a raw percent. Watch it across at least one openweather poll cycle,
+   since the correction only applies on the next delta after deploy.
+6. Regenerate/refresh the weather and life-support Grafana panels if they
+   were mid-way through a bad reading — they read live, so they self-correct
+   once the corrected value lands.
+
+Remove this flow once the upstream openweather-signalk fix ships (tracked at
+github.com/inspired-technologies/signalk-openweather-plugin) — don't leave
+a stopgap running past the reason it exists.
+
+<details>
+<summary>Flow JSON</summary>
+
+```json
+[
+    {
+        "id": "hum01tab",
+        "type": "tab",
+        "label": "openweather humidity fix",
+        "disabled": false,
+        "info": "Corrects environment.outside.relativeHumidity: openweather-signalk publishes OpenWeatherMap's raw percent (0-100) on this path instead of SignalK's 0-1 ratio (upstream bug, see github.com/inspired-technologies/signalk-openweather-plugin issue). This flow republishes the same path as a corrected ratio for any source labeled openweather. Remove this flow once the upstream fix ships."
+    },
+    {
+        "id": "hum02sub",
+        "type": "signalk-subscribe",
+        "z": "hum01tab",
+        "name": "outside relativeHumidity",
+        "path": "environment.outside.relativeHumidity",
+        "flatten": true,
+        "x": 200,
+        "y": 120,
+        "wires": [["hum03fn"]]
+    },
+    {
+        "id": "hum03fn",
+        "type": "function",
+        "z": "hum01tab",
+        "name": "percent -> ratio (openweather only)",
+        "func": "// openweather-signalk mislabels its 'current' humidity object as\n// unit: 'ratio' instead of '%' (confirmed in its source, skunits.js /\n// openweather.js), so its toSignalK() never divides by 100. It publishes\n// OpenWeatherMap's raw 0-100 percent straight through.\n//\n// Guard 1: only touch deltas from an openweather source, so a future\n// upstream fix (or some other source on this path) is left alone.\n// Guard 2: only divide when the value looks like a percent (> 1.5). Our\n// own corrected republish below lands back on this exact path and\n// retriggers this same subscribe node -- without this guard it would\n// halve its own output forever.\nif (!msg.$source || msg.$source.toLowerCase().indexOf('openweather') === -1) {\n    return null;\n}\nif (typeof msg.payload !== 'number' || msg.payload <= 1.5) {\n    return null;\n}\nmsg.payload = {\n    path: 'environment.outside.relativeHumidity',\n    value: msg.payload / 100\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 470,
+        "y": 120,
+        "wires": [["hum04out", "hum05dbg"]]
+    },
+    {
+        "id": "hum04out",
+        "type": "signalk-send-pathvalue",
+        "z": "hum01tab",
+        "name": "republish corrected ratio",
+        "x": 760,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "hum05dbg",
+        "type": "debug",
+        "z": "hum01tab",
+        "name": "corrected value",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "x": 760,
+        "y": 140,
+        "wires": []
+    }
+]
+```
+
+</details>
+
 ## Never use OpenPlotter's "Reinstall" for Signal K
 
 Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf` on

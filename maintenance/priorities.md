@@ -155,6 +155,24 @@ This file remains authoritative for the SignalK / IoT section below.
 - 3D-print IMU case
 
 ### Infrastructure
+- Deploy the openweather-signalk humidity-fix Node-RED flow (needs boat
+  access). `environment.outside.relativeHumidity` publishes OpenWeatherMap's
+  raw percent instead of SignalK's 0-1 ratio, so every dashboard panel on
+  that path reads ~8800%. Root cause confirmed in the plugin's source
+  (`openweather.js`/`skunits.js`) and reported upstream. Procedure and the
+  flow JSON are in `RUNBOOK.md` → "Fixing openweather-signalk's mis-scaled
+  outside humidity". Flow is built but unverified against the live editor —
+  the `signalk-subscribe` node's path/flatten fields may need setting by
+  hand on import. Remove the flow once the upstream fix ships.
+- Evaluate a small custom SignalK plugin for generic single-path arithmetic
+  (scale/offset a path by a constant). Came up chasing the openweather
+  humidity bug: neither `signalk-path-mapper` (rename/duplicate only),
+  `signalk-derived-data` (fixed built-in calculators, no custom formula),
+  nor `signalk-value-combiner` (needs two live input paths, no constant) can
+  do it, and nothing in the plugin store fills the gap. Opinion: two
+  data points (this and the BME680 path-naming mismatch) don't yet justify
+  building and maintaining a new plugin when Node-RED, already running,
+  covers it generically — revisit if a third case shows up.
 - Finish dockerizing the boat computer. Docker 29.7.2 / Compose v5.4.0 installed
   2026-08-14. **Dex is done** — running as a container, native unit disabled,
   verified through Caddy. SignalK, Grafana and Caddy are still native systemd
