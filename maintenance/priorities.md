@@ -443,12 +443,12 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   **ntfy server done 2026-08-14, both places** — up and verified (round-tripped
   a test message) on the boat Pi (`localhost:8090`) and the dev docker stack
   (`compose-ntfy.yml`, service name `ntfy` on `symphony-net`). `signalk-ntfy`
-  installed and configured on the dev container only, topic
-  `symphony-alarms`; **not installed on the boat** — the Pi had 825 MB
-  available and a fully used swap when checked, and `npm install` there has
-  bricked SSH access before (RUNBOOK.md; the 08-11 and 08-12 incidents). Needs
-  either a quieter moment to install it, or freeing memory first and someone
-  watching it land.
+  **installed and delivering in both places 2026-08-15**, topic
+  `symphony-alarms` — dev container against `http://ntfy:80`, boat Pi against
+  `http://localhost:8090`, configs otherwise identical. Proven end to end on
+  the boat: real alerts landed on the topic within two minutes of restart.
+  Remaining: subscribe the phone (below), which needs the Pi's tailnet or LAN
+  address rather than `localhost`.
   `signalk-pushover-notification-relay` not installed. The credential
   blocker is gone — `pushover_api_token`/`pushover_user_key` landed in
   `secrets/symphony.sops.yaml` 2026-08-14 for the heartbeat escalation above

@@ -625,6 +625,28 @@
   desktop stack, pypilot's 9 processes, pigpiod, tailscaled and PID 1 —
   long-lived things that don't restart on their own. Reboot is queued behind
   the watchdog deploy's test window.
+- `signalk-ntfy` 0.0.7 installed on the boat Pi and delivering. Pointed at
+  the Pi's own ntfy (`http://localhost:8090`), topic `symphony-alarms`,
+  otherwise matching the dev container's config. Six real alerts — BLE
+  sensor timeouts and a space-weather advisory — landed on the topic within
+  two minutes of SignalK coming back up, so the path is proven end to end.
+  Phone subscribing still untested; that gets done from home, and it will
+  need the Pi's tailnet or LAN address, since `localhost` on a phone means
+  the phone.
+- Freed memory for that install by stopping InfluxDB and Grafana (available
+  went 771 MB → 1042 MB, then 2488 MB with SignalK also down). Both restarted
+  afterwards; all of SignalK, InfluxDB, Grafana, Telegraf and Caddy are back
+  up, 854 MB available and no swapping.
+- The install itself took 40 seconds and was never the risk. The real hazard
+  was npm's pruning: `~/.signalk/.npmrc` sets `package-lock=false`, so every
+  install re-resolves the whole tree and deletes anything not named in
+  `package.json`. A dry run caught it removing `signalk-plugin-watchdog`, and
+  a sweep of `node_modules` found `flaky-plugin` in the same position. Both
+  are hand-installed local plugins with no dependency entry. Backed both up
+  first and restored them after; both are back in place.
+- Note for whoever owns the watchdog: it stays vulnerable to this. Any future
+  `npm install` in `~/.signalk` deletes it again unless it gets a real entry
+  in `package.json`.
 
 ## Date unknown
 - Cleaned fuel filter.
