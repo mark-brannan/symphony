@@ -167,16 +167,49 @@ How each piece consumes Dex:
 
 ### The permission model
 
-SSO is identity, not authority: every SSO login lands at
-`SIGNALK_OIDC_DEFAULT_PERMISSION` (readonly) and stays there. SignalK's
-permission mapper takes exactly one input — an IdP group-claims **array**
-(`Array.isArray`-gated in `dist/oidc/user-info.js`), re-derived on every
-login, no email-based hook — verified in the running 2.30.0 and still
-true on upstream master as of 2026-08-08. Google logins never carry
-groups, GitHub logins only carry them as org-team memberships, and the
-org/teams route was rejected as hoops without payoff. Admin work belongs
-to the local `captain` account, which predates SSO and is unaffected by
-it.
+The owner's login gets admin on SignalK; everyone else lands at
+`SIGNALK_OIDC_DEFAULT_PERMISSION` (readonly). Deployed 2026-08-14.
+
+SignalK's permission mapper reads groups and nothing else, and neither
+GitHub nor Google sends any. Rather than manufacture a group, the server
+is pointed at a claim that already exists:
+`SIGNALK_OIDC_GROUPS_ATTRIBUTE=email` names which claim to treat as
+groups, and the callback normalizes a bare string into a one-element
+list, so the email *is* the group. `SIGNALK_OIDC_ADMIN_GROUPS` then
+holds plain addresses — the same shape as Grafana's, and no Dex change
+at all. Both providers work, because Dex carries an email claim for
+either one.
+
+The load-bearing part is `GROUPS_ATTRIBUTE`. Drop it and the server
+looks for a `groups` claim nothing sends, and every SSO login silently
+becomes readonly — no error, either side.
+
+What makes this safe: permissions are recalculated on every login
+(`findOrCreateOIDCUser` updates an existing user's type when the mapping
+changes), so editing the list demotes or promotes people on their next
+sign-in with no cleanup. And the failure mode is closed — a broken
+mapping costs an admin their rights rather than handing anyone else
+theirs, with `captain` still available to fix it.
+
+Verified end-to-end against 2.30.0 on 2026-08-14, on a throwaway Dex and
+SignalK pair: a listed address came out `admin`, an unlisted one
+`readonly`, and swapping the list demoted the first and promoted the
+second on their next login.
+
+Two things to know before touching it. `dist/oidc/user-info.js` gates
+groups behind `Array.isArray` and would reject a bare string — but
+`extractUserInfo` is exported and never called anywhere in `dist`. It's
+dead code, and an earlier version of this document cited it as proof
+that no email-based hook existed. The live path is the callback in
+`dist/oidc/oidc-auth.js`. Second, pointing `groupsAttribute` at a claim
+that isn't a group is off-label: both halves are supported (the option
+is documented, and the string-to-list normalization is deliberate and
+commented), but a future release could tighten it and quietly demote the
+owner. The RUNBOOK's post-deploy check is what catches that; the
+upstream patch below is the durable fix.
+
+The local `captain` account predates SSO and is unaffected by any of
+this — it stays the offshore fallback.
 
 Grafana is the exception because its role mapping can key off the
 **email claim**: `role_attribute_path` holds a hand-managed list in
@@ -192,22 +225,12 @@ attached. SignalK's separate anonymous no-login readonly mode (`allow_readonly`)
 is on as well, so reads don't require a login at all; signing in is what puts
 a name against them.
 
-If SignalK ever grows email-based permission lists (a small upstream
-addition next to `adminGroups`), SignalK's authority model collapses into
-the same shape as Grafana's: email lists in this repo.
+Neither of the two routes considered on 2026-08-11 is what shipped — the
+Dex-synthesized group was built and then dropped, since it only ever
+covered Google and the `GROUPS_ATTRIBUTE` route above covers both for
+less. The upstream one is still open, and is now a tidiness argument
+rather than a coverage one:
 
-Two routes to that, looked at on 2026-08-11 and neither taken:
-
-- **Let Dex synthesize the group.** Dex 2.45's generic `oidc` connector
-  supports `claimModifications.newGroupFromClaims`, which builds a group
-  out of other claims. Pointed at `email`, every user arrives carrying a
-  group equal to their own address, and `SIGNALK_OIDC_ADMIN_GROUPS`
-  becomes the allowlist — one line per admin, guests still falling
-  through to readonly. Needs Google moved off Dex's purpose-built
-  `google` connector onto the generic `oidc` one, which works because
-  Google publishes a discovery document. GitHub can't follow: it's
-  OAuth2, `claimModifications` is OIDC-connector-only, and the org/teams
-  alternative is the one already rejected above.
 - **Patch upstream.** An email list beside `adminGroups` in
   `dist/oidc/permission-mapping.js`, which today takes the groups array
   and nothing else. This is the only route that covers both providers,

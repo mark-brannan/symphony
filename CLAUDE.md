@@ -106,6 +106,15 @@ covered here.
 - When a claim can't be verified, leave it out or flag it in conversation.
   A gap is better than a confident guess.
 
+## Reaching the boat
+- `ssh pi@symphony-pi`. The user must be `pi`: the tailnet ACL rejects every
+  other name with "tailnet policy does not permit you to SSH as user X", and
+  the hostname is Tailscale's — plain `symphony` doesn't resolve. Both of
+  Mark's dev machines already hold the credentials, so don't go hunting for
+  keys or IPs. This has cost several sessions the same detour; the details,
+  including the periodic-reauth trap that looks like a hang under
+  `BatchMode`, are in `RUNBOOK.md` § Reaching the boat over Tailscale.
+
 ## The boat Pi's memory headroom
 - Expected state: SignalK, InfluxDB, Grafana, Caddy, Dex and Telegraf all run
   and stay enabled. Telegraf is the intended host-metrics source, not a

@@ -576,6 +576,22 @@
   `host/boat-heartbeat` now trips `/fail` on any failed systemd unit — it
   was already collecting the list, just never acting on it — installed and
   confirmed running on the boat.
+- SSO logins can now get admin on SignalK. The owner's address is listed in
+  `SIGNALK_OIDC_ADMIN_GROUPS` and everyone else still lands readonly; admin
+  work no longer requires the local `captain` password. Works from both
+  GitHub and Google, because the mechanism is `SIGNALK_OIDC_GROUPS_ATTRIBUTE`
+  pointed at the email claim rather than anything provider-specific.
+  The Dex-synthesized-group approach proved out on 2026-08-13 was built
+  first and then abandoned: it only ever covered Google, and reading the
+  email claim directly covers both for two environment variables and no Dex
+  change. Found while checking whether the GitHub gap was really unavoidable
+  — the document asserting no email hook existed was citing
+  `extractUserInfo`, which turns out to be dead code that nothing calls.
+  Verified end to end on a throwaway Dex/SignalK pair before deploying:
+  listed address `admin`, unlisted `readonly`, and swapping the list
+  demoted one and promoted the other on next login.
+- Pinned Dex to `v2.45.1` by digest, on the multi-arch index so the boat's
+  arm64 and the dev box's amd64 both resolve.
 
 ## Date unknown
 - Cleaned fuel filter.

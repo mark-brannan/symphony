@@ -680,8 +680,11 @@ The first expects `"enabled":true` and
 up behind Caddy. If TLS itself fails, certificates haven't issued — check
 `docker logs caddy`. Then from a browser on the LAN:
 
-- `https://signalk.symphony.dark-star-llc.com` → sign in with either provider → Security →
-  Users shows the new user with type `readonly`.
+- `https://signalk.symphony.dark-star-llc.com` → sign in as the owner with either provider →
+  Security → Users shows that user with type `admin`. Any other account
+  shows `readonly`. An owner login that comes out `readonly` means
+  `SIGNALK_OIDC_GROUPS_ATTRIBUTE` didn't reach the server — it fails
+  silently, so check the container's environment rather than the logs.
 - `https://grafana.symphony.dark-star-llc.com` → the owner's login → Admin; any other
   account → refused (that's the strict email list working).
 - The `captain` password still logs in on SignalK with admin.
@@ -691,9 +694,12 @@ up behind Caddy. If TLS itself fails, certificates haven't issued — check
 | Login | SignalK | Grafana |
 |---|---|---|
 | any GitHub or Google account | readonly | refused |
-| the owner's email, via either provider | readonly | Admin |
+| the owner's email, via either provider | admin | Admin |
 | `captain` (local password) | admin | — |
 | Grafana superadmin / provisioned users (password) | — | Admin / as provisioned |
+
+Both services now key off the same thing — the email on the login — so
+either provider gives the same answer.
 
 SSO permissions are re-applied at every login: promoting an SSO user in
 the SignalK admin UI reverts the next time they sign in, and Grafana
@@ -707,9 +713,20 @@ re-evaluates its email list the same way.
   `python3 scripts/render.py` and
   `docker compose up -d --force-recreate grafana`. A hand-managed list,
   in the repo.
-- **SignalK:** not available for SSO logins — the stock server maps
-  permissions only from IdP group claims, which these providers don't
-  supply. Someone who needs to change things uses the `captain` login.
+- **SignalK:** add the address to `SIGNALK_OIDC_ADMIN_GROUPS` in
+  `.env.j2` — comma-separated, e.g.
+  `owner@example.com,crew@example.com` — then `python3 scripts/render.py`
+  and `docker compose up -d --force-recreate signalk`.
+  `SIGNALK_OIDC_READWRITE_GROUPS` takes the same form for a lesser
+  grant. Matched literally and case-sensitively.
+- Both lists are read fresh on every login, so removing an address
+  demotes that person the next time they sign in — no user cleanup
+  needed. Promoting someone by hand in the SignalK admin UI does not
+  stick, for the same reason.
+- **Don't remove `SIGNALK_OIDC_GROUPS_ATTRIBUTE=email`.** It looks
+  redundant and isn't: it's what makes ADMIN_GROUPS read as an email
+  list at all. Without it the server looks for a `groups` claim that
+  nothing sends, and every SSO login silently drops to readonly.
 
 ### Removing someone
 
