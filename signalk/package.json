@@ -64,8 +64,6 @@
     "signalk-questdb": "^1.9.1",
     "signalk-restricted-areas": "^1.1.0",
     "signalk-rpi-monitor": "^1.1.1",
-    "signalk-rpi-stats": "^0.2.1",
-    "signalk-rpi-uptime": "^0.0.5",
     "signalk-sailing-logbook": "^0.10.0",
     "signalk-saillogger": "^5.2.0",
     "signalk-services-to-signalk": "^1.0.4",
