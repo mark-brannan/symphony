@@ -163,6 +163,22 @@ This file remains authoritative for the SignalK / IoT section below.
   with it, including remote access to fix it. When Caddy does move, drop the
   transitional `127.0.0.1:5556` port publish from `compose-idp.yml`; Caddy will
   reach Dex by service name on `symphony-net` instead.
+- Put fail2ban, or an equivalent rate limit, in front of sshd on the boat Pi.
+  Measured 2026-08-14: `PasswordAuthentication yes`, `PermitRootLogin
+  prohibit-password`, no fail2ban, and no host firewall — the INPUT policy is
+  accept and only Tailscale's own chains exist. Zero failed password attempts
+  in the previous 24 hours, so this is precautionary, not a response to
+  anything. Port 22 answers on the boat LAN, on the Pi's own WPA-PSK access
+  point (`SignalK`, wlan9, 10.42.0.1/24) and on the tailnet; nothing is
+  exposed to the internet. The reason to do it anyway is an asymmetry of
+  consequence. The router is consumer gear, so the wifi PSK is the most
+  likely thing to give way, and someone who gets that far can either read
+  SignalK — which is acceptable, and already true without a login — or get a
+  shell on the box that runs everything, which is not. A shell is where a
+  persistent backdoor lives, and it would outlast the wifi password that let
+  it in. Password auth itself stays: it's the offline fallback when a keyed
+  device is dead and the boat is far from anywhere, so rate-limiting is the
+  right control here and keys-only is not.
 - Rebuild boat computer
 - Ansible for host provisioning — research and build out, decided 2026-08-13. The plan, scope boundaries and open decisions are written up in `reference/host_provisioning.md`; the repo question is settled (the SignalK/Ansible repo is `tkurki/marinepi-provisioning`, upstream and not ours — read its roles, don't push to it). Next step is the `clock` and `watchdog` roles, since `host/install.sh` already has those two fully described and they're the smallest honest slice.
 - Set source priorities for position once the AIS is powered. The chartplotter and the AIS each carry their own GPS, so there will be two sources publishing `navigation.position` and SignalK will pick between them in arrival order. `~/.signalk/priorities.json` is `{}` today. The procedure is in `RUNBOOK.md` → "When the AIS is powered, there will be two GPS sources"; it can't be done in advance because N2K addresses are claimed dynamically and have to be read off the running bus.

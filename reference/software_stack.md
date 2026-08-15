@@ -188,7 +188,9 @@ Open readonly sign-in is deliberate: no `orgs:` filter on the GitHub
 connector, Google consent screen published to production — anyone with an
 account at either provider can sign in from the boat's LAN and watch. The
 identity lands in `security.json`'s user list, so there's a name
-attached. SignalK's separate anonymous no-login readonly mode stays off.
+attached. SignalK's separate anonymous no-login readonly mode (`allow_readonly`)
+is on as well, so reads don't require a login at all; signing in is what puts
+a name against them.
 
 If SignalK ever grows email-based permission lists (a small upstream
 addition next to `adminGroups`), SignalK's authority model collapses into
@@ -264,6 +266,15 @@ plugin-managed one dies with
 `Bind for 0.0.0.0:3001 failed: port is already allocated` and sits in
 `Created`.
 
+A container that lost this race is not retried — it stays in `Created`, and
+freeing 3001 afterwards has not been seen to bring it back on its own.
+
+*Unverified, and worth correcting if you learn otherwise:* the fix has never
+been run. Pointing the plugin's `grafanaPort` at a free port is the obvious
+move, but nobody has tried it, and it isn't known whether `signalk-grafana`
+honours the change or whether its auto-provisioning assumes 3001 elsewhere.
+Don't treat "just change `grafanaPort`" as a tested procedure.
+
 To run QuestDB from your own compose file instead, set
 `managedContainer: false` and point `questdbHost` at the service name. The
 plugin then behaves as a client and `signalk-container` isn't involved.
@@ -299,6 +310,39 @@ the `docker.sock` volume and `group_add` from `compose-signalk.yml`.
 A socket proxy is the usual middle path, but it buys little here —
 `signalk-container` has to create containers to do its job, and container
 creation is itself the escalation.
+
+### The mount can go stale and strand the container
+
+Seen once, on the WSL dev box, 2026-08-12: `signalk-server` exited 127 and
+did not come back, with
+
+```
+error mounting "/run/desktop/mnt/host/wsl/docker-desktop-bind-mounts/Ubuntu/docker.sock"
+to rootfs at "/var/run/docker.sock": not a directory
+```
+
+The host socket itself was healthy at the time — `srw-rw---- root docker`,
+with an mtime matching Docker Desktop's restart. What had gone stale was
+Docker Desktop's own bind-mount staging path, not `/var/run/docker.sock`.
+`docker compose up -d --force-recreate` cleared it.
+
+The cost is that the container sits dead with nothing retrying it, and
+nothing alarms on it — this instance was down about eight hours before
+anyone noticed.
+
+*Unverified, and worth correcting if you learn otherwise:*
+
+- Whether this recurs on every Docker Desktop restart or was a one-off. It
+  has been observed exactly once.
+- Why `restart: unless-stopped` didn't recover it. The container had been up
+  since 2026-08-09 and `RestartCount` was still 0 afterwards, which points to
+  the policy never retrying rather than retrying and giving up — but that is
+  read off the counter, not observed directly.
+- Whether anything short of a full recreate fixes it. Plain `docker start`
+  was never tried.
+
+This is a Docker Desktop / WSL failure mode. The boat Pi runs no Docker at
+all, so it cannot be hit there.
 
 ## How secrets are stored
 

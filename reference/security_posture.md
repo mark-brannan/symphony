@@ -57,8 +57,18 @@ to production, both deliberately — see
 [software_stack.md](software_stack.md) for the permission model. The
 door is bounded by network reachability, not by an allowlist.
 
-## Still open
+## Reads need no login, and that stays
 
-- Whether SignalK's unauthenticated readonly (`allow_readonly: true`)
-  stays on. Today all vessel data, position included, is readable with
-  no credential by anything that can reach the box. Not yet ruled on.
+SignalK's `allow_readonly` is on: all vessel data, position included, is
+readable by anything that can reach the box, with no credential. That
+follows from the trust boundary above — the things that can reach it are
+already trusted. Signing in isn't what grants a read; it's what puts a
+name against one.
+
+## The owner's own email address may appear in the clear
+
+`markbrannan@gmail.com` is not a secret and doesn't need hiding — it is
+already the author address on every commit in this public repo. The
+pseudonym machinery (`scripts/pseudonymize.py`, `.pseudonyms.yaml`)
+exists for *other people's* addresses, the crew and guest logins that SSO
+accumulates. Don't file the owner's address in a config file as a leak.
