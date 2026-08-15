@@ -32,8 +32,15 @@ Nothing in the ecosystem covers this.
   and raises notifications. It does not watch plugins, cannot see a plugin that
   loaded and went mute, and never acts.
 - `signalk-performance-monitor` does event-loop metrics and profiling. Unrelated.
-- No staleness, liveness, or plugin-supervision plugin exists in the registry.
-  Searched npm for watchdog, health, stale, and monitor against `signalk`.
+- No plugin-supervision plugin exists in the registry. One path-staleness
+  plugin does: `signalk-data-age-watchdog` (a keyword sweep on 2026-08-14
+  found it after the original text searches missed it — see
+  [monitoring_decisions.md](monitoring_decisions.md), Role 4, for how it
+  fits the boat's monitoring plan). Read in source: it watches a
+  hand-configured path list against one global age threshold, and skips any
+  path with no timestamp in the tree — so it cannot detect a plugin that is
+  mute from startup, which is the failure above. Supervision, learned
+  cadence, and never-published detection remain uncovered.
 - The server core *does* have `stopPlugin` / `restartPlugin` internally
   (`dist/interfaces/plugins.js`). The recovery mechanism exists. Nothing drives
   it.
