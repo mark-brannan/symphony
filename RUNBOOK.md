@@ -291,7 +291,8 @@ it's gitignored and must never be committed).
 docker compose up -d
 ```
 
-On the boat, once SSO is configured (next section), use this instead so
+On the boat, once SSO is configured ([SSO login](#sso-login-github--google)),
+use this instead so
 the TLS proxy and the identity provider come up too:
 
 ```bash
