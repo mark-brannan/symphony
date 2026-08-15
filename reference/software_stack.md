@@ -364,8 +364,9 @@ anyone noticed.
 - Whether anything short of a full recreate fixes it. Plain `docker start`
   was never tried.
 
-This is a Docker Desktop / WSL failure mode. The boat Pi runs no Docker at
-all, so it cannot be hit there.
+This is a Docker Desktop / WSL failure mode. The boat Pi runs Docker, but
+only for Dex and ntfy, and not under Docker Desktop — so it cannot be hit
+there.
 
 ## How secrets are stored
 

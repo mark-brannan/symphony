@@ -1590,6 +1590,30 @@ against the `^` ranges each time — this is not a reproducible install. npm 11
 also blocks postinstall scripts by default; if a plugin needs a native binary
 (`sharp`, `esbuild`), run `npm approve-scripts <pkg>` and reinstall it.
 
+### Back up hand-installed plugins before any npm install
+
+`~/.signalk/.npmrc` sets `package-lock=false` on the boat too, so every
+install re-resolves the whole tree and deletes anything in `node_modules`
+that no entry in `package.json` asks for. Plugins copied in by hand rather
+than installed from the registry are exactly that, and npm removes them
+without prompting.
+
+Before installing anything in `~/.signalk`, list what is at risk:
+
+```bash
+cd ~/.signalk
+npm install <pkg> --dry-run 2>&1 | grep '^remove'
+```
+
+Anything it reports is about to be deleted. Back those directories up, run
+the install, then restore them and confirm they are back — the dry run only
+sees what exists when you run it, so a plugin added afterwards will be
+pruned without ever appearing in that list.
+
+On 2026-08-15 this caught `signalk-plugin-watchdog` and `flaky-plugin`,
+both hand-installed. The permanent fix for any plugin meant to stay is a
+`file:` entry in `package.json`, which takes it out of the prune path.
+
 ## When SignalK errors about missing packages on the boat Pi
 
 The Pi is a baremetal OpenPlotter install, so the Docker reinstall above

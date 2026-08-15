@@ -8,7 +8,9 @@ and [software_stack.md](software_stack.md).
 
 Raspberry Pi 4 Model B Rev 1.5, 4 GB RAM, on a 32 GB SD card (29 GB usable).
 Debian 12 (bookworm), kernel 6.12.96 aarch64, hostname `signalk`. OpenPlotter
-is installed on bare metal — eleven `openplotter-*` packages, no Docker.
+is installed on bare metal — eleven `openplotter-*` packages. Docker is also
+installed and running, but only for Dex and ntfy; SignalK and the rest of the
+stack are native.
 
 The SD card is the constraint that shapes everything else: it holds the OS,
 SignalK's state directory, the InfluxDB store and Grafana's database on one
