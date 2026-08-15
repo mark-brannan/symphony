@@ -83,6 +83,19 @@ repos:
         pass_filenames: false
         always_run: true
 
+      # The boat Pi's locale has no codeset (LANG=en_US), so glibc falls back
+      # to ISO-8859-1 and Python inherits it for file I/O. A script that opens
+      # a UTF-8 document without an explicit encoding reads it as latin-1 and
+      # writes latin-1 back, turning an em dash into mojibake in a committed
+      # file. This catches the damage at the commit rather than in review.
+      # Repo layer only -- the host and process checks need the machine.
+      - id: encoding-health
+        name: encoding (tracked files are UTF-8, no mojibake)
+        entry: python3 scripts/check_encoding_health.py --repo
+        language: system
+        pass_filenames: false
+        always_run: true
+
       # Cheap syntax gate. A config file that doesn't parse can strand the
       # boat's services on next restart, and it's the same check CI runs.
       - id: validate-configs
