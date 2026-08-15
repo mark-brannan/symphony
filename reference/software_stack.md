@@ -478,6 +478,40 @@ literal value — is enforced the same way as the sops layer: a loud warning
 from the clean filter, a pre-commit hook (`hostvars-placeholders`), and the
 same check in CI (`scripts/hostvars_filter.py check`).
 
+### Alternatives considered for the ntfy URL
+
+Two other mechanisms could have carried this value; both were rejected for
+this case, and the reasons bound when each is the right tool.
+
+**A dev override** (`dev/plugin-config-overrides/`, a read-only bind mount
+over the repo's copy). Right for plugins that must be *forced* into a dev
+state — the pin deliberately breaks admin-UI saves, and it assumes the
+committed file is the boat's value with dev as the exception. Neither fits
+ntfy: the plugin is live in both environments, its other settings (topic,
+levels, `minIntervalMinutes`) should stay editable and committable from
+either machine, and the URL difference has no "real" side for the repo to
+own. The filter keeps the committed file environment-neutral and the
+admin-UI workflow intact on both machines.
+
+**One URL everywhere via DNS** — a split-horizon name, an `/etc/hosts`
+alias, or routing ntfy through Caddy. The two SignalK instances talk to
+*different* ntfy servers, each co-located with its SignalK; a shared name
+would not remove the per-machine difference, only relocate it from a
+declared, CI-checked `hostvars.local.yaml` into unversioned network state —
+a dnsmasq override per router, an `/etc/hosts` entry, a published-port
+choice — one copy per LAN, invisible to git and to `check`. On the boat it
+would also insert a resolver (and, via Caddy, the TLS front door and its
+offshore-expiring certificates) into the alarm-delivery path, which today
+depends on nothing but the loopback interface. Dev in fact already uses a
+split-horizon name: `ntfy` resolves only inside the compose network, via
+Docker's embedded DNS. The boat's equivalent binding is `localhost` — it
+just cannot be spelled identically, and alarms are the last traffic that
+should take on new dependencies to make a config file byte-identical.
+
+A client-facing name (a phone finding ntfy on the boat LAN, via the
+existing router DNS override and a Caddy route) is a separate, compatible
+concern — it would not change what SignalK dials.
+
 ## How the safety net is layered
 
 The layers are not equally trustworthy:

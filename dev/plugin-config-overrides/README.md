@@ -43,6 +43,8 @@ these files aren't sops-covered and because the pre-commit secret guard will
 block the commit if you do. `signalk-healthcheck.json` drops its `mail` block
 for that reason; email is disabled in dev either way.
 
-Known candidate not yet pinned: `signalk-ntfy.json`, committed pointing at
-`http://ntfy:80` and labelled "Self-hosted (dev docker)". That's a dev value
-sitting in the prod path. Pinning it needs the boat's actual ntfy URL first.
+`signalk-ntfy.json` is handled by the `hostvars` filter instead of a pin
+(RUNBOOK.md § Per-machine config values): the plugin is live in both
+environments and its non-URL settings should stay editable from either, so
+a read-only pin is the wrong shape — only the server URL differs per
+machine.
