@@ -884,10 +884,11 @@ read `.sops.yaml` at runtime, so they pick up the new file automatically.
 
 ### Never point `add_inplace_secret.sh` at `secrets/*.sops.yaml`
 
-The script edits before it verifies: by the time it fails on a whole-file
-encrypted store, it has already appended a `.sops.yaml` rule and a
-`.gitattributes` `filter=sops` line for it — and `sops_paths.py check`
-accepts that state as consistent. The stray filter line then makes every
+The script refuses `secrets/` paths and ciphertext-on-disk files up front.
+A run predating that guard edited before it verified: by the time it failed
+on a whole-file encrypted store, it had already appended a `.sops.yaml`
+rule and a `.gitattributes` `filter=sops` line for it — and
+`sops_paths.py check` accepts that state as consistent. The stray filter line then makes every
 later `git add` of the file run the clean filter, which fails with sops
 complaining about *"a top-level entry called 'sops'"*.
 
