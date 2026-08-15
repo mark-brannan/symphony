@@ -411,10 +411,14 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   mock server, gated behind an uplink-up probe (a raw-IP request to
   Cloudflare's resolver, so DNS being down doesn't read as an escalation) and
   debounced to one Pushover message per outage/crossing rather than one per
-  5-minute cycle. `pushover_api_token`/`pushover_user_key` are now in
-  `secrets/symphony.sops.yaml`; still open is copying those two values into
-  `host/boat-heartbeat.json` (its own in-place-encrypted fields, same pattern
-  as `url`) and running `host/install.sh` on the boat to actually deploy it.
+  5-minute cycle. **Deployed and live-tested 2026-08-14**: `pushover_api_token`/
+  `pushover_user_key` are in `host/boat-heartbeat.json` (in-place-encrypted,
+  same pattern as `url`), installed on the boat via `host/install.sh`, and
+  the escalation path fired for real — pointed `/etc/boat-heartbeat.json` at
+  a bad URL, ran the service 3x, got the "Symphony monitoring is down"
+  Pushover message, restored the real URL. Soft warning tier is untested live
+  (real mem/disk aren't in the warn band to trigger it) but covered by the
+  same mock-server pass as the escalation logic.
 - Host-metrics collectors: keep two, delete two — decided 2026-08-14, done
   2026-08-14. Telegraf stays the history source. `signalk-rpi-monitor` stays
   too, now with the job it didn't have before: warn/alarm zones on
@@ -451,8 +455,11 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   bricked SSH access before (RUNBOOK.md; the 08-11 and 08-12 incidents). Needs
   either a quieter moment to install it, or freeing memory first and someone
   watching it land.
-  `signalk-pushover-notification-relay` not installed — needs a Pushover
-  application token/user key from Mark, not in the sops secrets.
+  `signalk-pushover-notification-relay` not installed. The credential
+  blocker is gone — `pushover_api_token`/`pushover_user_key` landed in
+  `secrets/symphony.sops.yaml` 2026-08-14 for the heartbeat escalation above
+  and are the same values this plugin needs — but the install (and the
+  unmaintained-plugin audit) hasn't been done.
   Installing the Android ntfy app and subscribing to `symphony-alarms` on
   each server is Mark's phone-side step, tracked separately, not a blocker
   for anything above. Decided: do ntfy *and* a speaker, deliberately redundant — two
