@@ -13,6 +13,43 @@ data paths, the encryption design — see
 (engine, rigging, ground tackle, plumbing) live in `systems/*.md`, with work
 logged in `maintenance/log.md`.
 
+## Where things are
+
+**Getting in:** [Remote SSH access](#remote-ssh-access) ·
+[Reaching the boat over Tailscale](#reaching-the-boat-over-tailscale) ·
+[The resident Claude session on the boat Pi](#the-resident-claude-session-on-the-boat-pi)
+
+**Building and maintaining the host:** [Bringing up a host](#bringing-up-a-host) ·
+[Installing host files](#installing-host-files) ·
+[Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat) ·
+[Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi) ·
+[Upgrading the scanners](#upgrading-the-scanners)
+
+**Secrets and encryption:** [Adding a secret](#adding-a-secret) ·
+[Rotating a secret](#rotating-a-secret) · [Rotating the age key](#rotating-the-age-key) ·
+[Removing a secret](#removing-a-secret) ·
+[Email pseudonyms in security.json](#email-pseudonyms-in-securityjson) ·
+[Router config backup](#router-config-backup) ·
+[Scanning for leaks by hand](#scanning-for-leaks-by-hand)
+
+**Identity and access:** [SSO login (GitHub / Google)](#sso-login-github--google)
+
+**Running SignalK:** [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi) ·
+[SignalK's NMEA 2000 input](#signalks-nmea-2000-input) ·
+[Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
+
+**When something's broken:** [Hostnames stop resolving](#when-the-boats-hostnames-stop-resolving) ·
+[A plugin isn't in the config UI](#when-a-plugin-isnt-in-the-config-ui) ·
+[SignalK errors about missing packages](#when-signalk-errors-about-missing-packages-on-the-boat-pi) ·
+[BLE sensors silent after a reboot](#ble-sensors-go-silent-after-a-reboot) ·
+[A BLE sensor connects but delivers nothing](#a-ble-sensor-connects-but-never-delivers-data) ·
+[A plugin fork keeps reverting](#a-local-plugin-fork-keeps-reverting-to-the-registry-build) ·
+[A hook blocks your commit](#when-a-hook-blocks-your-commit) ·
+[Never use OpenPlotter's "Reinstall"](#never-use-openplotters-reinstall-for-signal-k)
+
+**Incidents:** [A secret was committed in plaintext](#a-secret-was-committed-in-plaintext) ·
+[Recovering a lost age key](#recovering-a-lost-age-key)
+
 ## Two deployments, one runbook
 
 The compose files are the intended deployment. **The boat Pi does not match
