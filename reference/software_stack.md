@@ -448,6 +448,36 @@ is a property of those two Dex connectors, not a guarantee — GitLab IDs
 resolve publicly, and Dex's static password DB puts whatever string you typed
 into the subject. Re-check it before adding a connector.
 
+## Per-machine values in plugin config
+
+The tracked plugin-config files double as the live configuration on every
+checkout, and one value genuinely differs by machine: `signalk-ntfy`'s
+server URL is `http://ntfy:80` on the dev stack (SignalK reaches ntfy over
+the compose network) but `http://localhost:8090` on the boat Pi (native
+SignalK, ntfy container's published port). With a single committed file,
+whichever machine committed last silently broke the other's alarm delivery.
+
+The fix reuses the clean/smudge filter architecture: git stores a
+placeholder (`"url": "{{ ntfy_url }}"`), and a second filter (`hostvars`,
+`scripts/hostvars_filter.py`) expands it on checkout from a gitignored
+per-machine `hostvars.local.yaml` and contracts it back on commit. SignalK
+reads and rewrites the file exactly as before; the machine-specific value
+never reaches git.
+
+Not sops, deliberately: these values aren't secrets, they just aren't
+shared — an ENC[...] blob would hide a harmless URL and still couldn't
+differ per machine. Only whole string values substitute, matched
+byte-for-byte, so a value can never be rewritten where it appears inside
+some longer string. `.hostvars.yaml` declares which files and variable
+names participate; the placeholder syntax matches the jinja2 templates
+`scripts/render.py` already renders, so an eventual Ansible migration
+treats these files as the templates they effectively are.
+
+The invariant — git's copy holds the placeholder, never one machine's
+literal value — is enforced the same way as the sops layer: a loud warning
+from the clean filter, a pre-commit hook (`hostvars-placeholders`), and the
+same check in CI (`scripts/hostvars_filter.py check`).
+
 ## How the safety net is layered
 
 The layers are not equally trustworthy:

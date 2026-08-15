@@ -29,6 +29,7 @@ logged in `maintenance/log.md`.
 [Rotating a secret](#rotating-a-secret) · [Rotating the age key](#rotating-the-age-key) ·
 [Removing a secret](#removing-a-secret) ·
 [Email pseudonyms in security.json](#email-pseudonyms-in-securityjson) ·
+[Per-machine config values](#per-machine-config-values) ·
 [Router config backup](#router-config-backup) ·
 [Scanning for leaks by hand](#scanning-for-leaks-by-hand)
 
@@ -263,15 +264,19 @@ continuing will produce confusing failures that look like Docker problems.
 ```bash
 git clone https://github.com/mark-brannan/symphony.git
 cd symphony
+cp hostvars.local.yaml.example hostvars.local.yaml
+# edit hostvars.local.yaml: set THIS machine's values (the example lists them)
 bash scripts/setup-git-filters.sh
 python3 scripts/render.py
 ```
 
-`setup-git-filters.sh` is the one onboarding command: it wires the sops
-clean/smudge filter, installs the pre-commit hooks, clears any stale
-`core.hooksPath`, and decrypts the in-place files onto disk. It only touches
-files that are *still ciphertext*, so it can never clobber live local config,
-and it's safe to re-run at any time.
+`setup-git-filters.sh` is the one onboarding command: it wires the sops and
+hostvars clean/smudge filters, installs the pre-commit hooks, clears any
+stale `core.hooksPath`, decrypts the in-place files onto disk, and expands
+the per-machine values from `hostvars.local.yaml`
+([Per-machine config values](#per-machine-config-values)). It only touches
+files that are *still ciphertext or placeholders*, so it can never clobber
+live local config, and it's safe to re-run at any time.
 
 Filters can't be wired before this point — git filter commands live in
 `.git/config`, which git deliberately doesn't version (arbitrary commands
@@ -1009,6 +1014,58 @@ git checkout -- signalk/security.json
 ```
 git log -S 'pid.rj232vx' -- signalk/security.json
 ```
+
+## Per-machine config values
+
+Some plugin-config values differ per machine without being secrets — the
+first is `signalk-ntfy`'s server URL (`http://ntfy:80` on the dev stack,
+`http://localhost:8090` on the boat Pi). Git stores a placeholder
+(`"{{ ntfy_url }}"`); the working tree holds this machine's value, expanded
+by the `hostvars` clean/smudge filter from `hostvars.local.yaml`
+(gitignored). Which files and variables: `.hostvars.yaml`.
+
+### Set up a machine
+
+```bash
+cp hostvars.local.yaml.example hostvars.local.yaml
+# edit hostvars.local.yaml -- the example lists the known per-machine values
+bash scripts/setup-git-filters.sh
+```
+
+*Verify:* `grep url signalk/plugin-config-data/signalk-ntfy.json` shows a
+real URL, not `{{ ntfy_url }}`. If a placeholder is still there, SignalK
+would read it literally — don't restart it until this is fixed.
+
+### Change a value (e.g. the ntfy URL moved)
+
+```bash
+# edit hostvars.local.yaml, then:
+python3 scripts/hostvars_filter.py refresh
+```
+
+Don't skip `refresh`: editing `hostvars.local.yaml` alone changes nothing on
+disk, and don't use `git checkout --` for this — it would discard any other
+local changes in the file; `refresh` rewrites only the placeholder values.
+
+If instead the value was changed in SignalK's admin UI first, update
+`hostvars.local.yaml` to match and run `refresh` the same way. Until the two
+agree, committing the file is blocked by the `hostvars-placeholders`
+pre-commit hook (and the same check in CI) rather than committing one
+machine's value over the other's.
+
+### Add a new per-machine value
+
+1. Add the variable under the file's entry in `.hostvars.yaml` (and the
+   file to `.gitattributes` as `filter=hostvars` if it's new there).
+2. Document it in `hostvars.local.yaml.example`; set it in
+   `hostvars.local.yaml`.
+3. Leave the real value in the file (it must equal what
+   `hostvars.local.yaml` says) — the clean filter contracts it at staging
+   time. Stage with `git add --renormalize <file>` (a plain `git add` skips
+   the filter when the file looks unmodified) and check
+   `git show :path/to/file` shows the placeholder.
+4. On every other machine: add the value to its `hostvars.local.yaml`, then
+   `python3 scripts/hostvars_filter.py refresh` after pulling.
 
 ## Router config backup
 

@@ -693,6 +693,14 @@
   `PYTHONUTF8=1`. Everything came back: no failed units, SignalK, InfluxDB,
   Grafana, Caddy and Telegraf all active, Dex and ntfy up as containers.
   All three encoding layers now clean.
+- Added a second git clean/smudge filter (`hostvars`) so plugin-config
+  values that differ per machine stop fighting over one committed file.
+  First case: `signalk-ntfy`'s server URL — git now stores
+  `{{ ntfy_url }}`, each machine expands it from a gitignored
+  `hostvars.local.yaml`. Guarded by a pre-commit hook and CI the same way
+  as the sops layer. Dev machines and the boat Pi still need their local
+  file created and `setup-git-filters.sh` re-run (RUNBOOK § Per-machine
+  config values).
 
 ## Date unknown
 - Cleaned fuel filter.
