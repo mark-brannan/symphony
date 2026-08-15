@@ -72,3 +72,14 @@ already the author address on every commit in this public repo. The
 pseudonym machinery (`scripts/pseudonymize.py`, `.pseudonyms.yaml`)
 exists for *other people's* addresses, the crew and guest logins that SSO
 accumulates. Don't file the owner's address in a config file as a leak.
+
+## The ntfy topic name isn't a secret
+
+`signalk-ntfy`'s setup screen warns to pick a random, hard-to-guess topic
+name — that's guidance for the public ntfy.sh service, where the topic is
+the only access control. Our ntfy server (`compose-ntfy.yml`) is
+self-hosted, not proxied through Caddy, and reachable only on the LAN,
+same as everything else here. Don't randomize the topic and don't route
+it through sops; it's a plain identifier, not a credential. This covers
+Basic Mode only — a future Advanced Mode commands topic (can trigger
+reboots/power switches) is a different risk and would need its own look.
