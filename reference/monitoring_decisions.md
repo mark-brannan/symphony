@@ -13,7 +13,7 @@ Four roles, one owner each. Every load-bearing claim is tagged **[verified]**
 |---|---|---|---|---|
 | 1. Off-boat liveness & host health | **healthchecks.io hosted + `boat-heartbeat`** — keep | extend `/fail` conditions; endpoint-down escalation; weekly report email | nothing | shell edits, no new accounts |
 | 2. Onboard vessel alarming | **SignalK notification bus** (zones, hoekens-anchor-alarm, mob-notifier) — keep | Pushover relay (internet path); self-hosted ntfy + `signalk-ntfy` (LAN path); speaker **[hardware]** | nothing | two plugin installs, one small server, one speaker |
-| 3. History & forensics | **Telegraf → InfluxDB → Grafana** — keep, forensics-only | nothing | `signalk-rpi-monitor`, `signalk-rpi-uptime` (boat), `signalk-rpi-stats` (dev) | plugin disable, reversible |
+| 3. History & forensics | **Telegraf → InfluxDB → Grafana** — keep, forensics-only | soft warning tier in the heartbeat; warn zones on `signalk-rpi-monitor` paths | `signalk-rpi-uptime` (boat), `signalk-rpi-stats` (dev) | plugin disable + zone config, reversible |
 | 4. Staleness | split: aboard **signalk-data-age-watchdog**; off-boat a freshness check in the heartbeat's orbit | both small | the bespoke watchdog plugin drops to optional; `signalk-ble-check` stays | an afternoon |
 
 Nothing above waits on the VPS. No recommendation needs hardware the boat
@@ -161,10 +161,19 @@ and its `telegraf-rpi-health` exec input latches under-voltage and throttling
 since boot **[verified — read the script]** — better power forensics than
 `signalk-rpi-monitor` offers. The rpi plugins' only alarm value was zones
 that were never configured; the sole configured zone aboard is air quality.
-So: disable `signalk-rpi-monitor` and `signalk-rpi-uptime` on the boat and
-`signalk-rpi-stats` on the dev container. Before disabling, grep KIP and any
-dashboards for `environment.rpi.*` so a widget doesn't go quietly blank —
-that check is the entire switching cost.
+
+First written as: disable all three. Amended 2026-08-14 after the owner asked
+for an early-warning tier on host metrics: `signalk-rpi-monitor` stays,
+because it is the one thing that can put host metrics on the notification
+bus — configure warn-band zones on its paths (thresholds derived from its
+own utilisation formula, per the posture doc) and host warnings ride the
+same onboard delivery as vessel alarms. That gives it a real job, which it
+didn't have before, so the Telegraf overlap now earns its place. A soft
+warning tier also goes into the heartbeat: pre-alarm thresholds send a
+low-priority Pushover message directly — quiet buzz, never `/fail`.
+`signalk-rpi-uptime` (boat) and `signalk-rpi-stats` (dev) still go. Before
+disabling, grep KIP and any dashboards for those plugins' paths so a widget
+doesn't go quietly blank — that check is the entire switching cost.
 
 Vessel history: the boat necessarily runs the InfluxDB path today — the
 QuestDB pair needs Docker, which the boat doesn't have. **[verified —

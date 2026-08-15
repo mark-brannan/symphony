@@ -407,7 +407,20 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   Pushover POST (needs a Pushover application token/user key, not in
   `secrets/symphony.sops.yaml` — Mark's to supply), and turning on
   healthchecks.io's weekly report email (needs an account login or API key,
-  neither of which is in this checkout).
+  neither of which is in this checkout). Also decided 2026-08-14: a soft
+  warning tier in the same script — thresholds shy of the alarm ones
+  (roughly disk 80%, memory 600 MB) send a low-priority Pushover message
+  directly: a quiet buzz, not the full fan-out, and never `/fail`.
+- Host-metrics collectors: keep two, delete two — decided 2026-08-14.
+  Telegraf stays the history source. `signalk-rpi-monitor` stays too, with a
+  job it didn't have before: configure warn-band zones on its
+  `environment.rpi.*` paths so host early warnings land on the notification
+  bus and ride the same onboard delivery (speaker/ntfy) as vessel alarms.
+  Derive zone thresholds from the plugin's own utilisation formula, not the
+  heartbeat's MB figures — see `reference/monitoring_posture.md`. Disable
+  `signalk-rpi-uptime` on the boat and `signalk-rpi-stats` on the dev
+  container; before disabling, check KIP and any dashboards for widgets on
+  those plugins' paths. Per `reference/monitoring_decisions.md` Role 3.
 - Phone and audible delivery for vessel alarms — build it; shape decided
   2026-08-14. The
   notification bus raises alarms fine; delivery is the gap, owner-confirmed
@@ -454,7 +467,6 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Set up Grafana dashboards based on the public examples on GitHub from @meri-imperiumi
 - Build a host-health dashboard for the boat computer. Telegraf now records everything needed and none of it is visible anywhere. These four queries were run against the live database on 2026-08-13 and return data, so the remaining work is panels, not discovery: `processes`/`blocked` (a non-zero value that doesn't come back down is a wedged task, the v3d signature), `rpi_health`/`under_voltage_since_boot` (latched — any 1 means the N2K bus sagged since boot), `chrony`/`last_offset` (clock drift; group away the `reference_id` tag or each NTP peer becomes its own series), and `internal_write`/`metrics_dropped` (non-zero means Telegraf is discarding, so gaps elsewhere are the monitor failing rather than the boat being quiet). Pair with `kernel`/`context_switches` and `mem`/`available` on the same time axis — the starvation signature is all three moving together.
 - Deploy the repo's Grafana provisioning to the boat. `/etc/grafana/provisioning` on the Pi still holds only Debian's `sample.yaml` files, so none of the five dashboards in `grafana/provisioning/dashboards/json/` or the InfluxDB datasource definition are actually in use — the running Grafana was configured by hand. Either point the native install at the repo's provisioning directory or wait for the Docker deploy, but until then the golden config's dashboards are untested against real data.
-- Give an SSO login admin on SignalK. Every SSO login lands readonly and stays there; admin work still means the local `captain` password. The two routes are written up in `reference/software_stack.md` — have Dex synthesize a group from the email claim (Google only, no upstream change), or add an email list beside `adminGroups` upstream (covers both providers). GitHub orgs was considered and rejected.
 - Decide whether to make the InfluxDB/Grafana stop stick across a reboot. Settled 2026-08-13: SignalK, InfluxDB, Grafana, Caddy, Dex and Telegraf are all expected to run and stay enabled, and all six are enabled and active as of that date. InfluxDB and Grafana are the release valve — anyone may `systemctl stop` them to recover roughly 600 MB under real memory pressure, without asking, but must not disable them, so a reboot brings them back. Real pressure means swap activity or available memory under ~400 MB, not a high load average on its own; check `free -m` and `grep ^pswp /proc/vmstat` first, and say so in-session when you stop one. Whether that should instead become a permanent disable is Mark's call and the only part still open.
 - Verify Grafana SSO end to end. Its OAuth config is live, but the browser login has never been exercised. `grafana-server` is running again as of the 2026-08-13 reboot, so nothing blocks the test.
 - Decide whether two SSO user records is a problem. SignalK keys OIDC users on `sub` + issuer, so the same person arrives as a separate readonly user from each provider (`mark-brannan` via GitHub, `markbrannan@gmail.com` via Google). They can't be merged; both can be granted the same permission.
