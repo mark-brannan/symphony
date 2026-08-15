@@ -6,6 +6,7 @@ networks:
 
 include:
   - path: compose-signalk.yml
+  - path: compose-ntfy.yml
   - path: compose-influxdb.yml
   - path: compose-grafana.yml
   - path: compose-proxy.yml    # profile "tls" -- only runs with --profile tls (boat)

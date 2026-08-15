@@ -73,11 +73,6 @@ creation_rules:
     key_groups:
       - age: *recipients
 
-  - path_regex: signalk/plugin-config-data/signalk-healthcheck\.json$
-    encrypted_regex: '^password$'
-    key_groups:
-      - age: *recipients
-
   - path_regex: signalk/plugin-config-data/signalk-windy-plugin\.json$
     encrypted_regex: '^key$'
     key_groups:
@@ -124,6 +119,6 @@ creation_rules:
       - age: *recipients
 
   - path_regex: host/boat-heartbeat\.json$
-    encrypted_regex: '^url$'
+    encrypted_regex: '^(url|pushover_api_token|pushover_user_key)$'
     key_groups:
       - age: *recipients

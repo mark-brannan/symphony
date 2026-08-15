@@ -1,0 +1,21 @@
+services:
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    command: serve
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+      - NTFY_LISTEN_HTTP=:80
+      - NTFY_BEHIND_PROXY=false
+      - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
+      - NTFY_AUTH_DEFAULT_ACCESS=read-write   # LAN is the trust boundary, same posture as the rest of the stack -- see reference/security_posture.md
+    volumes:
+      - ntfy-data:/var/lib/ntfy
+    ports:
+      - "8090:80"
+    networks:
+      - symphony-net
+
+volumes:
+  ntfy-data:

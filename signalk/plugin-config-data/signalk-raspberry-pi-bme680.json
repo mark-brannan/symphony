@@ -1,0 +1,17 @@
+{
+  "configuration": {
+    "rate": 5,
+    "burn_in_time": 500,
+    "hum_baseline": 40,
+    "hum_weighting": 0,
+    "path1": "inside",
+    "path2": "inside",
+    "path3": "outside",
+    "path4": "inside",
+    "i2c_bus": 1,
+    "i2c_address": "0x77"
+  },
+  "enabled": true,
+  "enableLogging": false,
+  "enableDebug": false
+}

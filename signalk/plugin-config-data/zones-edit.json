@@ -1,0 +1,39 @@
+{
+  "configuration": {
+    "zones": [
+      {
+        "active": true,
+        "key": "self.environment.inside.airquality",
+        "zones": [
+          {
+            "lower": 0,
+            "upper": 100,
+            "state": "nominal",
+            "method": [],
+            "message": ""
+          },
+          {
+            "lower": 101,
+            "upper": 200,
+            "state": "alert",
+            "method": [
+              "visual"
+            ],
+            "message": "AQI is \"Orange\" or \"Red\" - This may cause adverse health effects"
+          },
+          {
+            "lower": 201,
+            "upper": 500,
+            "state": "emergency",
+            "method": [
+              "visual",
+              "sound"
+            ],
+            "message": "AQI is in range of \"Very Unhealthy\" to \"Hazardous\""
+          }
+        ]
+      }
+    ]
+  },
+  "enabled": true
+}

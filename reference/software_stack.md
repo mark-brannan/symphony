@@ -96,10 +96,19 @@ per-process and systemd unit state into the `symphony` InfluxDB bucket
 every sixty seconds, batched into a single write to spare the SD card.
 
 It exists because nothing else was recording the machine. SignalK's plugins
-report vessel data and `signalk-healthcheck` alarms on a CPU, memory, or
-disk threshold, but neither keeps history — so a hang or an out-of-memory
-event left nothing to look at afterwards, and diagnosis meant a trip to the
-boat.
+report vessel data and keep no history of the host, so a hang or an
+out-of-memory event left nothing to look at afterwards, and diagnosis meant a
+trip to the boat.
+
+`signalk-healthcheck` used to raise alarms on CPU, memory and disk thresholds
+and was removed on 2026-08-14. Telegraf measures the same things with history
+and higher resolution; the off-boat heartbeat carries them somewhere that
+survives the box dying; and the plugin's own alarms went to an SMTP host that
+was never configured. What it did uniquely — warn that a data provider had
+gone stale — it was no longer doing either, being configured to watch an
+"OpenPlotter GPSD" provider that does not exist. That capability is worth
+rebuilding in the heartbeat payload rather than in a plugin whose alarms ring
+the boat's beeper.
 
 Its credential is `influxdb_captain_token`, which is captain's all-access
 token rather than a scoped one. That's a stopgap: the other InfluxDB tokens
@@ -158,16 +167,49 @@ How each piece consumes Dex:
 
 ### The permission model
 
-SSO is identity, not authority: every SSO login lands at
-`SIGNALK_OIDC_DEFAULT_PERMISSION` (readonly) and stays there. SignalK's
-permission mapper takes exactly one input — an IdP group-claims **array**
-(`Array.isArray`-gated in `dist/oidc/user-info.js`), re-derived on every
-login, no email-based hook — verified in the running 2.30.0 and still
-true on upstream master as of 2026-08-08. Google logins never carry
-groups, GitHub logins only carry them as org-team memberships, and the
-org/teams route was rejected as hoops without payoff. Admin work belongs
-to the local `captain` account, which predates SSO and is unaffected by
-it.
+The owner's login gets admin on SignalK; everyone else lands at
+`SIGNALK_OIDC_DEFAULT_PERMISSION` (readonly). Deployed 2026-08-14.
+
+SignalK's permission mapper reads groups and nothing else, and neither
+GitHub nor Google sends any. Rather than manufacture a group, the server
+is pointed at a claim that already exists:
+`SIGNALK_OIDC_GROUPS_ATTRIBUTE=email` names which claim to treat as
+groups, and the callback normalizes a bare string into a one-element
+list, so the email *is* the group. `SIGNALK_OIDC_ADMIN_GROUPS` then
+holds plain addresses — the same shape as Grafana's, and no Dex change
+at all. Both providers work, because Dex carries an email claim for
+either one.
+
+The load-bearing part is `GROUPS_ATTRIBUTE`. Drop it and the server
+looks for a `groups` claim nothing sends, and every SSO login silently
+becomes readonly — no error, either side.
+
+What makes this safe: permissions are recalculated on every login
+(`findOrCreateOIDCUser` updates an existing user's type when the mapping
+changes), so editing the list demotes or promotes people on their next
+sign-in with no cleanup. And the failure mode is closed — a broken
+mapping costs an admin their rights rather than handing anyone else
+theirs, with `captain` still available to fix it.
+
+Verified end-to-end against 2.30.0 on 2026-08-14, on a throwaway Dex and
+SignalK pair: a listed address came out `admin`, an unlisted one
+`readonly`, and swapping the list demoted the first and promoted the
+second on their next login.
+
+Two things to know before touching it. `dist/oidc/user-info.js` gates
+groups behind `Array.isArray` and would reject a bare string — but
+`extractUserInfo` is exported and never called anywhere in `dist`. It's
+dead code, and an earlier version of this document cited it as proof
+that no email-based hook existed. The live path is the callback in
+`dist/oidc/oidc-auth.js`. Second, pointing `groupsAttribute` at a claim
+that isn't a group is off-label: both halves are supported (the option
+is documented, and the string-to-list normalization is deliberate and
+commented), but a future release could tighten it and quietly demote the
+owner. The RUNBOOK's post-deploy check is what catches that; the
+upstream patch below is the durable fix.
+
+The local `captain` account predates SSO and is unaffected by any of
+this — it stays the offshore fallback.
 
 Grafana is the exception because its role mapping can key off the
 **email claim**: `role_attribute_path` holds a hand-managed list in
@@ -179,24 +221,16 @@ Open readonly sign-in is deliberate: no `orgs:` filter on the GitHub
 connector, Google consent screen published to production — anyone with an
 account at either provider can sign in from the boat's LAN and watch. The
 identity lands in `security.json`'s user list, so there's a name
-attached. SignalK's separate anonymous no-login readonly mode stays off.
+attached. SignalK's separate anonymous no-login readonly mode (`allow_readonly`)
+is on as well, so reads don't require a login at all; signing in is what puts
+a name against them.
 
-If SignalK ever grows email-based permission lists (a small upstream
-addition next to `adminGroups`), SignalK's authority model collapses into
-the same shape as Grafana's: email lists in this repo.
+Neither of the two routes considered on 2026-08-11 is what shipped — the
+Dex-synthesized group was built and then dropped, since it only ever
+covered Google and the `GROUPS_ATTRIBUTE` route above covers both for
+less. The upstream one is still open, and is now a tidiness argument
+rather than a coverage one:
 
-Two routes to that, looked at on 2026-08-11 and neither taken:
-
-- **Let Dex synthesize the group.** Dex 2.45's generic `oidc` connector
-  supports `claimModifications.newGroupFromClaims`, which builds a group
-  out of other claims. Pointed at `email`, every user arrives carrying a
-  group equal to their own address, and `SIGNALK_OIDC_ADMIN_GROUPS`
-  becomes the allowlist — one line per admin, guests still falling
-  through to readonly. Needs Google moved off Dex's purpose-built
-  `google` connector onto the generic `oidc` one, which works because
-  Google publishes a discovery document. GitHub can't follow: it's
-  OAuth2, `claimModifications` is OIDC-connector-only, and the org/teams
-  alternative is the one already rejected above.
 - **Patch upstream.** An email list beside `adminGroups` in
   `dist/oidc/permission-mapping.js`, which today takes the groups array
   and nothing else. This is the only route that covers both providers,
@@ -255,6 +289,15 @@ plugin-managed one dies with
 `Bind for 0.0.0.0:3001 failed: port is already allocated` and sits in
 `Created`.
 
+A container that lost this race is not retried — it stays in `Created`, and
+freeing 3001 afterwards has not been seen to bring it back on its own.
+
+*Unverified, and worth correcting if you learn otherwise:* the fix has never
+been run. Pointing the plugin's `grafanaPort` at a free port is the obvious
+move, but nobody has tried it, and it isn't known whether `signalk-grafana`
+honours the change or whether its auto-provisioning assumes 3001 elsewhere.
+Don't treat "just change `grafanaPort`" as a tested procedure.
+
 To run QuestDB from your own compose file instead, set
 `managedContainer: false` and point `questdbHost` at the service name. The
 plugin then behaves as a client and `signalk-container` isn't involved.
@@ -290,6 +333,40 @@ the `docker.sock` volume and `group_add` from `compose-signalk.yml`.
 A socket proxy is the usual middle path, but it buys little here —
 `signalk-container` has to create containers to do its job, and container
 creation is itself the escalation.
+
+### The mount can go stale and strand the container
+
+Seen once, on the WSL dev box, 2026-08-12: `signalk-server` exited 127 and
+did not come back, with
+
+```
+error mounting "/run/desktop/mnt/host/wsl/docker-desktop-bind-mounts/Ubuntu/docker.sock"
+to rootfs at "/var/run/docker.sock": not a directory
+```
+
+The host socket itself was healthy at the time — `srw-rw---- root docker`,
+with an mtime matching Docker Desktop's restart. What had gone stale was
+Docker Desktop's own bind-mount staging path, not `/var/run/docker.sock`.
+`docker compose up -d --force-recreate` cleared it.
+
+The cost is that the container sits dead with nothing retrying it, and
+nothing alarms on it — this instance was down about eight hours before
+anyone noticed.
+
+*Unverified, and worth correcting if you learn otherwise:*
+
+- Whether this recurs on every Docker Desktop restart or was a one-off. It
+  has been observed exactly once.
+- Why `restart: unless-stopped` didn't recover it. The container had been up
+  since 2026-08-09 and `RestartCount` was still 0 afterwards, which points to
+  the policy never retrying rather than retrying and giving up — but that is
+  read off the counter, not observed directly.
+- Whether anything short of a full recreate fixes it. Plain `docker start`
+  was never tried.
+
+This is a Docker Desktop / WSL failure mode. The boat Pi runs Docker, but
+only for Dex and ntfy, and not under Docker Desktop — so it cannot be hit
+there.
 
 ## How secrets are stored
 

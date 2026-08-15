@@ -7,6 +7,11 @@
         "duplicate": true
       },
       {
+        "path": "environment.inside.humidity",
+        "newPath": "environment.inside.relativeHumidity",
+        "duplicate": true
+      },
+      {
         "path": "environment.time",
         "newPath": "navigation.datetime",
         "source": "plugin",

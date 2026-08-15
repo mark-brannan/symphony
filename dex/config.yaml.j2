@@ -4,7 +4,8 @@
 #
 # Dex is the boat's OIDC issuer: SignalK and Grafana trust only it; it
 # hands the actual login to GitHub or Google. Permissions are decided
-# downstream (SignalK: everyone readonly; Grafana: email list in .env.j2).
+# downstream, both off email lists in .env.j2 (SignalK: ADMIN_GROUPS via
+# GROUPS_ATTRIBUTE; Grafana: role_attribute_path).
 
 issuer: https://auth.{{ boat_domain }}/dex
 

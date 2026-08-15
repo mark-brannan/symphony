@@ -442,6 +442,258 @@
   left the Bluetooth controller unable to complete GATT service discovery,
   which a clean reboot cleared.
 
+- Removed `signalk-healthcheck`. Its three jobs are covered better elsewhere:
+  Telegraf measures CPU, memory and disk with history and higher resolution,
+  the off-boat heartbeat carries the same numbers somewhere that survives the
+  box dying, and its own email alarms went to an SMTP host that was never
+  configured. The one thing it did uniquely — warn that a data provider had
+  gone stale — it was not doing either, being pointed at an "OpenPlotter GPSD"
+  provider that doesn't exist. Its low-memory alarm was also the one that fed
+  itself into the watchdog resets on 08-13. Removed from the boat and from the
+  repo, along with its sops stanza. The staleness idea is worth rebuilding in
+  the heartbeat rather than in a plugin that rings the boat's beeper for a full
+  disk.
+- Silenced OpenPlotter's notification sound player, leaving
+  `signalk-notification-player` as the only thing that makes noise aboard.
+  OpenPlotter spawns one `openplotter-notifications-sound` process per
+  notification path and each one loops `cvlc` until the state clears, which is
+  how a single weather feed turned into the process storm behind the 08-13
+  watchdog resets. `soundignore` in `~/.openplotter/openplotter.conf` now lists
+  every state; visual notifications still fire, confirmed by watching it spawn
+  a visual-only process for a live Victron BT warning. Also set the player's
+  `repeatGap` to 20s — note this debounces warns and alerts only, since the
+  plugin bypasses it for `alarm` and `emergency` by design, so it was not what
+  closed the loop.
+- Reclaimed 3.3 GB on the SD card: 79% full down to 67%, 9.2 GB free. Most of
+  it was npm's download cache under `~/.npm` and `/root/.npm`, 2.1 GB between
+  them. The rest was `apt autoremove` clearing ten stale kernels and their
+  headers, `apt clean`, 31 abandoned npm staging directories, and the module
+  stubs autoremove leaves behind in `/usr/lib/modules`. Held back
+  `chromium-browser`, its codecs and `opencpn-sglock-arm64`, which autoremove
+  wanted and which are decisions rather than garbage. Kept
+  `/root/.cache/node-gyp`; 110 MB is a poor trade for the ability to rebuild a
+  native module without a network. Verified after: all six services up, `can0`
+  up, running kernel's modules intact, module resolution clean.
+- Added `pi` to the `docker` group so pre-commit's secret scanner can actually
+  run on the boat Pi. The hook is the `gitleaks-docker` variant, and without
+  socket access it failed to start on every local commit — which looks like a
+  passing repo but means nothing was scanned. CI was still catching it on push,
+  so this was a gap in the fast feedback rather than in the enforcement
+  boundary, but the whole point of the local hook is to catch a secret before
+  it reaches a remote. Verified afterwards with a full-repo run: passed. Note
+  the group only takes effect for new logins, so a session open across the
+  change has to use `sg docker -c` or log out first.
+- Disabled `signalk-gpio-beeper-plugin` on the boat. It was enabled with an
+  empty configuration and throwing `Cannot read properties of undefined
+  (reading 'forEach')` on every subscription callback. The repo's copy has the
+  real settings — `gpioPin` 17, `gpioChip`, `duration`, `interval` — but is
+  itself disabled, so neither copy worked alone and the union of the two would
+  have. Left disabled deliberately rather than merged: what goes on the GPIO
+  header isn't decided, and enabling it means a beeper that actually beeps.
+  Applied over the API, so no server restart.
+- Started reconciling the boat's SignalK install against the repo's, and the
+  first useful result was that the framing was wrong. These are two live
+  installs that have drifted — the boat natively, the dev box in a container —
+  not a repo and a deployment. 15 of the 17 configs that exist only in the repo
+  are in `signalk/package.json`, so the container runs them today and the boat
+  doesn't. Of the 34 that exist only on the boat, four have no plugin behind
+  them at all. Wrote `scripts/signalk_plugin_census.py` to inventory either
+  server the same way so the two can be diffed instead of argued about.
+  The census also killed a tempting mistake: attributing data-model paths to
+  the plugin id that published them says almost nothing, because plugins rename
+  their `$source` at will. `bt-sensors-plugin-sk` publishes as "House Battery 1"
+  and `i2c-reader` as "OpenPlotter.I2C.BME680/688-1"; a first cut scored both as
+  idle while they were working perfectly. The script now separates webapps and
+  outward-writing exporters, for which silence is correct, and prints the
+  unexplained source names beside the unmatched plugins so the pairing is done
+  by eye rather than guessed.
+- Deleted `signalk-to-influxdb.json` from the boat. It configures the InfluxDB
+  *1.x* plugin — `username`, `password`, `database` are the 1.x write API — and
+  the box runs InfluxDB 2.8.0 with `signalk-to-influxdb2` and
+  `-v2-buffering` installed instead. The plugin itself was already gone and the
+  config already disabled. Deleting it also removed a stale cleartext password
+  from disk. The repo never carried this file.
+- Evaluated the two voyage-logging plugins, and corrected a claim this session
+  had been repeating. **`signalk-postgsail` is not blocked by `better-sqlite3`.**
+  It declares no dependencies at all; `signalk-polar` is the only thing here
+  that needs better-sqlite3, and that is still unbuilt on Node 22. postgsail is
+  enabled, loaded, and pointed at the *hosted* PostgSail at
+  `api.openplotter.cloud` with a token — which also means it is not the
+  self-hosted-versus-SaaS contrast it looked like. That endpoint answers 200,
+  so its hourly "removing metrics from buffer" line is not a connectivity
+  failure; it is the plugin finding nothing to delete after a submit. Whether
+  data is actually landing needs Mark's account to confirm.
+  `signalk-saillogger` costs **USD $7.99/month** after a 45-day trial, monthly
+  billing only. It is the only plugin in this stack that ships its own passing
+  test suite, and it carries critical npm audit vulnerabilities. Not installed
+  here; its orphaned config holds only a `uuid`.
+- `signalk-tide-watch` is not worth reconnecting the depth transducer for. It
+  fails the SignalK registry's *Loads* check outright — "plugin constructor did
+  not return a valid object" — and *Activates* with it, scoring 20, the lowest
+  in the stack. The question of whether it would add noise to depth data does
+  not arise, because it does not start. Its config on the boat is detailed and
+  was clearly set up with care at some point, so the plugin regressed rather
+  than the setup being wrong. Left disabled, config kept.
+
+## 2026-08-14
+- Audited the SSO setup end to end. It is deployed and working: certificates
+  for all three hostnames good through 2026-11-10, Dex answering behind Caddy,
+  and both the GitHub and the Google login already exercised. Nothing is
+  reachable from the internet — the router drops inbound on the WAN zone, there
+  are no port forwards, and Tailscale Funnel is off.
+- Wrote down the boat's security posture rather than re-deriving it every
+  session. `reference/security_posture.md`, pointed at from `CLAUDE.md`: the
+  LAN is the trust boundary, plain HTTP alongside the TLS front door stays
+  because the raw-IP path is the offshore fallback, the local password logins
+  stay for the same reason, and certificate warnings after months offline are
+  expected.
+- Found `reference/software_stack.md` recording SignalK's anonymous no-login
+  readonly mode as off. It is on, and stays on — the decision had been written
+  down backwards, which is why it kept coming back up as an open question.
+- Proved that Dex can hand an SSO login SignalK admin without any org or team
+  membership: its `oidc` connector will synthesize a group from the email
+  claim, which SignalK's existing `adminGroups` mapping then matches. Verified
+  on a throwaway two-Dex chain and a scratch SignalK — the allowlisted address
+  came out admin, everyone else readonly. Needs the `groups` scope explicitly
+  requested and a prefix on the synthesized name, or it silently produces
+  nothing. Not deployed; it only covers Google, since GitHub is OAuth2 and
+  can't carry the claim.
+- Worked the monitoring/alarm backlog for easy wins. Self-hosted ntfy is up
+  and verified (round-tripped a test message) both on the boat Pi
+  (`localhost:8090`, native SignalK reaches it directly) and the dev docker
+  stack (`compose-ntfy.yml`, reached over `symphony-net` as `ntfy:80`).
+  `signalk-ntfy` installed and configured on the dev container, topic
+  `symphony-alarms`; not installed on the boat, deliberately — the Pi had
+  825 MB available and a full swap when checked, and `npm install` there has
+  bricked SSH before (RUNBOOK.md, 08-11 and 08-12 incidents).
+  `signalk-healthcheck`'s host CPU/mem/disk section disabled and its
+  `n2k-can0` provider-staleness watch enabled with notifications on, on the
+  boat, per the Role 2/4 split in `reference/monitoring_decisions.md`; the
+  repo's copy of that plugin's config was found already deleted from git
+  (commit b8b4cc2) with no `.gitattributes` sops rule left for its mail
+  password field, so it's back on disk but deliberately not re-added to git
+  until that's wired up properly.
+  `host/boat-heartbeat` now trips `/fail` on any failed systemd unit — it
+  was already collecting the list, just never acting on it — installed and
+  confirmed running on the boat.
+- SSO logins can now get admin on SignalK. The owner's address is listed in
+  `SIGNALK_OIDC_ADMIN_GROUPS` and everyone else still lands readonly; admin
+  work no longer requires the local `captain` password. Works from both
+  GitHub and Google, because the mechanism is `SIGNALK_OIDC_GROUPS_ATTRIBUTE`
+  pointed at the email claim rather than anything provider-specific.
+  The Dex-synthesized-group approach proved out on 2026-08-13 was built
+  first and then abandoned: it only ever covered Google, and reading the
+  email claim directly covers both for two environment variables and no Dex
+  change. Found while checking whether the GitHub gap was really unavoidable
+  — the document asserting no email hook existed was citing
+  `extractUserInfo`, which turns out to be dead code that nothing calls.
+  Verified end to end on a throwaway Dex/SignalK pair before deploying:
+  listed address `admin`, unlisted `readonly`, and swapping the list
+  demoted one and promoted the other on next login.
+- Pinned Dex to `v2.45.1` by digest, on the multi-arch index so the boat's
+  arm64 and the dev box's amd64 both resolve.
+
+## 2026-08-15
+- Gave the boat Pi a UTF-8 locale. `en_US.UTF-8` was commented out in
+  `/etc/locale.gen` — generated it. Removed `LC_ALL` from
+  `/etc/default/locale` outright rather than editing it, since it was
+  overriding `LANG` system-wide; set `LANG`/`LANGUAGE` to `en_US.UTF-8`.
+  Set `PYTHONUTF8=1` in both `/etc/environment` and systemd's
+  `DefaultEnvironment` — the Python exposure (OpenPlotter's i2c/can
+  services) runs as system-managed services, which don't read
+  `/etc/environment`. Host locale (layer 2) verified clean immediately.
+  Running processes (layer 3) won't fully converge until the boat Pi next
+  reboots — services keep their old environment until they restart.
+  Along the way, found that interactive SSH sessions to the boat over
+  Tailscale don't inherit locale env at all: `pam_env` isn't populating
+  `LANG`/`LANGUAGE` in the session despite being wired into
+  `/etc/pam.d/sshd`. Doesn't affect the fix above (systemd services get
+  their environment from the manager, not from PAM/SSH), so left alone.
+- Ran down the SSH locale gap. It isn't a PAM misconfiguration: Tailscale
+  SSH is enabled on the boat Pi (`RunSSH: true`), so `tailscaled` answers
+  port 22 on the tailnet itself and `sshd` never sees the connection —
+  `journalctl -u ssh` has no entries for these logins, while `tailscaled`
+  logs each one and spawns `tailscaled be-child ssh`. That path builds the
+  session environment on its own and doesn't run PAM's session stack, so the
+  `pam_env` line in `/etc/pam.d/sshd` is simply never reached. It still
+  applies to sshd logins from the boat LAN. Nothing to fix: Tailscale hands
+  the session `LANG=C.UTF-8`, which is a UTF-8 locale, and Python in it
+  reports `utf-8` for both filesystem and preferred encoding. Noting it as a
+  quirk rather than chasing it.
+- Decided the layer-3 locale convergence needs a deliberate reboot rather
+  than patience. Of the 58 processes still on `LANG=en_US`, the bulk are the
+  desktop stack, pypilot's 9 processes, pigpiod, tailscaled and PID 1 —
+  long-lived things that don't restart on their own. Reboot is queued behind
+  the watchdog deploy's test window.
+- `signalk-ntfy` 0.0.7 installed on the boat Pi and delivering. Pointed at
+  the Pi's own ntfy (`http://localhost:8090`), topic `symphony-alarms`,
+  otherwise matching the dev container's config. Six real alerts — BLE
+  sensor timeouts and a space-weather advisory — landed on the topic within
+  two minutes of SignalK coming back up, so the path is proven end to end.
+  Phone subscribing still untested; that gets done from home, and it will
+  need the Pi's tailnet or LAN address, since `localhost` on a phone means
+  the phone.
+- Freed memory for that install by stopping InfluxDB and Grafana (available
+  went 771 MB → 1042 MB, then 2488 MB with SignalK also down). Both restarted
+  afterwards; all of SignalK, InfluxDB, Grafana, Telegraf and Caddy are back
+  up, 854 MB available and no swapping.
+- The install itself took 40 seconds and was never the risk. The real hazard
+  was npm's pruning: `~/.signalk/.npmrc` sets `package-lock=false`, so every
+  install re-resolves the whole tree and deletes anything not named in
+  `package.json`. A dry run caught it removing `signalk-plugin-watchdog`, and
+  a sweep of `node_modules` found `flaky-plugin` in the same position. Both
+  are hand-installed local plugins with no dependency entry. Backed both up
+  first and restored them after; both are back in place.
+- Note for whoever owns the watchdog: it stays vulnerable to this. Any future
+  `npm install` in `~/.signalk` deletes it again unless it gets a real entry
+  in `package.json`.
+- Migrated the recovered airquality zones to server-native meta: added
+  `meta.zones` for `environment.inside.airquality` to `signalk/baseDeltas.json`
+  (dev container), corrected path, methods mapped to the meta-level
+  `alertMethod`/`emergencyMethod` form the server's zone engine actually reads.
+  Bands kept as recovered — they match the dedicated BME680 plugin's documented
+  0–500 index (`500 − 5×score`, gas + humidity weighted). `zones-edit.json`
+  stays in the repo as recovered history only; the boat's installed
+  `@signalk/zones` is now a removal item, not a debugging item. Boat-side
+  mirror and plugin removal queued in priorities.
+- Closed the BME680 capture gap from the census side: dedicated plugin
+  disabled on both boxes, live data arrives via legacy `openplotter-i2c-read`
+  as source `OpenPlotter.I2C.BME680/688-1` (2 paths, names not recorded).
+  Identifying those paths and choosing the owning mechanism is queued in
+  priorities. Couldn't verify live this session — the cloud container has no
+  ssh client and isn't on the tailnet, so the boat is unreachable from it.
+- Deployed `signalk-plugin-watchdog` to the boat Pi as a proof of concept.
+  Copied into `~/.signalk/node_modules/` (no build step, zero deps) and
+  enabled via `plugin-watchdog.json` with production settings —
+  `checkIntervalSeconds: 60`, `graceSeconds: 600`, `stallSeconds: 0`,
+  `expectPlugins: ["bt-sensors-plugin-sk"]`. `known-producers.json`
+  populated with the boat's actual producing plugins within a minute of
+  restart; no false notification on any healthy plugin.
+- Proved the failure path with the `flaky-plugin` test fixture: installed
+  it, let it publish and get learned as a producer, then restarted with its
+  mute marker in place so it stayed silent from boot. The alert fired right
+  at the grace threshold — `notifications.pluginWatchdog.flaky-plugin` went
+  to `alert`, "enabled but has published no deltas since startup (grace
+  600s exceeded)". Removed the marker, the fixture, and its config
+  afterward; the alarm auto-cleared to `normal` ("was disabled; alarm
+  withdrawn") on the watchdog's next tick, no restart needed.
+- Mid-deploy, another session's `systemctl stop signalk` landed while this
+  one was restarting for the install, and the resulting stop hung and got
+  SIGKILLed — SignalK was down briefly. Three sessions ended up working the
+  Pi in the same window (this deploy, a resident session's npm/ntfy work,
+  and a UTF-8-locale reboot queued behind both); coordinated a restart order
+  between them rather than continuing to collide.
+
+- Rebooted the boat Pi to finish the UTF-8 locale convergence, once the
+  watchdog deploy's restart tests were clear. Layer 3 went from 58 stale
+  processes to zero, confirmed both by
+  `scripts/check_encoding_health.py` and by a root sweep of every
+  `/proc/*/environ` — nothing is left on `LANG=en_US`. pypilot, the Python
+  exposure that motivated the fix, now runs with `LANG=en_US.UTF-8` and
+  `PYTHONUTF8=1`. Everything came back: no failed units, SignalK, InfluxDB,
+  Grafana, Caddy and Telegraf all active, Dex and ntfy up as containers.
+  All three encoding layers now clean.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
