@@ -22,14 +22,25 @@ B: green and green/white) and N2K pins 2 and 3. Optionally keep negative on
 RJ45 pin 3 (white/green in A, white/orange in B). Drop shield pin 1 at the
 N2K end, or tie it back to negative on pin 3.
 
-### NMEA 2000 device list
+### NMEA 2000 device list (real or planned)
+- Raspberry Pi 4 (Pican-M SMPS, current)
+- Raspbery Pi 5 (HALP2, planned)
+- Navico NAIS-550 Class B AIS
+Standard Horizon HX 890 Handheld VHF radio
+- Airmar DST-810 transducer/triducer
+- anemometer (planned, current is disconnected nmea 0183)
+- radar (planned)
+- multi-signal converter (?)
+- MFDs (planned
+- chart plotter at helm (planned)
+- second chart plotter at nav desk (B&G Zeuz 2)
+- Cerbo GX (via conversion cable to RJ-45)
+- Garmin Airmar DST810 smart transducer
+- Navico/Lowrance DST-810 bronze triducer
+- Regatta Processing N2K backbone/drop cables (1m, 2m, 3m) + tee connector
+- Rudder angle sender, 0–190 ohm
 
-Raspberry Pi, AIS, VHF radio, depth transducer, wind speed, radar,
-multi-signal converter, MFDs, chart plotter at helm, second chart plotter
-at desk.
-
-Undecided: secondary temperature, barometer, battery monitors, alarms and
-security devices.
+Undecided: secondary temperature, barometer, battery monitors, alarms and security devices.
 
 ### Lighting sub-panel
 
@@ -72,13 +83,18 @@ Victron Cerbo and SmartShunt, bilge pumps and high water alarm, ESP32
 circuits, LPG and CO detectors.
 
 ### Momentary / toggle switches
-
-AIS silent mode, engine emergency start (bank swap), MOB.
+- AIS silent mode
+- engine emergency start (bank swap)
+- MOB(?)
+- underwater lights on/off
 
 ### Helm pod concept
-
-Bow thruster joystick, VHF remote mic, chart plotter, MFDs, autopilot
-controls, phone/tablet holder.
+Bow thruster joystick
+VHF remote mic
+chart plotter
+MFDs
+autopilot controls
+phone/tablet holder.
 
 ### Purchased components (from order history)
 
@@ -96,12 +112,14 @@ controls, phone/tablet holder.
 - AGM Starting/accessory battery: EBL AGM Group 48R, 12V 70Ah
 - ISINSWIFT Dual Battery Isolator, 12V 140A, Voltage Sensitive Relay (VSR) — not rated for lithium batteries
 - VEVOR Dual Battery Isolator, 12V 140A, Manual and Automatic VSR with LCD screen — rated for lithium and lead-acid
+- alternator high side shunt (planned)
 
 **Distribution & protection**
 
 - GOGONFLY battery disconnect/master isolator switch, 275A
 - Bus bars: 150A 1/4" bus bar, C110 copper flat bar stock, M8 stud bus bars
 - DC-DC boost converter, 12V to 24V, 10A/240W
+- alternator protection (planned)
 
 **Wire**
 
@@ -110,14 +128,25 @@ controls, phone/tablet holder.
 - Battery cable: 2 AWG, 6 AWG, with assorted lug terminals
 - Silicone hookup wire, 18–20 AWG (non-marine, general purpose)
 
-**NMEA 2000 / navigation electronics**
-
-- Garmin Airmar DST810 smart transducer
-- Navico/Lowrance DST-810 bronze triducer
-- Regatta Processing N2K backbone/drop cables (1m, 2m, 3m) + tee
-  connector
-- Rudder angle sender, 0–190 ohm
 
 **Shore power**
-
+- 30A Smart Plug
 - 30A shore power extension cord, 12 ft
+
+**Bluetooth**
+- Govee 'Smart Thermo Hygrometer'
+  - Govee_H5074_5CF5 (V berth)
+  - Govee_H5074_5CB6 (Aft Berth / near house bank)
+  - Govee_H5074_5CC3 (Saloon)
+- DST810
+- BSC IP22 12/30 (victron charger for agm starter)
+- SmartShunt HQ2301KCMA2
+- 
+
+** misc **
+- 12v fans
+- 12v charge ports + USB charge ports
+- engine room led lights
+- Lumitec SeaBlaze X3 underwater lights (2)
+- poco light controller (planned?)
+
