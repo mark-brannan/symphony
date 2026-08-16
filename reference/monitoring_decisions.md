@@ -13,7 +13,7 @@ Four roles, one owner each. Every load-bearing claim is tagged **[verified]**
 |---|---|---|---|---|
 | 1. Off-boat liveness & host health | **healthchecks.io hosted + `boat-heartbeat`** — keep | extend `/fail` conditions; endpoint-down escalation; weekly report email | nothing | shell edits, no new accounts |
 | 2. Onboard vessel alarming | **SignalK notification bus** (zones, hoekens-anchor-alarm, mob-notifier) — keep | Pushover relay (internet path); self-hosted ntfy + `signalk-ntfy` (LAN path); speaker **[hardware]** | nothing | two plugin installs, one small server, one speaker |
-| 3. History & forensics | **Telegraf → InfluxDB → Grafana** — keep, forensics-only | soft warning tier in the heartbeat; warn zones on `signalk-rpi-monitor` paths | `signalk-rpi-uptime` (boat), `signalk-rpi-stats` (dev) | plugin disable + zone config, reversible |
+| 3. History & forensics | **Telegraf → InfluxDB → Grafana** — keep, forensics-only but need to make decision on questdb in  longer term | soft warning tier in the heartbeat; warn zones on `signalk-rpi-monitor` paths | `signalk-rpi-uptime` (boat), `signalk-rpi-stats` (dev) | plugin disable + zone config, reversible |
 | 4. Staleness | **off-boat freshness check** — age *and existence* of critical paths → a second healthchecks.io check | nothing else: `signalk-data-age-watchdog` demoted to optional (blind to never-published; core subsumes it, PR #2689) | bespoke watchdog plugin optional; `signalk-ble-check` stays | one script, an afternoon |
 
 Nothing above waits on the VPS. No recommendation needs hardware the boat
@@ -176,13 +176,17 @@ warning tier also goes into the heartbeat: pre-alarm thresholds send a
 low-priority Pushover message directly — quiet buzz, never `/fail`.
 `signalk-rpi-uptime` (boat) and `signalk-rpi-stats` (dev) still go. Before
 disabling, grep KIP and any dashboards for those plugins' paths so a widget
-doesn't go quietly blank — that check is the entire switching cost.
+doesn't go quietly blank — that check is the entire switching cost. Amended 2026-08016 after
+Mark did an independent investigation of QuestDB vs InfluxDB; questdb looks better
+on almost every dimension, and in particular, seems better for resource constrained systems.
+The only strong argument for influxdb is that is has historic integration preference
+among signalk users and therefore more plugins and perhaps support, but it also
+looks like the tide is turning and experienced users growing to prefer questdb.
+Given the rough shape of the DB on the boat today, we are not locked into either one
+and should use whatever shows more long term promise.
 
 Vessel history: the boat necessarily runs the InfluxDB path today — the
-QuestDB pair needs Docker, which the boat doesn't have. **[verified —
-software_stack.md]** Whether `signalk-to-influxdb2` is actually enabled on
-the boat wasn't checkable from here (this checkout's plugin configs are the
-dev container's); worth a one-minute look next time aboard. Choosing between
+QuestDB pair needs Docker.  Choosing between
 the InfluxDB and QuestDB paths is a rebuild-machine decision; nothing about
 it needs deciding now. PostgSail, SailLogger, NoForeignLand are cruising-log
 services, not forensics — untouched.
