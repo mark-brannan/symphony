@@ -42,6 +42,16 @@ Standard Horizon HX 890 Handheld VHF radio
 
 Undecided: secondary temperature, barometer, battery monitors, alarms and security devices.
 
+### NMEA 0183 devices
+- RPi/Signalk bridge
+- wind vane and anemometer (Tx)
+- old depth transducer (Tx)
+- old paddle wheel (Tx - broken, needs new wheel or replacement)
+- Icom IC M802 HF radio (Tx/Rx)
+- HF Tuner (?)
+- original cockpits displays (Rx)
+- ?
+
 ### Lighting sub-panel
 
 Nav lights (running / off / anchor), nav lights (sailing vs steaming),

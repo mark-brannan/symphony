@@ -137,7 +137,9 @@ This file remains authoritative for the SignalK / IoT section below.
 
 ### To sell / divest
 - Spinnaker, Baba mainsail, other sails
-- Drogue, HF radio, radar
+- old autohelm components ?
+- old radar monitor
+- old plotter
 
 ## Someday/Maybe
 - Watermaker
