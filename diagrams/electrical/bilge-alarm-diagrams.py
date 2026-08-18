@@ -13,26 +13,31 @@ BILGE = "#e3f2fd"
 FONT  = "font-family='DejaVu Sans, Helvetica, Arial, sans-serif'"
 
 def esc(s):
+    """Escape &, < and > for SVG text content."""
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 def txt(x, y, s, size=13, anchor="start", fill=INK, weight="normal", italic=False):
+    """SVG text element at (x, y)."""
     st = " font-style='italic'" if italic else ""
     return ("<text x='%g' y='%g' %s font-size='%g' font-weight='%s' "
             "text-anchor='%s' fill='%s'%s>%s</text>"
             % (x, y, FONT, size, weight, anchor, fill, st, esc(s)))
 
 def poly(pts, color, w=2.6, dash=None):
+    """Open polyline through `pts`."""
     d = " stroke-dasharray='%s'" % dash if dash else ""
     p = " ".join("%g,%g" % (a, b) for a, b in pts)
     return ("<polyline points='%s' fill='none' stroke='%s' stroke-width='%g' "
             "stroke-linecap='round' stroke-linejoin='round'%s/>" % (p, color, w, d))
 
 def box(x, y, w, h, fill="#ffffff", stroke=INK, sw=2, rx=4, dash=None):
+    """Rounded rectangle."""
     d = " stroke-dasharray='%s'" % dash if dash else ""
     return ("<rect x='%g' y='%g' width='%g' height='%g' rx='%g' fill='%s' "
             "stroke='%s' stroke-width='%g'%s/>" % (x, y, w, h, rx, fill, stroke, sw, d))
 
 def dot(x, y, color=INK, r=4.5):
+    """Filled junction dot at (x, y)."""
     return "<circle cx='%g' cy='%g' r='%g' fill='%s'/>" % (x, y, r, color)
 
 def hop_v(x, y, color, w=2.6):
@@ -41,6 +46,7 @@ def hop_v(x, y, color, w=2.6):
             "stroke-width='%g'/>" % (x, y + 9, x, y - 9, color, w))
 
 def pin(x, y, color=INK):
+    """Open terminal circle at (x, y)."""
     return ("<circle cx='%g' cy='%g' r='4' fill='#ffffff' stroke='%s' "
             "stroke-width='2'/>" % (x, y, color))
 
@@ -83,6 +89,7 @@ def bracket_v(x, y1, y2, label, side=1):
     return "".join(s)
 
 def bracket_h(y, x1, x2, label, above=False):
+    """Horizontal dimension bracket with a label."""
     d = -6 if not above else 6
     s = [poly([(x1, y + d), (x1, y), (x2, y), (x2, y + d)], MUTE, 1.6)]
     s.append(txt((x1 + x2) / 2, y - 8 if above else y + 17, label, 12,
@@ -90,6 +97,7 @@ def bracket_h(y, x1, x2, label, above=False):
     return "".join(s)
 
 def head(w, h, title, subtitle):
+    """SVG document opening: canvas, title and subtitle."""
     return ("<?xml version='1.0' encoding='UTF-8'?>\n"
             "<svg xmlns='http://www.w3.org/2000/svg' width='%g' height='%g' "
             "viewBox='0 0 %g %g'>" % (w, h, w, h)
@@ -105,6 +113,7 @@ FOOT_L3 = ("Gauge is set by the ABYC 16 AWG minimum, not by ampacity or voltage 
            "no gauge change anywhere in the 1–3 m range.")
 
 def foot(y, w, extra=None):
+    """Shared sizing footer at the bottom of a sheet."""
     s = [poly([(30, y - 22), (w - 30, y - 22)], "#dddddd", 1.5)]
     s.append(txt(30, y, FOOT_L1, 12.5, fill=MUTE))
     s.append(txt(30, y + 18, FOOT_L2, 12.5, fill=MUTE))
@@ -114,6 +123,7 @@ def foot(y, w, extra=None):
     return "".join(s)
 
 def legend(x, y):
+    """Wire-colour legend starting at (x, y)."""
     items = [(RED, "+12 V, always-on fused feed"), (BLK, "negative"),
              (ORA, "switched 12 V (hot only during alarm)"),
              (BLU, "isolated signal side")]
@@ -129,6 +139,7 @@ Y12, YOUT, YNEG = 70.0, 300.0, 650.0
 X12DROP, XTEST = 170.0, 460.0
 
 def source_and_sensor(sensor_title, sensor_lines, out_pin_label, xout_end):
+    """Shared left half: fused feed, rails, sensor box, test branch."""
     s = []
     # bilge band
     s.append(box(188, 404, 300, 206, BILGE, "#bbdefb", 1.5, 6, "6 4"))
@@ -180,6 +191,7 @@ def source_and_sensor(sensor_title, sensor_lines, out_pin_label, xout_end):
     return "".join(s)
 
 def piezo(x=570):
+    """Piezo alarm box hung between the OUT and NEG rails."""
     s = [poly([(x, YOUT), (x, 380)], ORA), poly([(x, 450), (x, YNEG)], BLK),
          dot(x, YOUT, ORA), dot(x, YNEG, BLK),
          box(x - 70, 380, 140, 70, "#ffffff", INK, 2.4, 5),
@@ -189,6 +201,7 @@ def piezo(x=570):
     return "".join(s)
 
 def cerbo(x=980, y=340, h=200, note="dry contact or open collector"):
+    """Cerbo GX digital-input block with DI n and GND pins."""
     s = [box(x, y, 190, h, "#ffffff", BLU, 2.4, 5),
          txt(x + 95, y + 28, "CERBO GX MK2", 13.5, anchor="middle", weight="bold", fill=BLU),
          txt(x + 95, y + 46, "digital input block", 11.5, anchor="middle", fill=MUTE),
@@ -202,6 +215,7 @@ def cerbo(x=980, y=340, h=200, note="dry contact or open collector"):
 
 # ---------------------------------------------------------------- V1: optocoupler
 def v1():
+    """Variant 1 — optocoupler (recommended)."""
     W, H = 1280, 940
     s = [head(W, H, "Variant 1 — recommended: SEAFLO field switch + piezo + PC817 optocoupler",
               "Solid state end to end. Victron specifies the digital input for a dry contact "
@@ -219,7 +233,12 @@ def v1():
     s.append(res_v(XA, 345, ORA, "R  1 kΩ  ¼ W"))
     s.append(poly([(730, 480), (XK, 480), (XK, YNEG)], BLK))
     s.append(dot(XK, YNEG, BLK))
+    # D anti-parallel across the LED: cathode to the A node, anode to the K node
     s.append(diode_v(715, 440, BLK, False, "D", 688))
+    s.append(poly([(715, 400), (715, 432)], BLK, 2))
+    s.append(poly([(715, 451), (715, 480)], BLK, 2))
+    s.append(dot(715, 400, ORA))
+    s.append(dot(715, 480, BLK))
     # opto package
     s.append(box(730, 360, 200, 160, "#fafafa", INK, 2.4, 5))
     s.append(poly([(830, 366), (830, 514)], GRY, 2, "5 4"))
@@ -254,7 +273,7 @@ def v1():
     s.append(cerbo(980, 340, 200, "collector to DI n, emitter to GND"))
     s.append(bracket_h(596, 930, 1170, "≤ 12 in, 20 AWG + ferrules"))
     s.append(txt(30, 690, "I_F = (12 − 1.2 V) / 1 kΩ = 10.8 mA. The input needs only "
-                          "0.33 mA, so CTR of 3.3 % suffices — a PC817 rank A gives 80 % minimum, "
+                          "0.33 mA, so CTR of 3.06 % suffices — a PC817 rank A gives 80 % minimum, "
                           "and V_CE(sat) stays under 0.2 V.", 12, fill=INK))
     s.append(txt(30, 708, "D is a 1N4148 anti-parallel across the LED: the PC817's reverse LED "
                           "rating is only 6 V, and the sensor's output polarity is not verified "
@@ -269,6 +288,7 @@ def v1():
 
 # ---------------------------------------------------------------- V2: relay
 def v2():
+    """Variant 2 — isolating signal relay."""
     W, H = 1280, 940
     s = [head(W, H, "Variant 2 — alternative: SEAFLO field switch + piezo + isolating relay",
               "Gives a true potential-free contact. Requires a signal relay with gold-clad "
@@ -284,7 +304,12 @@ def v2():
     s.append(poly([(XC, YOUT), (XC, 400), (730, 400)], ORA))
     s.append(poly([(730, 480), (XK, 480), (XK, YNEG)], BLK))
     s.append(dot(XK, YNEG, BLK))
+    # flyback D across the coil: cathode to COIL+, anode to COIL−
     s.append(diode_v(715, 440, BLK, False, "D", 688))
+    s.append(poly([(715, 400), (715, 432)], BLK, 2))
+    s.append(poly([(715, 451), (715, 480)], BLK, 2))
+    s.append(dot(715, 400, ORA))
+    s.append(dot(715, 480, BLK))
     s.append(box(730, 360, 200, 160, "#fafafa", INK, 2.4, 5))
     s.append(poly([(830, 366), (830, 514)], GRY, 2, "5 4"))
     s.append(txt(830, 384, "SIGNAL RELAY", 13.5, anchor="middle", weight="bold"))
@@ -307,9 +332,9 @@ def v2():
     s.append(poly([(930, 480), (980, 480)], BLU))
     s.append(cerbo(980, 340, 200, "contact polarity does not matter"))
     s.append(bracket_h(596, 930, 1170, "≤ 12 in, 20 AWG + ferrules"))
-    s.append(txt(30, 690, "REQUIRED COIL SPEC:  12 V DC nominal, must pull in at ≤ 9 V "
-                          "and hold to 16 V  ·  coil current ≤ 40 mA (it hangs on the "
-                          "sensor output alongside the piezo)", 12, fill=INK))
+    s.append(txt(30, 690, "REQUIRED COIL SPEC:  12 V DC nominal, pull-in at ≤ 9 V, datasheet "
+                          "max allowable coil voltage ≥ 16 V (a 120 %-of-rated coil maxes at "
+                          "14.4 V)  ·  coil current ≤ 40 mA", 12, fill=INK))
     s.append(txt(30, 708, "REQUIRED CONTACT SPEC:  1 Form C, rated for low-level / dry-circuit "
                           "switching — minimum switching load ≤ 1 mA at ≤ 1 V DC, "
                           "gold-clad or bifurcated contacts.", 12, fill=INK))
@@ -324,6 +349,7 @@ def v2():
 
 # ---------------------------------------------------------------- V3: mechanical DPDT float
 def v3():
+    """Variant 3 — mechanical DPDT float switch (counter-example)."""
     W, H = 1280, 940
     s = [head(W, H, "Variant 3 — counter-example: mechanical DPDT float switch, no isolation device",
               "Fewest active parts, but it spends the Run B length carrying a dry-circuit signal "
@@ -385,6 +411,7 @@ def v3():
 
 # ---------------------------------------------------------------- anti-pattern
 def vx():
+    """Anti-pattern — piezo hot leg tapped straight into the input."""
     W, H = 900, 420
     s = ["<?xml version='1.0' encoding='UTF-8'?>\n"
          "<svg xmlns='http://www.w3.org/2000/svg' width='%g' height='%g' viewBox='0 0 %g %g'>"

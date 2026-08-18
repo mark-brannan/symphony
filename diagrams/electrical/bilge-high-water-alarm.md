@@ -84,7 +84,7 @@ business relying on a contact wiping through an oxide film.
 Numbers:
 
 - I_F = (12 − 1.2 V) / 1 kΩ = **10.8 mA**.
-- The input needs 0.33 mA, so the required current transfer ratio is **3.3 %**.
+- The input needs 0.33 mA, so the required current transfer ratio is **3.06 %**.
   A PC817 rank A gives 80 % minimum. V_CE(sat) stays under 0.2 V — far below the
   input's logic-low threshold.
 - Resistor dissipation 0.117 W. Use **¼ W or better**; a 1/8 W chip resistor sits
@@ -119,7 +119,7 @@ Required specs:
 
 | | |
 |---|---|
-| Coil | 12 V DC nominal, pull-in at ≤ 9 V, hold to 16 V |
+| Coil | 12 V DC nominal, pull-in at ≤ 9 V, **datasheet maximum allowable coil voltage ≥ 16 V** |
 | Coil current | ≤ 40 mA — it hangs on the sensor output alongside the piezo |
 | Contact | 1 Form C (SPDT) minimum |
 | Contact rating | **low-level / dry-circuit capable: minimum switching load ≤ 1 mA at ≤ 1 V DC**, gold-clad or bifurcated |
@@ -129,8 +129,14 @@ The contact rating is the whole difficulty. The Cerbo offers 3.3 V at 0.33 mA �
 textbook dry-circuit conditions. Silver-alloy power contacts (AgSnO₂, AgCdO) are
 specified from about 100 mA at 5 V and carry no low-level rating; they rely on
 the load itself to wipe the contact clean, and this circuit never provides it.
-Gold-clad signal relays — Omron G5V-2, Panasonic TQ2-12V and similar — are rated
-down to 1 mA at 1 V and are the correct part.
+Gold-clad signal relays — Panasonic TQ2-12V and similar — are rated down to
+1 mA at 1 V and are the correct part.
+
+The coil's maximum allowable voltage is a second, separate check: "12 V DC
+nominal" does not mean safe at charging voltage. The Omron G5V-2's contacts
+qualify, but its 12 V coil allows only 120 % of rated — 14.4 V at 23 °C — which
+an absorption-charging bus already exceeds. The TQ2's 150 % (18 V) clears the
+16 V ceiling with margin.
 
 The flyback diode is not optional: the coil is being driven by a solid-state
 output stage inside the SEAFLO switch, and the collapse spike will eventually
@@ -177,7 +183,7 @@ best; at worst any fault on the bilge run travels straight into the GX.
 | "817 module" HY-M154, 4-channel PC817 | **Suitable with checks.** Meter the input series resistor: 560 Ω – 2.2 kΩ is fine at 12 V drive; below 560 Ω it overdrives the LED, and a 1/8 W part at 1 kΩ is at 94 % of rating. Use the output as a bare open collector and leave the output-side VCC disconnected — an on-board pull-up would drive 5 V into a 3.3 V input. Confirm the output stage is not inverted by an extra transistor. |
 | Songle 10 A relay modules, single- and 4-channel | **Not suitable for the Cerbo contact.** The 10 A silver-alloy contacts have no low-level rating and can film over while idle. Also confirm the coil is the 12 V part (`SRD-12VDC-SL-C`) — the 5 V version is common on these boards — and that the module's logic-high/logic-low input threshold suits a 12 V drive. |
 | Songle modules, other uses | Fine for switching the 12 V piezo or any real load, where the contact wipes itself clean. Not for the signal side. |
-| Not on hand, worth buying | A gold-clad signal relay (Omron G5V-2-DC12, Panasonic TQ2-12V) if you want Variant 2 done properly. A bare PC817 plus a 1 kΩ ¼ W resistor costs under a dollar and is fully specified, which the module is not until it is metered. |
+| Not on hand, worth buying | A gold-clad signal relay (Panasonic TQ2-12V — the Omron G5V-2-DC12's contacts qualify but its 14.4 V maximum coil voltage does not) if you want Variant 2 done properly. A bare PC817 plus a 1 kΩ ¼ W resistor costs under a dollar and is fully specified, which the module is not until it is metered. |
 
 ## Bench checks before installation
 
