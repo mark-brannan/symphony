@@ -14,7 +14,7 @@ set -uo pipefail
 
 # Only relevant in cloud sessions; local/terminal sessions already have
 # tailscale via the host machine.
-if [ "${CLAUDE_CODE_REMOTE:-}" != "1" ]; then
+if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
