@@ -702,6 +702,15 @@
   file created and `setup-git-filters.sh` re-run (RUNBOOK § Per-machine
   config values).
 
+## 2026-08-18
+- Settled containerization direction with a research pass over HALOS and
+  the QuestDB/InfluxDB question. Decided: trial HALOS on the spare Pi 4 at
+  home while continuing in-place containerization on the boat; back up
+  InfluxDB offline, then migrate the history store to QuestDB; drop
+  OpenPlotter at rebuild (pypilot standalone, BME680 via the dedicated
+  plugin). Plan, evidence and the boat-side checklist are in
+  `reference/containerization_strategy.md`.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
