@@ -1134,17 +1134,22 @@ committing would commit the machine-local value. The local difference is
 exactly the value the filter regenerates, so it's safe to discard for this
 one file:
 
-1. Put this machine's value in `hostvars.local.yaml` (create it from
-   `hostvars.local.yaml.example` if this machine has none yet).
-2. Discard only the covered file, pull, and wire up:
+1. Discard only the covered file and pull:
 
    ```bash
    git checkout -- signalk/plugin-config-data/signalk-ntfy.json
    git pull
+   ```
+
+2. Put this machine's value in `hostvars.local.yaml` — the pull just
+   delivered `hostvars.local.yaml.example` if this machine has neither.
+3. Expand it:
+
+   ```bash
    bash scripts/setup-git-filters.sh
    ```
 
-3. *Verify:* `grep url signalk/plugin-config-data/signalk-ntfy.json` shows
+4. *Verify:* `grep url signalk/plugin-config-data/signalk-ntfy.json` shows
    this machine's URL. Restart SignalK.
 
 Between the checkout and the setup script the file on disk is wrong (first
