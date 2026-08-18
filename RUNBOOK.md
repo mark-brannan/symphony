@@ -15,41 +15,51 @@ logged in `maintenance/log.md`.
 
 ## Where things are
 
-**Getting in:** [Remote SSH access](#remote-ssh-access) ·
-[Reaching the boat over Tailscale](#reaching-the-boat-over-tailscale) ·
-[The resident Claude session on the boat Pi](#the-resident-claude-session-on-the-boat-pi)
+**Getting in**
+- [Remote SSH access](#remote-ssh-access)
+- [Reaching the boat over Tailscale](#reaching-the-boat-over-tailscale)
+- [The resident Claude session on the boat Pi](#the-resident-claude-session-on-the-boat-pi)
 
-**Building and maintaining the host:** [Bringing up a host](#bringing-up-a-host) ·
-[Installing host files](#installing-host-files) ·
-[Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat) ·
-[Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi) ·
-[Upgrading the scanners](#upgrading-the-scanners)
+**Building and maintaining the host**
+- [Bringing up a host](#bringing-up-a-host)
+- [Installing host files](#installing-host-files)
+- [Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat)
+- [Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi)
+- [Upgrading the scanners](#upgrading-the-scanners)
 
-**Secrets and encryption:** [Adding a secret](#adding-a-secret) ·
-[Rotating a secret](#rotating-a-secret) · [Rotating the age key](#rotating-the-age-key) ·
-[Removing a secret](#removing-a-secret) ·
-[Email pseudonyms in security.json](#email-pseudonyms-in-securityjson) ·
-[Per-machine config values](#per-machine-config-values) ·
-[Router config backup](#router-config-backup) ·
-[Scanning for leaks by hand](#scanning-for-leaks-by-hand)
+**Secrets and encryption**
+- [Adding a secret](#adding-a-secret)
+- [Rotating a secret](#rotating-a-secret)
+- [Rotating the age key](#rotating-the-age-key)
+- [Removing a secret](#removing-a-secret)
+- [Email pseudonyms in security.json](#email-pseudonyms-in-securityjson)
+- [Per-machine config values](#per-machine-config-values)
+- [Router config backup](#router-config-backup)
+- [Scanning for leaks by hand](#scanning-for-leaks-by-hand)
 
-**Identity and access:** [SSO login (GitHub / Google)](#sso-login-github--google)
+**Identity and access**
+- [SSO login (GitHub / Google)](#sso-login-github--google)
 
-**Running SignalK:** [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi) ·
-[SignalK's NMEA 2000 input](#signalks-nmea-2000-input) ·
-[Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
+**Running SignalK**
+- [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi)
+- [SignalK's NMEA 2000 input](#signalks-nmea-2000-input)
+- [Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
 
-**When something's broken:** [Hostnames stop resolving](#when-the-boats-hostnames-stop-resolving) ·
-[A plugin isn't in the config UI](#when-a-plugin-isnt-in-the-config-ui) ·
-[SignalK errors about missing packages](#when-signalk-errors-about-missing-packages-on-the-boat-pi) ·
-[BLE sensors silent after a reboot](#ble-sensors-go-silent-after-a-reboot) ·
-[A BLE sensor connects but delivers nothing](#a-ble-sensor-connects-but-never-delivers-data) ·
-[A plugin fork keeps reverting](#a-local-plugin-fork-keeps-reverting-to-the-registry-build) ·
-[A hook blocks your commit](#when-a-hook-blocks-your-commit) ·
-[Never use OpenPlotter's "Reinstall"](#never-use-openplotters-reinstall-for-signal-k)
+**Troubleshooting**
+- [Hostnames stop resolving](#when-the-boats-hostnames-stop-resolving)
+- [A plugin isn't in the config UI](#when-a-plugin-isnt-in-the-config-ui)
+- [SignalK errors about missing packages](#when-signalk-errors-about-missing-packages-on-the-boat-pi)
+- [BLE sensors silent after a reboot](#ble-sensors-go-silent-after-a-reboot)
+- [A BLE sensor connects but delivers nothing](#a-ble-sensor-connects-but-never-delivers-data)
+- [A plugin fork keeps reverting](#a-local-plugin-fork-keeps-reverting-to-the-registry-build)
+- [A hook blocks your commit](#when-a-hook-blocks-your-commit)
+- [Never use OpenPlotter's "Reinstall"](#never-use-openplotters-reinstall-for-signal-k)
 
-**Incidents:** [A secret was committed in plaintext](#a-secret-was-committed-in-plaintext) ·
-[Recovering a lost age key](#recovering-a-lost-age-key)
+**Incidents & recovery**
+- [A secret was committed in plaintext](#a-secret-was-committed-in-plaintext)
+- [Recovering a lost age key](#recovering-a-lost-age-key)
+
+---
 
 ## Two deployments, one runbook
 
@@ -75,6 +85,8 @@ loaded automatically. In a shell, source it first:
 ```bash
 cd ~/symphony && set -a && . ./.env && set +a
 ```
+
+---
 
 ## Remote SSH access
 
@@ -106,6 +118,8 @@ sudo tailscale up --ssh --hostname=symphony-pi
 
 Follow the printed login URL. *Verify:* `tailscale status` lists it, and
 `ssh pi@symphony-pi` connects from another device on the tailnet.
+
+---
 
 ## Reaching the boat over Tailscale
 
@@ -182,6 +196,8 @@ The Windows form survives reboots; the macOS and Linux ones don't survive a
 `tailscaled` restart. It's per-machine either way and doesn't propagate, so
 each new device can need it again.
 
+---
+
 ## The resident Claude session on the boat Pi
 
 The Pi keeps a Claude Code session running in tmux with Remote Control on, so
@@ -215,13 +231,15 @@ ends. `host/install.sh` sets it.
 The wrapper starts the pane with a trailing shell, so if Claude exits the tmux
 session stays up and you can restart it in place instead of losing the window.
 
+---
+
 ## Bringing up a host
 
 Four phases, in this order: tooling, key material, repo, services. Each ends
 with a check — run it, because a failure in an early phase tends to surface
 two phases later as something that looks unrelated.
 
-### Phase 1 — Host and tooling
+#### Phase 1 — Host and tooling
 
 The host needs Docker (with compose v2), and on Linux your user in the
 `docker` group. Then install `pre-commit`:
@@ -241,7 +259,7 @@ at all.
 
 *Verify:* `docker compose version && sops --version && age --version && pre-commit --version`
 
-### Phase 2 — Key material
+#### Phase 2 — Key material
 
 Get the age **private** key onto the host out-of-band — password manager,
 offline copy, another host you already trust. Never through this repo, never
@@ -256,10 +274,12 @@ chmod 600 ~/.config/sops/age/keys.txt
 (Or point `SOPS_AGE_KEY_FILE` at it wherever it lives.)
 
 *Verify:* `sops --decrypt secrets/symphony.sops.yaml | head -1` returns
-readable YAML. If it doesn't, stop — nothing downstream will work, and
-continuing will produce confusing failures that look like Docker problems.
+readable YAML.
 
-### Phase 3 — Repo and configuration
+> 🔴 **Critical:** If it doesn't, stop — nothing downstream will work, and
+> continuing will produce confusing failures that look like Docker problems.
+
+#### Phase 3 — Repo and configuration
 
 ```bash
 git clone https://github.com/mark-brannan/symphony.git
@@ -290,7 +310,7 @@ container reads via `env_file`.
 `grep -c ENC .env` returns 0 (i.e. `.env` is fully rendered plaintext —
 it's gitignored and must never be committed).
 
-### Phase 4 — Services
+#### Phase 4 — Services
 
 ```bash
 docker compose up -d
@@ -325,14 +345,16 @@ volume.
 *Verify:* `bash scripts/test_integration.sh` — this is the real check that
 the stack works end to end.
 
-### First-ever boot
+### Special cases
+
+#### First-ever boot
 
 If no `security.json` has ever existed, there's nothing to decrypt. Let
 SignalK create its own through the setup wizard on first admin login, then
 `git add signalk/security.json` once so it starts being tracked — encrypted
 — from that point forward.
 
-### What `provision_influxdb.sh` does
+#### What `provision_influxdb.sh` does
 
 It can mint credentials that then need propagating by hand, so read this
 before running it:
@@ -354,6 +376,8 @@ before running it:
 - **If it minted a new `influxdb_signalk_token`:** update the `token` field
   in `signalk/plugin-config-data/signalk-to-influxdb2.json` and restart
   `signalk-server`.
+
+---
 
 ## Installing host files
 
@@ -439,15 +463,20 @@ see "Turning on the off-boat heartbeat" below.
 
 `nightly-reboot` is still installed, but its line in root's crontab is
 commented out. It rebooted the Pi at 04:00 **unless** an `npm` or `node-gyp`
-process was running. Keep that guard if you ever turn it back on, and don't
-call `shutdown` from cron directly — a reboot landing on an `npm install` in
-`~/.signalk` truncates the plugin tree, and npm won't repair it afterward
-because it sees the half-written directories and considers those packages
-installed. On a night it runs, check which way it went with:
+process was running. Keep that guard if you ever turn it back on.
+
+> 📌 **Gotcha:** Don't call `shutdown` from cron directly — a reboot landing
+> on an `npm install` in `~/.signalk` truncates the plugin tree, and npm
+> won't repair it afterward because it sees the half-written directories and
+> considers those packages installed.
+
+On a night it runs, check which way it went with:
 
 ```bash
 journalctl -t nightly-reboot --since yesterday
 ```
+
+---
 
 ## Turning on the off-boat heartbeat
 
@@ -477,10 +506,11 @@ git diff --cached host/boat-heartbeat.json   # must show ENC[...], not the URL
 sudo host/install.sh
 ```
 
-   If that diff shows the URL in the clear, **stop**: the sops filter isn't
-   wired in this checkout. Run `bash scripts/setup-git-filters.sh` and
-   re-stage. This is not hypothetical — it was found unconfigured here on
-   2026-08-13, which is the state in which a secret gets committed in public.
+> 🔴 **Critical:** If that diff shows the URL in the clear, stop: the sops
+> filter isn't wired in this checkout. Run `bash scripts/setup-git-filters.sh`
+> and re-stage. This is not hypothetical — it was found unconfigured here
+> on 2026-08-13, which is the state in which a secret gets committed in
+> public.
 
 3. Fire one ping by hand and read the result:
 
@@ -516,15 +546,18 @@ To turn it off, delete `/etc/boat-heartbeat.json`. Don't disable the timer —
 leaving it running means re-enabling is one file away, and the check on the
 other end is what tells you the boat went quiet.
 
+---
+
 ## Don't autostart a browser on the boat Pi
 
-Chromium started from `~/.config/autostart` renders with GPU acceleration
-whether or not an HDMI display is connected, and on this Pi that wedges the
-v3d driver. `Resetting GPU for hang` then repeats several times a minute
-until a kworker blocks permanently in `v3d_gpu_reset_for_timeout`, systemd
-stops petting the watchdog, and the board hard-resets. Those blocked kworkers
-also hold the load average up by one apiece, so load stops meaning anything;
-nothing but a reboot clears them.
+> 🔴 **Critical:** Chromium started from `~/.config/autostart` renders with
+> GPU acceleration whether or not an HDMI display is connected, and on this
+> Pi that wedges the v3d driver. `Resetting GPU for hang` then repeats
+> several times a minute until a kworker blocks permanently in
+> `v3d_gpu_reset_for_timeout`, systemd stops petting the watchdog, and the
+> board hard-resets. Those blocked kworkers also hold the load average up by
+> one apiece, so load stops meaning anything; nothing but a reboot clears
+> them.
 
 ```bash
 journalctl -b -k | grep -c "Resetting GPU for hang"    # want 0
@@ -535,6 +568,8 @@ If the count is climbing, find what's driving the GPU and stop it — the
 desktop by itself doesn't touch v3d. The Freeboard entry now sits in
 `~/.config/autostart-disabled/`; its Desktop launcher still works when
 someone is actually at a screen.
+
+---
 
 ## Upgrading the scanners
 
@@ -548,6 +583,8 @@ resulting rev change so every machine and CI agree on which scanner version
 cleared a given commit. Bump the pinned image tags in
 `.github/workflows/validate.yml` and `scripts/scan_verified_secrets.sh` to
 match.
+
+---
 
 ## Adding a secret
 
@@ -648,6 +685,8 @@ git add secrets/symphony.sops.yaml
 
 `unspecified` is the correct answer for everything under `secrets/`; those
 files never go through the filter.
+
+---
 
 ## Rotating a secret
 
@@ -813,6 +852,8 @@ If nothing authenticates, what's left is the InfluxDB UI at `:8086` with the
 Neither has been exercised from a fully locked-out state, so treat them as
 untested rather than as a procedure.
 
+---
+
 ## Rotating the age key
 
 The age key is the master key: it decrypts everything else. Rotate it
@@ -938,6 +979,8 @@ A failure at step 2 is recoverable while the key is still on this box or
 another host. A failure at step 3 after the last other copy is gone is not.
 Which is why this gets checked on a schedule rather than when you need it.
 
+---
+
 ## Removing a secret
 
 To stop tracking a file's secret (plugin uninstalled, field no longer used):
@@ -950,6 +993,8 @@ To stop tracking a file's secret (plugin uninstalled, field no longer used):
 
 Removing the rules does **not** un-publish anything already committed. If
 the secret was ever live in a public commit, rotate it — see below.
+
+---
 
 ## Email pseudonyms in security.json
 
@@ -1015,6 +1060,8 @@ git checkout -- signalk/security.json
 git log -S 'pid.rj232vx' -- signalk/security.json
 ```
 
+---
+
 ## Per-machine config values
 
 Some plugin-config values differ per machine without being secrets — the
@@ -1040,9 +1087,11 @@ bash scripts/setup-git-filters.sh
 ```
 
 *Verify:* `grep url signalk/plugin-config-data/signalk-ntfy.json` shows a
-real URL. If it shows `{{ ntfy_url }}`, don't (re)start SignalK until that's
-fixed — it reads the placeholder as a literal URL. If SignalK was already
-running during setup, restart it.
+real URL.
+
+> ⚠️ **Warning:** If it shows `{{ ntfy_url }}`, don't (re)start SignalK until
+> that's fixed — it reads the placeholder as a literal URL. If SignalK was
+> already running during setup, restart it.
 
 ### Change this machine's value (e.g. the ntfy URL moved)
 
@@ -1156,6 +1205,8 @@ Between the checkout and the setup script the file on disk is wrong (first
 the other machine's committed value, then a placeholder), so run the three
 commands in one sitting and don't restart SignalK partway through.
 
+---
+
 ## Router config backup
 
 The boat router holds the local DNS override that makes the hostnames
@@ -1195,6 +1246,8 @@ Feed the `uci_export` contents back through `uci import` on the router,
 then `reload_config`. Restoring overwrites WiFi and WAN settings too —
 this is a whole-config restore, not a DNS-only one.
 
+---
+
 ## Scanning for leaks by hand
 
 Both scanners are pinned to the same versions CI uses.
@@ -1212,6 +1265,8 @@ The second is the one that matters during an incident. gitleaks tells you
 something *looks* like a secret; trufflehog tells you whether it *still
 works*. Output is redacted in both — deliberately, since CI logs on a public
 repo are world-readable.
+
+---
 
 ## A secret was committed in plaintext
 
@@ -1241,6 +1296,8 @@ Consider history rewriting only if the value genuinely cannot be rotated — a
 hardcoded key in a third-party device, say. It force-pushes, breaks every
 existing clone, and still does not remove the data from GitHub's servers
 without contacting GitHub Support.
+
+---
 
 ## Recovering a lost age key
 
@@ -1293,6 +1350,8 @@ Last resort: `~/symphony-backups/` holds a plaintext snapshot of the live
 SignalK config from 2026-08-07, deliberately outside the repo. It is a full set
 of live credentials in the clear — treat it accordingly.
 
+---
+
 ## SSO login (GitHub / Google)
 
 SignalK and Grafana web UIs show a "Sign in with GitHub / Google" button.
@@ -1306,7 +1365,7 @@ fallback.
 
 Steps 1–3 are one-time setup from any machine. Step 4 runs on the boat.
 
-### 1 — Domain and DNS (one-time)
+#### 1 — Domain and DNS (one-time)
 
 Prerequisite: a registered domain with its DNS hosted at Cloudflare (the
 free plan is enough). A subdomain of a domain already on Cloudflare works
@@ -1348,7 +1407,7 @@ too (`DOMAIN` can be `boat.example.com`).
 *Verify:* from a device on the boat LAN **with the WAN link
 disconnected**, `nslookup signalk.symphony.dark-star-llc.com` returns the LAN IP.
 
-### 2 — OAuth apps (one-time)
+#### 2 — OAuth apps (one-time)
 
 **GitHub** — under the personal account, no org involved:
 [github.com/settings/developers](https://github.com/settings/developers)
@@ -1377,7 +1436,7 @@ Copy the client ID; "Generate a new client secret" and copy it.
 Both providers talk only to Dex, hence the single callback URL each — no
 signalk/grafana URLs belong in either console.
 
-### 3 — Secrets store (one-time)
+#### 3 — Secrets store (one-time)
 
 ```bash
 sops secrets/symphony.sops.yaml
@@ -1398,7 +1457,7 @@ python3 scripts/render.py
 (renders both `.env` and `dex/config.yaml` — the latter is gitignored
 plaintext, same trust level as `.env`).
 
-### 4 — Deploy (on the boat)
+#### 4 — Deploy (on the boat)
 
 On the boat Pi today, Dex is a container and Caddy is still a native
 systemd service, so deploy them separately:
@@ -1537,6 +1596,8 @@ docker compose --profile dev-idp rm -sf dex-dev
 and delete the test users in SignalK Security → Users (they land in
 git-tracked `signalk/security.json` otherwise).
 
+---
+
 ## Stopping SignalK on the boat Pi
 
 `systemctl stop signalk` does not keep it down. A `signalk.socket` unit
@@ -1556,6 +1617,8 @@ before starting.
 Do this before any `npm install` in `~/.signalk`. Otherwise the running server
 is reading the tree while npm rewrites it, and anything that restarts the
 service mid-install brings it up against a half-written plugin directory.
+
+---
 
 ## SignalK's NMEA 2000 input
 
@@ -1595,7 +1658,8 @@ The trap is that it looks identical to a working GPS: for a long time it was
 the *only* position source on this boat, emitting a stored dock coordinate
 about two metres from the truth, and nothing appeared broken.
 
-So don't read "there is a position" as "the GPS works." Read `$source`.
+> 📌 **Gotcha:** Don't read "there is a position" as "the GPS works." Read
+> `$source`.
 
 ### When the AIS is powered, there will be two GPS sources
 
@@ -1614,6 +1678,8 @@ curl -s localhost:3000/signalk/v1/api/sources | python3 -m json.tool | grep -A2 
 Then give `navigation.position` an ordered source list with a timeout, so the
 preferred receiver wins and the other takes over only after it goes quiet.
 Doing this before both units are on would mean guessing at an address.
+
+---
 
 ## Setting up a BLE sensor in bt-sensors-plugin-sk
 
@@ -1675,6 +1741,8 @@ Identify a device by MAC, never by advertised name. Symphony's two house
 batteries both advertise as `DP04S007L4S200A`; only the MAC distinguishes them,
 and BlueZ exposes it.
 
+---
+
 ## When the boat's hostnames stop resolving
 
 All three names fail on the boat wifi and browsers say the site can't be
@@ -1708,6 +1776,8 @@ mDNSResponder`.
 
 Set it back to `192.168.8.240` once the cable is fixed. Wifi is the slower
 path and drops when the router reboots.
+
+---
 
 ## Grafana dashboards
 
@@ -1770,6 +1840,8 @@ The audit can pass while this fails, and that gap is exactly the datasource
 wiring.
 
 Both exit non-zero on a problem, so either can go in a cron or a check-in.
+
+---
 
 ## InfluxDB buckets
 
@@ -1917,6 +1989,8 @@ database it is trying to keep small is self-inflicted SD wear. The System
 health dashboard's series-cardinality panel is the only consumer; drop that
 panel and the scrape can go.
 
+---
+
 ## When a plugin isn't in the config UI
 
 A plugin that crashes on load doesn't appear in Server → Plugin Config at
@@ -1968,6 +2042,8 @@ On 2026-08-15 this caught `signalk-plugin-watchdog` and `flaky-plugin`,
 both hand-installed. The permanent fix for any plugin meant to stay is a
 `file:` entry in `package.json`, which takes it out of the prune path.
 
+---
+
 ## When SignalK errors about missing packages on the boat Pi
 
 The Pi is a baremetal OpenPlotter install, so the Docker reinstall above
@@ -1981,9 +2057,11 @@ iowait, and SSH stops answering — a banner can take over a minute. Killing or
 rebooting out of that truncates the tree further, so the next start logs more
 missing modules than the last one did.
 
-Never run `npm install` over a broken tree. npm treats a half-written package
-directory as installed and skips it, so a second run repairs nothing. Move the
-tree aside first:
+> 🔴 **Critical:** Never run `npm install` over a broken tree. npm treats a
+> half-written package directory as installed and skips it, so a second run
+> repairs nothing.
+
+Move the tree aside first:
 
 ```bash
 sudo systemctl stop signalk.socket     # socket first, see above
@@ -2033,6 +2111,8 @@ Start again in reverse order. A service killed while running comes back
 `failed`, so clear it with `sudo systemctl reset-failed signalk.service`
 first.
 
+---
+
 ## BLE sensors go silent after a reboot
 
 Known, unfixed, and the thing most likely to confuse someone. On some boots
@@ -2066,6 +2146,8 @@ when nobody is aboard, so an unattended reboot can come back with every BLE
 sensor dead until someone restarts SignalK by hand. If you depend on remote
 battery monitoring, either check after any reboot or add a self-healing check.
 
+---
+
 ## A BLE sensor connects but never delivers data
 
 bt-sensors logs `le-connection-abort-by-local` and `Unable to connect to
@@ -2096,9 +2178,10 @@ bluetoothctl remove <MAC>          # even followed by a fresh scan
 
 Reboot the Pi. The controller is the onboard BCM4345C0 on UART, and its
 firmware patch (`brcm/BCM4345C0.raspberrypi,4-model-b.hcd`) is loaded only at
-boot, so nothing short of a reboot re-initialises it. Confirm no install is in
-flight first — a reboot landing on an `npm install` in `~/.signalk` truncates
-the plugin tree:
+boot, so nothing short of a reboot re-initialises it.
+
+> ⚠️ **Warning:** Confirm no install is in flight first — a reboot landing on
+> an `npm install` in `~/.signalk` truncates the plugin tree:
 
 ```bash
 pgrep -a -f 'npm |node-gyp|apt-get|dpkg'
@@ -2110,6 +2193,8 @@ tell a radio problem from a decode problem:
 ```bash
 scripts/ble-probe.sh poll <MAC> ff02 dda50300fffd77 ff01 15   # JBD packs
 ```
+
+---
 
 ## A local plugin fork keeps reverting to the registry build
 
@@ -2146,6 +2231,8 @@ loaded at startup, so swapping the directory changes nothing until it
 restarts — the fork you just linked is not yet the code that's running, and a
 plugin you think you're testing may be the one you replaced.
 
+---
+
 ## When a hook blocks your commit
 
 The message names which check failed. In rough order of likelihood:
@@ -2176,6 +2263,8 @@ pre-commit run --all-files
 **`--no-verify` skips all of it.** It exists for genuine emergencies. CI
 will still catch an unencrypted secret on push — you'll just find out in
 public instead of at your terminal.
+
+---
 
 ## Fixing openweather-signalk's mis-scaled outside humidity
 
@@ -2271,6 +2360,8 @@ a stopgap running past the reason it exists.
 ```
 
 </details>
+
+---
 
 ## Never use OpenPlotter's "Reinstall" for Signal K
 
