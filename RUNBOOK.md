@@ -239,7 +239,7 @@ Four phases, in this order: tooling, key material, repo, services. Each ends
 with a check — run it, because a failure in an early phase tends to surface
 two phases later as something that looks unrelated.
 
-#### Phase 1 — Host and tooling
+### Phase 1 — Host and tooling
 
 The host needs Docker (with compose v2), and on Linux your user in the
 `docker` group. Then install `pre-commit`:
@@ -259,7 +259,7 @@ at all.
 
 *Verify:* `docker compose version && sops --version && age --version && pre-commit --version`
 
-#### Phase 2 — Key material
+### Phase 2 — Key material
 
 Get the age **private** key onto the host out-of-band — password manager,
 offline copy, another host you already trust. Never through this repo, never
@@ -279,7 +279,7 @@ readable YAML.
 > 🔴 **Critical:** If it doesn't, stop — nothing downstream will work, and
 > continuing will produce confusing failures that look like Docker problems.
 
-#### Phase 3 — Repo and configuration
+### Phase 3 — Repo and configuration
 
 ```bash
 git clone https://github.com/mark-brannan/symphony.git
@@ -310,7 +310,7 @@ container reads via `env_file`.
 `grep -c ENC .env` returns 0 (i.e. `.env` is fully rendered plaintext —
 it's gitignored and must never be committed).
 
-#### Phase 4 — Services
+### Phase 4 — Services
 
 ```bash
 docker compose up -d
@@ -1365,7 +1365,7 @@ fallback.
 
 Steps 1–3 are one-time setup from any machine. Step 4 runs on the boat.
 
-#### 1 — Domain and DNS (one-time)
+### 1 — Domain and DNS (one-time)
 
 Prerequisite: a registered domain with its DNS hosted at Cloudflare (the
 free plan is enough). A subdomain of a domain already on Cloudflare works
@@ -1407,7 +1407,7 @@ too (`DOMAIN` can be `boat.example.com`).
 *Verify:* from a device on the boat LAN **with the WAN link
 disconnected**, `nslookup signalk.symphony.dark-star-llc.com` returns the LAN IP.
 
-#### 2 — OAuth apps (one-time)
+### 2 — OAuth apps (one-time)
 
 **GitHub** — under the personal account, no org involved:
 [github.com/settings/developers](https://github.com/settings/developers)
@@ -1436,7 +1436,7 @@ Copy the client ID; "Generate a new client secret" and copy it.
 Both providers talk only to Dex, hence the single callback URL each — no
 signalk/grafana URLs belong in either console.
 
-#### 3 — Secrets store (one-time)
+### 3 — Secrets store (one-time)
 
 ```bash
 sops secrets/symphony.sops.yaml
@@ -1457,7 +1457,7 @@ python3 scripts/render.py
 (renders both `.env` and `dex/config.yaml` — the latter is gitignored
 plaintext, same trust level as `.env`).
 
-#### 4 — Deploy (on the boat)
+### 4 — Deploy (on the boat)
 
 On the boat Pi today, Dex is a container and Caddy is still a native
 systemd service, so deploy them separately:
