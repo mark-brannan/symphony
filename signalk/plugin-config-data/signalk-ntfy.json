@@ -4,7 +4,7 @@
     "servers": [
       {
         "id": "local",
-        "name": "Self-hosted (dev docker)",
+        "name": "Self-hosted ntfy",
         "url": "{{ ntfy_url }}",
         "isDefault": true
       }
