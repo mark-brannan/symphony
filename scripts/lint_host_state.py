@@ -209,12 +209,37 @@ def rule_configs_reference_things_that_exist() -> None:
                  f"server has. Nothing is acting on it.")
 
 
+def rule_no_unexpanded_placeholders() -> None:
+    """SignalK reads a '{{ ntfy_url }}' left in live config as the literal URL.
+
+    A hostvars-covered file holds a placeholder on disk only when a checkout
+    ran without the filter wired or without hostvars.local.yaml -- and the
+    plugin doesn't fail until its next restart, which can be days after the
+    pull that caused it. Catch it while the cause is still recent.
+    """
+    cfg_dir = SIGNALK / "plugin-config-data"
+    if not cfg_dir.is_dir():
+        return
+    for cfg in sorted(cfg_dir.glob("*.json")):
+        try:
+            text = cfg.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for name in re.findall(r'"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}"', text):
+            fail("unexpanded-placeholder",
+                 f"{cfg.name} holds '{{{{ {name} }}}}' as a live value. SignalK "
+                 f"will read it literally at the plugin's next start. Set the "
+                 f"value in hostvars.local.yaml, run scripts/hostvars_filter.py "
+                 f"refresh, and restart signalk.")
+
+
 def main() -> int:
     for rule in (
         rule_native_modules_are_built,
         rule_installed_files_match_repo,
         rule_no_enabled_unit_shadows_a_container,
         rule_configs_reference_things_that_exist,
+        rule_no_unexpanded_placeholders,
     ):
         try:
             rule()

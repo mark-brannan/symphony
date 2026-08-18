@@ -176,7 +176,8 @@ def clean(path, text):
         warn(
             f"WARNING - {path} contains neither '{{{{ {name} }}}}' nor this "
             f"machine's value for it. If the value changed on disk, update "
-            f"hostvars.local.yaml, then run: scripts/hostvars_filter.py refresh"
+            f"hostvars.local.yaml, run scripts/hostvars_filter.py refresh, "
+            f"then re-stage with: git add --renormalize {path}"
         )
     return result
 
@@ -279,8 +280,11 @@ def check():
                 failures.append(
                     f"{path}: git's copy is missing the '{{{{ {name} }}}}' "
                     f"placeholder -- a machine-local value is being committed "
-                    f"literally. Run scripts/setup-git-filters.sh, update "
-                    f"hostvars.local.yaml if the value changed, then re-stage."
+                    f"literally. If the value on disk changed (e.g. via the "
+                    f"admin UI), set it in hostvars.local.yaml and run "
+                    f"scripts/hostvars_filter.py refresh; if this clone never "
+                    f"ran scripts/setup-git-filters.sh, run that. Either way, "
+                    f"re-stage with: git add --renormalize {path}"
                 )
     if failures:
         print(f"hostvars check failed ({len(failures)} problem(s)):", file=sys.stderr)
