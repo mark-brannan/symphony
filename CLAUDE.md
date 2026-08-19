@@ -250,7 +250,22 @@ covered here.
   soon as it's written — goes straight to main, no branch, no asking.
   When a branch *is* warranted under this rule, always open the PR
   yourself as part of finishing the work — don't leave a pushed branch
-  without one, and don't wait to be asked.
+  without one, and don't wait to be asked. **A branch opened under this
+  rule only ends one way: merged via PR — never folded back to main and
+  deleted instead.** If you're deciding whether a branch was warranted,
+  you're mid-work; don't retroactively un-decide it once it's pushed.
+- **A branch the session harness pre-assigned, not one you opened, is a
+  different case.** Some task setups hand a session a branch name before any
+  content decision gets made. If the work done on it never met the criteria
+  above — a doc fix, a log entry, anything that would have gone straight to
+  main on its own — fold it back to main directly (fast-forward, no PR) the
+  moment that's clear, per "everything else goes straight to main" above;
+  don't manufacture a PR to justify a branch name you didn't choose. Delete
+  the now-merged branch on origin if your push access allows it; a 403 on
+  the delete is a harmless dangling ref, not worth spending session time on.
+  This happened on 2026-08-19: two sessions resolved the same situation
+  oppositely (one folded back, one opened PR #9 to ban folding back
+  outright) — see `maintenance/log.md` for how it was reconciled.
 - If a change is potentially destructive, or could affect adjacent
   environments for plugin testing, ask for explicit permission before
   changing, committing, or pushing.
