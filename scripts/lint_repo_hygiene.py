@@ -47,8 +47,22 @@ def in_scope() -> set[str] | None:
 
 
 def _fnmatch_any(path: str, patterns) -> bool:
-    """.gitattributes patterns are globs, and a bare `*.sops.yaml` is
-    matched against the basename as git does, not just the full path."""
+    """Does `path` match any of these .gitattributes patterns?
+
+    Patterns are globs, and a bare `*.sops.yaml` is matched against the
+    basename as git does, not just against the full path.
+
+    Deliberately looser than git in one place: python's `*` crosses `/`
+    where git's does not, so a pattern like `secrets/*.sops.yaml` matches
+    `secrets/nested/foo.sops.yaml` here and would not be filtered by git.
+    That over-matches, and over-matching is the safe direction for this
+    rule -- the cost is a spurious block naming a file, which the message's
+    `git restore --staged` exit clears in one command; the cost of
+    under-matching is a plaintext secret committed to a public repo with no
+    warning at all. Left as-is rather than reached for with
+    fnmatch.translate, which would buy exactness in the direction we do not
+    want. Moot today: every entry in .gitattributes is a literal path.
+    """
     from fnmatch import fnmatch
     return any(fnmatch(path, pat) or fnmatch(os.path.basename(path), pat)
                for pat in patterns)

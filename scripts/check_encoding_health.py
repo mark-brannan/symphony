@@ -192,28 +192,36 @@ def check_repo(only=None):
         print(f"   ok: every scanned text file is valid UTF-8, no mojibake markers")
         return 0
 
+    staged = only is not None
     for path, err in bad_encoding:
-        _report(path, f"not valid UTF-8 ({err})")
+        _report(path, f"not valid UTF-8 ({err})", staged=staged)
     for path, hits in mojibake:
         _report(path, f"contains mojibake markers {hits} -- UTF-8 text that "
                       f"was read as latin-1 and written back, mangling a "
                       f"character",
+                staged=staged,
                 extra=f"Deliberate example? Put this exact text somewhere "
                       f"in the file and it becomes a warning instead: "
                       f"{ALLOW_MARKER}")
     return len(bad_encoding) + len(mojibake)
 
 
-def _report(path, what, extra=None):
+def _report(path, what, staged=True, extra=None):
     """One finding, in the shared guard shape.
 
     Not mode-gated: bad bytes in a staged file are the CONTENT of this
     commit, and enforcement softens guards about your environment, never
     about your content. Every other encoding-health output is advisory;
     this one blocks in any mode.
+
+    `staged` distinguishes the two callers. The hook passes the staged set
+    and is talking about this commit; CI runs `--repo` over every tracked
+    file and is not. Saying "a staged text file" to someone reading a CI log
+    sends them looking through an index that had nothing in it.
     """
     secretguard.block(
-        "a staged text file is not clean UTF-8",
+        ("a staged text file is not clean UTF-8" if staged else
+         "a tracked text file is not clean UTF-8"),
         problem=what + (f". {extra}" if extra else ""),
         file=path,
         needs="the file re-encoded as UTF-8 before it reaches git",
@@ -221,11 +229,17 @@ def _report(path, what, extra=None):
                    "(scripts/check_encoding_health.py)",
         fix=f"python3 scripts/check_encoding_health.py --fix {path} && "
             f"git add {path}",
-        if_stuck=f"didn't cause it, or the fix looks wrong? Drop the file and "
-                 f"the rest of the commit goes through: git restore --staged "
-                 f"{path}. Another session staged it? Leave it alone and use "
-                 f"SKIP=encoding-health git commit ... (last resort, bypasses "
-                 f"all hooks: git commit --no-verify)",
+        if_stuck=(
+            f"didn't cause it, or the fix looks wrong? Drop the file and the "
+            f"rest of the commit goes through: git restore --staged {path}. "
+            f"Another session staged it? Leave it alone and use "
+            f"SKIP=encoding-health git commit ... (last resort, bypasses all "
+            f"hooks: git commit --no-verify)"
+            if staged else
+            f"this is repo-wide state, not your commit -- nothing here is "
+            f"staged. Repair it in its own change: python3 "
+            f"scripts/check_encoding_health.py --fix {path}"
+        ),
         see="reference/precommit_guards.md",
     )
 
