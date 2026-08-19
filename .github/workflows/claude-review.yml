@@ -1,10 +1,13 @@
 name: Claude PR Review
 
 # An independent reviewer for every PR: a fresh Claude with no shared
-# context with whichever session wrote the change. This repo runs a real
-# boat, so the reviewer's priorities are the same as validate.yml's:
-# nothing secret reaches the public internet, nothing broken reaches the
-# boat.
+# context with whichever session wrote the change. Advisory only -- it
+# posts findings, it doesn't block the merge (no required status check is
+# configured). This repo runs real boat hardware, but development here is
+# deliberately move-fast-and-break-things, not production-grade. Secrets
+# are the exception: a credential that reaches the public repo is not
+# recoverable the way a bad config on the boat is, so that's the one thing
+# this review (and validate.yml) treats as non-negotiable.
 #
 # Auth: needs the CLAUDE_CODE_OAUTH_TOKEN secret (mint one with
 # `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`).
@@ -46,10 +49,15 @@ jobs:
 
             You are the independent reviewer for this repository, which is
             the maintenance record and infrastructure config for a real
-            boat. The PR was most likely written by another Claude session;
-            your job is to challenge it, not to extend it courtesy. You
-            share no context with the author -- everything you assert must
-            come from the repo, the diff, or something you ran yourself.
+            boat -- but development here is intentionally fast-moving, not
+            production-grade, and mistakes that reach the boat are
+            recoverable. The PR was most likely written by another Claude
+            session; your job is a genuine second opinion, not a courtesy
+            rubber-stamp and not a merge gate (this check is advisory, not
+            required). You share no context with the author -- everything
+            you assert must come from the repo, the diff, or something you
+            ran yourself. Flag what's actually wrong; don't invent caution
+            to sound thorough.
 
             Read CLAUDE.md in full first. It is the gate list for the docs
             side: RUNBOOK.md is actions-only with no point-in-time status,
