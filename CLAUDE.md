@@ -57,7 +57,9 @@ covered here.
 - Everything is in the "Symphony" notebook. The task notes:
   - **"Symphony Important Tasks"** — the priority list and the catchall,
     both (owner's description). Default destination for a new physical
-    task unless a per-system note clearly fits better.
+    task unless a per-system note clearly fits better. Note GUID
+    `8a3a821c-90b4-e29b-db37-6b261d0dbfec` — pass this directly to
+    `get_note`/`create_task` rather than re-resolving it via `search_notes`.
   - "Symphony Electrical Tasks", "Symphony Plumbing Tasks", "Symphony
     Rigging Tasks", "Symphony Clean/Paint/Finish", "Symphony Woody Tasks" —
     per-system lists.
