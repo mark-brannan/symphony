@@ -29,26 +29,17 @@ stays its own stack and must stay alarm-free — see below.
 
 ### The reliability record (open question 1)
 
-- It is open source, BSD 3-clause, self-hostable: Django, PostgreSQL, a web
-  server, and two background daemons. **[verified — github.com/healthchecks/healthchecks README]**
-- They do not offer SLAs, in their own words: "We do not offer to sign SLAs"
-  and "The ops team consists of a single person, so multi-hour or even
-  multi-day outages are possible." Infrastructure is load-balanced app servers
-  and a PostgreSQL hot standby with **manual** failover, daily encrypted
-  backups to S3. **[verified — healthchecks.io/faq]**
-- No uptime percentage is published anywhere I could find — not on
-  status.healthchecks.io, not in the docs. **[verified — both fetched]**
-- Third-party record: StatusGator has tracked it since Sep 2022 — 236
-  status-page events in ~4 years; in the last 60 days, 7 incidents from 4
-  minutes to 6h38m, all "warn" (degraded) rather than outright down.
-  **[verified — statusgator.com/services/healthchecksio]** That's a count of
-  status-page flips, not measured downtime, so it overstates severity.
+healthchecks.io offers no SLA and publishes no uptime figure; the FAQ is
+candid that "the ops team consists of a single person, so multi-hour or even
+multi-day outages are possible." **[verified — healthchecks.io/faq;
+status.healthchecks.io and the docs both fetched, no uptime figure anywhere]**
+The third-party record is better than that reads: StatusGator's last 60 days
+show 7 incidents, 4 minutes to 6h38m, all degradation rather than down
+**[verified — statusgator.com/services/healthchecksio]**.
 
-Verdict: on paper this is worse than a contractual three nines — a one-man
-shop that admits multi-day outages are possible. In practice the record is
-brief degradations, and the boat's own uplink misses more pings than the
-provider ever will. The gap the FAQ admits to is not worth a migration; it is
-worth *detection*, which is question 2.
+Verdict: on paper worse than a contractual three nines; in practice brief
+degradations, and the boat's own uplink misses more pings than the provider
+ever will. Not worth a migration — worth *detection*, which is question 2.
 
 ### Fails-silent (open question 2)
 
@@ -193,129 +184,75 @@ services, not forensics — untouched.
 
 ## Role 4 — alarming when data stops
 
-**The prior finding was wrong, and the correction changes the plan.** Both
-source docs state no registry plugin covers staleness. A full sweep of all
-559 packages carrying the `signalk-node-server-plugin` keyword found
-**`signalk-data-age-watchdog`**: monitors the age of configured paths,
-publishes `<path>.dataAge`, and raises
-`notifications.<path>.dataAge.dataStale` past a threshold. v1.0.4, published
-2025-06-24, MIT, zero dependencies, single author (Oskari Vuori), no linked
-repo. **[verified — npm metadata and README]** The earlier text-searches
-missed it; the keyword sweep is the reliable query.
+**The off-boat freshness check is the load-bearing piece.** A small sibling
+timer to `boat-heartbeat` queries SignalK's REST API on localhost and pings a
+second healthchecks.io check — `/fail` on stale timestamps, **absent paths**,
+or no answer at all. One script covers went-quiet, never-published, and
+wedged-server alike. It stays separate from `boat-heartbeat` itself, which is
+deliberately too dumb to parse JSON and should stay that way.
 
-**Corrected same day, from the watchdog session reading its source
-[verified — the 82-line index.js from the npm tarball, plus server source]:**
-it does *not* cover the failure that motivated the design brief. It calls
-`app.getSelfPath(path)` and silently skips any path with no timestamp — so a
-plugin that dies at load and never publishes (the bt-sensors incident:
-`electrical.batteries.*` never enters the tree at all) raises nothing. It
-detects went-quiet-*after*-publishing only. Also source-confirmed: one
-global threshold for every path, a hardcoded 1-second poll, and it publishes
-a `<path>.dataAge` delta every second per monitored path — noise that
-signalk-to-influxdb2 would faithfully write to the SD card.
+**Every path-level approach misses mute-from-startup.** This is the durable
+rule behind the ranking, and it cost a reversal to learn: a plugin that dies
+at load and never publishes (the bt-sensors incident —
+`electrical.batteries.*` never enters the tree at all) is invisible to
+anything that walks paths or the delta cache. Only per-plugin delta counts
+(`app.providerStatistics`) or an external expectation list can catch it.
 
-**Also material: the server core now has this.** The staleness enforcer
-(PR #2689, merged 2026-07-11) shipped in v2.31.0, tagged 2026-08-14, and is
-opt-in: `enforceDataTimeouts` in settings, default off **[verified —
-signalk-server git tags; src/index.ts gates on `=== true`]**. It learns
-per-path cadence and flags `timedOut` per path+source. Same blind spot — it
-walks the delta cache, so never-published paths are equally invisible. The
-durable rule: **every path-level approach misses mute-from-startup.** Only
-per-plugin delta counts (`app.providerStatistics` in core today — never
-published shows as an *absent key*, since entries are created lazily on the
-first delta) or an external expectation list can catch it.
+- `signalk-data-age-watchdog` (v1.0.4, MIT, zero deps) — **optional.** It
+  monitors path age and raises `notifications.<path>.dataAge.dataStale`, but
+  calls `app.getSelfPath(path)` and silently skips any path with no
+  timestamp, so it detects went-quiet-*after*-publishing only. Also one
+  global threshold for every path, a hardcoded 1-second poll, and a
+  `<path>.dataAge` delta every second per monitored path — noise
+  signalk-to-influxdb2 would faithfully write to the SD card. If installed
+  anyway, keep its `.dataAge` paths out of influxdb. **[verified — the
+  82-line index.js from the npm tarball]**
+- **Server core covers the same slice, opt-in.** The staleness enforcer
+  (PR #2689, merged 2026-07-11) shipped in v2.31.0: `enforceDataTimeouts` in
+  settings, default off. It learns per-path cadence and flags `timedOut` per
+  path+source, and has the identical blind spot. **[verified —
+  signalk-server git tags; src/index.ts gates on `=== true`]**
+- `signalk-ble-check` **stays** — it is the only *recovery* mechanism aboard,
+  and detection without recovery still means a dead battery feed until
+  someone acts.
+- `signalk-dead-mans-switch` is a crew-liveness escalation, a different
+  problem. **[verified — registry description]**
 
-**So the ranking flips: the freshness check is the load-bearing piece.** A
-small sibling timer queries SignalK's REST API on localhost and pings a
-second healthchecks.io check — `/fail` on stale timestamps, **absent
-paths**, or no answer at all. One script covers went-quiet, never-published,
-and wedged-server alike, and it is the "rebuild the staleness watch in the
-heartbeat's orbit" direction software_stack.md already records. Kept
-separate from `boat-heartbeat` itself, which is deliberately too dumb to
-parse JSON and should stay that way.
+### The bespoke watchdog plugin
 
-`signalk-data-age-watchdog` drops to optional: its remaining niche is a
-sensor going quiet mid-passage ringing the speaker with no uplink, and the
-next server release subsumes that slice with learned cadences and no extra
-plugin. If it is installed anyway, keep its `.dataAge` paths out of
-signalk-to-influxdb2.
+**Build-but-don't-publish.** v1 notify-only is built, tested, and running on
+`symphony-pi` at `plugins/signalk-plugin-watchdog`: learned-producer
+expectations persisted across boots plus an `expectPlugins` list, alarming on
+`notifications.pluginWatchdog.<id>` over the Role 2 bus. It earns an optional
+slot as the only mechanism catching mute-from-startup *onboard with no
+uplink*; the original bar — restart automation — remains unmet, so detection
+stays with the freshness check.
 
-**What this demotes:** the bespoke watchdog plugin
-(signalk_plugin_watchdog.md) drops from necessary to optional. Its remaining
-unique value is auto-learning cadences and per-plugin restart — and
-`app.providerStatistics` is the right hook for its never-published
-detection. Detection of the motivating case lands in the freshness check;
-build the plugin only if restart automation proves worth the effort. `signalk-ble-check` stays meanwhile — it is the only *recovery*
-mechanism aboard, and detection without recovery still means a dead battery
-feed until someone acts. That pairing (watchdog detects broadly, ble-check
-recovers narrowly) is redundancy with a purpose, not waste.
+What the source says about the two hooks it stands on **[verified against
+signalk-server master @ b9802a72 and a live v2.31.0 instance]**:
 
-**Verified 2026-08-15 — the watchdog hypothesis holds, and v1 exists.**
-Checked against signalk-server source (master @ b9802a72) and exercised on a
-live v2.31.0 instance in the dev sandbox; nothing below is from memory.
+- `providerStatistics` is real and reliable: incremented as the first
+  statement of `handleMessage`, before all `$source` rewriting, keyed by the
+  registered plugin id whatever id or label the plugin supplies; rates
+  recomputed every 5 s. A never-published plugin shows as an *absent key*,
+  since entries are created lazily on the first delta. But it reaches plugins
+  by accident, not contract — absent from the server-api types and all docs,
+  shared only because the server copies its state into each plugin's `app`.
+- Enumerating *enabled plugins* has no plugin-visible API. `app.getPluginsList`
+  exists internally, but interfaces receive a Proxy over a key-snapshot taken
+  before it is assigned, so plugins see `undefined` — on 2.31.0 and master
+  alike. Fallback: read `plugin-config-data/*.json`, the same on-disk truth
+  the server reads.
+- Restart is admin-only. The sole external path is `POST /plugins/:id/config`,
+  hard-gated to admin auth (`/config` is a reserved path plugins cannot
+  re-permission); `stopPlugin` is module-private and there is no
+  `restartPlugin`.
 
-- The crux from the design brief is settled. `providerStatistics` is real:
-  incremented as the first statement of `handleMessage`, *before* all
-  `$source` rewriting, keyed by the registered plugin id no matter what id
-  or label the plugin supplies; rates recomputed every 5 s; it is what the
-  admin dashboard's rate column reads. **[verified — src/index.ts
-  handleMessage + src/deltastats.ts + admin-ui Dashboard.tsx]**
-- It reaches plugins by accident, not contract: absent from the server-api
-  types and all docs, shared only because the server copies its state into
-  each plugin's `app`. **[verified — grep of packages/server-api; live
-  probe plugin saw the object, counters advancing]**
-- One trap the writeup draft missed: enumerating *enabled plugins* has no
-  plugin-visible API at all. `app.getPluginsList` exists internally but
-  interfaces receive a Proxy over a key-snapshot taken before it is
-  assigned, so plugins never see it — on 2.31.0 and on master alike.
-  **[verified — live probe returned `undefined`; dist and master source
-  agree on the ordering]** Workable fallback: read
-  `plugin-config-data/*.json`, the same on-disk truth the server reads.
-- Restart stays admin-only, as suspected: the sole external path is
-  `POST /plugins/:id/config`, hard-gated to admin auth (`/config` is a
-  reserved path plugins cannot re-permission); `stopPlugin` is
-  module-private and there is no `restartPlugin`. **[verified —
-  src/tokensecurity.ts pluginAuthenticationMiddleware +
-  src/interfaces/plugins.ts]**
-- v1 notify-only is built and tested: `plugins/signalk-plugin-watchdog`.
-  Learned-producer expectations persisted across boots plus an
-  `expectPlugins` list; alarms on `notifications.pluginWatchdog.<id>`. Its
-  three-phase test against a real 2.31.0 fired on simulated
-  mute-from-startup (explicit *and* learned expectation after restart),
-  stayed quiet for a healthy plugin, and cleared on recovery.
-  **[verified — test/run-test.sh, all phases green 2026-08-15]**
-
-Decision: **build-but-don't-publish, deployed 2026-08-15.** The original
-bar — restart automation — remains unmet and unmeetable cleanly today, so
-the freshness check stays the load-bearing detection. The plugin earns its
-optional slot as the only mechanism that catches mute-from-startup
-*onboard with no uplink*, riding the Role 2 notification bus. Publishing to
-npm still waits on the two upstream PRs (official `providerStatistics`
-access; a supported `restartPlugin`), since today it stands on an
-undocumented accident.
-
-**Deployed and verified on `symphony-pi`, 2026-08-15.** Installed into
-`~/.signalk/node_modules/` (no build step, zero deps) with production
-settings — `checkIntervalSeconds: 60`, `graceSeconds: 600`,
-`stallSeconds: 0`, `expectPlugins: ["bt-sensors-plugin-sk"]`.
-`known-producers.json` populated with the boat's actual producing plugins
-within a minute of restart, and no plugin drew a false notification.
-**[verified — read known-producers.json and the journal directly on the
-boat]** The failure path was proven on the boat, not just in
-`test/run-test.sh`: the `flaky-plugin` fixture was installed, learned as a
-producer, then restarted muted from boot — the alert fired exactly at the
-grace threshold on `notifications.pluginWatchdog.flaky-plugin`, and
-withdrawing the fixture's config cleared it to `normal` on the next tick
-with no restart needed. **[verified — live alert and clear captured via the
-REST API]** Fixture, its config, and its mute marker were all removed after;
-production config is unchanged from the settings above. Stays vulnerable to
-`~/.signalk`'s `package-lock=false` `npm install` behavior, which prunes any
-plugin with no `package.json` dependency entry — logged as an open risk in
-`maintenance/log.md` 2026-08-15, not yet fixed.
-
-`signalk-dead-mans-switch` also exists in the registry but is a crew-liveness
-escalation (push a button or alarms escalate) — different problem.
-**[verified — registry description]**
+Publishing to npm waits on two upstream PRs — official `providerStatistics`
+access and a supported `restartPlugin` — since today it stands on an
+undocumented accident. It also stays vulnerable to `~/.signalk`'s
+`package-lock=false` `npm install` behavior, which prunes any plugin with no
+`package.json` dependency entry.
 
 ## Considered and rejected
 
