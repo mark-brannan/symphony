@@ -194,10 +194,10 @@ class TestStore(unittest.TestCase):
         # over a capability they are not expected to have. Strict mode
         # still runs it: a machine that holds secrets must be able to open
         # them.
-        import symphony_mode
+        import secretguard
 
-        if symphony_mode.mode() != "strict" and (
-            not shutil.which("sops") or not symphony_mode.have_age_key()
+        if secretguard.mode() != "strict" and (
+            not shutil.which("sops") or not secretguard.have_age_key()
         ):
             self.skipTest(
                 "no sops on PATH or no age key, and this clone is in "
@@ -209,7 +209,7 @@ class TestStore(unittest.TestCase):
             # "I could not check this" and "I checked and it is wrong" are
             # different results. Reporting the first as the second trains
             # people to ignore the suite.
-            if symphony_mode.mode() == "strict":
+            if secretguard.mode() == "strict":
                 raise
             self.skipTest(f"the store is not openable here ({error})")
         self.assertTrue(salt)

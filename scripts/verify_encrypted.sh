@@ -15,13 +15,17 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
+# shellcheck source=scripts/secretguard.sh disable=SC1091
+. "$(pwd)/scripts/secretguard.sh"
+
 fail=0
 checked=0
 skipped=0
 
 # In-place files: partially encrypted, so they parse as normal JSON/YAML
-# but the secret leaves are ENC[...]. sops records what it did in a "sops"
-# metadata key -- its absence means nothing was encrypted.
+# but the secret leaves are ENC[...]. sops records what it did in a `sops`
+# metadata block -- its absence means nothing was encrypted. Same shape
+# test as every other guard; see secretguard_is_sops_encrypted.
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   if ! blob="$(git show "HEAD:${path}" 2>/dev/null)"; then
@@ -29,7 +33,7 @@ while IFS= read -r path; do
     skipped=$((skipped + 1))
     continue
   fi
-  if ! grep -q '"sops"' <<<"$blob"; then
+  if ! secretguard_is_sops_encrypted <<<"$blob"; then
     echo "NOT ENCRYPTED: ${path}" >&2
     fail=1
   else
@@ -38,7 +42,7 @@ while IFS= read -r path; do
 done < <(python3 scripts/sops_paths.py list)
 
 # Whole-file stores: everything is ciphertext, sops metadata is a top-level
-# `sops:` YAML key.
+# `sops:` YAML block.
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   if ! blob="$(git show "HEAD:${path}" 2>/dev/null)"; then
@@ -46,7 +50,7 @@ while IFS= read -r path; do
     skipped=$((skipped + 1))
     continue
   fi
-  if ! grep -q '^sops:' <<<"$blob"; then
+  if ! secretguard_is_sops_encrypted <<<"$blob"; then
     echo "NOT ENCRYPTED: ${path}" >&2
     fail=1
   else

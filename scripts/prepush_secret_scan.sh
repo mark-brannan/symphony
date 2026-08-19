@@ -25,8 +25,8 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-# shellcheck source=scripts/symphony_mode.sh disable=SC1091
-. "$(pwd)/scripts/symphony_mode.sh"
+# shellcheck source=scripts/secretguard.sh disable=SC1091
+. "$(pwd)/scripts/secretguard.sh"
 
 ZERO="0000000000000000000000000000000000000000"
 from_ref="${PRE_COMMIT_FROM_REF:-}"
@@ -63,16 +63,19 @@ changed="$(git log --format= --name-only "$range" 2>/dev/null | sort -u || true)
 
 commits="$(git rev-list "$range" 2>/dev/null || true)"
 
-# First commit in the range that carries this path in the form the caller
-# rejects, or empty if every version of it is fine. Printed in the message
-# so the fix names a commit rather than "somewhere in your branch".
+# First commit in the range that carries this path unencrypted, or empty if
+# every version of it is a real sops document. Printed in the message so the
+# fix names a commit rather than "somewhere in your branch".
 #
-# $1 = path, $2 = grep pattern that a SAFE version of the file matches.
-first_bad_commit() {
-	local path="$1" safe="$2" commit
+# Encryption is judged by secretguard_is_sops_encrypted -- the same metadata
+# shape the pre-commit guards use, not the presence of the word "sops".
+#
+# $1 = path.
+first_unencrypted_commit() {
+	local path="$1" commit
 	for commit in $commits; do
 		git cat-file -e "${commit}:${path}" 2>/dev/null || continue
-		if ! git show "${commit}:${path}" | grep -q "$safe"; then
+		if ! git show "${commit}:${path}" | secretguard_is_sops_encrypted; then
 			printf '%s' "$commit"
 			return 0
 		fi
@@ -102,7 +105,7 @@ for path in .env age.key; do
 		fi
 	done
 	if [ -n "$carrier" ]; then
-		symphony_block "a file that must never be tracked is in this push" \
+		secretguard_block "a file that must never be tracked is in this push" \
 			problem="this file holds live credentials and is present in commit ${carrier} -- deleting it in a later commit does not remove it from the history you are about to publish" \
 			file="$path" \
 			needs="the file removed from every commit in $range, not just the tip" \
@@ -117,9 +120,9 @@ done
 while IFS= read -r path; do
 	[ -n "$path" ] || continue
 	grep -qxF "$path" <<<"$changed" || continue
-	if bad="$(first_bad_commit "$path" '"sops"')"; then
-		symphony_block "a secret-bearing file is unencrypted in this push" \
-			problem="commit ${bad} stores this file without sops encryption markers -- readable to anyone who clones the repo, even if a later commit fixed it" \
+	if bad="$(first_unencrypted_commit "$path")"; then
+		secretguard_block "a secret-bearing file is unencrypted in this push" \
+			problem="commit ${bad} stores this file without a sops metadata block -- readable to anyone who clones the repo, even if a later commit fixed it" \
 			file="$path" \
 			needs="the sops clean filter to have run before it was committed" \
 			blocked_by="pre-push hook 'prepush-secret-scan' (scripts/prepush_secret_scan.sh)" \
@@ -132,8 +135,8 @@ done < <(covered_sops)
 for path in secrets/*.sops.yaml; do
 	[ -e "$path" ] || continue
 	grep -qxF "$path" <<<"$changed" || continue
-	if bad="$(first_bad_commit "$path" '^sops:')"; then
-		symphony_block "a whole-file secret store is unencrypted in this push" \
+	if bad="$(first_unencrypted_commit "$path")"; then
+		secretguard_block "a whole-file secret store is unencrypted in this push" \
 			problem="this file is ciphertext at rest by design; commit ${bad} publishes it in the clear" \
 			file="$path" \
 			needs="sops encryption applied before the commit" \
@@ -154,7 +157,7 @@ hits="$(git log --format= -U0 -p "$range" -- '*.json' '*.yaml' '*.yml' '.env*' '
 	grep -cv 'ENC\[' || true)"
 
 if [ "${hits:-0}" -gt 0 ]; then
-	symphony_block "a commit in this push adds what looks like a cleartext credential" \
+	secretguard_block "a commit in this push adds what looks like a cleartext credential" \
 		problem="$hits added line(s) across the commits in $range set a password/secret/token field to a value that is not ENC[...]. A later commit removing one does not unpublish it" \
 		needs="the value encrypted, or the field renamed if it genuinely is not a secret" \
 		blocked_by="pre-push hook 'prepush-secret-scan' (scripts/prepush_secret_scan.sh)" \
