@@ -42,9 +42,10 @@ response. Each names the session that raised it.
   `claude-review.yml`'s header/prompt) toward production-gate language —
   corrected 2026-08-19 back to "real hardware, but rapid iteration, mistakes
   recoverable; secrets are the one non-negotiable." If/when required checks
-  are wanted: the natural minimum set is `compose-config`,
-  `json-yaml-syntax`, `secrets-encrypted`, and `gitleaks` from
-  `validate.yml` (fast, deterministic, no false-positive risk) — not
+  are wanted: the natural minimum set is `compose-config` and
+  `json-yaml-syntax` from `validate.yml`, plus `secrets-encrypted` and
+  `gitleaks` from `secret-scan.yml` (the four are fast, deterministic, no
+  false-positive risk) — not
   `claude-review` (advisory reviewer, shouldn't block on its own judgment)
   and not `trufflehog`/`dashboards`/`shellcheck`/`python-syntax` unless they
   prove reliable over time. Owner's call, and low priority while still in
