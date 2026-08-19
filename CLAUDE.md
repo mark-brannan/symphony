@@ -301,18 +301,25 @@ covered here.
   via PR — never folded back to main and deleted instead.** If you're
   deciding whether a branch was warranted, you're mid-work; don't
   retroactively un-decide it once it's pushed.
-- **A branch the session harness pre-assigned, not one you opened, is a
-  different case.** Some task setups hand a session a branch name before any
-  content decision gets made. If the work done on it never met the criteria
-  above — a doc fix, a log entry, anything that would have gone straight to
-  main on its own — fold it back to main directly (fast-forward, no PR) the
-  moment that's clear, per "everything else goes straight to main" above;
-  don't manufacture a PR to justify a branch name you didn't choose. Delete
-  the now-merged branch on origin if your push access allows it; a 403 on
-  the delete is a harmless dangling ref, not worth spending session time on.
-  This happened on 2026-08-19: two sessions resolved the same situation
-  oppositely (one folded back, one opened PR #9 to ban folding back
-  outright) — see `maintenance/log.md` for how it was reconciled.
+- **Cloud sessions: a pre-assigned `claude/*` branch name is not, by
+  itself, a decision to branch.** Some task setups hand a session a branch
+  name before any content decision gets made. Apply the branch-vs-main rule
+  above as normal — if nothing crosses a trigger, land the work with
+  `git push origin HEAD:main`, pushed early and often, rather than treating
+  the assigned name as the destination; don't manufacture a PR to justify a
+  branch name you didn't choose. Cloud sessions can't reliably delete their
+  own remote branches, so the cheapest fix is not creating one. This does
+  **not** apply when a session's own task instructions separately name one
+  specific branch and say to stay on it — that instruction is for that
+  session only and takes precedence; finish that branch with a PR as usual.
+  Standing grant, confirmed 2026-08-19; ported from
+  `dotfiles/.claude/rules/code.md`, see
+  `claude_prompts_scratch/state/global/log/2026-08-19-git-hygiene-branch-override.md`.
+  Supersedes the earlier "fold it back to main (fast-forward, no PR)"
+  handling of this case — the fix is now not branching in the first place,
+  which also settles the 2026-08-19 split where two sessions resolved the
+  same situation oppositely (one folded back, one opened PR #9 to ban
+  folding back outright); see `maintenance/log.md`.
 - If a change is potentially destructive, or could affect adjacent
   environments for plugin testing, ask for explicit permission before
   changing, committing, or pushing.
