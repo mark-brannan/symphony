@@ -571,3 +571,13 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Install Tapo cam for galley/saloon
 - Identify location for exterior Tapo cam
 - Install exterior Tapo cam
+
+## Blocked — needs Mark's call
+
+- **`validate.yml` triggers on branch pushes?** Today it runs on push to
+  `main` and PRs to `main` only, so a `claude/*` branch pushed without a PR
+  gets no gitleaks and no trufflehog until someone opens one. The pre-push
+  hook added in PR #13 covers that window locally, but `git push
+  --no-verify` bypasses it and CI cannot be bypassed. Widening the trigger
+  closes it properly and costs Actions minutes on every branch push.
+  Raised 2026-08-19 (PR #13).
