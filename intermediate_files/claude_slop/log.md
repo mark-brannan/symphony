@@ -370,3 +370,59 @@ costs this branch nothing.
 silently reverting them and producing a bogus comparison I then reported.
 Caught each time by the output not making sense. Order matters: reset
 first, copy second.
+
+## 2026-08-19 (later still) — PR #12 rebased onto #13, ready for review
+
+#13 merged, so #12 came off the shelf. The prior session's saved notes and
+patch (`intermediate_files/pr12-onto-pr13-merge.{md,patch}`) held up: the
+four conflicts resolved as written, the `precommit_secret_guard.sh` commit
+was skipped as superseded, and `sops_filter.py` was taken whole from #13
+with the auto-merged `die()` deleted.
+
+Three things the trial did not predict, all recorded in the merge notes:
+
+- a fifth conflict in `hostvars_filter.py` (#13's later review round added
+  `head_blob()` where this branch added `staged_paths()`) — purely additive;
+- #13 had already landed `staged_paths()` and `gitattributes_filters()` in
+  `lint_repo_hygiene.py`, so #12's copies were dropped rather than merged;
+- #13's rule matched staged paths by exact membership where `.gitattributes`
+  entries are globs. Took #12's fnmatch. Worth noting because it is the
+  quiet kind of wrong: the rule looks right, runs, and matches nothing.
+
+**The bug I found in my own tests, which is the transferable one.** The
+scoping suite asserted against the real clone. On any machine that HAS the
+filters wired — every maintainer's — the rule returns early, and all six
+assertions passed while testing nothing. Same shape as the `check --all`
+trap this whole PR is about, one level in: a check that cannot fail is
+indistinguishable from a check that passes. `filter_is_configured()` is now
+a seam, and the tests pin it along with mode, scope and CI. Two more tests
+came out of pinning strict mode explicitly, which the old suite never
+exercised at all.
+
+Also rewrote the two wording assertions to assert severity and the presence
+of message fields. Mark had flagged this twice; the underlying reason is
+that the formatter's own parity suite already owns wording, so a second
+assertion on it is duplication that only ever produces false failures.
+
+Retrofitted all four guards onto `secretguard`'s formatter, using `block()`
+rather than `require()` for hostvars-placeholders and encoding-health —
+both are about content in the index, and content is never mode-softened.
+
+Put the invariant sentence in `secretguard.py`'s module docstring and its
+bash twin, per the open question the #13 session raised. Reasoning: that
+module is what a new guard imports to ask "am I strict," which is exactly
+the moment someone decides whether their guard should soften. The
+alternatives reach the wrong reader — `reference/precommit_guards.md` is
+read by someone hitting an error, and a comment on one rule only reaches
+whoever edits that rule.
+
+Verified in a throwaway keyless clone rather than by reasoning: doc edit
+commits, a staged `filter=sops` path blocks in contributor mode, the
+`git restore --staged` exit the message names actually clears it, and the
+`--fix` the encoding message names actually works. All six suites green,
+all ten CI checks green.
+
+Flagged to Mark on the PR, not fixed: the secret-tooling suites don't run
+in CI at all. `validate.yml` compiles every script and runs
+`test_dashboards.py`; `run_secret_tooling_tests.sh` is a pre-commit hook
+only. Predates both PRs, so it belongs in its own change.
