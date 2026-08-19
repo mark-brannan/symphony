@@ -218,3 +218,37 @@ lands. No semantic conflict otherwise.
 Open decision for Mark, in kanban Blocked: whether `validate.yml` should run
 on all branch pushes. Costs Actions minutes; the pre-push hook covers the
 same window locally but is bypassable.
+
+### 2026-08-19 (later) — review round on PR #13
+
+Nine threads from the agentic reviewers. Verified each against the code
+before acting rather than trusting the label; three were real bugs, two of
+them in code I had just written and verified.
+
+- **Pre-push scan compared range ENDPOINTS.** `git diff A..B` ignores
+  intermediate commits, so a secret committed with `--no-verify` and removed
+  in the next commit was invisible — the exact scenario the hook exists for.
+  Reproduced, fixed to walk `git log`/`git rev-list`, reproduced clean.
+- **`symphony_msg` opened `/dev/stderr` as a path**, which truncates a log
+  when a hook runs as `2>>build.log`. GitHub had auto-marked this thread
+  resolved; it was not fixed. Checking rather than trusting the label is the
+  transferable lesson.
+- **`SYMPHONY_MODE` honored by the shell twin, ignored by python.** Fixed by
+  narrowing (made it process-local in both) rather than adding a second
+  undocumented override. The reviewer's better point was that the test could
+  not have caught it — `_env()` popped the variable, so the blind spot was
+  structural.
+
+Also: hooks without an explicit stage were re-running every commit-time
+guard on push against an empty index; a comments-only `.symphony-mode` would
+have killed `setup-git-filters.sh` under pipefail before it configured
+anything; the plaintext-secrets rule matched only the JSON sops marker, and
+its failure mode is "nobody can commit and the message is wrong."
+
+Judgment call worth keeping: a reviewer asked for `hostvars_filter`'s
+clean/smudge to degrade symmetrically, like `sops_filter`'s smudge. Declined
+the symmetry — direction decides it. Smudge passing through leaves a
+placeholder on your own disk; clean passing through writes one machine's
+value into the shared repo, which is the failure that filter exists to
+prevent. Same asymmetry as #12's `to_git_form`. It now appears twice for the
+same reason and should be stated once centrally, after #12 lands.
