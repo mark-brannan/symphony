@@ -88,6 +88,8 @@ covered here.
   order to run them in, and how to tell it worked. If a passage doesn't
   change what the reader does next, it belongs in
   `reference/software_stack.md` instead.
+- A procedure isn't done until it's been run verbatim once, including the
+  transition path for existing checkouts — the boat is never a fresh clone.
 - Include a *why* only where its absence causes the wrong action — e.g.
   "don't skip `verify`, here's what silently breaks without it." One or two
   sentences, next to the step. Not a background section.
@@ -148,6 +150,33 @@ covered here.
 - Ambiguity in old records (multiple sources disagreeing, unclear dates)
   gets flagged to the owner rather than silently resolved by guessing.
 
+## PR automation and session cost
+- **Never bind a scheduled wakeup to a live session.** No `send_later`, and no
+  `create_trigger` carrying `persistent_session_id` or lacking
+  `create_new_session_on_fire`. Each firing re-sends that session's whole
+  accumulated context, so the cost grows with every wake — and because the
+  harness asks a PR-watching session to re-arm before ending a turn, the shape
+  reproduces itself. A PreToolUse hook
+  (`.claude/hooks/no-persistent-polling.sh`) enforces this; if it denies a
+  call, take the redirect rather than looking for another way to schedule.
+- **Wake on events, not timers.** `subscribe_pr_activity` costs nothing while
+  idle and fires the moment a check completes or a comment lands, which is both
+  cheaper and faster than polling. "I'll check back in a few minutes" is a
+  polling loop in disguise — if a check is still running, say so and end the
+  turn.
+- **One watcher per PR.** Before subscribing or scheduling, check whether
+  another session already has it. Two sessions babysat PR #8 while four
+  triggers queued against it.
+- **Batch review responses.** Address all open threads in one pass, then push
+  once. Don't wake per comment.
+- **Long agentic loops are the real expense**, not long conversations. Every
+  tool call re-sends the full context, so a tool-dense task (PR review, CI
+  chasing, branch cleanup) costs far more than its wall-clock suggests. Scope
+  these tightly and prefer one considered pass over iterative poking.
+- **Park open questions in `maintenance/priorities.md` under Blocked**, not in
+  session scrollback. A question that lives only in a session's last response
+  is invisible the moment that session scrolls out of the list.
+
 ## Git hygiene
 - At the start of every session, before doing any work: `git fetch` and check
   whether the local branch is behind `origin/main`. Multiple sessions push to
@@ -161,9 +190,25 @@ covered here.
   iterative commits, each one verified before the next. Push as soon as a
   commit is verified rather than batching. Don't create a branch because the
   work feels large — break it into smaller commits on main instead.
-- Branch only in special circumstances: work that can't be landed in a
-  working state partway through, or something the owner has asked to review
-  as a PR. When in doubt, ask rather than branching.
+- **Branch-vs-main is a rule, not a judgment call — don't ask.** Commit
+  straight to main unless at least one of these is true:
+  - The work can't be landed in a working state at every intermediate
+    commit (a multi-step migration, a rename/restructure spanning several
+    files, anything where a push mid-sequence would leave the repo broken).
+  - It touches infra with real blast radius if left half-applied —
+    Ansible, docker-compose, systemd units, SignalK security/plugin
+    config, `.env`, or sops-encrypted secrets.
+  - The owner explicitly asks for it to be reviewed as a PR, or the work
+    is large enough to want follow-up discussion/tracking (several
+    unrelated files, a new system brought online, anything you'd want a
+    second look at before it's final).
+
+  Everything else — a single doc/reference edit, a log entry, a small
+  RUNBOOK.md or CLAUDE.md fix, a one-file config tweak that's correct as
+  soon as it's written — goes straight to main, no branch, no asking.
+  When a branch *is* warranted under this rule, always open the PR
+  yourself as part of finishing the work — don't leave a pushed branch
+  without one, and don't wait to be asked.
 - If a change is potentially destructive, or could affect adjacent
   environments for plugin testing, ask for explicit permission before
   changing, committing, or pushing.
