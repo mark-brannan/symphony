@@ -76,6 +76,12 @@ ACTOR_HINTS = (
     # fault while working correctly, which is the same mistake the renamed
     # sources caused -- a plugin doing its job filed as a problem.
     'meteo', 'weather', 'tide', 'chart', 'provider',
+    # Same failure, second family: plugins whose product is notifications plus
+    # a v2 resources endpoint. signalk-dsc raises distress alarms and serves
+    # /resources/dsc-calls, publishes no $source path, and scored 'unmatched'
+    # in the 2026-08-14 census -- its own author read that as a fault when it
+    # was the plugin working exactly as designed.
+    'dsc', 'distress',
 )
 
 
