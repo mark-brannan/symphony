@@ -160,7 +160,9 @@ dashboard sets, and they are not versions of each other:
   against paths this boat actually publishes", 2026-08-14]**.
 
 Which of these is the porting target for QuestDB is **not decided** —
-see the Blocked item in `maintenance/priorities.md`. What is certain
+see the Blocked item in `maintenance/priorities.md`. The panel-by-panel
+comparison of the two sets, and what is left that needs the boat, is in
+[dashboard_sets.md](dashboard_sets.md). What is certain
 either way: QuestDB serves Grafana over PGWire/SQL, so neither Flux nor
 InfluxQL transfers, and this is the single largest chunk of real work in
 the DB swap. Partial offsets: the retired `signalk-grafana` plugin's
@@ -284,7 +286,17 @@ commits.
   `priorities.md`; the work is materially different (teaching
   `build_dashboards.py` to emit SQL vs. hand-porting 76 imported panels)
   and doing it in the wrong one is the wasted-effort risk in this whole
-  plan. Seed from the auto-built QuestDB dashboards where they overlap.
+  plan. [dashboard_sets.md](dashboard_sets.md) carries that comparison as
+  far as the repo can take it: of the boat's 76 panels, 35 query paths
+  this boat has never published, 5 read an LTE uplink it does not have,
+  1 embeds another vessel's hostname, and 4 are library-panel references
+  carrying no model at all — leaving 21 known-portable and 15 that cannot
+  be judged without the boat. All 195 generated queries come from two
+  functions in `build_dashboards.py`. Note also that neither set runs
+  against the boat as it stands: the legacy five point at a datasource uid
+  that does not exist there, and the generated six read the four split
+  buckets, which no record shows created on the boat yet.
+  Seed from the auto-built QuestDB dashboards where they overlap.
   Native Grafana keeps running until the container's dashboards are
   usable; then stop and disable the native `grafana-server` (a deliberate
   disable is the point here — get Mark's explicit go-ahead in-session, per
