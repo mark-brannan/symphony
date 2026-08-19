@@ -37,14 +37,21 @@ is_joined() {
   tailscale --socket="$SOCKET" status --json 2>/dev/null | grep -q '"BackendState": *"Running"'
 }
 
-if pgrep -x tailscaled >/dev/null 2>&1 && is_joined; then
+# LocalAPI availability on our own socket, not `pgrep -x tailscaled` (which
+# can match an unrelated system daemon that doesn't serve $SOCKET at all,
+# in which case `tailscale up` below would just fail against it).
+daemon_reachable() {
+  tailscale --socket="$SOCKET" status >/dev/null 2>&1
+}
+
+if is_joined; then
   exit 0  # already joined and authenticated (e.g. hook re-run on resume)
 fi
 
 SESSION_HOSTNAME="cloud-${CLAUDE_CODE_REMOTE_SESSION_ID:-$$}"
 SESSION_HOSTNAME="${SESSION_HOSTNAME:0:32}"
 
-if ! pgrep -x tailscaled >/dev/null 2>&1; then
+if ! daemon_reachable; then
   LOG_FILE="$(mktemp "${TMPDIR:-/tmp}/tailscaled.XXXXXX.log")" || {
     echo "tailscale-join: cannot create daemon log file" >&2
     exit 0
@@ -68,8 +75,20 @@ else
   LOG_FILE="the running tailscaled's own log (daemon was already running)"
 fi
 
+# Write the auth key to a private tempfile and pass it via --auth-key=file:…
+# instead of --authkey=… on the command line, so it doesn't show up in
+# `ps`/process-argument listings for other local users.
+AUTHKEY_FILE="$(mktemp "${TMPDIR:-/tmp}/tailscale-authkey.XXXXXX")" || {
+  echo "tailscale-join: cannot create auth key tempfile" >&2
+  exit 0
+}
+trap 'rm -f "$AUTHKEY_FILE"' EXIT
+chmod 600 "$AUTHKEY_FILE"
+printf '%s' "$TAILSCALE_AUTHKEY" > "$AUTHKEY_FILE"
+unset TAILSCALE_AUTHKEY
+
 if ! tailscale --socket="$SOCKET" up \
-  --authkey="$TAILSCALE_AUTHKEY" \
+  --auth-key="file:$AUTHKEY_FILE" \
   --hostname="$SESSION_HOSTNAME" \
   --ssh=false \
   --accept-routes=false \
