@@ -107,5 +107,76 @@ class RoundTripTest(unittest.TestCase):
         self.assertEqual(unresolved, [])
 
 
+
+
+class StagedScopeTest(unittest.TestCase):
+    """The guard must only block on files THIS commit stages.
+
+    Regression for the dead end that made a one-line doc edit uncommittable
+    for days: `check` asserted whole-repo state, failed on a covered file the
+    committer never touched, and named a remedy (`refresh`) that needs a
+    hostvars.local.yaml the committer did not have.
+    """
+
+    def setUp(self):
+        self._config = hv.load_config
+        self._blob = hv.index_blob
+        self._staged = hv.staged_paths
+        hv.load_config = lambda: {"covered.json": ["ntfy_url"]}
+        hv.index_blob = lambda path: '{"url": "http://localhost:8090"}'  # literal
+
+    def tearDown(self):
+        hv.load_config = self._config
+        hv.index_blob = self._blob
+        hv.staged_paths = self._staged
+
+    def test_passes_when_commit_stages_nothing_covered(self):
+        hv.staged_paths = lambda: {"maintenance/log.md"}
+        self.assertEqual(hv.check(), 0)
+
+    def test_blocks_when_commit_stages_the_covered_file(self):
+        hv.staged_paths = lambda: {"maintenance/log.md", "covered.json"}
+        self.assertEqual(hv.check(), 1)
+
+    def test_all_mode_ignores_staging_for_ci(self):
+        hv.staged_paths = lambda: {"maintenance/log.md"}
+        self.assertEqual(hv.check(scope_all=True), 1)
+
+    def test_unknown_scope_falls_back_to_checking_everything(self):
+        """A broken `git diff` must not silently disable the guard."""
+        hv.staged_paths = lambda: None
+        self.assertEqual(hv.check(), 1)
+
+    def test_passing_file_is_fine_when_staged(self):
+        hv.index_blob = lambda path: '{"url": "{{ ntfy_url }}"}'
+        hv.staged_paths = lambda: {"covered.json"}
+        self.assertEqual(hv.check(), 0)
+
+
+class FailureMessageContractTest(unittest.TestCase):
+    """Every blocking message must name a file, a fix, and an exit that
+    works for someone who lacks hostvars.local.yaml."""
+
+    def test_message_carries_all_five_elements(self):
+        import contextlib, io
+        self._c, self._b, self._s = hv.load_config, hv.index_blob, hv.staged_paths
+        hv.load_config = lambda: {"covered.json": ["ntfy_url"]}
+        hv.index_blob = lambda path: '{"url": "http://localhost:8090"}'
+        hv.staged_paths = lambda: {"covered.json"}
+        err = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(err):
+                hv.check()
+        finally:
+            hv.load_config, hv.index_blob, hv.staged_paths = self._c, self._b, self._s
+        text = err.getvalue()
+        self.assertIn("hostvars-placeholders", text)          # 1. which hook
+        self.assertIn("covered.json", text)                   # 2. which file
+        self.assertIn("literal value", text)                  # 3. what's wrong
+        self.assertIn("hostvars_filter.py refresh", text)     # 4. the fix
+        self.assertIn("git restore --staged", text)           # 5. no-resource exit
+        self.assertIn("--no-verify", text)                    # 5. last resort
+
+
 if __name__ == "__main__":
     unittest.main()
