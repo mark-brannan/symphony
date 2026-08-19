@@ -180,3 +180,41 @@ Commits still need `SKIP=gitleaks-docker`; Mark approved that in-session.
   are present. This confirms ~100k tokens saved per session from denying those
   two expensive connectors. Closed the Blocked item "Do the connector denials
   actually save context?"
+
+## 2026-08-19 — tooling wall: contributor path, mode switch, pre-push (PR #13)
+
+Goal was "clonable and commit-able by someone with no secrets." Landed in
+the order Mark asked: `check_clone_setup.sh`, README Setup, then the mode
+switch and the guard changes.
+
+Two things found by testing rather than by reading:
+
+- Registering `filter.sops` on a machine without sops made *every* commit
+  die on a traceback, not just commits touching covered files — git runs the
+  clean filter over covered files that are still ciphertext from the clone.
+  Fixed by passing ciphertext through when it is byte-identical to git's
+  copy. This was the real barrier; fixing `setup-git-filters.sh` alone would
+  not have unblocked anyone.
+- My own first cut degraded `smudge` regardless of mode, which would have
+  left SignalK parsing ENC[...] blobs as config on the boat. Strict now
+  fails there. Loud beats silent whenever something reads these files.
+
+Mark's steer mid-session: don't over-index on `--no-verify` being dangerous.
+It is a real break-glass, gitleaks and trufflehog are the backstops, and a
+hidden escape hatch is worse than a documented one. Rewrote my PR #12 review
+comment accordingly and added an `if_stuck` field to the shared message
+format so the way out is part of the standard shape, not per-guard whim.
+
+What survived from that review and drove the rest of the work: break-glass
+is affordable *because* the backstops run — so check that they do. They
+don't. `validate.yml` triggers on push to main and PRs to main, so a topic
+branch with no PR is scanned by nothing. Hence the pre-push hook.
+
+Overlap with PR #12 (parallel session): both touch `sops_filter.py` and
+`test_pseudonymize.py`. #12's `test_pseudonymize` skip and its
+`unconfigured-filter` scoping are both better than mine — take #12's when it
+lands. No semantic conflict otherwise.
+
+Open decision for Mark, in kanban Blocked: whether `validate.yml` should run
+on all branch pushes. Costs Actions minutes; the pre-push hook covers the
+same window locally but is bypassable.
