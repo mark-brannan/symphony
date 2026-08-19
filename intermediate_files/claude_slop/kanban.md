@@ -67,39 +67,37 @@ response. Each names the session that raised it.
   succeeds (public, default branch main), `npm view wire-wright dist-tags`
   shows `alpha: 0.0.1-alpha.0` (also `latest`, since it's the first
   publish — expected, not a mistake).
-- **Tailscale SSH is broken tailnet-wide — needs the current policy file**
-  (2026-08-19, tailscale-acl session). `ssh pi@symphony-pi` from nucboxk12
-  fails with `tailnet policy does not permit you to SSH to this node` — a
-  no-rule-matched error, not the documented "as user X" one. Tailscale SSH
-  is still enabled on the Pi (the refusal comes from its tailscaled, not
-  OpenSSH), so this is entirely ACL-side; nothing to change on the boat.
-  Every node is now tagged: `tag:home-fleet` (nucboxk12, NucBox_K12,
-  MacBook-Air), `tag:symphony-devices` (symphony-pi), Pixel 8a untagged
-  under `mark-brannan@`. Working hypothesis: tagging the dev machines
-  invalidated SSH rules keyed on user identity. This box also reports
-  "Tailscale SSH enabled, but access controls don't allow anyone to access
-  this device."
-  **Blocked on**: the current policy file, pasted from
-  https://login.tailscale.com/admin/acls/file. Not writing a replacement
-  blind — it likely holds `tagOwners`, `autoApprovers` for subnet routes,
-  and Serve/Funnel grants a from-scratch policy would drop. No Tailscale
-  API key exists on this box or in `secrets/`; an OAuth client with the
-  `acl` scope would let future sessions read it directly.
-  **Decided by Mark 2026-08-19**: grant all four of home-fleet→boat as
-  `pi`, cloud-ephemeral→boat as `pi`, untagged personal devices→boat as
-  `pi`, and home-fleet→home-fleet. Re-auth: `check` where possible,
-  `accept` where not.
-  **Correction owed to that decision**: Tailscale forbids `check` from a
-  tagged source ("An SSH access rule from a tagged device cannot be in
-  check mode"), so only the untagged Pixel can carry a `checkPeriod`.
-  Everything else must be `accept`. A `check` on cloud sessions would be
-  useless regardless — `tailscale-join.sh` is non-interactive, so a
-  browser approval would just hang it.
-  **Also owed once fixed**: `CLAUDE.md` § Reaching the boat, `RUNBOOK.md`
-  § SSH users and the periodic check, and `RUNBOOK.md` § A cloud Claude
-  session can't reach symphony-pi all assert access that does not
-  currently work. Consider tracking the policy file in-repo as
-  `tailscale/policy.hujson` so it stops being console-only state.
+- ~~Tailscale SSH broken tailnet-wide~~ **fixed 2026-08-19.** Root cause, in
+  Tailscale's own words: "autogroup:self ... Does not apply to tags." The
+  policy's only user-facing SSH rule was `autogroup:member` →
+  `autogroup:self`, and every node except the phone is tagged
+  (`tag:home-fleet`, `tag:symphony-devices`, `tag:cloud-ephemeral`), so it
+  matched nothing — `ssh pi@symphony-pi` failed with "does not permit you to
+  SSH to this node". `grants` was already `*`→`*`, so the packet filter was
+  never involved, and the existing `tag:cloud-ephemeral` rule meant cloud
+  sessions worked the whole time; only Mark's own machines were locked out.
+  Fix: two rules appended — `tag:home-fleet` → home-fleet + symphony-devices
+  (accept, nonroot) and `autogroup:member` → symphony-devices (check, 12h) —
+  plus an `sshTests` block so a regression fails on save. Mark pasted it;
+  verified `ssh pi@symphony-pi` returns and the "access controls don't allow
+  anyone to access this device" health warning cleared.
+  Corrections owed to earlier reasoning in this session: Mark's chosen
+  "accept for my devices, check for cloud" split is not expressible —
+  Tailscale forbids check mode from a tagged source, so check survives only
+  on the untagged phone. The RUNBOOK's claim that cloud sessions can reach
+  the boat was *not* stale; it was the one path that worked.
+  A read-only `policy_file:read` OAuth client is now in
+  `secrets/symphony.sops.yaml` and `scripts/tailscale_policy.sh` reads and
+  validates the policy from the CLI. Write scope was deliberately not
+  granted, so applying a policy stays a human paste — confirmed by a 403 on
+  the attempted apply.
+  Still open: the credential was pasted into a session transcript, so rotate
+  it at https://login.tailscale.com/admin/settings/oauth whenever convenient.
+  Also unresolved and out of scope: `ssh solace@nucbox-k12` times out — the
+  Windows node has no SSH server, which is a Tailscale platform limit, not a
+  policy gap. Tracking the policy file in git was considered and rejected for
+  this repo: it is public, and the policy names the tailnet's tags and
+  topology. `~/claude_prompts_scratch` would be the right home if wanted.
 - `Symphony Plumbing Library.xml` (Mark's own draw.io library, Google
   Drive only): owner deferred 2026-08-19 — "plumbing we'll figure out
   later." Not blocking anything; revisit when plumbing diagrams start.

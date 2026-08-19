@@ -149,13 +149,16 @@ covered here.
   A gap is better than a confident guess.
 
 ## Reaching the boat
-- `ssh pi@symphony-pi`. The user must be `pi`: the tailnet ACL rejects every
-  other name with "tailnet policy does not permit you to SSH as user X", and
-  the hostname is Tailscale's — plain `symphony` doesn't resolve. Both of
-  Mark's dev machines already hold the credentials, so don't go hunting for
-  keys or IPs. This has cost several sessions the same detour; the details,
-  including the periodic-reauth trap that looks like a hang under
-  `BatchMode`, are in `RUNBOOK.md` § Reaching the boat over Tailscale.
+- `ssh pi@symphony-pi`. Use `pi` — it's the only account on the box. The
+  hostname is Tailscale's; plain `symphony` doesn't resolve. Both of Mark's
+  dev machines already hold the credentials, so don't go hunting for keys or
+  IPs. This has cost several sessions the same detour; the details are in
+  `RUNBOOK.md` § Reaching the boat over Tailscale.
+- If ssh is refused by *policy* rather than by the host, read the two
+  distinct Tailscale refusals and the tag-vs-`autogroup:self` trap in
+  `RUNBOOK.md` § SSH users and the periodic check before touching anything.
+  `scripts/tailscale_policy.sh` prints the live policy read-only; applying a
+  change is Mark's paste into the admin console, never a session's.
 
 ## The boat Pi's memory headroom
 - Expected state: SignalK, InfluxDB, Grafana, Caddy, Dex and Telegraf all run

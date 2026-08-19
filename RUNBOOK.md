@@ -156,24 +156,47 @@ reach `symphony-pi`:
    env var on the cloud environment — a reusable, ephemeral,
    `tag:cloud-ephemeral` key from the
    [tailnet admin console](https://login.tailscale.com/admin/machines).
+4. If the node joined but ssh is refused, it's the policy, not the join —
+   the tailnet needs an `ssh` rule with `tag:cloud-ephemeral` as `src`. See
+   § SSH users and the periodic check.
 
 Local/terminal sessions don't need this — they already have tailscale via
 the host machine.
 
 ### SSH users and the periodic check
 
-Tailscale SSH handles auth, so no key setup is needed, but the ACL names
-which local users you may become — `pi` works, other names are rejected with
-"tailnet policy does not permit you to SSH as user X". Change that in the
-[access controls](https://login.tailscale.com/admin/acls) if you need
-another.
+Tailscale SSH handles auth, so no key setup is needed, but the tailnet policy
+decides both which nodes may connect and which local users you may become.
+Two different refusals, two different causes:
 
-The ACL also sets a check period. When it lapses, ssh stops at
+- `does not permit you to SSH to this node` — no `ssh` rule matches at all.
+- `does not permit you to SSH as user X` — a rule matched, but its `users`
+  list doesn't include that account.
+
+Every node except the phone is tagged, and **`autogroup:self` does not apply
+to tags** — so a rule written against `autogroup:self` silently covers
+nothing here. Rules for tagged devices have to name the tags. This broke all
+SSH from the dev machines once already, on 2026-08-19.
+
+Read the live policy without opening the console:
+
+```bash
+scripts/tailscale_policy.sh            # prints the current policy file
+scripts/tailscale_policy.sh validate <file>   # dry-run a proposed one
+```
+
+The stored OAuth credential is read-only, so applying a change is a paste
+into the [policy file editor](https://login.tailscale.com/admin/acls/file).
+Validate first — a bad save is a lockout.
+
+A `check`-mode rule sets a re-auth period. When it lapses, ssh stops at
 `# Tailscale SSH requires an additional check.` and prints a
 `login.tailscale.com/a/...` URL — open it, approve, then re-run ssh. The URL
 is single-use, so don't bother saving it. Under `-o BatchMode=yes` or any
 non-interactive wrapper this just looks like a hang; that message is the
-tell.
+tell. This applies only to connections from untagged devices: **Tailscale
+forbids `check` from a tagged source**, so the dev machines and cloud
+sessions never see it.
 
 ### A page hangs but the host is reachable — MTU
 

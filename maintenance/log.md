@@ -252,3 +252,9 @@
 - Doc cleanup: Claude session state segregated into
   `intermediate_files/claude_slop/`; `maintenance/log.md` and
   `priorities.md` trimmed back to human-grade entries.
+- Tailscale SSH from the dev machines restored; the tailnet policy's only
+  user-facing rule no longer matched, since every node but the phone is now
+  tagged. Added tag-based SSH rules and policy self-tests.
+- Stored a read-only Tailscale OAuth client and added
+  `scripts/tailscale_policy.sh` to read and validate the policy from the
+  command line.
