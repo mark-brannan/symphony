@@ -88,6 +88,8 @@ covered here.
   order to run them in, and how to tell it worked. If a passage doesn't
   change what the reader does next, it belongs in
   `reference/software_stack.md` instead.
+- A procedure isn't done until it's been run verbatim once, including the
+  transition path for existing checkouts — the boat is never a fresh clone.
 - Include a *why* only where its absence causes the wrong action — e.g.
   "don't skip `verify`, here's what silently breaks without it." One or two
   sentences, next to the step. Not a background section.
@@ -161,9 +163,25 @@ covered here.
   iterative commits, each one verified before the next. Push as soon as a
   commit is verified rather than batching. Don't create a branch because the
   work feels large — break it into smaller commits on main instead.
-- Branch only in special circumstances: work that can't be landed in a
-  working state partway through, or something the owner has asked to review
-  as a PR. When in doubt, ask rather than branching.
+- **Branch-vs-main is a rule, not a judgment call — don't ask.** Commit
+  straight to main unless at least one of these is true:
+  - The work can't be landed in a working state at every intermediate
+    commit (a multi-step migration, a rename/restructure spanning several
+    files, anything where a push mid-sequence would leave the repo broken).
+  - It touches infra with real blast radius if left half-applied —
+    Ansible, docker-compose, systemd units, SignalK security/plugin
+    config, `.env`, or sops-encrypted secrets.
+  - The owner explicitly asks for it to be reviewed as a PR, or the work
+    is large enough to want follow-up discussion/tracking (several
+    unrelated files, a new system brought online, anything you'd want a
+    second look at before it's final).
+
+  Everything else — a single doc/reference edit, a log entry, a small
+  RUNBOOK.md or CLAUDE.md fix, a one-file config tweak that's correct as
+  soon as it's written — goes straight to main, no branch, no asking.
+  When a branch *is* warranted under this rule, always open the PR
+  yourself as part of finishing the work — don't leave a pushed branch
+  without one, and don't wait to be asked.
 - If a change is potentially destructive, or could affect adjacent
   environments for plugin testing, ask for explicit permission before
   changing, committing, or pushing.
