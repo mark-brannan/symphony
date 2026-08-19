@@ -9,7 +9,11 @@ Host-state rules -- compiled artifacts, installed-file drift, port
 ownership -- live in scripts/lint_host_state.py instead, because they need the
 machine and would fail in CI for the wrong reason.
 
-Usage:  python3 scripts/lint_repo_hygiene.py [--warn-only]
+Scope: by default each rule looks only at what THIS commit stages, because
+a hook that blocks on repo-wide state punishes whoever commits next rather
+than whoever caused it. `--all` checks everything and is what CI runs.
+
+Usage:  python3 scripts/lint_repo_hygiene.py [--all] [--warn-only]
 """
 import json
 import os
@@ -28,6 +32,26 @@ CI = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
 
 failures: list[str] = []
 warnings: list[str] = []
+
+SCOPE_ALL = False
+
+
+def in_scope() -> set[str] | None:
+    """What this run is allowed to look at: staged paths, or None for all.
+
+    None means "everything is in scope" and is deliberately what both the
+    --all flag and a failed `git diff` produce -- a broken git invocation
+    must never silently narrow a guard to nothing.
+    """
+    return None if SCOPE_ALL else staged_paths()
+
+
+def _fnmatch_any(path: str, patterns) -> bool:
+    """.gitattributes patterns are globs, and a bare `*.sops.yaml` is
+    matched against the basename as git does, not just the full path."""
+    from fnmatch import fnmatch
+    return any(fnmatch(path, pat) or fnmatch(os.path.basename(path), pat)
+               for pat in patterns)
 
 
 def staged_paths() -> set[str] | None:
@@ -90,7 +114,7 @@ def rule_declared_filters_are_configured() -> None:
         return
 
     declared = gitattributes_filters()
-    scope = staged_paths()
+    scope = in_scope()
     for name in sorted(declared):
         clean = subprocess.run(
             ["git", "config", "--get", f"filter.{name}.clean"],
@@ -99,50 +123,73 @@ def rule_declared_filters_are_configured() -> None:
         if clean:
             continue
 
-        # Staging a covered path is the only moment untransformed content can
-        # actually reach git, and at that moment mode is irrelevant: a
-        # contributor committing plaintext into a public repo is the same
-        # incident as a maintainer doing it. Everywhere else the missing
-        # config is a fact about the clone, not about this commit -- which is
-        # what used to block a markdown typo fix -- so it is mode-gated.
-        at_risk = sorted(p for p in (scope or set()) if p in set(declared[name]))
-        if at_risk or scope is None:
-            failures.append(secretguard.format(
+        # Two axes, composed as AND -- this is the one place PR #12's and
+        # #13's reworks of this rule could have cancelled each other out.
+        #
+        #   MODE  says who is committing        (contributor / strict)
+        #   SCOPE says what is in this commit   (does it stage a covered path)
+        #
+        # The invariant, agreed across both:
+        #   enforcement may soften a guard about your ENVIRONMENT;
+        #   it may never soften one about the CONTENT of your commit.
+        #
+        # So a staged covered path BLOCKS in every mode, contributor
+        # included -- that is the 2026-08-14 incident (plaintext secrets into
+        # a public repo) and it is content. An unconfigured filter with
+        # nothing covered staged is environment: strict blocks, contributor
+        # warns, and a contributor can still commit a markdown typo fix.
+        #
+        # Taking either axis alone loses something real: mode alone lets a
+        # contributor stage a plaintext secret with only a warning here;
+        # scope alone stops strict mode complaining about a clone that isn't
+        # wired up yet.
+        #
+        # scope is None means "everything" -- --all, or a git call that
+        # failed. Both must widen the rule, never narrow it to nothing.
+        hits = sorted(declared[name]) if scope is None else sorted(
+            p for p in scope if _fnmatch_any(p, declared[name])
+        )
+        blocking = bool(hits) or secretguard.mode() == "strict"
+
+        if hits:
+            first = hits[0]
+            message = secretguard.format(
                 "BLOCKED",
                 "this commit stages a file whose git filter isn't configured",
                 problem=f".gitattributes routes it through filter={name}, but "
                         f"filter.{name}.clean is unset in this clone, so it "
                         f"would be committed UNTRANSFORMED -- for filter=sops, "
                         f"that means in plaintext",
-                file=at_risk or declared[name],
+                file=hits,
                 needs=f"filter.{name}.clean in this clone's .git/config",
                 blocked_by="pre-commit hook 'repo-hygiene' "
                            "(scripts/lint_repo_hygiene.py)",
                 fix="bash scripts/setup-git-filters.sh, then: "
-                    f"git add --renormalize {(at_risk or declared[name])[0]}",
-                if_stuck="can't run that here, or you didn't stage it? Take it "
-                         "out of this commit and the rest goes through: git "
-                         f"restore --staged {(at_risk or declared[name])[0]} "
-                         "-- or commit only your own paths: git commit -m ... "
-                         "-- <your paths>",
+                    f"git add --renormalize {first}",
+                if_stuck="no sops or age key here, or you didn't stage it? Take "
+                         "it out of this commit and everything else goes "
+                         f"through: git restore --staged {first} -- or commit "
+                         "only your own paths: git commit -m ... -- <your "
+                         "paths>. Last resort: SKIP=repo-hygiene git commit ...",
                 see="README.md, Setup -- or bash scripts/check_clone_setup.sh",
-            ))
-            continue
-
-        message = secretguard.format(
-            "BLOCKED" if secretguard.mode() == "strict" else "warning",
-            "a declared git filter is not configured in this clone",
-            problem=f".gitattributes declares filter={name} and "
-                    f"filter.{name}.clean is unset. Nothing in this commit is "
-                    f"covered by it, so nothing is at risk right now",
-            needs=f"filter.{name}.clean in this clone's .git/config",
-            blocked_by="pre-commit hook 'repo-hygiene' "
-                       "(scripts/lint_repo_hygiene.py)",
-            fix="bash scripts/setup-git-filters.sh, before you commit a "
-                "covered file",
-            see="README.md, Setup -- or bash scripts/check_clone_setup.sh",
-        )
-        (failures if secretguard.mode() == "strict" else warnings).append(message)
+            )
+        else:
+            message = secretguard.format(
+                "BLOCKED" if blocking else "warning",
+                "a declared git filter is not configured in this clone",
+                problem=f".gitattributes declares filter={name} and "
+                        f"filter.{name}.clean is unset. Nothing in this commit "
+                        f"is covered by it, so nothing is at risk right now",
+                needs=f"filter.{name}.clean in this clone's .git/config",
+                blocked_by="pre-commit hook 'repo-hygiene' "
+                           "(scripts/lint_repo_hygiene.py)",
+                fix="bash scripts/setup-git-filters.sh, before you commit a "
+                    "covered file",
+                if_stuck="SKIP=repo-hygiene git commit ...   (last resort: "
+                         "git commit --no-verify)",
+                see="README.md, Setup -- or bash scripts/check_clone_setup.sh",
+            )
+        (failures if blocking else warnings).append(message)
 
 
 def rule_plaintext_secrets_are_protectable() -> None:
@@ -243,7 +290,10 @@ def rule_audible_alarms_are_scoped() -> None:
     cfg_dir = ROOT / "signalk" / "plugin-config-data"
     if not cfg_dir.is_dir():
         return
+    scope = in_scope()
     for cfg in sorted(cfg_dir.glob("*.json")):
+        if scope is not None and str(cfg.relative_to(ROOT)) not in scope:
+            continue  # warn about configs THIS commit touches, not all of them
         try:
             doc = json.loads(cfg.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -320,7 +370,9 @@ def rule_frozen_secrets_untouched() -> None:
 
 
 def main() -> int:
+    global SCOPE_ALL
     warn_only = "--warn-only" in sys.argv
+    SCOPE_ALL = "--all" in sys.argv
     for rule in (
         rule_declared_filters_are_configured,
         rule_plaintext_secrets_are_protectable,
@@ -337,8 +389,12 @@ def main() -> int:
         print(f if "\n" in f else f"  FAIL  {f}")
 
     if failures and not warn_only:
-        print(f"\n{len(failures)} problem(s). See scripts/lint_repo_hygiene.py "
-              f"for why each rule exists.")
+        scope_note = ("across the whole repo" if SCOPE_ALL
+                      else "in what this commit stages")
+        print(f"\nrepo-hygiene: BLOCKED on {len(failures)} problem(s) "
+              f"{scope_note}.")
+        print("Each fix above includes a way out if you can't run it. Failing "
+              "that, `git commit --no-verify` bypasses all hooks.")
         return 1
     if not failures and not warnings:
         print("repo hygiene: ok")
