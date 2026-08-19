@@ -139,7 +139,7 @@ If a cloud session can't reach `symphony-pi`, check for a
 
 ```bash
 tailscale status --socket="$HOME/.tailscale-cloud.sock"   # joined? authenticated?
-cat /tmp/tailscaled.*.log                                  # daemon's own log
+cat "${TMPDIR:-/tmp}"/tailscaled.*.log                     # daemon's own log
 ```
 
 A missing or expired `TAILSCALE_AUTHKEY` is the most common cause — the
