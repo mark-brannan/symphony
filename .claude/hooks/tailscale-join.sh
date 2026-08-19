@@ -48,7 +48,11 @@ if is_joined; then
   exit 0  # already joined and authenticated (e.g. hook re-run on resume)
 fi
 
+# CLAUDE_CODE_REMOTE_SESSION_ID contains underscores (e.g. "cse_01AB..."),
+# which aren't valid in a DNS label; tailscale rejects the hostname outright
+# if we don't strip them first.
 SESSION_HOSTNAME="cloud-${CLAUDE_CODE_REMOTE_SESSION_ID:-$$}"
+SESSION_HOSTNAME="${SESSION_HOSTNAME//_/-}"
 SESSION_HOSTNAME="${SESSION_HOSTNAME:0:32}"
 
 if ! daemon_reachable; then
