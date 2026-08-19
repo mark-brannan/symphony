@@ -37,6 +37,24 @@ This file remains authoritative for the SignalK / IoT section below.
 
 ## Blocked
 
+Open questions parked here so they don't live only in a session's last
+response. Each names the session that raised it.
+
+- **PR #4: are the trufflehog hits real?** Two sessions
+  (`session_01AWkLUv…`, `session_01WjSKxp…`) concluded three test fixtures
+  were false positives and stopped there. That conflicts with how the scan is
+  built: `scripts/scan_verified_secrets.sh` runs trufflehog with
+  `--results=verified`, which reports a credential only after calling the
+  provider's API and confirming it still works, and the job's own comment says
+  a finding "is never a false alarm and is always urgent." Either those
+  fixtures hold live credentials in public history, or the sessions
+  misdiagnosed. Resolve before merging PR #4 — and do not add a
+  `.trufflehogignore` to make it green.
+- **Git hygiene doc redesign** (`session_01TCzQQM…`) — three decisions
+  outstanding: (1) is `~/symphony` ever hand-edited outside a session? (2) does
+  the worktree requirement apply to all sessions or only high-risk ones? (3)
+  review the draft before it's committed, or commit and review after?
+
 ## Backlog
 
 ### Engine & mechanical / drivetrain
