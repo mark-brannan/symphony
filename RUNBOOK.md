@@ -625,8 +625,8 @@ This fetches from GitHub, so do it **dockside, not underway** — a failed
 fetch mid-passage will block commits until you revert the config. Commit the
 resulting rev change so every machine and CI agree on which scanner version
 cleared a given commit. Bump the pinned image tags in
-`.github/workflows/validate.yml` and `scripts/scan_verified_secrets.sh` to
-match.
+`.github/workflows/secret-scan.yml` and `scripts/scan_verified_secrets.sh`
+to match — the scanners live in that workflow, not in `validate.yml`.
 
 ---
 
