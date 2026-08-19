@@ -22,6 +22,7 @@
       }
     ]
   },
+  "crossSessionInbound": "hold",
   "deniedMcpServers": [
     {
       "serverName": "Gmail"
@@ -34,6 +35,21 @@
     },
     {
       "serverName": "Intuit_TurboTax"
+    },
+    {
+      "serverName": "Google_Calendar"
+    },
+    {
+      "serverName": "CourtListener"
+    },
+    {
+      "serverName": "Courtroom5"
+    },
+    {
+      "serverName": "Legal_Data_Hunter"
+    },
+    {
+      "serverName": "LegalZoom"
     }
   ]
 }

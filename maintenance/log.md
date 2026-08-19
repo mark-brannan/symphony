@@ -729,6 +729,16 @@
   `.claude/hooks/no-persistent-polling.sh` with its own denial text. The
   project-settings PreToolUse hook does fire in cloud; treat it as enforcement.
 
+- Applied the session-cost settings parked under Blocked in `priorities.md`.
+  `.claude/settings.json` now denies five more connectors — `Google_Calendar`,
+  `CourtListener`, `Courtroom5`, `Legal_Data_Hunter`, `LegalZoom`. All five are
+  authenticated at org level but their tools are not loaded into this repo's
+  sessions today, so the denial guards against a future session enabling them
+  rather than cutting a measured cost. Also set `crossSessionInbound: "hold"`,
+  confirmed against the settings and cross-session-messaging reference at
+  code.claude.com/docs: the key takes `accept`/`hold`/`refuse`, and a project
+  `hold` applies when no managed, `--settings` or user value is set.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
