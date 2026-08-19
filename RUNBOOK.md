@@ -2261,6 +2261,20 @@ plugin you think you're testing may be the one you replaced.
 
 ## When a hook blocks your commit
 
+First: `bash scripts/check_clone_setup.sh`. It reports what this clone has
+wired and what each gap costs you, and it needs nothing installed.
+
+Hook messages carry a `mode:` line. **contributor** means this clone has no
+age key, so a guard that can't run says so and lets the commit through; CI
+is the gate. **strict** means it does, and the same guard fails. Mode is
+auto-detected (age key present *and* both git filters configured), and
+overridden by `SYMPHONY_STRICT=1` / `SYMPHONY_STRICT=0` or a `.symphony-mode`
+file at the repo root. CI is always strict.
+
+Two things never relax, in either mode: staging a `filter=sops` file whose
+content isn't encrypted, and editing one you can't decrypt. Both stop the
+commit and name the file, what's missing and the fix.
+
 The message names which check failed. In rough order of likelihood:
 
 - **"staged WITHOUT sops encryption markers"** — the clean filter didn't

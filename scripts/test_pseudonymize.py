@@ -6,6 +6,7 @@ Run: python3 scripts/test_pseudonymize.py
 import json
 import os
 import re
+import shutil
 import sys
 import unittest
 
@@ -186,6 +187,17 @@ class TestMask(unittest.TestCase):
 
 class TestStore(unittest.TestCase):
     def test_real_store_decrypts_and_has_a_salt(self):
+        # The only test here that touches the real encrypted store, so the
+        # only one that needs sops and a key. On a clone that has neither
+        # it used to error on import of the sops binary and fail the whole
+        # secret-tooling-tests hook -- i.e. block a contributor's commit
+        # over a capability they are not expected to have. Strict mode
+        # still runs it: a machine that holds secrets must be able to open
+        # them.
+        import symphony_mode
+
+        if symphony_mode.mode() != "strict" and not shutil.which("sops"):
+            self.skipTest("no sops on PATH and this clone is in contributor mode")
         salt, mapping = p.load_store()
         self.assertTrue(salt)
         self.assertIsInstance(mapping, dict)

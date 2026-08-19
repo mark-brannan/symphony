@@ -26,14 +26,54 @@ and only emits new ciphertext if the plaintext actually changed.
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 
-import yaml
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import pseudonymize
+import symphony_mode  # noqa: E402  -- needs the sys.path line above
+
+# Both optional at import time so this file can still run its no-key
+# pass-through paths on a clone that has neither. Anything that actually
+# needs them checks first and fails loudly, never silently.
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+try:
+    import pseudonymize
+except ImportError:
+    pseudonymize = None
 
 SOPS = "sops"
+
+# What a sops document looks like from the outside, without parsing it.
+SOPS_MARKERS = ('"sops"', "sops:")
+
+
+def looks_encrypted(text):
+    return any(marker in text for marker in SOPS_MARKERS)
+
+
+def can_encrypt():
+    """Everything the encrypt path needs, in one question."""
+    missing = []
+    if shutil.which(SOPS) is None:
+        missing.append("sops on PATH")
+    if not symphony_mode.have_age_key():
+        missing.append("an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)")
+    if yaml is None or pseudonymize is None:
+        missing.append("the pyyaml package for this python3")
+    return missing
+
+
+def blob(ref, path):
+    result = subprocess.run(
+        ["git", "show", f"{ref}:{path}"], capture_output=True, text=True
+    )
+    return result.stdout if result.returncode == 0 else None
 
 
 def warn(message):
@@ -142,12 +182,59 @@ def index_blob(path):
 
 
 def clean(path):
+    raw = sys.stdin.read()
+
+    # A fresh clone with no key checks these files out as ciphertext -- that
+    # is the documented, expected state, and it is what the working tree
+    # holds until setup-git-filters.sh decrypts them. Staging anything else
+    # in the repo then makes git run this filter over them, and every
+    # encrypt path below needs sops and a key. That turned "no sops on this
+    # laptop" into "git commit dies on a traceback", for a README edit.
+    #
+    # So: if the working-tree copy is still exactly the ciphertext git
+    # already has, hand it straight back. Byte-identical to the blob, needs
+    # nothing installed, and cannot leak -- it is the encrypted form.
+    if looks_encrypted(raw):
+        if raw in (index_blob(path), blob("HEAD", path)):
+            sys.stdout.write(raw)
+            return
+        symphony_mode.block(
+            "a sops-encrypted file was edited without being decrypted first",
+            problem="this file is still ciphertext in the working tree but no "
+                    "longer matches what git has, so it cannot be passed "
+                    "through and cannot be re-encrypted -- committing it "
+                    "would store a document whose MAC no longer verifies",
+            file=path,
+            needs=", ".join(can_encrypt()) or "the sops clean filter to run",
+            blocked_by="the sops clean filter (scripts/sops_filter.py)",
+            fix=f"git checkout -- {path} to discard the edit, or provision a "
+                f"key and run: bash scripts/setup-git-filters.sh",
+            see="RUNBOOK.md, When a hook blocks your commit",
+        )
+        sys.exit(1)
+
+    missing = can_encrypt()
+    if missing:
+        symphony_mode.block(
+            "a secret-bearing file cannot be encrypted on this machine",
+            problem="this file is plaintext and git is about to store it. "
+                    "Refusing, because storing it as-is would put the secret "
+                    "in the clear in a public repo",
+            file=path,
+            needs=", ".join(missing),
+            blocked_by="the sops clean filter (scripts/sops_filter.py)",
+            fix="bash scripts/setup-git-filters.sh (after installing what "
+                "'needs' lists), or unstage the file",
+            see="RUNBOOK.md, When a hook blocks your commit",
+        )
+        sys.exit(1)
+
     # Pseudonymize FIRST, then treat the result as the plaintext for every
     # step below. The unchanged-comparison further down decrypts the staged
     # blob, which is already in git form -- comparing it against the raw
     # working tree would never match, so every commit would rewrite the blob
     # and these files would look permanently modified.
-    new_plaintext = to_git_form(path, sys.stdin.read())
+    new_plaintext = to_git_form(path, raw)
     old_ciphertext = index_blob(path)
 
     # SOPS_FILTER_REKEY forces fresh encryption even when the plaintext is
@@ -178,6 +265,21 @@ def clean(path):
 
 def smudge(path):
     ciphertext = sys.stdin.read()
+
+    # No key or no sops: check the file out as ciphertext rather than
+    # failing. That is exactly the state a fresh clone is in before
+    # setup-git-filters.sh runs, it is what RUNBOOK.md already describes,
+    # and the alternative is `git clone` and `git checkout` erroring out on
+    # a machine that was never going to read these files anyway.
+    missing = can_encrypt()
+    if missing:
+        symphony_mode.line(
+            f"{path} checked out as ciphertext -- missing {missing[0]}. "
+            f"Details: bash scripts/check_clone_setup.sh"
+        )
+        sys.stdout.write(ciphertext)
+        return
+
     sys.stdout.write(to_worktree_form(path, sops_decrypt(path, ciphertext)))
 
 

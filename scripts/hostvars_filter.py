@@ -44,9 +44,15 @@ import re
 import subprocess
 import sys
 
-import yaml
+try:
+    import yaml
+except ImportError:  # handled per-subcommand in main()
+    yaml = None
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import symphony_mode  # noqa: E402  -- needs the sys.path line above
 CONFIG = os.path.join(REPO, ".hostvars.yaml")
 LOCAL = os.path.join(REPO, "hostvars.local.yaml")
 LOCAL_EXAMPLE = "hostvars.local.yaml.example"
@@ -297,6 +303,31 @@ def check():
 
 def main():
     args = sys.argv[1:]
+
+    # pyyaml is not in the stdlib. `check` runs on every commit via an
+    # always_run pre-commit hook, so an ImportError here used to block a
+    # clone that has no pyyaml from committing anything at all -- a
+    # markdown typo fix included. It degrades; the filter operations below
+    # do not, because a filter that silently doesn't run is how a
+    # per-machine value reaches git.
+    if yaml is None:
+        if args == ["check"]:
+            gate = symphony_mode.require_pyyaml(
+                "pre-commit hook 'hostvars-placeholders' "
+                "(scripts/hostvars_filter.py check)"
+            )
+            return 1 if gate else 0
+        symphony_mode.block(
+            "the hostvars filter cannot run: pyyaml is missing",
+            problem="git is asking this filter to transform a covered file "
+                    "and it cannot parse .hostvars.yaml to do it",
+            needs="the pyyaml package for this python3",
+            blocked_by="scripts/hostvars_filter.py",
+            fix="pip install pyyaml",
+            see="bash scripts/check_clone_setup.sh",
+        )
+        return 1
+
     if args[:1] in (["clean"], ["smudge"]) and len(args) == 2:
         handler = clean if args[0] == "clean" else smudge
         sys.stdout.write(handler(args[1], sys.stdin.read()))
