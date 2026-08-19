@@ -324,25 +324,28 @@ def check(scope_all=False):
                 failures.append((path, name))
 
     if failures:
-        print("hostvars-placeholders: BLOCKED "
-              f"({len(failures)} problem(s))", file=sys.stderr)
+        rel_local = os.path.relpath(LOCAL, REPO)
         for path, name in failures:
-            print(
-                f"\n  file:  {path}\n"
-                f"  what:  git's staged copy holds this machine's literal value "
-                f"where '{{{{ {name} }}}}' should be, so committing it would "
-                f"overwrite every other machine's value.\n"
-                f"  fix:   set {name} in {os.path.relpath(LOCAL, REPO)} "
-                f"(copy {LOCAL_EXAMPLE} if you have none), then:\n"
-                f"           python3 scripts/hostvars_filter.py refresh\n"
-                f"           git add --renormalize {path}\n"
-                f"  no {os.path.relpath(LOCAL, REPO)}, or can't run that? "
-                f"Drop this one file from the commit and the rest goes through:\n"
-                f"           git restore --staged {path}\n"
-                f"         Didn't stage it yourself? Another session did -- leave "
-                f"it alone and use:  SKIP=hostvars-placeholders git commit ...\n"
-                f"  last resort, bypasses ALL hooks:  git commit --no-verify",
-                file=sys.stderr,
+            secretguard.block(
+                "a staged file holds this machine's value where a "
+                "placeholder belongs",
+                problem=f"git's staged copy holds this machine's literal value "
+                        f"where '{{{{ {name} }}}}' should be, so committing it "
+                        f"would overwrite every other machine's value",
+                file=path,
+                needs=f"{name} in {rel_local}",
+                blocked_by="pre-commit hook 'hostvars-placeholders' "
+                           "(scripts/hostvars_filter.py)",
+                fix=f"set {name} in {rel_local} (copy {LOCAL_EXAMPLE} if you "
+                    f"have none), then: python3 scripts/hostvars_filter.py "
+                    f"refresh && git add --renormalize {path}",
+                if_stuck=f"no {rel_local}, or can't run that? Drop this one "
+                         f"file and the rest of the commit goes through: git "
+                         f"restore --staged {path}. Didn't stage it yourself? "
+                         f"Another session did -- leave it alone and use "
+                         f"SKIP=hostvars-placeholders git commit ... (last "
+                         f"resort, bypasses all hooks: git commit --no-verify)",
+                see="reference/precommit_guards.md",
             )
         return 1
     print(f"OK: {len(config)} hostvars file(s) hold their placeholders in git.")

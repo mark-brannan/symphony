@@ -97,6 +97,20 @@ def warn(rule: str, msg: str) -> None:
     warnings.append(f"{rule}: {msg}")
 
 
+def filter_is_configured(name: str) -> bool:
+    """Does this clone actually have filter.<name>.clean wired up?
+
+    Its own function so the tests can force the unconfigured case. Asserting
+    on a real clone would pass vacuously on any machine that HAS the filters
+    -- which is every maintainer's, and the one place these tests would then
+    never run.
+    """
+    return bool(subprocess.run(
+        ["git", "config", "--get", f"filter.{name}.clean"],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout.strip())
+
+
 def rule_declared_filters_are_configured() -> None:
     """A .gitattributes filter that git doesn't have configured is a trap.
 
@@ -116,11 +130,7 @@ def rule_declared_filters_are_configured() -> None:
     declared = gitattributes_filters()
     scope = in_scope()
     for name in sorted(declared):
-        clean = subprocess.run(
-            ["git", "config", "--get", f"filter.{name}.clean"],
-            cwd=ROOT, capture_output=True, text=True,
-        ).stdout.strip()
-        if clean:
+        if filter_is_configured(name):
             continue
 
         # Two axes, composed as AND -- this is the one place PR #12's and

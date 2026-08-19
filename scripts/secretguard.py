@@ -8,6 +8,30 @@ implementations resolve mode by the rules documented in the shell file and
 format messages identically; scripts/test_secretguard.py asserts they
 still agree.
 
+The invariant every caller is composing against
+-----------------------------------------------
+
+    Enforcement may soften a guard about your ENVIRONMENT.
+    It may never soften a guard about the CONTENT of your commit.
+
+Environment is a fact about this clone -- no age key, filters unwired,
+pyyaml missing. Strict blocks on it, contributor warns, and a contributor
+can still commit a typo fix in a markdown file. Content is what is in the
+index right now: a plaintext secret staged for a public repo is the same
+incident whoever commits it, so it blocks in every mode.
+
+Which is why `require()` and `block()` are separate calls rather than one
+with a severity argument. A guard about content calls `block`; only a guard
+about capability calls `require`. Where both axes apply -- as in
+lint_repo_hygiene's unconfigured-filter rule -- they compose as
+
+    blocking = <this commit stages a covered path> or <mode is strict>
+
+an AND of the two concerns, never an OR of the two verdicts. Written down
+here because two sessions derived it independently and very nearly
+composed it the other way, which would have let contributor mode wave a
+staged plaintext secret through.
+
 Deliberately stdlib-only. It is on the path a clone takes when pyyaml is
 what's missing, so it cannot import yaml.
 

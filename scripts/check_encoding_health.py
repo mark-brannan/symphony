@@ -52,6 +52,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import secretguard  # noqa: E402  -- needs the sys.path line above
+
 # This script prints the mojibake markers it searches for, and one of them
 # contains a euro sign. On the box this was written for, stdout is ISO-8859-1,
 # so printing them raised UnicodeEncodeError and took the pre-commit hook down
@@ -189,35 +192,41 @@ def check_repo(only=None):
         print(f"   ok: every scanned text file is valid UTF-8, no mojibake markers")
         return 0
 
-    print("\nencoding-health: BLOCKED", file=sys.stderr)
     for path, err in bad_encoding:
         _report(path, f"not valid UTF-8 ({err})")
     for path, hits in mojibake:
         _report(path, f"contains mojibake markers {hits} -- UTF-8 text that "
                       f"was read as latin-1 and written back, mangling a "
                       f"character",
-                extra=f"  deliberate example? Put this exact text somewhere in "
-                      f"the file and it becomes a warning instead:\n"
-                      f"           {ALLOW_MARKER}")
+                extra=f"Deliberate example? Put this exact text somewhere "
+                      f"in the file and it becomes a warning instead: "
+                      f"{ALLOW_MARKER}")
     return len(bad_encoding) + len(mojibake)
 
 
 def _report(path, what, extra=None):
-    """One finding, with a fix and an exit that needs nothing."""
-    print(
-        f"\n  file:  {path}\n"
-        f"  what:  {what}\n"
-        f"  fix:   rewrite it as UTF-8, then re-stage:\n"
-        f"           python3 scripts/check_encoding_health.py --fix {path}\n"
-        f"           git add {path}\n"
-        f"  didn't cause it, or the fix looks wrong? Drop the file from this\n"
-        f"         commit and the rest goes through:\n"
-        f"           git restore --staged {path}\n"
-        f"         Another session staged it? Leave it alone and use:\n"
-        f"           SKIP=encoding-health git commit ...\n"
-        f"  last resort, bypasses ALL hooks:  git commit --no-verify"
-        + (f"\n{extra}" if extra else ""),
-        file=sys.stderr,
+    """One finding, in the shared guard shape.
+
+    Not mode-gated: bad bytes in a staged file are the CONTENT of this
+    commit, and enforcement softens guards about your environment, never
+    about your content. Every other encoding-health output is advisory;
+    this one blocks in any mode.
+    """
+    secretguard.block(
+        "a staged text file is not clean UTF-8",
+        problem=what + (f". {extra}" if extra else ""),
+        file=path,
+        needs="the file re-encoded as UTF-8 before it reaches git",
+        blocked_by="pre-commit hook 'encoding-health' "
+                   "(scripts/check_encoding_health.py)",
+        fix=f"python3 scripts/check_encoding_health.py --fix {path} && "
+            f"git add {path}",
+        if_stuck=f"didn't cause it, or the fix looks wrong? Drop the file and "
+                 f"the rest of the commit goes through: git restore --staged "
+                 f"{path}. Another session staged it? Leave it alone and use "
+                 f"SKIP=encoding-health git commit ... (last resort, bypasses "
+                 f"all hooks: git commit --no-verify)",
+        see="reference/precommit_guards.md",
     )
 
 
