@@ -335,21 +335,27 @@ exist on this vessel today.
   dashboards.
 
 ### H. Safety & security
-- MOB detection — **gap, blocked**, confirmed. Owner confirmed 2026-08-15:
-  no MOB button or crew-tag hardware of any kind aboard — the BLE-tag
-  pattern specifically needs hardware that doesn't exist. What does exist:
-  a handheld VHF with DSC and an emergency button, and an AIS Class B
-  transceiver. `signalk-mob-notifier` is installed; whether it (or
-  anything else) consumes a DSC distress alert, an AIS MOB beacon message,
-  or neither is unconfirmed. **Verification has to come from documentation
-  or source, never from live-testing the DSC emergency button** — that
-  sends a real distress call to the Coast Guard on Ch 16, with possible
-  legal/regulatory consequences. Owner confirmed 2026-08-15 this is a
-  standing rule, not a one-off caution — see `maintenance/priorities.md`.
-  Owner wants MOB detection eventually (medium-low priority, open research
-  item as of 2026-08-15, not immediately planned) and is only willing to
-  adopt a solution already proven elsewhere to work reliably — not
-  something built and validated on this boat.
+- MOB detection — **gap narrowing**, updated 2026-08-19. Owner confirmed
+  2026-08-15: no MOB button or crew-tag hardware of any kind aboard — the
+  BLE-tag pattern specifically needs hardware that doesn't exist. What does
+  exist: a handheld VHF with DSC and an emergency button, and an AIS Class B
+  transceiver. What consumes that hardware is now confirmed — settled by
+  synthetic injection on a sandbox rebuild of the dev stack, 2026-08-19,
+  not by the button: `signalk-mob-notifier` consumes AIS MOB beacon
+  (972-prefix) position reports and raises `notifications.mob` at
+  emergency; `signalk-dsc` consumes DSC calls including nature "man
+  overboard"; `signalk-ais-distress` consumes all 97x survival beacons.
+  See `reference/distress_monitoring.md` for what was verified and the
+  alarm-delivery gap that still blocks phone delivery.
+  **Never live-test the DSC emergency button** — that sends a real distress
+  call to the Coast Guard on Ch 16, with possible legal/regulatory
+  consequences. Owner confirmed 2026-08-15 this is a standing rule, not a
+  one-off caution — see `maintenance/priorities.md`. The chain is testable
+  with nothing on the air instead: `RUNBOOK.md` → "Testing the DSC / AIS
+  distress receive chain". Owner wants MOB detection eventually (medium-low
+  priority, open research item as of 2026-08-15, not immediately planned)
+  and is only willing to adopt a solution already proven elsewhere to work
+  reliably — not something built and validated on this boat.
 - Door/hatch/motion intruder alarm — **gap, blocked**. No door/hatch/motion
   sensors or Zigbee gateway aboard.
 

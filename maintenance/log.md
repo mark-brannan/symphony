@@ -702,6 +702,27 @@
   file created and `setup-git-filters.sh` re-run (RUNBOOK § Per-machine
   config values).
 
+## 2026-08-19
+- Letter from Bryan Clark, author of `signalk-dsc` and `signalk-ais-distress`,
+  after he read this repo: the DSC/AIS receive chain is testable by synthetic
+  UDP injection, nothing on the air. Verified every claim in the letter
+  against npm and his repos before acting on it — all accurate.
+- Rebuilt the dev SignalK stack in a cloud sandbox from this repo's own
+  config and validated that chain end to end with synthetic distress calls
+  and AIS survival beacons: parse, store, per-call emergency alarms, SaR
+  chart target, marker layers, restart re-announce, token-authed clearing
+  all work. Confirmed `signalk-mob-notifier` consumes AIS MOB beacons and
+  raises `notifications.mob` at emergency — the question §H had open.
+- Found while doing it: signalk-server 2.31.1 never delivers the first
+  values delta of a newly-created path to wildcard `notifications.*`
+  subscribers, so per-call distress alarms reach the model but never
+  `signalk-ntfy` (0 of 6 in repeated runs). Written up with mitigations in
+  `reference/distress_monitoring.md`; the boat's server still unverified.
+- Docs corrected on the back of all this: census `ACTOR_HINTS` extended
+  (`dsc`, `distress`), the already-done weather-hint backlog item retired,
+  MOB entries updated in priorities and use-cases, distress test procedure
+  added to the RUNBOOK.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.

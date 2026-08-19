@@ -175,6 +175,24 @@ This file remains authoritative for the SignalK / IoT section below.
 - 3D-print IMU case
 
 ### Infrastructure
+- Bring the DSC/AIS distress receive chain to the boat. The chain
+  (`signalk-dsc` + `signalk-ais-distress`, both by the signalk-dsc author who
+  wrote in 2026-08) was validated end to end 2026-08-19 on a sandbox rebuild of
+  the dev stack by synthetic UDP injection — parse, store, per-call emergency
+  alarms, SaR chart target, markers, clear — procedure in `RUNBOOK.md` →
+  "Testing the DSC / AIS distress receive chain". Neither plugin is installed
+  on the boat yet. Before the boat install: (1) **decide DSCWatch reporting**
+  — the plugin ships every received DSC call plus receiver position to
+  dscwatch.com by default, queuing undelivered reports on disk; the dev config
+  has it on with MMSI 368391180 as receiver key, and it must be off (or
+  mock-pointed) while injecting synthetic calls or the fakes get reported too;
+  (2) **the alarm-delivery gap must be closed or accepted** — signalk-server
+  2.31.1 never delivers the first values delta of a new path to wildcard
+  `notifications.*` subscribers (0/6 in repeated tests), so per-call distress
+  alarms currently reach the model and chartplotters' REST view but never
+  signalk-ntfy or any similar delivery plugin; details and mitigations in
+  `reference/distress_monitoring.md`. Verify the boat's server version
+  behaves the same before trusting or fixing anything.
 - Deploy the openweather-signalk humidity-fix Node-RED flow (needs boat
   access). `environment.outside.relativeHumidity` publishes OpenWeatherMap's
   raw percent instead of SignalK's 0-1 ratio, so every dashboard panel on
@@ -402,11 +420,6 @@ This file remains authoritative for the SignalK / IoT section below.
   permission the "Give an SSO login admin" item below is about. Decide per
   field, and note the union rule doesn't apply to `secretKey` — there is no
   superset of two signing keys.
-- Add a weather term to `ACTOR_HINTS` in `scripts/signalk_plugin_census.py`.
-  `open-meteo` is an actor by the script's own definition — its product is a
-  registered v2 API, not published paths — but the hint list has no weather
-  entry, so it scores `unmatched` and reads like a fault. Any other provider
-  plugin will land the same way.
 - **Do not touch the `captain` credentials.** `signalk_captain_password` and
   `influxdb_captain_password` in `secrets/symphony.sops.yaml` are frozen at
   Mark's instruction until his own hardening pass, which is scheduled work and
@@ -500,6 +513,12 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   the boat: real alerts landed on the topic within two minutes of restart.
   Remaining: subscribe the phone (below), which needs the Pi's tailnet or LAN
   address rather than `localhost`.
+  Noted 2026-08-19 while validating the distress chain: `signalk-ntfy` 0.0.7
+  ignores its own `filterDuplicates` and `minIntervalMinutes` settings — both
+  keys sit in our tracked config but appear nowhere in the plugin source, so
+  neither dedupe nor rate limiting actually exists. And per-call distress
+  alarms never reach it at all until the delivery gap above is closed — see
+  `reference/distress_monitoring.md`.
   `signalk-pushover-notification-relay` not installed as of this bullet's
   last edit — flag: `signalk/plugin-config-data/signalk-pushover-notification-relay.json`
   now exists in the repo with `enabled: true` (landed in the 2026-08-15
@@ -559,7 +578,7 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Reconcile the InfluxDB secrets in `symphony.sops.yaml` against the running database. As of 2026-08-11 all three sops tokens (`influx_token`, `influxdb_operator_token`, `influxdb_signalk_token`) return 401; the only working credential is "captain's Token" (all-access), held in `signalk/plugin-config-data/signalk-to-influxdb2.json`. The org is also wrong: the database has `symphony`, while `.env.j2` renders `DOCKER_INFLUXDB_INIT_ORG=darkstarllc`. Buckets present: `symphony` (30d), `_monitoring` (7d), `_tasks` (3d). Which side is authoritative is an open question — the repo copy is not automatically the correct one. Also measured 2026-08-14: `POST /api/v2/signin` with `DOCKER_INFLUXDB_INIT_USERNAME`/`_PASSWORD` from `.env` returns 401, so the username-and-password path the age-key recovery procedure depends on does not currently work either. That matters more than the tokens — it is the credential of last resort when every token is lost, and right now the boat does not have a working one. The only credential that authenticates is captain's all-access token.
 - Derive true heading from magnetic heading + variation. `signalk-derived-data` is already installed, but its `heading.heading`, `heading.cog_true` and `heading.magneticVariation` calculators are all set to `false`, so `navigation.headingTrue` has never been published — even though `headingMagnetic` and `magneticVariation` are both already live on the boat. Flipping the existing calculator's config on may be all that's needed; a Node-RED flow doing the same subtraction is the fallback if the built-in calculator doesn't behave as expected. Flagged as the lowest-effort item in `reference/node_red_signalk_use_cases.md` (List 3, section J), 2026-08-15.
 - Add a notification/zone for a fast barometric pressure drop (squall/foul-weather warning). Both `environment.barometer.*` and `environment.outside.pressure.{trend,prediction}.*` already carry trend/prediction data (`reference/signalk_paths.md` notes the two parallel barometer stacks), but nothing currently turns a fast drop into a notification — no zone is configured on either path. A `meta.zones` entry (server-native, no plugin) or a small Node-RED flow would both work. Flagged in `reference/node_red_signalk_use_cases.md` (List 3, section M), 2026-08-15.
-- MOB detection — open research item, medium-low priority, not immediately planned. **Never live-test the DSC emergency button, on this or any other item — standing rule, not a one-off caution.** Owner confirmed 2026-08-15: triggering it sends a real distress call to the Coast Guard on Ch 16 DSC, with possible fines or legal consequences, and it "ain't happening." What's aboard today: a handheld VHF with DSC and an emergency button, and an AIS Class B transceiver — no MOB button or crew-tag hardware of any other kind. `signalk-mob-notifier` is installed; whether it (or anything else) actually consumes that DSC/AIS hardware is unconfirmed, and has to stay that way until it can be settled by reading documentation or source — never by pressing the button to see what happens. Owner is only willing to adopt a solution already proven elsewhere to work reliably, not something built and validated on this boat. See `reference/node_red_signalk_use_cases.md` section H.
+- MOB detection — open research item, medium-low priority, not immediately planned. **Never live-test the DSC emergency button, on this or any other item — standing rule, not a one-off caution.** Owner confirmed 2026-08-15: triggering it sends a real distress call to the Coast Guard on Ch 16 DSC, with possible fines or legal consequences, and it "ain't happening." What's aboard today: a handheld VHF with DSC and an emergency button, and an AIS Class B transceiver — no MOB button or crew-tag hardware of any other kind. What consumes that hardware is now settled — by synthetic injection, not the button, which the standing rule still forbids: `signalk-mob-notifier` consumes AIS MOB beacon (972-prefix) position reports and raises `notifications.mob` at emergency, verified 2026-08-19 on a sandbox rebuild of the dev stack; `signalk-dsc` consumes DSC distress/urgency calls (including nature "man overboard") and `signalk-ais-distress` all three 97x survival-beacon classes. The whole receive chain is testable with nothing on the air — `RUNBOOK.md` → "Testing the DSC / AIS distress receive chain". See `reference/distress_monitoring.md` for the facet writeup, including the alarm-delivery gap found during that validation. Owner is only willing to adopt a solution already proven elsewhere to work reliably, not something built and validated on this boat. See `reference/node_red_signalk_use_cases.md` section H.
 
 ### Cameras
 - Identify location for interior Tapo cam
