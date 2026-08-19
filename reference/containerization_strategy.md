@@ -413,12 +413,26 @@ marked; Mark has pre-authorized them, except where a line says otherwise.
    until this step passes.**
 5. **QuestDB feasibility probe (semi-destructive, contained).**
    `docker run` a pinned questdb/questdb with `-m 768m`, ports on
-   localhost, a throwaway volume. Watch `free -m` and container RSS for
-   an hour alongside the full native stack. This answers the only
-   question the research couldn't: whether the 4 GB box carries SignalK
-   (~1.1 GB), QuestDB (~0.5–0.75 GB), Grafana, Telegraf and Caddy
-   together, or whether B5 (Influx off) must precede B2 rather than
-   follow it. Remove the container after; keep the measurement.
+   localhost, a throwaway volume. Run it for an hour alongside the full
+   native stack, sampling `free -m`, `grep ^pswp /proc/vmstat` and
+   container RSS every 30 s — a script writing to a file, not eyeballing,
+   because **the peak is the measurement and the average hides it**. This
+   answers the only question the research couldn't: whether the 4 GB box
+   carries SignalK (~1.1 GB), QuestDB (~0.5–0.75 GB), Grafana, Telegraf
+   and Caddy together.
+   **Pass:** minimum available memory across all samples stays above
+   ~400 MB and `pswpin`/`pswpout` do not move — the same thresholds
+   CLAUDE.md uses for real pressure. Then B2 can proceed as written, with
+   InfluxDB still running.
+   **Fail:** available dips below ~400 MB at any single sample, or swap
+   activity appears. Then the box does not carry both databases, and the
+   order inverts — **B5 (InfluxDB off) must precede B2**, which means B1's
+   backup must be complete and restore-verified first, since there is then
+   no dual-run soak to fall back on and B3's parity comparison has to be
+   made against the backup rather than a live InfluxDB. Say so in-session
+   before re-ordering the plan; this is the one measurement that changes
+   Track B's shape.
+   Remove the container after; keep the sample file.
 6. **Plugin install dry-run (semi-destructive).** Before any npm work in
    `~/.signalk`: back up `signalk-plugin-watchdog` and any other
    hand-installed plugin — `package-lock=false` npm installs prune
