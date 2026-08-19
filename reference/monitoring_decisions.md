@@ -2,7 +2,7 @@
 
 Decision record, researched 2026-08-14. Companion to
 [monitoring_posture.md](monitoring_posture.md) (the measured map) and
-[signalk_plugin_watchdog.md](signalk_plugin_watchdog.md) (the build proposal).
+[signalk_plugin_watchdog.md](signalk_plugin_watchdog.md) (why the plugin exists).
 Four roles, one owner each. Every load-bearing claim is tagged **[verified]**
 (fetched, read, or measured during this research — source named) or
 **[recall]** (plausible, not checked).

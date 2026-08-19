@@ -84,7 +84,7 @@ that alarms on data *stopping*. The boat has one provider, `n2k-can0`, and the
 watch for it is disabled.
 
 It watches providers, not plugins. A plugin that loads and goes mute is a
-different failure and is covered by nothing — see
+different failure, now covered by `plugins/signalk-plugin-watchdog` — see
 [`signalk_plugin_watchdog.md`](signalk_plugin_watchdog.md).
 
 ## Gaps
