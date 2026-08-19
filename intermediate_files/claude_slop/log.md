@@ -293,3 +293,80 @@ that reads as encrypted to one guard and plaintext to another, which is worse
 than either answer alone — the commit sails through, the push blocks, and
 neither message explains the disagreement. When a finding is "this predicate
 is wrong," the unit of repair is the predicate, not the lines cited.
+## 2026-08-19 — Pre-commit guards: block only on staged, fixable state (PR #12)
+
+**The incident this fixes.** Mark could not commit a one-line doc edit for
+days. `hostvars_filter.py clean` fails soft when `hostvars.local.yaml` is
+missing, so the machine-local ntfy URL landed in the index literally;
+`check` then failed unconditionally on every commit and named `refresh` as
+the remedy — which itself requires the file he did not have. Closed loop,
+and no message anywhere mentioned `--no-verify`. Reproduced it exactly in a
+throwaway clone before changing anything.
+
+**Invariant landed.** A hook may FAIL only on a condition (a) visible in a
+`git diff --cached` path and (b) fixable by the person committing right
+now. Clause (b) is the addition — the hostvars checker was arguably scoped
+correctly in spirit and still trapped him, because correct-and-unsatisfiable
+is still a trap. Repo-wide truth moved to CI.
+
+**`always_run` was never the bug.** None of the four moved to `files:`.
+Internal self-scoping from the index — what `precommit_secret_guard.sh`
+already did — is the right shape; `files:` would duplicate scope config
+living in `.sops.yaml`/`.hostvars.yaml` and miss deletion-only commits.
+
+**Rejected the obvious filter fix, deliberately.** Making `clean` hard-fail
+so bad bytes never reach the index is attractive and wrong: git runs clean
+to diff working tree against index, so a failing clean breaks `git status`
+in exactly the stuck state. Uncommittable would become unreadable. Both
+filter directions stay soft; the checker owns all blocking and pays for it
+with scoping and a named exit. Written down as: whichever layer cannot be
+escaped is the layer that must not block.
+
+**Two bugs in my own work, caught by testing rather than reasoning.**
+`--fix` re-encoded whole files, so it failed on any document containing a
+legitimate em dash — i.e. nearly all of them; now repairs per damaged run.
+And `test_encoding_health.py` contained literal mojibake fixtures and
+flagged itself on the first CI run. Both are the exact class of thing Mark
+called AI slop. A third followed later: two of my `test_repo_hygiene.py`
+assertions matched on message *wording* and broke the moment #13's
+formatter landed — change-detectors, which his own rules warn against.
+
+**Pseudonymizer, three findings, three different answers to "fail open?"**
+Clean side had no handler at all and died on a bare `FileNotFoundError`
+traceback — still refuses (a guest's mailbox in public history cannot be
+taken back) but now says so in words. Nothing guarded that the pseudonym
+map travels with the tokens: commit a token without the map and it is
+unresolvable forever — made a warning, not a block, since the map is still
+on disk. And the one sops-dependent test now skips rather than erroring.
+
+**Coordination with PR #13.** Could not message that session directly (no
+`send_message` in this session's toolset, `ListAgents` empty), so the PR
+thread was the channel — which Mark could read, arguably better. Rather
+than predict the merge I ran it: rebased onto their branch in a scratch
+clone, resolved all four conflicts, verified all six suites and all four
+of Mark's paths on the merged tree. Resolution saved at
+`intermediate_files/pr12-onto-pr13-merge.{patch,md}`.
+
+**The cross-PR hazard, and the invariant it produced.** Both PRs rewrote
+`rule_declared_filters_are_configured` on orthogonal axes — theirs keyed on
+who is committing, mine on what is in the commit. Composed as OR,
+contributor mode swallows the staged case and a plaintext secret only
+warns. Merged as AND. Stated as: **enforcement may soften a guard about
+your ENVIRONMENT; never one about the CONTENT of your commit.**
+
+**Naming.** Mark rejected `SYMPHONY_MODE`/`SYMPHONY_STRICT` on #13 — "mode"
+collides with vessel operating mode and SignalK's own usage, and the boat's
+name has no place in a mechanism that is not boat-specific. Proposed
+`SECRETS_ENFORCEMENT=strict|warn-only`, one variable rather than two (the
+old pair were two knobs on one axis and could disagree). Checked the
+extraction question rather than guessing: the whole secret-management core
+is already free of "symphony", and the real fork boundary is *inside*
+`lint_repo_hygiene.py`, which mixes one generic rule with two site-specific
+ones. #12's shipped code never referenced the old names, so the rename
+costs this branch nothing.
+
+**Self-correction.** Three times in this session I ran `git reset --hard` /
+`git checkout -- .` in the scratch clone *after* copying patched scripts in,
+silently reverting them and producing a bogus comparison I then reported.
+Caught each time by the output not making sense. Order matters: reset
+first, copy second.

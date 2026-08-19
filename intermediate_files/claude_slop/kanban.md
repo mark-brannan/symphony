@@ -33,6 +33,35 @@ to the plugin dir. Remaining:
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
 
+- **PR #12 (pre-commit guard scoping) is waiting on PR #13 to merge**
+  (2026-08-19, precommit-scoping session). #12 is green and complete on its
+  own; Mark's tie-breaker was that #13 lands first, then #12 rebases onto
+  it. The rebase has already been *run* as a trial, not predicted — all four
+  conflicts resolved, all six suites and all four secret/contributor paths
+  verified on the merged tree. The resolution is saved at
+  `intermediate_files/pr12-onto-pr13-merge.{patch,md}` so the real rebase
+  re-derives none of it. Blocked only on #13 merging. Full handoff prompt in
+  the log entry for this date.
+- **The cross-PR invariant is not yet enforced anywhere but #12's tests**
+  (2026-08-19, precommit-scoping session). *Enforcement may soften a guard
+  about your ENVIRONMENT; it may never soften a guard about the CONTENT of
+  your commit.* #13 keys severity on who is committing, #12 on what is
+  staged; composed as OR by accident, contributor mode swallows a staged
+  plaintext secret and it only warns. #12 carries three tests pinning it.
+  Open question for Mark: should that sentence also live in the shared
+  enforcement module's docstring, so neither side re-derives it? I proposed
+  yes on #13; not landed.
+- **Naming: `SYMPHONY_MODE`/`SYMPHONY_STRICT` rejected by Mark, replacement
+  not yet settled** (2026-08-19). "Mode" collides with vessel operating mode
+  and SignalK's own usage; the boat's name does not belong in a mechanism
+  that is not boat-specific. I proposed `SECRETS_ENFORCEMENT=strict|warn-only`
+  — one variable, since the old pair were two knobs on one axis that could
+  disagree. #13 owns the decision. Related, and larger, from Mark's own
+  thought exercise: the secret-management core is *already* free of
+  "symphony", and the real fork boundary is inside `lint_repo_hygiene.py`,
+  which mixes one generic rule (unconfigured filter) with two site-specific
+  ones (audible alarms, frozen captain credentials). Splitting that is a
+  real piece of work nobody has scoped, and it is not urgent.
 - **Branch protection / required status checks on `main` — not enabled**
   (2026-08-19, CI-design session). Confirmed via `list_branches`: `main` is
   unprotected today, so `.github/workflows/validate.yml` and
