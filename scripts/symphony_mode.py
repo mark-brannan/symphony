@@ -40,6 +40,7 @@ FIELD_LABELS = (
     ("needs", "needs:     "),
     ("blocked_by", "blocked by:"),
     ("fix", "fix:       "),
+    ("if_stuck", "if stuck:  "),
     ("see", "see:       "),
 )
 

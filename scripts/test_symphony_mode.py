@@ -28,6 +28,7 @@ MSG_FIELDS = [
     ("needs", "an age key"),
     ("blocked_by", "pre-commit hook sops-secret-guard"),
     ("fix", "bash scripts/setup-git-filters.sh"),
+    ("if_stuck", "git restore --staged <file>"),
     ("see", "RUNBOOK.md, When a hook blocks your commit"),
 ]
 
@@ -150,7 +151,7 @@ class MessageParity(unittest.TestCase):
         code = (
             "import sys; sys.path.insert(0, %r); import symphony_mode as m; "
             "print(m.format('BLOCKED', 'a title', problem=%r, file=%r, "
-            "needs=%r, blocked_by=%r, fix=%r, see=%r))"
+            "needs=%r, blocked_by=%r, fix=%r, if_stuck=%r, see=%r))"
             % (
                 os.path.join(REPO, "scripts"),
                 MSG_FIELDS[0][1],
@@ -159,6 +160,7 @@ class MessageParity(unittest.TestCase):
                 MSG_FIELDS[4][1],
                 MSG_FIELDS[5][1],
                 MSG_FIELDS[6][1],
+                MSG_FIELDS[7][1],
             )
         )
         from_py = subprocess.run(

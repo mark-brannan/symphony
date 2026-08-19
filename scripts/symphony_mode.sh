@@ -153,7 +153,14 @@ symphony_mode_reason() {
 }
 
 # symphony_msg LEVEL TITLE [problem=...] [file=...]... [needs=...]
-#              [blocked_by=...] [fix=...] [see=...]
+#              [blocked_by=...] [fix=...] [if_stuck=...] [see=...]
+#
+# `if_stuck` is the break-glass line: what to do when the fix isn't
+# available to you right now. It is deliberately part of the standard shape
+# rather than something each guard decides to mention. An escape hatch
+# nobody wrote down is not an escape hatch -- it is a thing people
+# rediscover at the worst possible moment, and CI's gitleaks and trufflehog
+# passes are what make writing it down affordable.
 #
 # Every guard message in this repo has this shape. Fields print in a fixed
 # order, absent ones are skipped, `file=` may repeat, and the `mode:` line
@@ -163,7 +170,7 @@ symphony_msg() {
 	local level="$1" title="$2"
 	shift 2
 
-	local problem="" needs="" blocked_by="" fix="" see="" files="" kv key val
+	local problem="" needs="" blocked_by="" fix="" if_stuck="" see="" files="" kv key val
 	for kv in "$@"; do
 		key="${kv%%=*}"
 		val="${kv#*=}"
@@ -172,6 +179,7 @@ symphony_msg() {
 		needs) needs="$val" ;;
 		blocked_by) blocked_by="$val" ;;
 		fix) fix="$val" ;;
+		if_stuck) if_stuck="$val" ;;
 		see) see="$val" ;;
 		file) files="${files}${val}"$'\n' ;;
 		*) printf 'symphony_msg: unknown field %s\n' "$key" >&2 ;;
@@ -189,6 +197,7 @@ symphony_msg() {
 		if [ -n "$needs" ]; then printf '  needs:      %s\n' "$needs"; fi
 		if [ -n "$blocked_by" ]; then printf '  blocked by: %s\n' "$blocked_by"; fi
 		if [ -n "$fix" ]; then printf '  fix:        %s\n' "$fix"; fi
+		if [ -n "$if_stuck" ]; then printf '  if stuck:   %s\n' "$if_stuck"; fi
 		if [ -n "$see" ]; then printf '  see:        %s\n' "$see"; fi
 		printf '  mode:       %s (%s)\n' "$SYMPHONY_MODE" "$SYMPHONY_MODE_REASON"
 	} >"$(_symphony_dest)"

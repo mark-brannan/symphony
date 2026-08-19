@@ -22,6 +22,12 @@
 
 minimum_pre_commit_version: "3.0.0"
 
+# Two stages get installed by `pre-commit install`. The pre-push one is the
+# layer that still looks after `--no-verify`: commit-time hooks see only the
+# commit in front of them, a push-time hook sees every commit being
+# published, which is the last moment a mistake is still local.
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   # Broad secret detection. Catches credential-shaped strings in files that
   # sops has never been told about -- which is the realistic leak path,
@@ -45,6 +51,22 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+      # Push is the irreversible moment -- a commit is on your laptop, a
+      # push is on GitHub. Scans every commit in the range being pushed,
+      # so it catches one made earlier with --no-verify, and covers the
+      # window where CI does not run at all: validate.yml triggers on push
+      # to main and PRs to main, so a topic branch with no PR open is
+      # scanned by nothing until someone opens one. bash + git + grep only,
+      # deliberately -- it is the layer that has to work when everything
+      # else has degraded.
+      - id: prepush-secret-scan
+        name: pre-push secret scan (every commit being published)
+        entry: scripts/prepush_secret_scan.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
 
       # .sops.yaml is the single source of truth for which files carry
       # secrets. This asserts .gitattributes still agrees with it -- a file

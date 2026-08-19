@@ -266,13 +266,33 @@ def clean(path):
 def smudge(path):
     ciphertext = sys.stdin.read()
 
-    # No key or no sops: check the file out as ciphertext rather than
-    # failing. That is exactly the state a fresh clone is in before
+    # Contributor: check the file out as ciphertext rather than failing.
+    # That is exactly the state a fresh clone is in before
     # setup-git-filters.sh runs, it is what RUNBOOK.md already describes,
-    # and the alternative is `git clone` and `git checkout` erroring out on
-    # a machine that was never going to read these files anyway.
+    # and the alternative is `git clone` erroring out on a machine that was
+    # never going to read these files anyway.
+    #
+    # Strict: fail. A machine that holds secrets is a machine something
+    # READS them -- SignalK and Grafana parse these files directly. Handing
+    # them ENC[...] blobs where they expect configuration is a silent
+    # runtime failure on the boat, where a checkout that errors is a loud
+    # one. Degrading here would trade a visible problem for an invisible
+    # one, which is the opposite of the trade this mode switch exists for.
     missing = can_encrypt()
     if missing:
+        if symphony_mode.mode() == "strict":
+            symphony_mode.block(
+                "cannot decrypt a file this machine is expected to read",
+                problem="checking it out as ciphertext would leave SignalK or "
+                        "Grafana parsing ENC[...] blobs as configuration -- a "
+                        "silent failure, where this is a loud one",
+                file=path,
+                needs=", ".join(missing),
+                blocked_by="the sops smudge filter (scripts/sops_filter.py)",
+                fix="restore what 'needs' lists, then: bash scripts/setup-git-filters.sh",
+                see="bash scripts/check_clone_setup.sh",
+            )
+            sys.exit(1)
         symphony_mode.line(
             f"{path} checked out as ciphertext -- missing {missing[0]}. "
             f"Details: bash scripts/check_clone_setup.sh"
