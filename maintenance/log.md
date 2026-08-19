@@ -723,6 +723,12 @@
   which set the QuestDB port should target is parked in `priorities.md` under
   Blocked.
 
+- Verified the anti-polling hook enforces in a Claude Code cloud session, not
+  just in local unit tests. From a cloud session on this repo, `send_later` and
+  a self-bound `create_trigger` were both refused by
+  `.claude/hooks/no-persistent-polling.sh` with its own denial text. The
+  project-settings PreToolUse hook does fire in cloud; treat it as enforcement.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
