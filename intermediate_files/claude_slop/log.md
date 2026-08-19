@@ -110,3 +110,25 @@ Commits still need `SKIP=gitleaks-docker`; Mark approved that in-session.
   SKIP=gitleaks-docker sanctioned when Docker Desktop is down (now a
   CLAUDE.md rule). New wrap-up rule added to CLAUDE.md: no unmeasured
   decisions at wrap-up — execute or prompt, and record the answer.
+
+## 2026-08-19 — Superseded git-hygiene branch, wrap-up
+
+- This session drafted `claude/git-hygiene-redesign` (7be6e6a) against
+  3e17217: worktree for high-risk work only, keeping the shared-checkout
+  destructive-command bans in full. It was pushed bare — the PR was never
+  opened because this session's GitHub REST API returns 403 ("GitHub access
+  is not enabled for this session"), while `git push` works fine.
+- Checked back today: superseded on every count. `0a76db4` made the
+  per-session worktree the *default* rather than a high-risk trigger, and
+  `a861190` reconciled that with PR #9. Inside a worktree the destructive
+  ban is now explicitly lifted — the draft kept it in full. The Blocked item
+  the draft closed no longer exists: `priorities.md` has no Blocked section,
+  those questions moved here. Its `maintenance/log.md` entry was exactly the
+  repo-meta essay the bloat audit cut to one line.
+- Nothing in the draft is worth salvaging. Two fragments didn't land and are
+  not recommended: a fourth branch trigger for CLAUDE.md/RUNBOOK.md rewrites
+  (cuts against "push to fucking main"), and a clause recording that the
+  anti-polling hook's enforcement was *confirmed* in cloud rather than
+  intended — the audit deliberately cut that entry as repo-meta.
+- Branch left on origin pending Mark's call; deleting a pushed ref needs an
+  explicit go-ahead. Parked under Blocked.

@@ -49,6 +49,12 @@ response. Each names the session that raised it.
   `SKIP=gitleaks-docker` is the sanctioned path when WSL integration is
   off; rule added to CLAUDE.md § Git hygiene. Native-binary hook swap not
   wanted — closed.
+- **Stale branch `claude/git-hygiene-redesign` (7be6e6a) — delete it?**
+  (2026-08-19). The pre-worktree take on the git-hygiene redesign,
+  superseded by `0a76db4` / `a861190`; no PR was ever opened because that
+  session's GitHub API is 403-blocked (push works). Nothing in it is worth
+  salvaging. It can't end "merged via PR" per § Git hygiene, and deleting a
+  pushed ref needs an explicit go-ahead — so it sits until Mark says drop it.
 - **Which Grafana dashboards are the QuestDB port target?** (PR #7 review
   session.) Two sets exist and they are not versions of each other. The boat's
   native Grafana has five dashboards, 76 panels, InfluxQL, imported from
