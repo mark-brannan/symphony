@@ -197,11 +197,9 @@ SignalK pair: a listed address came out `admin`, an unlisted one
 second on their next login.
 
 Two things to know before touching it. `dist/oidc/user-info.js` gates
-groups behind `Array.isArray` and would reject a bare string — but
-`extractUserInfo` is exported and never called anywhere in `dist`. It's
-dead code, and an earlier version of this document cited it as proof
-that no email-based hook existed. The live path is the callback in
-`dist/oidc/oidc-auth.js`. Second, pointing `groupsAttribute` at a claim
+groups behind `Array.isArray` and would reject a bare string, but
+`extractUserInfo` is exported and never called anywhere in `dist` — it is
+dead code. The live path is the callback in `dist/oidc/oidc-auth.js`. Second, pointing `groupsAttribute` at a claim
 that isn't a group is off-label: both halves are supported (the option
 is documented, and the string-to-list normalization is deliberate and
 commented), but a future release could tighten it and quietly demote the
@@ -225,11 +223,9 @@ attached. SignalK's separate anonymous no-login readonly mode (`allow_readonly`)
 is on as well, so reads don't require a login at all; signing in is what puts
 a name against them.
 
-Neither of the two routes considered on 2026-08-11 is what shipped — the
-Dex-synthesized group was built and then dropped, since it only ever
-covered Google and the `GROUPS_ATTRIBUTE` route above covers both for
-less. The upstream one is still open, and is now a tidiness argument
-rather than a coverage one:
+A Dex-synthesized group was built and dropped: it only ever covered Google,
+and the `GROUPS_ATTRIBUTE` route above covers both providers for less. The
+upstream route stays open as a tidiness argument rather than a coverage one:
 
 - **Patch upstream.** An email list beside `adminGroups` in
   `dist/oidc/permission-mapping.js`, which today takes the groups array
@@ -292,11 +288,8 @@ plugin-managed one dies with
 A container that lost this race is not retried — it stays in `Created`, and
 freeing 3001 afterwards has not been seen to bring it back on its own.
 
-*Unverified, and worth correcting if you learn otherwise:* the fix has never
-been run. Pointing the plugin's `grafanaPort` at a free port is the obvious
-move, but nobody has tried it, and it isn't known whether `signalk-grafana`
-honours the change or whether its auto-provisioning assumes 3001 elsewhere.
-Don't treat "just change `grafanaPort`" as a tested procedure.
+Untested fix: pointing the plugin's `grafanaPort` at a free port. Nobody has
+run it, so don't treat it as a procedure.
 
 To run QuestDB from your own compose file instead, set
 `managedContainer: false` and point `questdbHost` at the service name. The
@@ -333,40 +326,6 @@ the `docker.sock` volume and `group_add` from `compose-signalk.yml`.
 A socket proxy is the usual middle path, but it buys little here —
 `signalk-container` has to create containers to do its job, and container
 creation is itself the escalation.
-
-### The mount can go stale and strand the container
-
-Seen once, on the WSL dev box, 2026-08-12: `signalk-server` exited 127 and
-did not come back, with
-
-```
-error mounting "/run/desktop/mnt/host/wsl/docker-desktop-bind-mounts/Ubuntu/docker.sock"
-to rootfs at "/var/run/docker.sock": not a directory
-```
-
-The host socket itself was healthy at the time — `srw-rw---- root docker`,
-with an mtime matching Docker Desktop's restart. What had gone stale was
-Docker Desktop's own bind-mount staging path, not `/var/run/docker.sock`.
-`docker compose up -d --force-recreate` cleared it.
-
-The cost is that the container sits dead with nothing retrying it, and
-nothing alarms on it — this instance was down about eight hours before
-anyone noticed.
-
-*Unverified, and worth correcting if you learn otherwise:*
-
-- Whether this recurs on every Docker Desktop restart or was a one-off. It
-  has been observed exactly once.
-- Why `restart: unless-stopped` didn't recover it. The container had been up
-  since 2026-08-09 and `RestartCount` was still 0 afterwards, which points to
-  the policy never retrying rather than retrying and giving up — but that is
-  read off the counter, not observed directly.
-- Whether anything short of a full recreate fixes it. Plain `docker start`
-  was never tried.
-
-This is a Docker Desktop / WSL failure mode. The boat Pi runs Docker, but
-only for Dex and ntfy, and not under Docker Desktop — so it cannot be hit
-there.
 
 ## How secrets are stored
 
