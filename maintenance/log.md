@@ -258,3 +258,12 @@
 - Stored a read-only Tailscale OAuth client and added
   `scripts/tailscale_policy.sh` to read and validate the policy from the
   command line.
+- A clone with no encryption key can commit again; the setup script wires the
+  git filters and hooks instead of refusing to run. Guards now say what is
+  missing, why, and how to fix it, and warn rather than block on a machine
+  that was never going to hold secrets.
+- Added a pre-push scan over every commit being published, so a secret
+  committed with `--no-verify` is caught while it is still local.
+- Renamed the guard scripts and their settings from Symphony-specific names
+  to `secretguard`, so the secret-management tooling could be reused on
+  another boat as-is.
