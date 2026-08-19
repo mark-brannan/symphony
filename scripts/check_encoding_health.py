@@ -88,6 +88,18 @@ MOJIBAKE_MARKERS = (
 
 UTF8_LOCALES = ("utf-8", "utf8")
 
+# A document that EXPLAINS mojibake has to be able to show what it looks
+# like. Without an opt-out the checker flags the explanation as damage --
+# which it did, to reference/precommit_guards.md, on the first CI run after
+# that file was written.
+#
+# Deliberately a whole-file downgrade to a warning rather than a silent
+# exemption, and deliberately NOT extended to invalid UTF-8: an example can
+# be mojibake on purpose, but no file is un-decodable on purpose. The
+# marker has to be typed out, so it cannot be reached by accident, and the
+# file still reports what it found -- you lose the block, not the visibility.
+ALLOW_MARKER = "encoding-health: allow-mojibake"
+
 
 def staged_paths():
     """Repo-relative paths in this commit, or None if git can't say.
@@ -155,7 +167,7 @@ def check_repo(only=None):
     fix it. CI runs the unscoped form, which is where whole-repo truth
     belongs.
     """
-    bad_encoding, mojibake = [], []
+    bad_encoding, mojibake, allowed = [], [], []
     for p in tracked_text_files(only):
         raw = p.read_bytes()
         try:
@@ -165,10 +177,14 @@ def check_repo(only=None):
             continue
         hits = [m for m in MOJIBAKE_MARKERS if m in text]
         if hits:
-            mojibake.append((p.relative_to(ROOT), hits))
+            target = allowed if ALLOW_MARKER in text else mojibake
+            target.append((p.relative_to(ROOT), hits))
 
     scope = "staged files" if only is not None else "tracked files"
     print(f"layer 1 -- {scope}")
+    for path, hits in allowed:
+        print(f"   allowed: {path} contains mojibake {hits} and declares "
+              f"'{ALLOW_MARKER}' -- treated as deliberate examples")
     if not bad_encoding and not mojibake:
         print(f"   ok: every scanned text file is valid UTF-8, no mojibake markers")
         return 0
@@ -179,11 +195,14 @@ def check_repo(only=None):
     for path, hits in mojibake:
         _report(path, f"contains mojibake markers {hits} -- UTF-8 text that "
                       f"was read as latin-1 and written back, mangling a "
-                      f"character")
+                      f"character",
+                extra=f"  deliberate example? Put this exact text somewhere in "
+                      f"the file and it becomes a warning instead:\n"
+                      f"           {ALLOW_MARKER}")
     return len(bad_encoding) + len(mojibake)
 
 
-def _report(path, what):
+def _report(path, what, extra=None):
     """One finding, with a fix and an exit that needs nothing."""
     print(
         f"\n  file:  {path}\n"
@@ -196,7 +215,8 @@ def _report(path, what):
         f"           git restore --staged {path}\n"
         f"         Another session staged it? Leave it alone and use:\n"
         f"           SKIP=encoding-health git commit ...\n"
-        f"  last resort, bypasses ALL hooks:  git commit --no-verify",
+        f"  last resort, bypasses ALL hooks:  git commit --no-verify"
+        + (f"\n{extra}" if extra else ""),
         file=sys.stderr,
     )
 

@@ -157,8 +157,14 @@ Genuine false alarm → take the file out, or `SKIP=sops-secret-guard`.
 ### `encoding-health` — "a character got mangled"
 
 **What it's for.** The boat Pi's text settings are subtly wrong, so a script
-reading a document there can turn an em dash into `â€"` — permanently, in a
-committed file. This spots that damage.
+reading a document there can turn an em dash into garbled characters —
+permanently, in a committed file. This spots that damage.
+
+<!-- The line below is a real, deliberate example of the damage. It is why
+     this file declares the opt-out marker: encoding-health: allow-mojibake -->
+
+An em dash that has been through it comes out looking like `â€"`. A degree
+sign becomes `Â°`. Once that is committed, the original character is gone.
 
 **How it fails.** It finds mangled characters, or a file that isn't valid
 text.
