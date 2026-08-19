@@ -285,16 +285,22 @@ covered here.
     is large enough to want follow-up discussion/tracking (several
     unrelated files, a new system brought online, anything you'd want a
     second look at before it's final).
+  - **Explicit phrase** — the owner says "make this a feature," "make this
+    a branch," or "this needs review." Branch immediately, no metric check.
+  - **Metric threshold crossed** (placeholders, tune later): >50 lines of
+    code changed (excluding docs), >200 lines of docs changed, session
+    >100k tokens, or session >30 min wall clock.
 
   Everything else — a single doc/reference edit, a log entry, a small
   RUNBOOK.md or CLAUDE.md fix, a one-file config tweak that's correct as
   soon as it's written — goes straight to main, no branch, no asking.
   When a branch *is* warranted under this rule, always open the PR
-  yourself as part of finishing the work — don't leave a pushed branch
-  without one, and don't wait to be asked. **A branch opened under this
-  rule only ends one way: merged via PR — never folded back to main and
-  deleted instead.** If you're deciding whether a branch was warranted,
-  you're mid-work; don't retroactively un-decide it once it's pushed.
+  yourself as part of finishing the work, **as a draft, with no reviewer
+  requested** — don't leave a pushed branch without one, and don't wait to
+  be asked. **A branch opened under this rule only ends one way: merged
+  via PR — never folded back to main and deleted instead.** If you're
+  deciding whether a branch was warranted, you're mid-work; don't
+  retroactively un-decide it once it's pushed.
 - **A branch the session harness pre-assigned, not one you opened, is a
   different case.** Some task setups hand a session a branch name before any
   content decision gets made. If the work done on it never met the criteria
