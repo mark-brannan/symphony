@@ -119,11 +119,17 @@ response. Each names the session that raised it.
   two cloud sessions** — `ListAgents` returns "No reachable agents" without a
   Remote Control connection, `SendMessage` fails, and the Claude Code Remote
   MCP surface has no `send_message`. Recording the content here since it could
-  not be delivered. That session is parked on a four-question
-  `AskUserQuestion` for Mark (decision-log marker, auto-push on Stop, cloud
-  bootstrap scope, metrics scope) and a peer message could not have answered
-  it anyway — an inbound cross-session message never counts as the user's
-  consent and cannot change configuration. What it needs to know: (1) its
+  not be delivered. As of 17:53Z that session is **idle, not blocked on a
+  question** — it answered its own four-question `AskUserQuestion`, did the
+  work, and opened **PR #3 on dotfiles** ("Automate session continuity:
+  SessionStart brief, Stop checkpoint, typed decisions"). What it now waits on
+  is two manual steps only Mark can do in the web UI, on the **"Full network
+  access"** environment (`env_01TocPy1GquNyfv88tr4Mbz3`): paste the
+  `cloud-session-setup.sh` snippet into the setup-script field, and add
+  `claude_prompts_scratch` as a second environment source. An earlier read of
+  this session at 17:14Z caught the pending dialog and was reported to Mark as
+  current; it was 40 minutes stale by then. Treat a `list_sessions` snapshot as
+  a point-in-time read, not a live state. What it needs to know: (1) its
   README's premise that cloud sessions have no `~/.claude/settings.json` is
   right, but **project** settings *do* load in cloud when the repo is a
   session source — symphony's PreToolUse hook was confirmed firing in cloud on
