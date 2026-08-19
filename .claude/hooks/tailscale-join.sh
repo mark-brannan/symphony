@@ -54,6 +54,7 @@ fi
 SESSION_HOSTNAME="cloud-${CLAUDE_CODE_REMOTE_SESSION_ID:-$$}"
 SESSION_HOSTNAME="${SESSION_HOSTNAME//_/-}"
 SESSION_HOSTNAME="${SESSION_HOSTNAME:0:32}"
+SESSION_HOSTNAME="${SESSION_HOSTNAME%-}"  # a DNS label can't end in a hyphen; the 32-char cut can land right after one
 
 if ! daemon_reachable; then
   LOG_FILE="$(mktemp "${TMPDIR:-/tmp}/tailscaled.XXXXXX.log")" || {
