@@ -19,6 +19,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+
+import symphony_mode  # noqa: E402  -- needs the sys.path line above
+
 CI = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
 
 failures: list[str] = []
@@ -59,13 +63,31 @@ def rule_declared_filters_are_configured() -> None:
             cwd=ROOT, capture_output=True, text=True,
         ).stdout.strip()
         if not clean:
-            fail(
-                "unconfigured-filter",
-                f".gitattributes declares filter={name} but "
-                f"filter.{name}.clean is not set in git config. Files it "
-                f"covers would commit UNTRANSFORMED. Fix: "
-                f"bash scripts/setup-git-filters.sh",
+            # Mode-aware: on a clone that holds secrets an unconfigured
+            # filter is the 2026-08-14 incident waiting to repeat, so it
+            # blocks. On a clone with no key it is expected -- and failing
+            # here used to mean a contributor could not commit a typo fix in
+            # a markdown file. The staged-content guard still hard-blocks a
+            # covered file that actually reaches the index untransformed, in
+            # either mode, so nothing leaks either way.
+            message = symphony_mode.format(
+                "BLOCKED" if symphony_mode.mode() == "strict" else "warning",
+                "a declared git filter is not configured in this clone",
+                problem=(
+                    f".gitattributes declares filter={name}, but "
+                    f"filter.{name}.clean is unset. Files it covers would "
+                    f"commit UNTRANSFORMED."
+                ),
+                needs=f"filter.{name}.clean in this clone's .git/config",
+                blocked_by="pre-commit hook 'repo-hygiene' "
+                           "(scripts/lint_repo_hygiene.py)",
+                fix="bash scripts/setup-git-filters.sh",
+                see="README.md, Setup -- or bash scripts/check_clone_setup.sh",
             )
+            if symphony_mode.mode() == "strict":
+                failures.append(message)
+            else:
+                warnings.append(message)
 
 
 # Deliberately NOT here: "config file for a plugin that isn't installed".
@@ -182,10 +204,12 @@ def main() -> int:
     ):
         rule()
 
+    # Rules that use symphony_mode already produce a formatted block; the
+    # short ones are one-liners and get the compact prefix.
     for w in warnings:
-        print(f"  warn  {w}")
+        print(w if "\n" in w else f"  warn  {w}")
     for f in failures:
-        print(f"  FAIL  {f}")
+        print(f if "\n" in f else f"  FAIL  {f}")
 
     if failures and not warn_only:
         print(f"\n{len(failures)} problem(s). See scripts/lint_repo_hygiene.py "

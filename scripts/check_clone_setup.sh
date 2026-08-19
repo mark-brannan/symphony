@@ -74,8 +74,13 @@ filtered_paths() {
 	' .gitattributes
 }
 
+# Sourced for the mode line only -- nothing here changes behaviour by mode.
+# shellcheck source=scripts/symphony_mode.sh disable=SC1091
+. "$ROOT/scripts/symphony_mode.sh"
+
 echo "Symphony clone setup"
 echo "  repo: $ROOT"
+echo "  mode: $(symphony_mode) ($(symphony_mode_reason))"
 
 # --- tooling ----------------------------------------------------------------
 section "Tooling on PATH"
@@ -248,8 +253,8 @@ if [ "$blockers" -gt 0 ]; then
 	echo "  Start with: bash scripts/setup-git-filters.sh"
 	echo "  Still stuck? RUNBOOK.md, \"When a hook blocks your commit\"."
 elif [ "$gaps" -gt 0 ]; then
-	echo "  Commits should work. $gaps gap(s) above limit what you can do locally."
-	echo "  None of them are needed to contribute: CI"
+	echo "  Commits should work. $gaps gap(s) above limit what you can do"
+	echo "  locally. None of them are needed to contribute -- CI"
 	echo "  (.github/workflows/validate.yml) is the enforcement boundary and"
 	echo "  needs no secrets."
 else

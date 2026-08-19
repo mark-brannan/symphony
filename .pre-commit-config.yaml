@@ -7,10 +7,18 @@
 # which runs the same checks plus a verified-secret scan on every push and
 # cannot be bypassed from a laptop.
 #
-# Upgrading: run `pre-commit autoupdate` while you have connectivity --
-# it fetches new hook revisions, so it is a dockside operation, not an
-# underway one. Commit the resulting rev change so every machine and CI
-# agree on which scanner version cleared a given commit.
+# Every hook here is `repo: local`, so `pre-commit autoupdate` has nothing
+# to fetch and installing them needs no network. That is deliberate: the
+# gitleaks scanner version is pinned in scripts/gitleaks_precommit.sh
+# instead (see its header for how to upgrade, and why it isn't the upstream
+# gitleaks-docker hook any more).
+#
+# Missing local tooling degrades rather than blocking: see
+# scripts/symphony_mode.sh. A clone with no age key is in "contributor"
+# mode, where a hook that cannot run says so and lets the commit through --
+# except the staged-secrets guard, which hard-fails in every mode. Run
+# `bash scripts/check_clone_setup.sh` to see which mode a clone is in and
+# what it is missing.
 
 minimum_pre_commit_version: "3.0.0"
 
@@ -20,21 +28,24 @@ repos:
   # since anything already in .sops.yaml is encrypted by the clean filter
   # before git ever sees it.
   #
-  # The -docker variant pins an exact image rather than using whatever
-  # `gitleaks` happens to be on PATH; a stale distro build would run a
-  # different (and differently-spelled) scanner than CI does.
+  # Runs a pinned image rather than whatever `gitleaks` happens to be on
+  # PATH; a stale distro build would run a different (and differently-
+  # spelled) scanner than CI does. Wrapped in a script so it degrades on a
+  # machine with no Docker daemon instead of failing the commit --
+  # scripts/gitleaks_precommit.sh has the version pin and the rationale.
   #
   # --redact is non-negotiable: without it gitleaks prints the secret it
   # found into the terminal and CI logs, turning a near-miss into a real
   # exposure.
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.30.1
-    hooks:
-      - id: gitleaks-docker
-        name: gitleaks (scan staged changes for secrets)
-
   - repo: local
     hooks:
+      - id: gitleaks
+        name: gitleaks (scan staged changes for secrets)
+        entry: scripts/gitleaks_precommit.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
       # .sops.yaml is the single source of truth for which files carry
       # secrets. This asserts .gitattributes still agrees with it -- a file
       # with a sops rule but no filter entry commits as PLAINTEXT, silently.
@@ -62,11 +73,11 @@ repos:
       # so they run on any change to the scripts. Stdlib unittest, no
       # dependency, well under a second.
       - id: secret-tooling-tests
-        name: unit tests (pseudonymize, sops recipients, hostvars)
-        entry: bash -c 'python3 scripts/test_pseudonymize.py -q && python3 scripts/test_sops_recipients.py -q && python3 scripts/test_hostvars_filter.py -q'
+        name: unit tests (pseudonymize, sops recipients, hostvars, mode)
+        entry: scripts/run_secret_tooling_tests.sh
         language: system
         pass_filenames: false
-        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|hostvars_filter|test_.*)\.py|\.sops\.yaml|\.pseudonyms\.yaml|\.hostvars\.yaml)$'
+        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|hostvars_filter|symphony_mode|test_.*)\.py|scripts/symphony_mode\.sh|\.sops\.yaml|\.pseudonyms\.yaml|\.hostvars\.yaml)$'
 
       # The hostvars analogue of the staged-secrets guard: git's copy of a
       # covered file must hold its {{ placeholders }}, not one machine's
