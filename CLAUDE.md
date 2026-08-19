@@ -189,6 +189,42 @@ covered here.
   this repo, so a checkout that looked current yesterday usually isn't. Get
   onto the tip of main first — landing work on a stale base means a rebase and
   hand-resolved conflicts later, in files another session has since rewritten.
+
+### Work in an isolated worktree, not the shared checkout
+- **Default to an isolated git worktree for any editing session, unless Mark
+  is actively driving the session with you right now and asks for edits
+  directly in the existing checkout — then just do that, no ceremony.** A
+  worktree is a second, disposable folder checked out from this same repo on
+  its own throwaway branch: edits there can't collide with whatever another
+  session (or Mark, hand-editing) has staged or left uncommitted in the main
+  checkout, and the whole folder can be thrown away without touching anyone
+  else's work. This is the fix for the root cause behind most of the
+  destructive-command incidents below — those all trace back to several
+  sessions sharing one working directory and one index.
+- In this harness, use the `EnterWorktree` tool at the start of the session
+  (default `fresh` mode branches it from `origin/main`, so the fetch-and-check
+  above is answered by construction) and `ExitWorktree` when the task is done
+  — `action: "remove"` for a clean exit, `discard_changes: true` if you're
+  sure nothing in it is worth keeping. Outside this harness, the equivalent is
+  `git worktree add ../symphony-<slug> -b claude/<slug> origin/main`.
+- **A worktree's own branch is not "branching" in the sense of the rule
+  below.** It's always short-lived, always merged back to `main` same-session,
+  and never left pushed on its own — push each verified commit from it
+  straight to `origin main` (fast-forward) as you go, per "Work on main"
+  below. If `origin/main` moved since you branched, `git fetch && git rebase
+  origin/main` inside the worktree and push again — that rewrites only your
+  own not-yet-shared commits, never anyone else's history, so it doesn't need
+  asking.
+- **Inside your own worktree, the destructive-command ban further down
+  doesn't apply** — `git stash`, `git reset --hard`, `git checkout -- .`, all
+  fine, because the only thing at risk is your own uncommitted work in a
+  folder nobody else touches. It still applies in full, everywhere, to
+  anything that mutates a *shared* ref: `git push --force` to `main` or any
+  pushed branch, `git branch -D` of one, deleting remote refs. Land on main
+  with ordinary fast-forward pushes; never force one open.
+- Keep worktrees short-lived — same session, same task. A worktree revisited
+  days later has quietly reacquired the "how far behind main am I" problem
+  this whole model exists to avoid.
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
@@ -228,13 +264,16 @@ covered here.
   commit. The pathspec form commits only the named paths and leaves the rest
   of the index untouched, which removes the race instead of watching for it.
   This happened: b11b40d silently carried unrelated SSO-SETUP.md edits.
-- Multiple Claude sessions may be working this checkout at once. Before running
-  any git command whose effect isn't scoped to files you explicitly name, run
+- Multiple Claude sessions may be working the shared checkout at once (this is
+  the scenario the worktree default above exists to avoid — prefer that over
+  ever needing this bullet). Before running any git command in the shared
+  checkout whose effect isn't scoped to files you explicitly name, run
   `git status` and read the full output — don't assume the working tree only
   holds what you touched. If it shows changes you didn't make, stop and tell
   the owner before running anything that would revert or discard them; don't
   guess whether they're safe to lose.
-- Never run, without the owner's explicit go-ahead in that moment:
+- **In the shared checkout** (i.e. you're not in your own worktree — see
+  above), never run, without the owner's explicit go-ahead in that moment:
   `git reset --hard`, `git clean` (any flags), `git checkout` or `git restore`
   with no pathspec or a directory pathspec, `git stash` (repo-wide, not a
   named/scoped stash), `git branch -D`, or `git push --force*`. Each of these
@@ -242,6 +281,35 @@ covered here.
   including another session's uncommitted changes. `git checkout HEAD -- path`
   is fine for a single file you've confirmed the diff of; it stops being fine
   the moment `path` is a directory you haven't fully read the diff of first.
+
+### Recovery: when git itself suggests one of the banned commands
+Git's own error messages routinely tell you to run exactly the commands above
+— that advice is correct for a private worktree and wrong for the shared
+checkout. If you're in your own worktree, just follow git's suggestion; the
+entries below are for when you're not.
+- *"Your local changes... would be overwritten by merge/checkout. Please
+  commit your changes or stash them"* — don't run a bare `git stash`. Either
+  commit the named files with an explicit pathspec, or `git stash push --
+  <the exact paths git listed>` (a scoped stash is already permitted above),
+  then proceed, then `git stash pop`.
+- *"Not possible to fast-forward, aborting"* on `git pull` — someone else
+  pushed to main first. Never force-push past this. `git fetch && git rebase
+  origin/main` if these are your own not-yet-pushed commits (safe — it's your
+  own private history); if there's a real conflict, resolve it file by file,
+  never with `git checkout --ours/--theirs .` across the whole tree.
+- Pre-commit's autofix stashes unstaged files, then rolls back on conflict —
+  this is what silently reverted work before (see below). Don't
+  self-remediate with `git checkout -- .`. Run `git stash list` first: a
+  "pre-commit autostash" entry means your files are sitting there intact;
+  `git stash pop` (that one named ref, not a clear/drop-all) gets them back.
+- `git worktree remove` refuses with "contains modified or untracked files" —
+  confirm you don't need what's there, then `ExitWorktree` with
+  `discard_changes: true` (or `git worktree remove --force` outside the
+  harness). Safe by construction: a worktree only ever holds your own
+  throwaway work.
+- Detached HEAD after a bad checkout in the shared checkout — note the commit
+  you were on (`git log --oneline -1`), then `git switch main` (name only, not
+  a reset) to get back onto the branch.
 - sops-encrypted files must round-trip through the `sops` filter, never
   hand-edited in cleartext and committed directly.
 - `secrets/pseudonyms.sops.yaml` is generated — the clean filter rewrites it

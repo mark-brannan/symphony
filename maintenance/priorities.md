@@ -40,10 +40,6 @@ This file remains authoritative for the SignalK / IoT section below.
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
 
-- **Git hygiene doc redesign** (`session_01TCzQQM…`) — three decisions
-  outstanding: (1) is `~/symphony` ever hand-edited outside a session? (2) does
-  the worktree requirement apply to all sessions or only high-risk ones? (3)
-  review the draft before it's committed, or commit and review after?
 - **Which Grafana dashboards are the QuestDB port target?** (PR #7 review
   session.) Two sets exist and they are not versions of each other. The boat's
   native Grafana has five dashboards, 76 panels, InfluxQL, imported from

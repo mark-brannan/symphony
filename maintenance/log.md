@@ -739,6 +739,32 @@
   code.claude.com/docs: the key takes `accept`/`hold`/`refuse`, and a project
   `hold` applies when no managed, `--settings` or user value is set.
 
+- Resolved the "Git hygiene doc redesign" item parked under Blocked. The
+  destructive-command bans in `CLAUDE.md` § Git hygiene were written against
+  the failure mode of several sessions sharing one working directory and
+  index (b11b40d, the pre-commit-autostash incident) — but the ban had no
+  documented recovery path, and git's own conflict/divergence messages
+  routinely suggest exactly the banned commands as the standard fix. Root
+  cause was the shared directory, not the commands, so the redesign removes
+  the shared directory instead of continuing to police commands against it:
+  sessions now default to an isolated git worktree (`EnterWorktree`/
+  `ExitWorktree` in this harness) per editing session, with a plain-English
+  explanation of what that is inline in the doc. Inside your own worktree the
+  old bans lift — only your own uncommitted work is at risk there — and a
+  "git suggested a banned command, now what" recovery table covers the
+  handful of cases that still land in the shared checkout. Confirmed by
+  direct test that a cloud session has zero tailnet route (no `tailscale`
+  binary, no `symphony-pi` resolution, no TCP reachability) as of this
+  session's start, ahead of the same-day Tailscale auto-join work (PR #8) —
+  so "mix local edits with live-boat testing" is necessarily a local-session
+  capability, worktrees or not; that didn't change the design, just confirmed
+  the split. Owner confirmed by direct answer rather than review: yes,
+  `~/symphony` is sometimes hand-edited outside a session, and Claude
+  sessions should too on request — so the worktree default carries an
+  explicit exception for exactly that (Mark actively driving the session,
+  asking for direct edits). Committed straight to main per the owner's
+  explicit instruction not to wait for review on this pass.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.
