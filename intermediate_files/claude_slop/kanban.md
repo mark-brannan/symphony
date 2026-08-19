@@ -76,26 +76,15 @@ response. Each names the session that raised it.
   until it's done, treat B4's scope as unknown rather than assuming the
   generator route.
 
-- **Do the connector denials actually save context? Unmeasured.** (2026-08-19,
-  session_016Lirgoonzz…, the one that applied them.) `.claude/settings.json`
-  now denies nine connectors. That was landed as defence-in-depth, but a
-  `/context` readout in that same session showed deferred MCP tool schemas at
-  **128.7k tokens, 12.9% of a 1M window** — larger than the whole
-  conversation. Intuit_QuickBooks alone was ~90k; Evernote ~26k;
-  Intuit_TurboTax ~11k. Two of those three are on the denylist and loaded
-  anyway, so the denial may be worth ~100k of context per session in this
-  repo rather than nothing. **That session could not measure it**: it was
-  seeded without symphony as a source, so the repo was `add_repo`'d and cloned
-  mid-session and project settings were absent when the connectors attached —
-  the confound is baked into that transcript and cannot be removed from it.
-  The clean test needs a *normally started* symphony cloud session (repo as a
-  session source at startup): run `/context` and check whether the
-  `mcp__Intuit_QuickBooks__*`, `mcp__Intuit_TurboTax__*` and `mcp__Evernote*`
-  rows are absent from the deferred-tools table. Verified by docs, not
-  assumption: `deniedMcpServers` is honored in any settings file and merges
-  from every source (`/docs/en/managed-mcp` § Configuration summary), and both
-  lists filter servers passed via `--mcp-config`, which is how cloud sessions
-  receive claude.ai connectors.
+- ~~**Do the connector denials actually save context? Unmeasured.**~~ **CLOSED,
+  measured 2026-08-19 (this session).** The denials DO work: a normally-started
+  symphony cloud session shows no `mcp__Intuit_QuickBooks__*` or
+  `mcp__Intuit_TurboTax__*` tools (both denied in `.claude/settings.json`),
+  proving those schemas are not loaded. Evernote_MCP tools ARE present (23
+  tools) because Evernote is not on the denylist, which is expected. The earlier
+  unmeasured context cost was plausible: Intuit_QuickBooks (~90k) +
+  Intuit_TurboTax (~11k) ≈ ~100k tokens saved per session by the denials.
+  Verdict: the denials are load-bearing and save significant context.
 - **dotfiles and symphony now both set Claude Code settings; three connectors
   differ.** (2026-08-19.) `dotfiles/.claude/settings.json` already carries
   `crossSessionInbound: "hold"` and denies six connectors —

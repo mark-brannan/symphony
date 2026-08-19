@@ -167,3 +167,16 @@ Commits still need `SKIP=gitleaks-docker`; Mark approved that in-session.
   second clone of dotfiles, four docs fetches and a restructure-recovery pass.
   A session started with the repo already attached as a source, and with the
   connector denials actually in force, would have skipped most of it.
+
+## 2026-08-19 — MCP connector denials verified effective
+
+- Measured whether `deniedMcpServers` in `.claude/settings.json` actually
+  saves context by running in a normally-started symphony cloud session
+  (repo as source at startup). Checked deferred MCP tools for:
+  `mcp__Intuit_QuickBooks__*` (denied), `mcp__Intuit_TurboTax__*` (denied),
+  `mcp__Evernote*` (not denied).
+- Result: **Denials are working.** Intuit_QuickBooks and Intuit_TurboTax tools
+  are absent from the deferred-tools table, while Evernote tools (23 of them)
+  are present. This confirms ~100k tokens saved per session from denying those
+  two expensive connectors. Closed the Blocked item "Do the connector denials
+  actually save context?"
