@@ -14,7 +14,7 @@
 # gitleaks-docker hook any more).
 #
 # Missing local tooling degrades rather than blocking: see
-# scripts/symphony_mode.sh. A clone with no age key is in "contributor"
+# scripts/secretguard.sh. A clone with no age key is in "contributor"
 # mode, where a hook that cannot run says so and lets the commit through --
 # except the staged-secrets guard, which hard-fails in every mode. Run
 # `bash scripts/check_clone_setup.sh` to see which mode a clone is in and
@@ -107,7 +107,7 @@ repos:
         entry: scripts/run_secret_tooling_tests.sh
         language: system
         pass_filenames: false
-        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|hostvars_filter|symphony_mode|test_.*)\.py|scripts/symphony_mode\.sh|\.sops\.yaml|\.pseudonyms\.yaml|\.hostvars\.yaml)$'
+        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|hostvars_filter|secretguard|test_.*)\.py|scripts/secretguard\.sh|\.sops\.yaml|\.pseudonyms\.yaml|\.hostvars\.yaml)$'
 
       # The hostvars analogue of the staged-secrets guard: git's copy of a
       # covered file must hold its {{ placeholders }}, not one machine's

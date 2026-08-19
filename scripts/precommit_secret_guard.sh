@@ -27,8 +27,8 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-# shellcheck source=scripts/symphony_mode.sh disable=SC1091
-. "$(pwd)/scripts/symphony_mode.sh"
+# shellcheck source=scripts/secretguard.sh disable=SC1091
+. "$(pwd)/scripts/secretguard.sh"
 
 fail=0
 
@@ -69,7 +69,7 @@ whole_paths() {
 
 # What is missing, phrased for the `needs:` line of a blocked message.
 missing_capability() {
-	if ! _symphony_have_age_key; then
+	if ! _secretguard_have_age_key; then
 		printf 'an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)'
 	elif [ -z "$(git config --get filter.sops.clean 2>/dev/null)" ]; then
 		printf "filter.sops.clean in this clone's .git/config"
@@ -102,9 +102,9 @@ staged="$(git diff --cached --name-only)"
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   if grep -qxF "$path" <<<"$staged"; then
-    if ! git show ":$path" | grep -q '"sops"'; then
-      symphony_block "a secret-bearing file is staged in the clear" \
-        problem="the sops clean filter did not run, so git's copy of this file has no encryption markers -- the values in it would be committed readable" \
+    if ! git show ":$path" | secretguard_is_sops_encrypted; then
+      secretguard_block "a secret-bearing file is staged in the clear" \
+        problem="the sops clean filter did not run, so git's copy of this file has no sops metadata block -- the values in it would be committed readable" \
         file="$path" \
         needs="$(missing_capability)" \
         blocked_by="pre-commit hook 'sops-secret-guard' (scripts/precommit_secret_guard.sh)" \
@@ -117,8 +117,8 @@ done < <(inplace_paths)
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   if grep -qxF "$path" <<<"$staged"; then
-    if ! git show ":$path" | grep -q '^sops:'; then
-      symphony_block "a whole-file secret store is staged unencrypted" \
+    if ! git show ":$path" | secretguard_is_sops_encrypted; then
+      secretguard_block "a whole-file secret store is staged unencrypted" \
         problem="this file is ciphertext at rest by design; git's copy of it is not" \
         file="$path" \
         needs="$(missing_capability)" \
@@ -161,7 +161,7 @@ fi
 # address only survives into git if the clean filter didn't run, which the
 # marker check already blocks on every one of these files.
 if [ "$degraded" -ne 0 ]; then
-  symphony_note "cleartext-address check skipped: no python3 with pyyaml" \
+  secretguard_note "cleartext-address check skipped: no python3 with pyyaml" \
     problem="the encryption-marker check above still covers every one of these files, so this is a narrowing, not a hole" \
     needs="pyyaml for this python3" \
     blocked_by="pre-commit hook 'sops-secret-guard' (scripts/precommit_secret_guard.sh)" \
@@ -181,7 +181,7 @@ while IFS= read -r path; do
 done < <(if [ "$degraded" -eq 0 ]; then python3 scripts/pseudonymize.py paths; fi)
 
 if [ "$degraded" -ne 0 ]; then
-  symphony_note "covered-file list came from .gitattributes, not .sops.yaml" \
+  secretguard_note "covered-file list came from .gitattributes, not .sops.yaml" \
     problem="python3 with pyyaml is not available to read .sops.yaml; the two are asserted to agree by CI, so the check still ran over the same files" \
     needs="pyyaml for this python3" \
     fix="pip install pyyaml" \

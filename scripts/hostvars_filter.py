@@ -52,7 +52,7 @@ except ImportError:  # handled per-subcommand in main()
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import symphony_mode  # noqa: E402  -- needs the sys.path line above
+import secretguard  # noqa: E402  -- needs the sys.path line above
 CONFIG = os.path.join(REPO, ".hostvars.yaml")
 LOCAL = os.path.join(REPO, "hostvars.local.yaml")
 LOCAL_EXAMPLE = "hostvars.local.yaml.example"
@@ -333,14 +333,14 @@ def main():
     # provably a no-op: byte-identical to what git already has.
     if yaml is None:
         if args == ["check"]:
-            gate = symphony_mode.require_pyyaml(
+            gate = secretguard.require_pyyaml(
                 "pre-commit hook 'hostvars-placeholders' "
                 "(scripts/hostvars_filter.py check)"
             )
             return 1 if gate else 0
 
         if args[:1] == ["smudge"] and len(args) == 2:
-            symphony_mode.line(
+            secretguard.line(
                 f"{args[1]} checked out with its {{{{ placeholders }}}} intact "
                 f"-- no pyyaml to expand them. Details: bash "
                 f"scripts/check_clone_setup.sh"
@@ -353,7 +353,7 @@ def main():
             if raw in (index_blob(path), head_blob(path)):
                 sys.stdout.write(raw)
                 return 0
-            symphony_mode.block(
+            secretguard.block(
                 "a per-machine value cannot be contracted back to a placeholder",
                 problem="this file changed and there is no pyyaml to read "
                         ".hostvars.yaml, so this machine's literal value "
@@ -369,7 +369,7 @@ def main():
             )
             return 1
 
-        symphony_mode.block(
+        secretguard.block(
             "the hostvars filter cannot run: pyyaml is missing",
             problem="refresh and paths both read .hostvars.yaml and cannot "
                     "parse it",

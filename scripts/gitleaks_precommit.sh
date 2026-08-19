@@ -24,14 +24,14 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-# shellcheck source=scripts/symphony_mode.sh disable=SC1091
-. "$(pwd)/scripts/symphony_mode.sh"
+# shellcheck source=scripts/secretguard.sh disable=SC1091
+. "$(pwd)/scripts/secretguard.sh"
 
 GITLEAKS_VERSION="v8.30.1"
 IMAGE="zricethezav/gitleaks:${GITLEAKS_VERSION}"
 
 if ! command -v docker >/dev/null 2>&1; then
-	symphony_require "gitleaks did not run: no docker on PATH" \
+	secretguard_require "gitleaks did not run: no docker on PATH" \
 		problem="the staged diff was not scanned for credential-shaped strings on this machine" \
 		needs="docker, to run the pinned $IMAGE" \
 		blocked_by="pre-commit hook 'gitleaks' (scripts/gitleaks_precommit.sh)" \
@@ -41,7 +41,7 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 if ! docker info >/dev/null 2>&1; then
-	symphony_require "gitleaks did not run: docker daemon not reachable" \
+	secretguard_require "gitleaks did not run: docker daemon not reachable" \
 		problem="docker is installed but not running, so the staged diff was not scanned on this machine" \
 		needs="a running Docker daemon" \
 		blocked_by="pre-commit hook 'gitleaks' (scripts/gitleaks_precommit.sh)" \

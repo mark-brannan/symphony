@@ -21,7 +21,7 @@ if ! command -v git >/dev/null 2>&1; then
 fi
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-	echo "not inside a git working tree -- run this from your symphony clone." >&2
+	echo "not inside a git working tree -- run this from your clone." >&2
 	exit 0
 }
 cd "$ROOT" || exit 0
@@ -75,12 +75,12 @@ filtered_paths() {
 }
 
 # Sourced for the mode line only -- nothing here changes behaviour by mode.
-# shellcheck source=scripts/symphony_mode.sh disable=SC1091
-. "$ROOT/scripts/symphony_mode.sh"
+# shellcheck source=scripts/secretguard.sh disable=SC1091
+. "$ROOT/scripts/secretguard.sh"
 
-echo "Symphony clone setup"
+echo "Clone setup"
 echo "  repo: $ROOT"
-echo "  mode: $(symphony_mode) ($(symphony_mode_reason))"
+echo "  mode: $(secretguard_mode) ($(secretguard_mode_reason))"
 
 # --- tooling ----------------------------------------------------------------
 section "Tooling on PATH"
@@ -203,7 +203,7 @@ while IFS= read -r p; do
 	[ -n "$p" ] || continue
 	[ -f "$p" ] || continue
 	checked_inplace=$((checked_inplace + 1))
-	if grep -q '"sops"' "$p" 2>/dev/null; then
+	if secretguard_is_sops_encrypted <"$p" 2>/dev/null; then
 		still_ciphertext=$((still_ciphertext + 1))
 	fi
 done < <(filtered_paths sops)

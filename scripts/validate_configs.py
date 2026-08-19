@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import symphony_mode  # noqa: E402  -- needs the sys.path line above
+import secretguard  # noqa: E402  -- needs the sys.path line above
 
 try:
     import yaml
@@ -25,7 +25,7 @@ except ImportError:
     # contributor is warned and the commit proceeds.
     sys.exit(
         1
-        if symphony_mode.require_pyyaml(
+        if secretguard.require_pyyaml(
             "pre-commit hook 'validate-configs' (scripts/validate_configs.py)"
         )
         else 0

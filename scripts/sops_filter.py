@@ -32,7 +32,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import symphony_mode  # noqa: E402  -- needs the sys.path line above
+import secretguard  # noqa: E402  -- needs the sys.path line above
 
 # Both optional at import time so this file can still run its no-key
 # pass-through paths on a clone that has neither. Anything that actually
@@ -49,12 +49,14 @@ except ImportError:
 
 SOPS = "sops"
 
-# What a sops document looks like from the outside, without parsing it.
-SOPS_MARKERS = ('"sops"', "sops:")
-
 
 def looks_encrypted(text):
-    return any(marker in text for marker in SOPS_MARKERS)
+    """What a sops document looks like from the outside, without parsing it.
+
+    One policy, shared with the pre-commit and pre-push guards, so a file
+    cannot read as encrypted to one of them and plaintext to another.
+    """
+    return secretguard.is_sops_encrypted(text)
 
 
 def can_encrypt():
@@ -62,7 +64,7 @@ def can_encrypt():
     missing = []
     if shutil.which(SOPS) is None:
         missing.append("sops on PATH")
-    if not symphony_mode.have_age_key():
+    if not secretguard.have_age_key():
         missing.append("an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)")
     if yaml is None or pseudonymize is None:
         missing.append("the pyyaml package for this python3")
@@ -198,7 +200,7 @@ def clean(path):
         if raw in (index_blob(path), blob("HEAD", path)):
             sys.stdout.write(raw)
             return
-        symphony_mode.block(
+        secretguard.block(
             "a sops-encrypted file was edited without being decrypted first",
             problem="this file is still ciphertext in the working tree but no "
                     "longer matches what git has, so it cannot be passed "
@@ -215,7 +217,7 @@ def clean(path):
 
     missing = can_encrypt()
     if missing:
-        symphony_mode.block(
+        secretguard.block(
             "a secret-bearing file cannot be encrypted on this machine",
             problem="this file is plaintext and git is about to store it. "
                     "Refusing, because storing it as-is would put the secret "
@@ -248,8 +250,8 @@ def clean(path):
         sys.stdout.write(sops_encrypt(path, new_plaintext))
         return
 
-    already_encrypted = old_ciphertext is not None and (
-        '"sops"' in old_ciphertext or "sops:" in old_ciphertext
+    already_encrypted = old_ciphertext is not None and looks_encrypted(
+        old_ciphertext
     )
     if already_encrypted:
         try:
@@ -280,8 +282,8 @@ def smudge(path):
     # one, which is the opposite of the trade this mode switch exists for.
     missing = can_encrypt()
     if missing:
-        if symphony_mode.mode() == "strict":
-            symphony_mode.block(
+        if secretguard.mode() == "strict":
+            secretguard.block(
                 "cannot decrypt a file this machine is expected to read",
                 problem="checking it out as ciphertext would leave SignalK or "
                         "Grafana parsing ENC[...] blobs as configuration -- a "
@@ -293,7 +295,7 @@ def smudge(path):
                 see="bash scripts/check_clone_setup.sh",
             )
             sys.exit(1)
-        symphony_mode.line(
+        secretguard.line(
             f"{path} checked out as ciphertext -- missing {missing[0]}. "
             f"Details: bash scripts/check_clone_setup.sh"
         )

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Python twin of scripts/symphony_mode.sh -- same mode, same message shape.
+"""Python twin of scripts/secretguard.sh -- same mode, same message shape.
 
 Guards in this repo exist in both languages (lint_repo_hygiene.py and
 hostvars_filter.py in python, the pre-commit shell guards in bash), and a
 contributor should not be able to tell which one stopped them. Both
 implementations resolve mode by the rules documented in the shell file and
-format messages identically; scripts/test_symphony_mode.py asserts they
+format messages identically; scripts/test_secretguard.py asserts they
 still agree.
 
 Deliberately stdlib-only. It is on the path a clone takes when pyyaml is
@@ -13,25 +13,25 @@ what's missing, so it cannot import yaml.
 
 Usage as a library:
 
-    import symphony_mode
-    if symphony_mode.require("...", problem=..., fix=...):
+    import secretguard
+    if secretguard.require("...", problem=..., fix=...):
         return 1          # strict: the guard should fail
                           # contributor: warning already printed, carry on
 
 Usage from the shell (for scripts and for debugging):
 
-    python3 scripts/symphony_mode.py mode
-    python3 scripts/symphony_mode.py reason
+    python3 scripts/secretguard.py mode
+    python3 scripts/secretguard.py reason
 """
 import os
+import re
 import subprocess
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODE_FILE = os.path.join(REPO, ".symphony-mode")
+MODE_FILE = os.path.join(REPO, ".secretguard-mode")
 
-STRICT_WORDS = {"1", "true", "yes", "on", "strict"}
-CONTRIBUTOR_WORDS = {"0", "false", "no", "off", "contributor"}
+MODES = ("strict", "contributor")
 
 # Fixed print order. Anything not here is a caller bug, not a new field.
 FIELD_LABELS = (
@@ -43,6 +43,45 @@ FIELD_LABELS = (
     ("if_stuck", "if stuck:  "),
     ("see", "see:       "),
 )
+
+# --- is this file actually a sops document? ---------------------------------
+#
+# Every guard that decides "this covered file is safe to commit" answers it
+# by looking at the file, not by decrypting it -- decryption needs a key the
+# contributor path does not have. The cheap version of that test is "does
+# the text contain the word sops", and the cheap version is wrong: a
+# plaintext `{"note": "sops", "password": "hunter2"}` passes it and every
+# guard downstream then treats a live credential as encrypted. That is a
+# false negative on the one class of check whose whole job is to have no
+# false negatives.
+#
+# So: require the shape of sops' own metadata block, not the string. sops
+# writes a `sops` key whose value is a mapping carrying at least `mac` and
+# `version`, in both output forms. A file that carries all three by accident
+# is not a shape anyone types by hand.
+#
+# The bash twin (secretguard_is_sops_encrypted) applies the same rule with
+# grep, and the parity test runs both over a shared fixture list.
+_SOPS_JSON_KEY = re.compile(r'"sops"\s*:\s*\{')
+_SOPS_JSON_MAC = re.compile(r'"mac"\s*:')
+_SOPS_JSON_VERSION = re.compile(r'"version"\s*:')
+_SOPS_YAML_KEY = re.compile(r"^sops:\s*$", re.M)
+_SOPS_YAML_MAC = re.compile(r"^\s+mac:", re.M)
+_SOPS_YAML_VERSION = re.compile(r"^\s+version:", re.M)
+
+
+def is_sops_encrypted(text):
+    """True only for text carrying a real sops metadata block."""
+    if _SOPS_JSON_KEY.search(text):
+        return bool(_SOPS_JSON_MAC.search(text)) and bool(
+            _SOPS_JSON_VERSION.search(text)
+        )
+    if _SOPS_YAML_KEY.search(text):
+        return bool(_SOPS_YAML_MAC.search(text)) and bool(
+            _SOPS_YAML_VERSION.search(text)
+        )
+    return False
+
 
 _resolved = None
 
@@ -97,30 +136,33 @@ def resolve():
     if _resolved is not None:
         return _resolved
 
-    raw = os.environ.get("SYMPHONY_STRICT", "")
-    lowered = raw.strip().lower()
-    if lowered in STRICT_WORDS:
-        _resolved = ("strict", "SYMPHONY_STRICT=%s" % raw)
-        return _resolved
-    if lowered in CONTRIBUTOR_WORDS:
-        _resolved = ("contributor", "SYMPHONY_STRICT=%s" % raw)
-        return _resolved
-    if lowered:
-        sys.stderr.write(
-            "symphony: ignoring unrecognized SYMPHONY_STRICT=%s\n" % raw
-        )
-
+    # CI first, and unconditionally: "CI is always strict" only holds if
+    # nothing downstream can downgrade it, including an explicit override a
+    # workflow sets for an unrelated reason. The shell twin resolves in the
+    # same order.
     if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
         _resolved = ("strict", "CI")
         return _resolved
 
-    word = _read_mode_file()
-    if word in ("strict", "contributor"):
-        _resolved = (word, ".symphony-mode says %s" % word)
+    raw = os.environ.get("SECRETGUARD_MODE", "")
+    word = raw.strip().lower()
+    if word in MODES:
+        _resolved = (word, "SECRETGUARD_MODE=%s" % word)
         return _resolved
     if word:
         sys.stderr.write(
-            "symphony: ignoring unrecognized .symphony-mode value %s\n" % word
+            "secretguard: ignoring SECRETGUARD_MODE=%s "
+            "(expected strict or contributor)\n" % raw
+        )
+
+    word = _read_mode_file()
+    if word in MODES:
+        _resolved = (word, ".secretguard-mode says %s" % word)
+        return _resolved
+    if word:
+        sys.stderr.write(
+            "secretguard: ignoring .secretguard-mode value %s "
+            "(expected strict or contributor)\n" % word
         )
 
     key, filters = _have_age_key(), _filters_configured()
@@ -147,10 +189,10 @@ def reason():
     return resolve()[1]
 
 
-def format(level, title, **fields):  # noqa: A001 -- mirrors symphony_msg
+def format(level, title, **fields):  # noqa: A001 -- mirrors secretguard_msg
     """The one message shape. `file` may be a str or a list of str."""
     current, why = resolve()
-    lines = ["", "symphony %s: %s" % (level, title)]
+    lines = ["", "secretguard %s: %s" % (level, title)]
     for key, label in FIELD_LABELS:
         value = fields.pop(key, None)
         if not value:
@@ -158,7 +200,7 @@ def format(level, title, **fields):  # noqa: A001 -- mirrors symphony_msg
         for item in value if isinstance(value, (list, tuple)) else [value]:
             lines.append("  %s %s" % (label, item))
     for unknown in fields:
-        sys.stderr.write("symphony_mode.format: unknown field %s\n" % unknown)
+        sys.stderr.write("secretguard.format: unknown field %s\n" % unknown)
     lines.append("  mode:       %s (%s)" % (current, why))
     return "\n".join(lines)
 
@@ -226,7 +268,7 @@ def line(text):
     output. Still names the mode: nothing here is allowed to be silent
     about which mode produced it.
     """
-    _write("symphony note [%s]: %s\n" % (mode(), text))
+    _write("secretguard note [%s]: %s\n" % (mode(), text))
 
 
 def require_pyyaml(hook):
@@ -259,7 +301,7 @@ def main(argv):
     if len(argv) == 2 and argv[1] == "reason":
         print(reason())
         return 0
-    sys.stderr.write("usage: symphony_mode.py {mode|reason}\n")
+    sys.stderr.write("usage: secretguard.py {mode|reason}\n")
     return 2
 
 

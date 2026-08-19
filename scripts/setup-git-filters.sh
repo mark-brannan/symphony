@@ -18,10 +18,10 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-# shellcheck source=scripts/symphony_mode.sh disable=SC1091
-. "$(pwd)/scripts/symphony_mode.sh"
+# shellcheck source=scripts/secretguard.sh disable=SC1091
+. "$(pwd)/scripts/secretguard.sh"
 
-echo "symphony setup -- mode: $(symphony_mode) ($(symphony_mode_reason))"
+echo "git filter setup -- mode: $(secretguard_mode) ($(secretguard_mode_reason))"
 
 # Missing tools used to exit 1 here, before a single thing was configured.
 # That made the documented onboarding command all-or-nothing: without sops
@@ -36,7 +36,7 @@ setup_incomplete=0
 
 for tool in sops age; do
   if ! command -v "$tool" >/dev/null 2>&1; then
-    symphony_require "$tool is not installed" \
+    secretguard_require "$tool is not installed" \
       problem="secret-bearing files cannot be decrypted or edited on this machine" \
       needs="$tool on PATH" \
       blocked_by="scripts/setup-git-filters.sh" \
@@ -51,7 +51,7 @@ done
 # filter commits secrets as plaintext, silently, which is strictly worse
 # than a loud failure.
 if ! command -v python3 >/dev/null 2>&1; then
-  symphony_require "python3 is not installed" \
+  secretguard_require "python3 is not installed" \
     problem="both git filters are python scripts; they will be registered below but cannot run, so checking out or staging a covered file will fail loudly" \
     needs="python3 on PATH" \
     blocked_by="scripts/setup-git-filters.sh" \
@@ -60,7 +60,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 if [ ! -f "$HOME/.config/sops/age/keys.txt" ] && [ -z "${SOPS_AGE_KEY_FILE:-}" ]; then
-  symphony_require "no age key on this machine" \
+  secretguard_require "no age key on this machine" \
     problem="secret-bearing files will smudge as ciphertext until you provision one" \
     needs="~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE pointing at a key" \
     blocked_by="scripts/setup-git-filters.sh" \
@@ -186,4 +186,4 @@ if [ "$setup_incomplete" -ne 0 ]; then
 fi
 
 echo
-echo "Setup complete -- mode: $(symphony_mode)."
+echo "Setup complete -- mode: $(secretguard_mode)."

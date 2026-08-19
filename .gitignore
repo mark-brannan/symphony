@@ -37,7 +37,7 @@ raw_backups/
 __pycache__/
 dex/config.yaml
 
-# Local mode override for the pre-commit guards (scripts/symphony_mode.sh).
+# Local mode override for the pre-commit guards (scripts/secretguard.sh).
 # Per-machine, never shared: committed as "contributor" it would silently
 # degrade every maintainer that pulls it.
-.symphony-mode
+.secretguard-mode

@@ -2281,13 +2281,18 @@ Auto-detected from an age key being present *and* both git filters being
 configured. To override:
 
 ```bash
-SYMPHONY_STRICT=1 git commit ...        # one command, force strict
-SYMPHONY_STRICT=0 git commit ...        # one command, force contributor
-echo contributor > .symphony-mode       # pin this clone (one word: strict|contributor)
-bash scripts/check_clone_setup.sh       # confirm: the "mode:" line at the top
+SECRETGUARD_MODE=strict git commit ...       # one command, force strict
+SECRETGUARD_MODE=contributor git commit ...  # one command, force contributor
+echo contributor > .secretguard-mode         # pin this clone (same two words)
+bash scripts/check_clone_setup.sh            # confirm: the "mode:" line at the top
 ```
 
-CI is always strict. `.symphony-mode` is gitignored — it never travels.
+Those two words are the whole vocabulary — `SECRETGUARD_MODE=1` is ignored,
+with a message, rather than guessed at.
+
+CI is always strict, and resolves before both of the above: a
+`SECRETGUARD_MODE` exported in a workflow cannot downgrade it.
+`.secretguard-mode` is gitignored — it never travels.
 
 Two things never relax, in either mode: staging a `filter=sops` file whose
 content isn't encrypted, and editing one you can't decrypt.

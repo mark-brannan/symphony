@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
-import symphony_mode  # noqa: E402  -- needs the sys.path line above
+import secretguard  # noqa: E402  -- needs the sys.path line above
 
 CI = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
 
@@ -107,7 +107,7 @@ def rule_declared_filters_are_configured() -> None:
         # what used to block a markdown typo fix -- so it is mode-gated.
         at_risk = sorted(p for p in (scope or set()) if p in set(declared[name]))
         if at_risk or scope is None:
-            failures.append(symphony_mode.format(
+            failures.append(secretguard.format(
                 "BLOCKED",
                 "this commit stages a file whose git filter isn't configured",
                 problem=f".gitattributes routes it through filter={name}, but "
@@ -129,8 +129,8 @@ def rule_declared_filters_are_configured() -> None:
             ))
             continue
 
-        message = symphony_mode.format(
-            "BLOCKED" if symphony_mode.mode() == "strict" else "warning",
+        message = secretguard.format(
+            "BLOCKED" if secretguard.mode() == "strict" else "warning",
             "a declared git filter is not configured in this clone",
             problem=f".gitattributes declares filter={name} and "
                     f"filter.{name}.clean is unset. Nothing in this commit is "
@@ -142,7 +142,7 @@ def rule_declared_filters_are_configured() -> None:
                 "covered file",
             see="README.md, Setup -- or bash scripts/check_clone_setup.sh",
         )
-        (failures if symphony_mode.mode() == "strict" else warnings).append(message)
+        (failures if secretguard.mode() == "strict" else warnings).append(message)
 
 
 def rule_plaintext_secrets_are_protectable() -> None:
@@ -171,7 +171,7 @@ def rule_plaintext_secrets_are_protectable() -> None:
     missing = []
     if shutil.which("sops") is None:
         missing.append("sops on PATH")
-    if not symphony_mode.have_age_key():
+    if not secretguard.have_age_key():
         missing.append("an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)")
     if not missing:
         return
@@ -185,17 +185,17 @@ def rule_plaintext_secrets_are_protectable() -> None:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        # Both marker forms. JSON-form sops files carry "sops" as a key;
-        # YAML-form ones carry a top-level `sops:` block. Matching only the
-        # first would read an encrypted YAML file as plaintext and then
-        # block every commit -- a false positive on the one rule whose whole
-        # job is to block every commit.
-        if '"sops"' not in text and not re.search(r"^sops:", text, re.M):
+        # Both output forms, and the metadata shape rather than the word --
+        # see secretguard.is_sops_encrypted. Getting this wrong is bad in
+        # both directions: too loose and a plaintext file mentioning sops
+        # reads as encrypted, too tight and an encrypted YAML file reads as
+        # plaintext and blocks every commit.
+        if not secretguard.is_sops_encrypted(text):
             exposed.append(rel)
     if not exposed:
         return
 
-    failures.append(symphony_mode.format(
+    failures.append(secretguard.format(
         "BLOCKED",
         "decrypted secrets are on disk and this machine cannot re-encrypt them",
         problem="these files hold real credentials in the clear right now, and "
@@ -329,7 +329,7 @@ def main() -> int:
     ):
         rule()
 
-    # Rules that use symphony_mode already produce a formatted block; the
+    # Rules that use secretguard already produce a formatted block; the
     # short ones are one-liners and get the compact prefix.
     for w in warnings:
         print(w if "\n" in w else f"  warn  {w}")
