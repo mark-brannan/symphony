@@ -40,6 +40,19 @@ This file remains authoritative for the SignalK / IoT section below.
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
 
+- **Verify the polling hook actually fires in a cloud session.**
+  `.claude/hooks/no-persistent-polling.sh` denies `send_later` and any
+  `create_trigger` bound to an existing session. It passes six local unit
+  cases, but a project-settings hook has not been observed firing in a
+  Claude Code cloud session — until it is, treat it as documented intent,
+  not enforcement. Test: in a fresh session on this repo, ask for a
+  scheduled check-in and confirm the denial message comes back.
+- **Optional session-cost settings not yet applied.** `crossSessionInbound:
+  "hold"` (stops an idle session being woken by another session, each wake
+  re-sending full context), and denying the five connectors that are
+  connected but haven't yet been delivered to this repo's sessions:
+  `Google_Calendar`, `CourtListener`, `Courtroom5`, `Legal_Data_Hunter`,
+  `LegalZoom`. Both are one edit to `.claude/settings.json`.
 - **Git hygiene doc redesign** (`session_01TCzQQM…`) — three decisions
   outstanding: (1) is `~/symphony` ever hand-edited outside a session? (2) does
   the worktree requirement apply to all sessions or only high-risk ones? (3)
