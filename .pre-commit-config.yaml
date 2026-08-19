@@ -8,6 +8,17 @@
 # that blocks a one-line doc edit over a file you never touched is not
 # safer, it just gets bypassed; that cost days once already.
 #
+# Two deliberate exceptions, both in scripts/lint_repo_hygiene.py, and both
+# about a clone that is unsafe rather than a commit that is:
+#   - rule_plaintext_secrets_are_protectable blocks EVERY commit when real
+#     secrets are decrypted on disk and this machine can't re-encrypt them.
+#     It is a standing condition, not an event, and waiting for someone to
+#     stage one of those files means finding out via `git add .`.
+#   - strict mode blocks an unconfigured filter even with nothing covered
+#     staged. A clone that holds secrets and has no filters is the
+#     2026-08-14 incident waiting to happen.
+# Contributor mode softens the second and never the first.
+#
 # Hooks stay always_run because they scope themselves from
 # `git diff --cached` -- pre-commit's `files:` would duplicate scope that
 # already lives in .sops.yaml / .hostvars.yaml / .gitattributes, and would

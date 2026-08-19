@@ -76,7 +76,10 @@ def staged_paths() -> set[str] | None:
     that quietly switches a guard off.
     """
     result = subprocess.run(
-        ["git", "diff", "--cached", "--name-only"],
+        # --diff-filter=d: a staged deletion puts no content into git, so
+        # it is never a finding -- and naming a deleted file in a "fix it
+        # like this" message is just wrong.
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=d"],
         cwd=ROOT, capture_output=True, text=True,
     )
     if result.returncode != 0:

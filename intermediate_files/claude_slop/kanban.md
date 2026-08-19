@@ -33,35 +33,34 @@ to the plugin dir. Remaining:
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
 
-- **PR #12 (pre-commit guard scoping) is waiting on PR #13 to merge**
-  (2026-08-19, precommit-scoping session). #12 is green and complete on its
-  own; Mark's tie-breaker was that #13 lands first, then #12 rebases onto
-  it. The rebase has already been *run* as a trial, not predicted — all four
-  conflicts resolved, all six suites and all four secret/contributor paths
-  verified on the merged tree. The resolution is saved at
-  `intermediate_files/pr12-onto-pr13-merge.{patch,md}` so the real rebase
-  re-derives none of it. Blocked only on #13 merging. Full handoff prompt in
-  the log entry for this date.
-- **The cross-PR invariant is not yet enforced anywhere but #12's tests**
-  (2026-08-19, precommit-scoping session). *Enforcement may soften a guard
-  about your ENVIRONMENT; it may never soften a guard about the CONTENT of
-  your commit.* #13 keys severity on who is committing, #12 on what is
-  staged; composed as OR by accident, contributor mode swallows a staged
-  plaintext secret and it only warns. #12 carries three tests pinning it.
-  Open question for Mark: should that sentence also live in the shared
-  enforcement module's docstring, so neither side re-derives it? I proposed
-  yes on #13; not landed.
-- **Naming: `SYMPHONY_MODE`/`SYMPHONY_STRICT` rejected by Mark, replacement
-  not yet settled** (2026-08-19). "Mode" collides with vessel operating mode
-  and SignalK's own usage; the boat's name does not belong in a mechanism
-  that is not boat-specific. I proposed `SECRETS_ENFORCEMENT=strict|warn-only`
-  — one variable, since the old pair were two knobs on one axis that could
-  disagree. #13 owns the decision. Related, and larger, from Mark's own
-  thought exercise: the secret-management core is *already* free of
-  "symphony", and the real fork boundary is inside `lint_repo_hygiene.py`,
-  which mixes one generic rule (unconfigured filter) with two site-specific
-  ones (audible alarms, frozen captain credentials). Splitting that is a
-  real piece of work nobody has scoped, and it is not urgent.
+- ~~PR #12 waiting on PR #13, and the cross-PR invariant enforced only in
+  #12's tests~~ — **both closed 2026-08-19** (pr12-rebase session). #13
+  merged; #12 rebased onto it and is out of draft. The invariant sentence
+  now lives in `scripts/secretguard.py`'s module docstring and its bash
+  twin, which is what every new guard imports to ask whether it is strict —
+  so the next session meets it at the moment it would otherwise re-derive
+  it. Severity is `bool(hits) or mode is strict`, an AND, with tests
+  pinning it from both modes. Narrative in `log.md` for this date.
+- ~~Naming: `SYMPHONY_MODE`/`SYMPHONY_STRICT` rejected, replacement not
+  settled~~ — **closed 2026-08-19** by #13, which renamed the whole guard
+  surface to `secretguard` (`SECRETGUARD_MODE=strict|contributor`, one
+  variable taking a mode word, not the two booleans). Table in #13's body.
+- **The fork boundary inside `lint_repo_hygiene.py`** (2026-08-19, still
+  open). From Mark's own thought exercise: the secret-management core is
+  already free of "symphony", but this file mixes one generic rule
+  (unconfigured filter) with two site-specific ones (audible alarms, frozen
+  captain credentials). `FROZEN_SECRET_KEYS` is the last hardcoded
+  boat-specific fact in the guard surface — a review bot flagged it on #12.
+  Recommendation on the record: leave it hardcoded. Moving that list to a
+  config file makes the freeze editable and gives the rule a way to check
+  nothing if the file goes missing, where a tuple in the source cannot fail
+  open. Revisit only if a fork becomes real; it is not urgent.
+- **`rule_frozen_secrets_untouched` does not run in CI** (2026-08-19,
+  pr12-rebase session). It reads `git diff --cached`, and CI's index is
+  empty after checkout, so `lint_repo_hygiene.py --all` evaluates it
+  vacuously. Predates #12 — the `--all` flag did not create it — and the
+  fix needs a change-range interface plus workflow wiring, so it was raised
+  on the PR rather than folded in. For Mark: worth its own change?
 - **Branch protection / required status checks on `main` — not enabled**
   (2026-08-19, CI-design session). Confirmed via `list_branches`: `main` is
   unprotected today, so `.github/workflows/validate.yml` and

@@ -172,7 +172,10 @@ def staged_paths():
     path, so a broken git invocation never silently disables the guard.
     """
     result = subprocess.run(
-        ["git", "diff", "--cached", "--name-only"],
+        # --diff-filter=d: a staged deletion puts no content into git, so
+        # it is never a finding -- and naming a deleted file in a "fix it
+        # like this" message is just wrong.
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=d"],
         capture_output=True, text=True, cwd=REPO,
     )
     if result.returncode != 0:

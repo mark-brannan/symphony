@@ -37,8 +37,15 @@ one-line typo fix in a text document was refused for days because of an
 unrelated settings file, on a machine that had no way to fix it.
 
 The repo-wide checking didn't disappear. It moved to GitHub, which runs the
-same programs over everything after you push. Your laptop checks your
-change; GitHub checks the whole repo. Nothing stopped being enforced.
+same programs over everything with `--all`. Your laptop checks your change;
+GitHub checks the whole repo.
+
+Know when that happens, because it is not "after every push":
+`.github/workflows/validate.yml` runs on pushes to `main` and on pull
+requests targeting `main`. A topic branch with no pull request open yet gets
+no repo-wide run. Secret scanning is the exception and deliberately so --
+`.github/workflows/secret-scan.yml` triggers on every branch, because a
+credential is exposed the moment it is pushed.
 
 ---
 
@@ -210,8 +217,12 @@ noisy. There are tests for this.
 
 **They can be skipped entirely.** `--no-verify` skips all of them, and a
 fresh clone doesn't have them installed until someone runs the setup. This
-is by design and always was. GitHub is the real gate; it runs after you push
-and can't be bypassed from a laptop.
+is by design and always was. GitHub is the real gate, and it can't be
+bypassed from a laptop -- but mind the window: the repo-wide checks run on
+pull requests and on `main`, so a `--no-verify` commit sitting on an
+unproposed topic branch has been seen only by `prepush-secret-scan`, which
+runs locally and is itself bypassable with `git push --no-verify`. Secret
+scanning in CI does cover every branch push.
 
 **GitHub could drift out of step.** The checks are now scoped on your laptop
 and unscoped on GitHub. If someone edits one side only, the two disagree and

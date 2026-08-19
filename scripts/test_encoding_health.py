@@ -114,6 +114,76 @@ class FixFileTest(unittest.TestCase):
         self.assertEqual(p.read_bytes(), before, "must not corrupt what it can't fix")
 
 
+class AllowMarkerTest(unittest.TestCase):
+    """The exemption a file can declare, and the one it cannot.
+
+    ALLOW_MARKER downgrades a mojibake finding to a note, because
+    reference/precommit_guards.md legitimately quotes mangled text as
+    examples. It must NOT exempt a file that is invalid UTF-8: those are
+    bad bytes, not a quoted example, and no declaration in a file makes
+    the file decodable. Only the second case is easy to break -- moving
+    the marker test earlier in check_repo would silently grant an
+    exemption the design forbids, and nothing else here would notice.
+    """
+
+    def run_check(self, raw):
+        """check_repo over exactly one in-memory fixture, stdout captured.
+
+        The path is under ROOT but never written: check_repo takes its bytes
+        from the generator, so nothing here touches the real checkout.
+        """
+        path = eh.ROOT / "fixture-not-on-disk.md"
+        real = eh.tracked_text_files
+        eh.tracked_text_files = lambda only=None: iter([(path, raw)])
+        try:
+            with contextlib.redirect_stdout(io.StringIO()) as out, \
+                    contextlib.redirect_stderr(io.StringIO()):
+                return eh.check_repo(), out.getvalue()
+        finally:
+            eh.tracked_text_files = real
+
+    def test_declared_mojibake_does_not_block(self):
+        damaged = mangle("caf\u00e9")
+        raw = ("a " + damaged + " example\n" + eh.ALLOW_MARKER + "\n").encode("utf-8")
+        rc, out = self.run_check(raw)
+        self.assertEqual(rc, 0, "a declared example must not block")
+        self.assertIn("allowed", out)
+
+    def test_undeclared_mojibake_blocks(self):
+        raw = ("a " + mangle("caf\u00e9") + " accident\n").encode("utf-8")
+        rc, _ = self.run_check(raw)
+        self.assertEqual(rc, 1)
+
+    def test_declaring_the_marker_cannot_exempt_invalid_utf8(self):
+        """Bad bytes are not a quoted example. No file may opt out of this."""
+        raw = "caf\u00e9\n".encode("latin-1") + eh.ALLOW_MARKER.encode("utf-8")
+        rc, _ = self.run_check(raw)
+        self.assertEqual(rc, 1, "invalid UTF-8 must block even when declared")
+
+
+class StagedScopeReadsTheIndexTest(unittest.TestCase):
+    """Scoped runs must judge what git will record, not what is on disk.
+
+    They differ after `git add -p`, or after staging a file and editing on.
+    Reading the working tree gets it wrong in both directions: a commit
+    whose recorded bytes are damaged can pass, and a commit that contains
+    nothing wrong can be blocked.
+    """
+
+    def test_scoped_run_reads_the_staged_blob(self):
+        seen = {}
+        real_ls, real_blob = eh.subprocess.run, eh.staged_blob
+        eh.staged_blob = lambda name: seen.setdefault(name, b"clean text\n")
+        try:
+            files = list(eh.tracked_text_files(only={"doc.md"}))
+        finally:
+            eh.staged_blob, eh.subprocess.run = real_blob, real_ls
+        # Whatever git ls-files returns in this checkout, nothing yielded
+        # here may have come from a working-tree read.
+        for _, raw in files:
+            self.assertEqual(raw, b"clean text\n")
+
+
 class MessageContractTest(unittest.TestCase):
     def test_blocking_message_names_hook_file_fix_and_exit(self):
         err = io.StringIO()

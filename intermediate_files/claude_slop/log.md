@@ -345,7 +345,8 @@ thread was the channel — which Mark could read, arguably better. Rather
 than predict the merge I ran it: rebased onto their branch in a scratch
 clone, resolved all four conflicts, verified all six suites and all four
 of Mark's paths on the merged tree. Resolution saved at
-`intermediate_files/pr12-onto-pr13-merge.{patch,md}`.
+`intermediate_files/pr12-onto-pr13-merge.{patch,md}` (the patch
+half was deleted once the real rebase landed; see the notes).
 
 **The cross-PR hazard, and the invariant it produced.** Both PRs rewrote
 `rule_declared_filters_are_configured` on orthogonal axes — theirs keyed on
@@ -373,7 +374,7 @@ first, copy second.
 
 ## 2026-08-19 (later still) — PR #12 rebased onto #13, ready for review
 
-#13 merged, so #12 came off the shelf. The prior session's saved notes and
+PR #13 merged, so #12 came off the shelf. The prior session's saved notes and
 patch (`intermediate_files/pr12-onto-pr13-merge.{md,patch}`) held up: the
 four conflicts resolved as written, the `precommit_secret_guard.sh` commit
 was skipped as superseded, and `sops_filter.py` was taken whole from #13

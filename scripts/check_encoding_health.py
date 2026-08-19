@@ -47,6 +47,7 @@ relying on every caller to pass encoding= correctly.
 """
 import argparse
 import os
+import shlex
 import re
 import subprocess
 import sys
@@ -117,7 +118,27 @@ def staged_paths():
     return {line for line in r.stdout.splitlines() if line}
 
 
+def staged_blob(name):
+    """The bytes git will actually record for `name`, or None if unreadable."""
+    r = subprocess.run(["git", "show", f":{name}"], cwd=ROOT,
+                       capture_output=True)
+    return r.stdout if r.returncode == 0 else None
+
+
 def tracked_text_files(only=None):
+    """Yield (path, bytes) for every text file in scope.
+
+    Scoped runs read the INDEX, not the working tree. The two differ
+    whenever someone uses `git add -p` or stages a file and then keeps
+    editing, and the difference is not cosmetic in either direction:
+    reading the working tree can pass a commit whose recorded bytes are
+    damaged, and can block a commit over damage it does not contain.
+    scripts/hostvars_filter.py's `check` reads `git show :path` for the
+    same reason -- what is being judged is what git will store.
+
+    The unscoped run (CI's --repo) has no index to speak of and is a
+    statement about the files on disk, so it reads them.
+    """
     out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
                          capture_output=True, text=True).stdout
     for name in out.split("\0"):
@@ -125,16 +146,21 @@ def tracked_text_files(only=None):
             continue
         if only is not None and name not in only:
             continue
-        p = ROOT / name
-        if not p.is_file():
-            continue
-        try:
-            raw = p.read_bytes()
-        except OSError:
-            continue
+        if only is not None:
+            raw = staged_blob(name)
+            if raw is None:
+                continue
+        else:
+            p = ROOT / name
+            if not p.is_file():
+                continue
+            try:
+                raw = p.read_bytes()
+            except OSError:
+                continue
         if _is_binary(raw):
             continue
-        yield p
+        yield ROOT / name, raw
 
 
 # Control bytes that never appear in prose. Tab, newline and carriage return
@@ -171,8 +197,7 @@ def check_repo(only=None):
     belongs.
     """
     bad_encoding, mojibake, allowed = [], [], []
-    for p in tracked_text_files(only):
-        raw = p.read_bytes()
+    for p, raw in tracked_text_files(only):
         try:
             text = raw.decode("utf-8")
         except UnicodeDecodeError as e:
@@ -189,7 +214,9 @@ def check_repo(only=None):
         print(f"   allowed: {path} contains mojibake {hits} and declares "
               f"'{ALLOW_MARKER}' -- treated as deliberate examples")
     if not bad_encoding and not mojibake:
-        print(f"   ok: every scanned text file is valid UTF-8, no mojibake markers")
+        print("   ok: every scanned text file is valid UTF-8"
+              + (f", {len(allowed)} file(s) declare deliberate mojibake examples"
+                 if allowed else ", no mojibake markers"))
         return 0
 
     staged = only is not None
@@ -219,6 +246,7 @@ def _report(path, what, staged=True, extra=None):
     file and is not. Saying "a staged text file" to someone reading a CI log
     sends them looking through an index that had nothing in it.
     """
+    q = shlex.quote(str(path))
     secretguard.block(
         ("a staged text file is not clean UTF-8" if staged else
          "a tracked text file is not clean UTF-8"),
@@ -227,18 +255,20 @@ def _report(path, what, staged=True, extra=None):
         needs="the file re-encoded as UTF-8 before it reaches git",
         blocked_by="pre-commit hook 'encoding-health' "
                    "(scripts/check_encoding_health.py)",
-        fix=f"python3 scripts/check_encoding_health.py --fix {path} && "
-            f"git add {path}",
+        # Paths are shell-quoted: these lines get copied into a terminal,
+        # and a path with a space silently becomes two arguments. `--`
+        # keeps a leading-dash filename from being read as a flag.
+        fix=(f"python3 scripts/check_encoding_health.py --fix {q}"
+             + (f" && git add -- {q}" if staged else "")),
         if_stuck=(
             f"didn't cause it, or the fix looks wrong? Drop the file and the "
-            f"rest of the commit goes through: git restore --staged {path}. "
+            f"rest of the commit goes through: git restore --staged -- {q}. "
             f"Another session staged it? Leave it alone and use "
             f"SKIP=encoding-health git commit ... (last resort, bypasses all "
             f"hooks: git commit --no-verify)"
             if staged else
-            f"this is repo-wide state, not your commit -- nothing here is "
-            f"staged. Repair it in its own change: python3 "
-            f"scripts/check_encoding_health.py --fix {path}"
+            "this is repo-wide state, not your commit -- nothing here is "
+            "staged, so there is nothing to drop. Repair it in its own change."
         ),
         see="reference/precommit_guards.md",
     )
@@ -290,15 +320,25 @@ def fix_file(rel):
     """
     p = (ROOT / rel).resolve()
     raw = p.read_bytes()
+    rewrote = False
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
         # Not UTF-8 at all: decode as latin-1 (never fails) and re-encode.
-        p.write_bytes(raw.decode("latin-1").encode("utf-8"))
+        # Then fall through rather than returning -- a file can be both
+        # latin-1 encoded AND carry a mojibake run, and re-encoding exposes
+        # the run instead of repairing it. Returning here reported success
+        # on a file the guard still blocks, so the exit code sent the
+        # reader to `git add` and straight back into the same block; it
+        # took a second --fix to converge.
+        text = raw.decode("latin-1")
+        p.write_bytes(text.encode("utf-8"))
         print(f"rewrote {rel} as UTF-8 (was latin-1)")
-        return 0
+        rewrote = True
 
     if not any(m in text for m in MOJIBAKE_MARKERS):
+        if rewrote:
+            return 0  # the re-encode was the whole repair
         print(f"{rel} is already clean UTF-8; nothing to fix", file=sys.stderr)
         return 1
 
@@ -402,12 +442,16 @@ def check_processes():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repo", action="store_true",
-                    help="all tracked files; skip host and process checks (CI)")
-    ap.add_argument("--staged", action="store_true",
-                    help="only files this commit stages (pre-commit)")
-    ap.add_argument("--fix", metavar="PATH",
-                    help="rewrite one file as UTF-8, repairing a latin-1 round-trip")
+    # Mutually exclusive: --repo --staged silently behaved as --staged, so a
+    # wiring slip in CI would have narrowed the scan with no warning -- the
+    # same vacuous-pass shape as a missing --all.
+    scope = ap.add_mutually_exclusive_group()
+    scope.add_argument("--repo", action="store_true",
+                       help="all tracked files; skip host and process checks (CI)")
+    scope.add_argument("--staged", action="store_true",
+                       help="only files this commit stages (pre-commit)")
+    scope.add_argument("--fix", metavar="PATH",
+                       help="rewrite one file as UTF-8, repairing a latin-1 round-trip")
     args = ap.parse_args()
 
     if args.fix:

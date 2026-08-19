@@ -14,8 +14,13 @@ Result of actually rebasing `claude/precommit-global-state-design-2ujiib`
 onto `claude/bold-wozniak-alvlcl` rather than predicting it. Recorded so
 whoever does the real rebase after #13 lands does not re-derive any of it.
 
-`pr12-onto-pr13-merge.patch` holds the resolved versions of the three
-files that needed judgment.
+`pr12-onto-pr13-merge.patch` held the resolved versions of the three files
+that needed judgment. It was deleted once the real rebase landed: a tracked
+copy of source diverges from the source the moment the source changes, and
+it had already gone stale (it predated `gitattributes_filters()` and
+`filter_is_configured()`, and carried a test asserting on wording that the
+live suite no longer has). The live scripts are authoritative; this file
+keeps the reasoning, which does not rot the same way.
 
 ## Conflict surface: four, all resolved, none hard
 
@@ -27,7 +32,7 @@ files that needed judgment.
 | `scripts/test_pseudonymize.py` | both fixed the same sops-skip. Keep #13's strict-mode gate (strict still runs it) **and** my `StoreUnavailable` skip — sops installed but no age key is a real case #13 misses. In strict, re-raise instead of skipping. |
 
 Also: git auto-merges my `die()` in `sops_filter.py` back in. **Delete it** —
-#13's `can_encrypt()` gate runs earlier and covers more. Take #13's file whole.
+PR #13's `can_encrypt()` gate runs earlier and covers more -- take its file whole.
 
 ## The rule, merged
 

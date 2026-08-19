@@ -7,6 +7,8 @@ missed expansion hands SignalK a `{{ placeholder }}` as a URL, a missed
 contraction commits one machine's value over the other's. Stdlib unittest,
 no repo state touched: expand/contract take their maps as arguments.
 """
+import contextlib
+import io
 import unittest
 
 import hostvars_filter as hv
@@ -125,6 +127,14 @@ class StagedScopeTest(unittest.TestCase):
         hv.load_config = lambda: {"covered.json": ["ntfy_url"]}
         hv.index_blob = lambda path: '{"url": "http://localhost:8090"}'  # literal
 
+        # hv.check() writes a full BLOCKED banner to stderr, which is the
+        # point of the guard and noise in a passing suite -- three banners
+        # in a green run read as three failures. FailureMessageContractTest
+        # keeps its own redirect because it asserts on what it captures.
+        quiet = contextlib.redirect_stderr(io.StringIO())
+        quiet.__enter__()
+        self.addCleanup(quiet.__exit__, None, None, None)
+
     def tearDown(self):
         hv.load_config = self._config
         hv.index_blob = self._blob
@@ -170,12 +180,15 @@ class FailureMessageContractTest(unittest.TestCase):
         finally:
             hv.load_config, hv.index_blob, hv.staged_paths = self._c, self._b, self._s
         text = err.getvalue()
-        self.assertIn("hostvars-placeholders", text)          # 1. which hook
-        self.assertIn("covered.json", text)                   # 2. which file
-        self.assertIn("literal value", text)                  # 3. what's wrong
-        self.assertIn("hostvars_filter.py refresh", text)     # 4. the fix
-        self.assertIn("git restore --staged", text)           # 5. no-resource exit
-        self.assertIn("--no-verify", text)                    # 5. last resort
+        # Fields and data, never phrasing. Two earlier suites asserted on
+        # wording and broke on changes that altered no behaviour; the shared
+        # formatter's own parity test owns wording.
+        for label in ("problem:", "file:", "needs:", "blocked by:",
+                      "fix:", "if stuck:", "mode:"):
+            self.assertIn(label, text, f"blocked message is missing {label}")
+        self.assertIn("covered.json", text)  # names the file, not "a file"
+        # The one substantive claim: an exit that needs no hostvars.local.yaml.
+        self.assertIn("git restore --staged", text)
 
 
 if __name__ == "__main__":
