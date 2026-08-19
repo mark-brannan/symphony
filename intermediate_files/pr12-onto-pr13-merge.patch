@@ -1,0 +1,364 @@
+diff --git a/scripts/lint_repo_hygiene.py b/scripts/lint_repo_hygiene.py
+index e2db8ac..fa477e7 100755
+--- a/scripts/lint_repo_hygiene.py
++++ b/scripts/lint_repo_hygiene.py
+@@ -9,7 +9,11 @@ Host-state rules -- compiled artifacts, installed-file drift, port
+ ownership -- live in scripts/lint_host_state.py instead, because they need the
+ machine and would fail in CI for the wrong reason.
+ 
+-Usage:  python3 scripts/lint_repo_hygiene.py [--warn-only]
++Scope: by default each rule looks only at what THIS commit stages, because
++a hook that blocks on repo-wide state punishes whoever commits next rather
++than whoever caused it. `--all` checks everything and is what CI runs.
++
++Usage:  python3 scripts/lint_repo_hygiene.py [--all] [--warn-only]
+ """
+ import json
+ import os
+@@ -28,6 +32,29 @@ CI = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
+ failures: list[str] = []
+ warnings: list[str] = []
+ 
++SCOPE_ALL = False
++
++
++def staged_paths() -> set[str] | None:
++    """Repo-relative paths in this commit, or None if git can't say.
++
++    None means "scope unknown"; rules then behave as if everything is in
++    scope, so a broken git invocation can never silently disable a rule.
++    """
++    r = subprocess.run(
++        ["git", "diff", "--cached", "--name-only"],
++        cwd=ROOT, capture_output=True, text=True,
++    )
++    if r.returncode != 0:
++        return None
++    return {line for line in r.stdout.splitlines() if line}
++
++
++def _fnmatch_any(path: str, patterns) -> bool:
++    from fnmatch import fnmatch
++    return any(fnmatch(path, pat) or fnmatch(os.path.basename(path), pat)
++               for pat in patterns)
++
+ 
+ def fail(rule: str, msg: str) -> None:
+     failures.append(f"{rule}: {msg}")
+@@ -47,47 +74,106 @@ def rule_declared_filters_are_configured() -> None:
+ 
+     Found unconfigured on the boat Pi on 2026-08-14, in a public repo.
+ 
++    FAILS only for a filter that covers a path this commit actually stages
++    -- that is the only moment plaintext can reach git. Otherwise it WARNS.
++    The unscoped version blocked every commit on any machine without the
++    filters wired, and the fix it named (setup-git-filters.sh) needs sops,
++    age, and the age key: a contributor or a fresh checkout has none of
++    them and had no way out.
++
+     Skipped in CI, which legitimately has no filters: CI never commits, and
+     a fresh checkout is expected to lack them.
+     """
+     ga = ROOT / ".gitattributes"
+     if CI or not ga.exists():
+         return
+-    declared = set()
++
++    # {filter name: [path patterns it covers]}
++    declared: dict[str, list[str]] = {}
+     for line in ga.read_text(encoding="utf-8").splitlines():
++        line = line.strip()
++        if not line or line.startswith("#"):
++            continue
++        parts = line.split()
+         for m in re.finditer(r"(?:^|\s)filter=(\S+)", line):
+-            declared.add(m.group(1))
++            declared.setdefault(m.group(1), []).append(parts[0])
++
++    scope = None if SCOPE_ALL else staged_paths()
+     for name in sorted(declared):
+-        clean = subprocess.run(
++        configured = subprocess.run(
+             ["git", "config", "--get", f"filter.{name}.clean"],
+             cwd=ROOT, capture_output=True, text=True,
+         ).stdout.strip()
+-        if not clean:
+-            # Mode-aware: on a clone that holds secrets an unconfigured
+-            # filter is the 2026-08-14 incident waiting to repeat, so it
+-            # blocks. On a clone with no key it is expected -- and failing
+-            # here used to mean a contributor could not commit a typo fix in
+-            # a markdown file. The staged-content guard still hard-blocks a
+-            # covered file that actually reaches the index untransformed, in
+-            # either mode, so nothing leaks either way.
+-            message = symphony_mode.format(
+-                "BLOCKED" if symphony_mode.mode() == "strict" else "warning",
+-                "a declared git filter is not configured in this clone",
+-                problem=(
+-                    f".gitattributes declares filter={name}, but "
+-                    f"filter.{name}.clean is unset. Files it covers would "
+-                    f"commit UNTRANSFORMED."
+-                ),
+-                needs=f"filter.{name}.clean in this clone's .git/config",
+-                blocked_by="pre-commit hook 'repo-hygiene' "
+-                           "(scripts/lint_repo_hygiene.py)",
+-                fix="bash scripts/setup-git-filters.sh",
+-                see="README.md, Setup -- or bash scripts/check_clone_setup.sh",
++        if configured:
++            continue
++
++        # Two axes, composed as AND -- this is the one place the two
++        # reworks of this rule could have cancelled each other out.
++        #
++        #   MODE says who is committing.     (contributor / strict)
++        #   SCOPE says what is in the commit. (does it stage a covered path)
++        #
++        # The invariant, agreed across PR #12 and #13:
++        #   mode may soften a guard about your ENVIRONMENT;
++        #   mode may never soften a guard about the CONTENT of your commit.
++        #
++        # So a staged covered path BLOCKS in every mode, contributor
++        # included -- that is the 2026-08-14 incident (plaintext secrets
++        # into a public repo) and it is content, not environment. An
++        # unconfigured filter with nothing covered staged is environment:
++        # strict still blocks, contributor warns, and a contributor can
++        # commit a typo fix in a markdown file, which is the whole point.
++        #
++        # Taking either axis alone loses something real: mode alone lets a
++        # contributor stage a secret with only a warning here, and scope
++        # alone stops strict mode from complaining about a clone that is
++        # not wired up yet.
++        hits = sorted(declared[name]) if scope is None else sorted(
++            p for p in scope if _fnmatch_any(p, declared[name])
++        )
++        strict = symphony_mode.mode() == "strict"
++        blocking = bool(hits) or strict
++
++        if hits:
++            problem = (
++                f"this commit stages a file that .gitattributes says must go "
++                f"through the '{name}' filter, but filter.{name}.clean is "
++                f"unset in this clone -- it would be committed UNTRANSFORMED "
++                f"(for filter=sops, that means in plaintext)."
++            )
++            listed = ", ".join(hits)
++            fix = (
++                f"bash scripts/setup-git-filters.sh && "
++                f"git add --renormalize {hits[0]}"
++            )
++            escape = (
++                f"no sops/age key here? Then leave these files out of the "
++                f"commit -- everything else goes through: "
++                f"git restore --staged {hits[0]}"
+             )
+-            if symphony_mode.mode() == "strict":
+-                failures.append(message)
+-            else:
+-                warnings.append(message)
++        else:
++            problem = (
++                f".gitattributes declares filter={name}, but "
++                f"filter.{name}.clean is unset. Nothing in THIS commit is "
++                f"covered by it, so nothing is at risk right now -- but a "
++                f"covered file would commit UNTRANSFORMED."
++            )
++            listed = "(none staged in this commit)"
++            fix = "bash scripts/setup-git-filters.sh"
++            escape = "SKIP=repo-hygiene git commit ...   (last resort: --no-verify)"
++
++        message = symphony_mode.format(
++            "BLOCKED" if blocking else "warning",
++            "a declared git filter is not configured in this clone",
++            problem=problem,
++            file=listed,
++            needs=f"filter.{name}.clean in this clone's .git/config",
++            blocked_by="pre-commit hook 'repo-hygiene' "
++                       "(scripts/lint_repo_hygiene.py)",
++            fix=f"{fix}\n         {escape}",
++            see="README.md, Setup -- or bash scripts/check_clone_setup.sh",
++        )
++        (failures if blocking else warnings).append(message)
+ 
+ 
+ # Deliberately NOT here: "config file for a plugin that isn't installed".
+@@ -119,7 +205,10 @@ def rule_audible_alarms_are_scoped() -> None:
+     cfg_dir = ROOT / "signalk" / "plugin-config-data"
+     if not cfg_dir.is_dir():
+         return
++    scope = None if SCOPE_ALL else staged_paths()
+     for cfg in sorted(cfg_dir.glob("*.json")):
++        if scope is not None and str(cfg.relative_to(ROOT)) not in scope:
++            continue  # warn about configs THIS commit touches, not all of them
+         try:
+             doc = json.loads(cfg.read_text(encoding="utf-8"))
+         except (json.JSONDecodeError, UnicodeDecodeError):
+@@ -196,7 +285,9 @@ def rule_frozen_secrets_untouched() -> None:
+ 
+ 
+ def main() -> int:
++    global SCOPE_ALL
+     warn_only = "--warn-only" in sys.argv
++    SCOPE_ALL = "--all" in sys.argv
+     for rule in (
+         rule_declared_filters_are_configured,
+         rule_audible_alarms_are_scoped,
+@@ -212,8 +303,10 @@ def main() -> int:
+         print(f if "\n" in f else f"  FAIL  {f}")
+ 
+     if failures and not warn_only:
+-        print(f"\n{len(failures)} problem(s). See scripts/lint_repo_hygiene.py "
+-              f"for why each rule exists.")
++        print(f"\nrepo-hygiene: BLOCKED on {len(failures)} problem(s) in what "
++              f"this commit stages.")
++        print("Each fix above includes a way out if you can't run it. Failing "
++              "that, `git commit --no-verify` bypasses all hooks.")
+         return 1
+     if not failures and not warnings:
+         print("repo hygiene: ok")
+diff --git a/scripts/test_pseudonymize.py b/scripts/test_pseudonymize.py
+index 6c8212b..c3d0fd6 100644
+--- a/scripts/test_pseudonymize.py
++++ b/scripts/test_pseudonymize.py
+@@ -5,6 +5,7 @@ Run: python3 scripts/test_pseudonymize.py
+ """
+ import json
+ import os
++import shutil
+ import re
+ import shutil
+ import sys
+@@ -186,6 +187,20 @@ class TestMask(unittest.TestCase):
+ 
+ 
+ class TestStore(unittest.TestCase):
++    """The only test here that needs the outside world.
++
++    Everything else in this file is pure substitution logic with its maps
++    passed in. This one decrypts the real store, so it needs sops on PATH
++    and an age identity -- which a contributor, a cloud session, or a fresh
++    checkout will not have.
++
++    Missing tools SKIP; a decryptable store that is malformed FAILS. The
++    difference matters: "I could not check this" and "I checked and it is
++    wrong" are not the same result, and reporting the first as the second
++    trains people to ignore the suite. A skip says so out loud, so it can
++    never be mistaken for a pass.
++    """
++
+     def test_real_store_decrypts_and_has_a_salt(self):
+         # The only test here that touches the real encrypted store, so the
+         # only one that needs sops and a key. On a clone that has neither
+@@ -194,12 +209,26 @@ class TestStore(unittest.TestCase):
+         # over a capability they are not expected to have. Strict mode
+         # still runs it: a machine that holds secrets must be able to open
+         # them.
++        #
++        # Two distinct ways to lack the capability, and both skip: no sops
++        # binary, and sops present but no age identity (a cloud session, or
++        # a laptop that installed the tool but never got the key). Only the
++        # third case -- the store decrypts but is malformed -- fails, because
++        # "I could not check this" and "I checked and it is wrong" are
++        # different results and conflating them teaches people to ignore
++        # the suite.
+         import symphony_mode
+ 
+-        if symphony_mode.mode() != "strict" and not shutil.which("sops"):
++        strict = symphony_mode.mode() == "strict"
++        if not strict and not shutil.which("sops"):
+             self.skipTest("no sops on PATH and this clone is in contributor mode")
+-        salt, mapping = p.load_store()
+-        self.assertTrue(salt)
++        try:
++            salt, mapping = p.load_store()
++        except p.StoreUnavailable as error:
++            if strict:
++                raise
++            self.skipTest(f"no age identity for the store here ({error})")
++        self.assertTrue(salt, "the store decrypted but carries no salt")
+         self.assertIsInstance(mapping, dict)
+ 
+ 
+diff --git a/scripts/test_repo_hygiene.py b/scripts/test_repo_hygiene.py
+new file mode 100644
+index 0000000..5fce21c
+--- /dev/null
++++ b/scripts/test_repo_hygiene.py
+@@ -0,0 +1,79 @@
++#!/usr/bin/env python3
++"""Tests for repo-hygiene's scoping.
++
++The rule that matters both ways: an unconfigured filter must BLOCK when the
++commit stages a file that filter covers (that is the 2026-08-14 incident --
++plaintext secrets into a public repo) and must NOT block otherwise, because
++the fix it names needs sops, age and the age key, which a contributor or a
++fresh checkout does not have.
++"""
++import unittest
++
++import lint_repo_hygiene as lint
++
++
++class ScopingTest(unittest.TestCase):
++    def setUp(self):
++        lint.failures.clear()
++        lint.warnings.clear()
++        self._staged = lint.staged_paths
++        self._all = lint.SCOPE_ALL
++        lint.SCOPE_ALL = False
++        self._ci = lint.CI
++        lint.CI = False
++
++    def tearDown(self):
++        lint.staged_paths = self._staged
++        lint.SCOPE_ALL = self._all
++        lint.CI = self._ci
++        lint.failures.clear()
++        lint.warnings.clear()
++
++    def run_rule(self, staged):
++        lint.staged_paths = lambda: staged
++        lint.rule_declared_filters_are_configured()
++        return lint.failures, lint.warnings
++
++    def test_unrelated_commit_warns_but_does_not_block(self):
++        fails, warns = self.run_rule({"maintenance/log.md"})
++        self.assertEqual(fails, [])
++        self.assertTrue(any("unconfigured-filter" in w for w in warns))
++
++    def test_staging_a_covered_file_blocks(self):
++        fails, _ = self.run_rule({"signalk/plugin-config-data/venus.json"})
++        self.assertTrue(any("UNTRANSFORMED" in f for f in fails))
++
++    def test_block_message_offers_a_way_out(self):
++        fails, _ = self.run_rule({"signalk/plugin-config-data/venus.json"})
++        text = "\n".join(fails)
++        self.assertIn("setup-git-filters.sh", text)      # the fix
++        self.assertIn("git restore --staged", text)      # exit without the key
++        self.assertIn("SKIP=repo-hygiene", text)         # another session's file
++
++    def test_all_mode_blocks_regardless_of_staging(self):
++        lint.SCOPE_ALL = True
++        fails, _ = self.run_rule({"maintenance/log.md"})
++        self.assertTrue(fails, "CI's --all must still enforce repo-wide")
++
++    def test_unknown_scope_falls_back_to_blocking(self):
++        """A broken `git diff` must not silently disable the rule."""
++        fails, _ = self.run_rule(None)
++        self.assertTrue(fails)
++
++    def test_ci_skips_the_rule_entirely(self):
++        lint.CI = True
++        fails, warns = self.run_rule({"signalk/plugin-config-data/venus.json"})
++        self.assertEqual((fails, warns), ([], []))
++
++
++class FrozenSecretsStillBlockTest(unittest.TestCase):
++    """This rule was already correctly scoped; make sure nothing broke it."""
++
++    def test_rule_is_still_registered(self):
++        import inspect
++        src = inspect.getsource(lint.main)
++        self.assertIn("rule_frozen_secrets_untouched", src)
++
++
++if __name__ == "__main__":
++    unittest.main()
