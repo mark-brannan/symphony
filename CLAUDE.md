@@ -19,9 +19,14 @@ covered here.
   arrive at the right structure organically, not have it templated in.
 
 ## log.md
-- Real ship's log style: short, factual, dated entries — what was done,
-  found, or decided. Not a place for technical specs/part numbers (those
-  belong in the relevant `systems/*.md` file once populated).
+- **A human file.** Written for Mark skimming for "when did X change." Claude
+  appends only when a meaningful, high-level piece of work is actually DONE —
+  never micro-tasks, session narrative, self-corrections, or verification
+  detail. That material goes in `intermediate_files/claude_slop/log.md`.
+- Real ship's log style: short, factual, dated entries — 1-3 lines per event,
+  past tense, no reasoning. Not a place for technical specs/part numbers
+  (those belong in the relevant `systems/*.md` file once populated). If
+  you're explaining *why*, it belongs in `reference/` or the slop journal.
 - Chronological, oldest entry first, true append — new entries go at the
   bottom, matching `tail` semantics.
 - Use whatever date precision is actually known: a full date, a month, or
@@ -36,15 +41,39 @@ covered here.
   the task to it. What's still listed here overlaps by history, which is fine
   and gets pruned over time. This file stays authoritative for the SignalK /
   IoT section.
+- **A human file.** High-level items only, one to a few lines each. Claude
+  edits it when real feature-level work completes or the owner asks — never
+  to park session state, evidence dumps, "done" annotations, or rules for
+  other sessions. All of that lives in
+  `intermediate_files/claude_slop/kanban.md`.
 - Kanban-flavored, not GTD: **In Progress** (keep this small — WIP limit of
   roughly 2-3 items, matching the owner's stated preference for steady
-  completion over a sprawling backlog) / **Blocked** / **Backlog** (ordered —
+  completion over a sprawling backlog) / **Backlog** (ordered —
   position implies priority) / **Someday/Maybe** (uncommitted ideas).
 - Finished items don't stay here — they move to `log.md` and get removed
   from this file, so it always reflects only what's still open.
-- Electrical/IoT sensor and SignalK-integration tasks are intentionally
-  tracked separately from this backlog for now — don't merge them in without
-  asking first.
+- The **SignalK / IoT — high level** section is the human summary; the
+  detailed working state for each item is in
+  `intermediate_files/claude_slop/kanban.md`. Update both when an item
+  opens or closes; update only the kanban for anything smaller.
+
+## Claude session state — `intermediate_files/claude_slop/`
+- **All Claude working state is segregated here**, away from the "good"
+  content in `maintenance/` and `reference/`. The owner chose this location
+  and the name deliberately (2026-08-19): if a future session thinks a file
+  here deserves promotion, that's a proposal to Mark, not a move to make.
+- `kanban.md` — Claude's working backlog: micro-tasks, blocked questions,
+  session-facing rules, and the detailed state behind `priorities.md`'s
+  high-level SignalK/IoT list. Pull from it to start work; flush loose ends
+  back at wrap-up.
+- `log.md` — dated session journal: wrap-up narrative, self-corrections,
+  verification detail. Append at the bottom. This is where the continuity
+  rule's "write state before ending" output goes.
+- Other files under `intermediate_files/` are per-task scratch. Nothing in
+  the directory is authoritative over `reference/` or the running system.
+- **Do not** put symphony session state in the dotfiles repo's `boards/`
+  files — that experiment was rolled back 2026-08-19; those boards are for
+  dotfiles work only.
 
 ## Evernote (where physical tasks actually live)
 - Sessions can read and write Evernote directly. The MCP tools
@@ -148,6 +177,12 @@ covered here.
   the owner the same judgment twice.
 - Raising a real objection to one of them is fine — one line, then move on.
   Re-deriving the whole analysis is not.
+- **Do not touch the `captain` credentials.** `signalk_captain_password` and
+  `influxdb_captain_password` in `secrets/symphony.sops.yaml` are frozen at
+  Mark's instruction until his own hardening pass. Don't rotate, split, or
+  "helpfully" strengthen them — and don't offer to; the offer itself is what
+  he asked to stop. `scripts/lint_repo_hygiene.py` fails any commit whose
+  diff touches them.
 
 ## Working style, generally
 - No unsolicited notes, hedges, or "this may have changed" commentary
@@ -179,9 +214,10 @@ covered here.
   tool call re-sends the full context, so a tool-dense task (PR review, CI
   chasing, branch cleanup) costs far more than its wall-clock suggests. Scope
   these tightly and prefer one considered pass over iterative poking.
-- **Park open questions in `maintenance/priorities.md` under Blocked**, not in
-  session scrollback. A question that lives only in a session's last response
-  is invisible the moment that session scrolls out of the list.
+- **Park open questions in `intermediate_files/claude_slop/kanban.md` under
+  Blocked**, not in session scrollback. A question that lives only in a
+  session's last response is invisible the moment that session scrolls out
+  of the list.
 
 ## Git hygiene
 - At the start of every session, before doing any work: `git fetch` and check
