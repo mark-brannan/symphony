@@ -158,7 +158,10 @@ now carries only the high-level list.)
 - Finish dockerizing the boat computer, per Track B of
   `reference/containerization_strategy.md` (decided 2026-08-18) — that file
   carries the ordered steps B1-B7 and the boat-side checklist; this entry
-  tracks only where we are in it. **Dex and ntfy are done** — containers,
+  tracks only where we are in it. Findings from the checklist go back into
+  that file and into `maintenance/log.md`, and anything contradicting the
+  plan amends the plan rather than being worked around silently; delete the
+  checklist from the file once it has been executed. **Dex and ntfy are done** — containers,
   native units disabled, verified through Caddy. SignalK, Grafana and Caddy
   are still native systemd services. Next up is B1: back up InfluxDB offline
   and prove the backup restores off-boat. Migrate one service at a time, not

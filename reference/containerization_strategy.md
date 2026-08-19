@@ -8,12 +8,10 @@ partially overturns). Claims are tagged **[verified]** (source named,
 fetched or measured during this research) or **[unverified]** (plausible,
 not checked — confirm before relying on it).
 
-Research caveat: hatlabs.fi, docs.halos.fi, questdb.com and
-docs.influxdata.com were unreachable from the research session's proxy, so
-claims about them come from GitHub repos read directly (halos-org,
-questdb, dirkwa), the npm registry API, the Docker Hub API, and
-search-result extraction. GitHub-sourced claims are solid; blog-post
-claims are snippet-level.
+Source caveat: GitHub-sourced claims (halos-org, questdb, dirkwa), the npm
+registry API and the Docker Hub API are solid; vendor blog and docs claims
+are snippet-level, taken from search results rather than the pages
+themselves.
 
 ## Decisions made with Mark, 2026-08-18
 
@@ -112,7 +110,7 @@ of images against ~6 GB free — was re-checked: 9.2 GB free after the
 08-14 cleanup, and dropping InfluxDB's store and Chromium's profile
 frees more.
 
-**Stale — compute_hardware.md's HALOS description.** The project moved
+**HALOS as of 2026-08-18.** The project has moved
 to its own GitHub org (`halos-org`, 31 repos), releases images roughly
 monthly (v2026-03-03 … v2026-08-10.1), and ships **generic Pi 4/5
 images** (`Halos-Marine-RPI` et al.), not just HALPI2 variants; it can
@@ -375,8 +373,9 @@ commits.
 
 ## Boat-side investigation checklist
 
-This session ran in a cloud container off the tailnet, so none of the
-following was executed. It is written for the next session on a tailnet
+A one-shot plan, not a procedure: it lives here rather than in RUNBOOK.md
+because it runs once and then gets deleted from this file, its findings
+folded into the decisions above. Written for whoever is next on a tailnet
 machine (`ssh pi@symphony-pi`), in order. Semi-destructive items are
 marked; Mark has pre-authorized them, except where a line says otherwise.
 
@@ -461,7 +460,3 @@ marked; Mark has pre-authorized them, except where a line says otherwise.
    is the Grafana container. Prove one panel of one dashboard reads
    QuestDB. This scopes the B4 porting effort with real
    queries before committing to it.
-
-Findings from these steps belong back in this file and in
-`maintenance/log.md`; anything that contradicts the plan above should
-amend the plan, not be worked around silently.
