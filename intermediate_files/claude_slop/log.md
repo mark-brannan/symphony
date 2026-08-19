@@ -90,3 +90,23 @@ Still open: the log.md purchase itemizations (Mark's call, untouched), and the
 optional lint_repo_hygiene soft-warn on long log bullets.
 
 Commits still need `SKIP=gitleaks-docker`; Mark approved that in-session.
+
+## 2026-08-19 — Victron shapes into the diagrams ("Do it")
+
+- Curated 12 shapes from the community library into
+  `diagrams/libraries/symphony-shapes.xml` (10 used now, Fuse + Busbar
+  spares): AGM battery, Lithium, Multiplus Compact, DCDC Converter, 500A
+  shunt, Color Control (Cerbo stand-in), Battery Protect, IT-3600
+  isolation transformer, Main Switch, Shore Power Connection. No IP22 /
+  Blue Smart shape exists in the library — that box stays plain.
+- Rebuilt `symphony-dc-overview.svg` + `.drawio` in lockstep with product
+  images inside the component boxes; enlarged startbatt/orion/housebatt/
+  cerbo/bp boxes to fit; master-switch ellipse replaced by the red switch
+  image with label at left; VE.Direct label relocated. Render-verified
+  twice with resvg (v4 render clean). Files grew to ~840 kB each from
+  embedded base64 PNGs — deliberate, keeps them self-contained.
+- Owner decisions recorded: use the GitHub library copy, don't wait on his
+  v1.0 ("don't care if my 1.0 lacks shapes"); plumbing library deferred;
+  SKIP=gitleaks-docker sanctioned when Docker Desktop is down (now a
+  CLAUDE.md rule). New wrap-up rule added to CLAUDE.md: no unmeasured
+  decisions at wrap-up — execute or prompt, and record the answer.

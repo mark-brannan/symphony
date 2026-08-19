@@ -66,6 +66,11 @@ covered here.
   session-facing rules, and the detailed state behind `priorities.md`'s
   high-level SignalK/IoT list. Pull from it to start work; flush loose ends
   back at wrap-up.
+- **A wrap-up ends with zero unmeasured decisions** (owner's rule,
+  2026-08-19). Every open question is either executed in-session or put to
+  Mark as an explicit decision prompt before the turn ends, and his answer
+  recorded here. Parking a question in a file without prompting him for the
+  call is not wrapped up.
 - `log.md` — dated session journal: wrap-up narrative, self-corrections,
   verification detail. Append at the bottom. This is where the continuity
   rule's "write state before ending" output goes.
@@ -361,6 +366,11 @@ entries below are for when you're not.
 - Detached HEAD after a bad checkout in the shared checkout — note the commit
   you were on (`git log --oneline -1`), then `git switch main` (name only, not
   a reset) to get back onto the branch.
+- If the gitleaks pre-commit hook errors with "docker could not be found in
+  this WSL 2 distro", Docker Desktop's WSL integration is off. Commit with
+  `SKIP=gitleaks-docker` and move on — decided 2026-08-19; the local
+  staged-secrets guard still runs and covers the commit. This sanctions
+  skipping that one hook for that one failure, nothing else.
 - sops-encrypted files must round-trip through the `sops` filter, never
   hand-edited in cleartext and committed directly.
 - `secrets/pseudonyms.sops.yaml` is generated — the clean filter rewrites it
