@@ -252,3 +252,44 @@ placeholder on your own disk; clean passing through writes one machine's
 value into the shared repo, which is the failure that filter exists to
 prevent. Same asymmetry as #12's `to_git_form`. It now appears twice for the
 same reason and should be stated once centrally, after #12 lands.
+
+## 2026-08-19 — PR #13, naming pass (`secretguard`)
+
+Mark's note on the PR: "These names are bad: SYMPHONY_MODE, SYMPHONY_STRICT",
+plus the standing thought exercise — would these names survive if the secret
+management were split off as a package for another vessel owner?
+
+They fail it twice: they carry the boat's name, and neither says what is
+strict or what the mode is a mode *of*. Renamed the whole guard surface to
+`secretguard` (files, functions, env var, mode file, message prefix). Full
+table is in the PR body and the commit message for 40bc27b.
+
+Three behaviour changes fell out of the rename rather than being decided
+separately, which is the argument for doing renames properly:
+
+- `SECRETGUARD_MODE` now takes a mode word only. `SYMPHONY_STRICT` accepted
+  `1/true/yes/on` and `0/false/no/off` — coherent while the name said
+  "strict", incoherent once it says "mode", and `=0` meaning contributor is a
+  guess a secret guard shouldn't make.
+- The cache is `_secretguard_mode`, lowercase. Its env-shaped name is what
+  invited seeding it from the environment — the cf892e2 bug. Renaming removed
+  the invitation rather than re-fixing the symptom.
+- The bash twin didn't trim whitespace around a mode word; python did. The
+  parity test caught it on `" strict "` while I was rewriting the tests. Worth
+  noting the twin+parity-test design has now paid for itself twice.
+
+Also closed the three review threads still open. The one that mattered:
+"is this file encrypted" was five separate greps for the string `sops`, so a
+plaintext `{"note": "sops", "password": "hunter2"}` read as encrypted at
+every one of them. Now one policy in both languages requiring sops' actual
+metadata shape (`sops` key → mapping with `mac` and `version`), applied at
+all five sites — pre-commit guard, pre-push scan, clean filter, repo-hygiene
+rule, and CI's `verify_encrypted.sh`. Reproduced the bypass against a bare
+remote before fixing, confirmed the block after, confirmed the 16 real
+encrypted files still pass.
+
+Transferable: the reviewer named two sites. Fixing two would have left a file
+that reads as encrypted to one guard and plaintext to another, which is worse
+than either answer alone — the commit sails through, the push blocks, and
+neither message explains the disagreement. When a finding is "this predicate
+is wrong," the unit of repair is the predicate, not the lines cited.
