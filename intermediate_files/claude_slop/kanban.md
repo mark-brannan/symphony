@@ -33,6 +33,23 @@ to the plugin dir. Remaining:
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
 
+- **Branch protection / required status checks on `main` — not enabled**
+  (2026-08-19, CI-design session). Confirmed via `list_branches`: `main` is
+  unprotected today, so `.github/workflows/validate.yml` and
+  `claude-review.yml` are both advisory-only — red X's are information, not
+  a block. Deliberately not touching this: an earlier session's framing of
+  "real boat hardware" had started nudging the workflows (mainly
+  `claude-review.yml`'s header/prompt) toward production-gate language —
+  corrected 2026-08-19 back to "real hardware, but rapid iteration, mistakes
+  recoverable; secrets are the one non-negotiable." If/when required checks
+  are wanted: the natural minimum set is `compose-config`,
+  `json-yaml-syntax`, `secrets-encrypted`, and `gitleaks` from
+  `validate.yml` (fast, deterministic, no false-positive risk) — not
+  `claude-review` (advisory reviewer, shouldn't block on its own judgment)
+  and not `trufflehog`/`dashboards`/`shellcheck`/`python-syntax` unless they
+  prove reliable over time. Owner's call, and low priority while still in
+  move-fast mode.
+
 - **wire-wright publish — awaiting Mark's local session** (2026-08-19).
   He consented; the in-session `gh repo create` is classifier-blocked, and
   his own first run of the two commands errored (errors not captured in
