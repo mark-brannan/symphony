@@ -7,6 +7,11 @@ a legitimate em dash -- i.e. on almost every real file in this repo. The
 check named a fix command that did not work, which is worse than naming
 none.
 """
+# Fixtures are written as escapes, never literally. Spelled out, this file
+# would contain the very byte sequences check_encoding_health searches for
+# and would flag itself on every CI run -- which is exactly what happened on
+# the first version of it. Same reasoning as MOJIBAKE_MARKERS in the script
+# under test.
 import io
 import contextlib
 import tempfile
@@ -86,7 +91,7 @@ class FixFileTest(unittest.TestCase):
         self.assertEqual(p.read_text(encoding="utf-8"), "12° — café\n")
 
     def test_strips_a_byte_order_mark(self):
-        p = self.write("c.md", "﻿hello\n".encode("utf-8"))
+        p = self.write("c.md", "\ufeffhello\n".encode("utf-8"))
         rc, _ = self._quiet(lambda: eh.fix_file("c.md"))
         self.assertEqual(rc, 0)
         self.assertEqual(p.read_text(encoding="utf-8"), "hello\n")
@@ -101,7 +106,7 @@ class FixFileTest(unittest.TestCase):
 
     def test_unrepairable_damage_is_refused_with_a_way_out(self):
         """Never guess. Say so, and name a command that recovers the file."""
-        p = self.write("e.md", "Ã alone\n".encode("utf-8"))
+        p = self.write("e.md", "\u00c3 alone\n".encode("utf-8"))
         before = p.read_bytes()
         rc, msg = self._quiet(lambda: eh.fix_file("e.md"))
         self.assertEqual(rc, 1)
