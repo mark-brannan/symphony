@@ -28,41 +28,72 @@ if [ -z "${TAILSCALE_AUTHKEY:-}" ]; then
   exit 0
 fi
 
-if pgrep -x tailscaled >/dev/null 2>&1; then
-  exit 0  # already joined (e.g. hook re-run on resume)
+# Explicit, session-unique LocalAPI socket so tailscaled, `tailscale up`,
+# and the SSH ProxyCommand below all talk to the same daemon instead of
+# racing over whichever default path each of them resolves as non-root.
+SOCKET="${HOME}/.tailscale-cloud.sock"
+
+is_joined() {
+  tailscale --socket="$SOCKET" status --json 2>/dev/null | grep -q '"BackendState": *"Running"'
+}
+
+if pgrep -x tailscaled >/dev/null 2>&1 && is_joined; then
+  exit 0  # already joined and authenticated (e.g. hook re-run on resume)
 fi
 
 SESSION_HOSTNAME="cloud-${CLAUDE_CODE_REMOTE_SESSION_ID:-$$}"
 SESSION_HOSTNAME="${SESSION_HOSTNAME:0:32}"
 
-tailscaled \
-  --tun=userspace-networking \
-  --socks5-server=localhost:1055 \
-  --outbound-http-proxy-listen=localhost:1055 \
-  --state=mem: \
-  >/tmp/tailscaled.log 2>&1 &
-disown
+if ! pgrep -x tailscaled >/dev/null 2>&1; then
+  LOG_FILE="$(mktemp "${TMPDIR:-/tmp}/tailscaled.XXXXXX.log")" || {
+    echo "tailscale-join: cannot create daemon log file" >&2
+    exit 0
+  }
 
-sleep 2
+  # --socks5-server/--outbound-http-proxy-listen give other tooling in the
+  # session a way to route through the tailnet via ALL_PROXY/HTTP_PROXY;
+  # nothing in this hook sets those env vars today, only the SSH
+  # ProxyCommand below consumes the tailnet. Left running for future use.
+  tailscaled \
+    --tun=userspace-networking \
+    --socket="$SOCKET" \
+    --socks5-server=localhost:1055 \
+    --outbound-http-proxy-listen=localhost:1055 \
+    --state=mem: \
+    >"$LOG_FILE" 2>&1 &
+  disown
 
-if ! tailscale up \
+  sleep 2
+else
+  LOG_FILE="the running tailscaled's own log (daemon was already running)"
+fi
+
+if ! tailscale --socket="$SOCKET" up \
   --authkey="$TAILSCALE_AUTHKEY" \
   --hostname="$SESSION_HOSTNAME" \
   --ssh=false \
   --accept-routes=false \
   --timeout=30s; then
-  echo "tailscale-join: 'tailscale up' failed, see /tmp/tailscaled.log" >&2
+  echo "tailscale-join: 'tailscale up' failed, see $LOG_FILE" >&2
   exit 0
 fi
 
-mkdir -p ~/.ssh
-if ! grep -q "^Host symphony-pi macbook-air nucboxk12$" ~/.ssh/config 2>/dev/null; then
-  cat >> ~/.ssh/config <<'EOF'
+if ! mkdir -p "$HOME/.ssh"; then
+  echo "tailscale-join: cannot create $HOME/.ssh" >&2
+  exit 0
+fi
+
+if ! grep -q "^Host symphony-pi macbook-air nucboxk12$" "$HOME/.ssh/config" 2>/dev/null; then
+  if ! cat >> "$HOME/.ssh/config" <<EOF
 
 Host symphony-pi macbook-air nucboxk12
-  ProxyCommand tailscale nc %h %p
+  ProxyCommand tailscale --socket=$SOCKET nc %h %p
   StrictHostKeyChecking accept-new
 EOF
+  then
+    echo "tailscale-join: cannot update $HOME/.ssh/config" >&2
+    exit 0
+  fi
 fi
 
 echo "tailscale-join: joined tailnet as $SESSION_HOSTNAME" >&2
