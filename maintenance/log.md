@@ -789,7 +789,19 @@
   report a false all-clear if it can't reach them, so left it to prove
   itself on its next scheduled run rather than firing it out of band to test.
 
-## Date unknown
+- Electrical refit diagramming started. Surveyed diagram tools (draw.io,
+  Wireframe, VoltPlan, hand-authored SVG); settled on git-native SVG +
+  draw.io XML kept in lockstep as the system of record. First DC system
+  overview drawn to the owner's intended architecture (aspirational design —
+  diagram leads, boat follows): dual bank with Orion 12/12 DC-DC charging,
+  unswitched distribution bus feeding separate always-on (pumps) and
+  low-current unswitched breaker+bus pairs, IP22 starter charger on a
+  shore-only AC branch bypassing the MultiPlus transfer switch. Circuit list
+  with guess/spec/measured provenance in `diagrams/electrical/circuits.csv`;
+  wire/fuse sizing generated per ABYC E-11 by new standalone tooling —
+  `ampacity` (data package, published to npm and GitHub) and `wire-wright`
+  (calculator CLI, local only, pre-alpha). Committed as 785d2a5. Open TBDs
+  live in the diagram labels and CSV notes, not here.
 - Cleaned fuel filter.
 - Cleaned oil filter.
 - Prop shaft coupler (muff coupler) replaced with a temporary solution — permanent fix still needed, see backlog.

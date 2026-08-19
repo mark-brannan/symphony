@@ -40,6 +40,16 @@ This file remains authoritative for the SignalK / IoT section below.
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
 
+- **draw.io shape libraries need hand-delivery** (electrical diagrams
+  session, 2026-08-19). Rebuilding `diagrams/electrical/` with Victron
+  shapes waits on `Victron-shapes-v.1.0.xml` and `Symphony Plumbing
+  Library.xml`, which live in Mark's Google Drive — and the Google_Drive
+  connector is denied in this project's `.claude/settings.json`, so no
+  session here can fetch them. Mark downloads them and drops them in the
+  repo (or pastes them); plan is to keep only actively-used shapes in a
+  curated `diagrams/libraries/symphony-shapes.xml`. Related go/no-go also
+  his: publish `wire-wright` (GitHub + `npm publish --tag alpha`) — repo is
+  committed locally at `~/wire-wright`, no remote yet.
 - **Which Grafana dashboards are the QuestDB port target?** (PR #7 review
   session.) Two sets exist and they are not versions of each other. The boat's
   native Grafana has five dashboards, 76 panels, InfluxQL, imported from
