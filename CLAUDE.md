@@ -211,6 +211,16 @@ covered here.
   When a branch *is* warranted under this rule, always open the PR
   yourself as part of finishing the work — don't leave a pushed branch
   without one, and don't wait to be asked.
+- **Never fold a branch back to main and delete it.** A branch only has two
+  legitimate endings: it merges via PR, or it was never opened because the
+  criteria above weren't met in the first place. Branch deletion (manual
+  cleanup of an unmerged stray) is a recurring time sink, and it's
+  self-inflicted — it only happens when a branch got opened for work that
+  didn't need one, or got abandoned instead of merged. Don't try to solve
+  it by deleting after the fact: solve it upstream, by not opening the
+  branch unless the criteria are actually met, and by finishing every branch
+  you do open with a merged PR. A merged branch is harmless clutter GitHub
+  prunes visually; it needs no session time spent on it.
 - If a change is potentially destructive, or could affect adjacent
   environments for plugin testing, ask for explicit permission before
   changing, committing, or pushing.
