@@ -188,6 +188,34 @@ if [ "$degraded" -ne 0 ]; then
     see="bash scripts/check_clone_setup.sh"
 fi
 
+# --- 5. the pseudonym map must travel with the tokens (WARNS) -------------
+# When the clean filter meets an address it has not seen, it mints a token
+# AND rewrites secrets/pseudonyms.sops.yaml on disk as a side effect. If you
+# commit the file with the new token but not the updated map, the token is
+# unresolvable in a fresh clone -- nobody can ever answer "who was this?"
+#
+# Warns rather than blocks, deliberately. The map is still sitting on disk,
+# so the recovery is to commit it next -- annoying, not lost. Blocking here
+# would stop a commit over something already safe, which is what this whole
+# pass exists to stop doing. Needs no age key: it compares staged paths and
+# unstaged modifications, never decrypting anything.
+store="secrets/pseudonyms.sops.yaml"
+if [ -n "$(git diff --name-only -- "$store")" ]; then
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    if grep -qxF "$path" <<<"$staged"; then
+      echo "NOTE (sops-secret-guard, not blocking):" >&2
+      echo "  '$path' is staged, and $store has changes you have NOT staged." >&2
+      echo "  what:  the filter minted a new pseudonym and updated the map on disk." >&2
+      echo "         Commit the token without the map and nobody can ever resolve it." >&2
+      echo "  fix:   git add $store" >&2
+      echo "  Not sure? Committing anyway is safe -- the map is still on disk, just" >&2
+      echo "  commit it next. Nothing leaks either way." >&2
+      break
+    fi
+  done < <(python3 scripts/pseudonymize.py paths)
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo >&2
   echo "Commit blocked. Nothing was written to git." >&2
