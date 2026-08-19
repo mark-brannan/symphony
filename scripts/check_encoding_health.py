@@ -20,7 +20,8 @@ Layer 3 is why this script exists rather than a one-time fix. Changing
 lands gradually and you want to watch it converge instead of assuming it did.
 
     python3 scripts/check_encoding_health.py            # everything
-    python3 scripts/check_encoding_health.py --repo     # layer 1 only (CI-safe)
+    python3 scripts/check_encoding_health.py --repo     # layer 1, all tracked files (CI)
+    python3 scripts/check_encoding_health.py --staged   # layer 1, this commit only
 
 Exit status is non-zero only for layer 1 failures -- real mojibake or a file
 that isn't valid UTF-8. Host findings are reported, not enforced: this script
@@ -46,6 +47,7 @@ relying on every caller to pass encoding= correctly.
 """
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -87,11 +89,26 @@ MOJIBAKE_MARKERS = (
 UTF8_LOCALES = ("utf-8", "utf8")
 
 
-def tracked_text_files():
+def staged_paths():
+    """Repo-relative paths in this commit, or None if git can't say.
+
+    None means "scope unknown"; callers fall back to every tracked file, so
+    a broken git invocation can never silently disable the check.
+    """
+    r = subprocess.run(["git", "diff", "--cached", "--name-only", "--diff-filter=d"],
+                       cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    return {line for line in r.stdout.splitlines() if line}
+
+
+def tracked_text_files(only=None):
     out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
                          capture_output=True, text=True).stdout
     for name in out.split("\0"):
         if not name:
+            continue
+        if only is not None and name not in only:
             continue
         p = ROOT / name
         if not p.is_file():
@@ -129,10 +146,17 @@ def _is_binary(raw: bytes) -> bool:
     return any(b < 0x20 and b not in _TEXT_CONTROL for b in sample)
 
 
-def check_repo():
-    """Layer 1: the files themselves."""
+def check_repo(only=None):
+    """Layer 1: the files themselves.
+
+    `only` limits the scan to the paths this commit stages. Unscoped, one
+    file damaged by an old latin-1 round-trip blocks every commit in the
+    repo forever, by someone who did not cause it and may not know how to
+    fix it. CI runs the unscoped form, which is where whole-repo truth
+    belongs.
+    """
     bad_encoding, mojibake = [], []
-    for p in tracked_text_files():
+    for p in tracked_text_files(only):
         raw = p.read_bytes()
         try:
             text = raw.decode("utf-8")
@@ -143,14 +167,114 @@ def check_repo():
         if hits:
             mojibake.append((p.relative_to(ROOT), hits))
 
-    print("layer 1 -- tracked files")
+    scope = "staged files" if only is not None else "tracked files"
+    print(f"layer 1 -- {scope}")
     if not bad_encoding and not mojibake:
-        print("   ok: every tracked text file is valid UTF-8, no mojibake markers")
+        print(f"   ok: every scanned text file is valid UTF-8, no mojibake markers")
+        return 0
+
+    print("\nencoding-health: BLOCKED", file=sys.stderr)
     for path, err in bad_encoding:
-        print(f"   FAIL not valid UTF-8: {path} ({err})")
+        _report(path, f"not valid UTF-8 ({err})")
     for path, hits in mojibake:
-        print(f"   FAIL mojibake markers {hits} in {path}")
+        _report(path, f"contains mojibake markers {hits} -- UTF-8 text that "
+                      f"was read as latin-1 and written back, mangling a "
+                      f"character")
     return len(bad_encoding) + len(mojibake)
+
+
+def _report(path, what):
+    """One finding, with a fix and an exit that needs nothing."""
+    print(
+        f"\n  file:  {path}\n"
+        f"  what:  {what}\n"
+        f"  fix:   rewrite it as UTF-8, then re-stage:\n"
+        f"           python3 scripts/check_encoding_health.py --fix {path}\n"
+        f"           git add {path}\n"
+        f"  didn't cause it, or the fix looks wrong? Drop the file from this\n"
+        f"         commit and the rest goes through:\n"
+        f"           git restore --staged {path}\n"
+        f"         Another session staged it? Leave it alone and use:\n"
+        f"           SKIP=encoding-health git commit ...\n"
+        f"  last resort, bypasses ALL hooks:  git commit --no-verify",
+        file=sys.stderr,
+    )
+
+
+# Characters that a mojibake run can be built from: the latin-1 range plus
+# the cp1252 punctuation that shows up when UTF-8 is misread through a
+# Windows codepage (the em dash / curly quote cases). cp1252 is a superset
+# of latin-1 over these, so encoding a run with it covers both origins.
+_CP1252_EXTRAS = "\u20ac\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160" \
+                 "\u2039\u0152\u017d\u2018\u2019\u201c\u201d\u2022\u2013\u2014" \
+                 "\u02dc\u2122\u0161\u203a\u0153\u017e\u0178"
+_MOJIBAKE_RUN = re.compile("[\u0080-\u00ff" + _CP1252_EXTRAS + "]+")
+
+
+def repair_mojibake(text):
+    """Undo a latin-1/cp1252 misread, run by run. Returns (text, n_repaired).
+
+    Per-run, not whole-file, and that distinction is the whole point: a
+    document can contain both real mojibake AND legitimate non-ASCII (an em
+    dash, a degree sign in a spec). Re-encoding the entire file fails on the
+    legitimate characters and repairs nothing -- which is exactly what the
+    first cut of this function did, on the first real file it met.
+
+    A run is only rewritten when it decodes cleanly as UTF-8, so text that
+    merely contains an accented word is left untouched.
+    """
+    repaired = 0
+
+    def convert(match):
+        nonlocal repaired
+        run = match.group(0)
+        try:
+            candidate = run.encode("cp1252").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            return run
+        repaired += 1
+        return candidate
+
+    return _MOJIBAKE_RUN.sub(convert, text), repaired
+
+
+def fix_file(rel):
+    """Re-encode one file to UTF-8, undoing a latin-1 round-trip.
+
+    Element 4 of the message contract has to be a command that exists. It
+    did not before: the check named the damage and left the reader to work
+    out the repair by hand.
+    """
+    p = (ROOT / rel).resolve()
+    raw = p.read_bytes()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        # Not UTF-8 at all: decode as latin-1 (never fails) and re-encode.
+        p.write_bytes(raw.decode("latin-1").encode("utf-8"))
+        print(f"rewrote {rel} as UTF-8 (was latin-1)")
+        return 0
+
+    if not any(m in text for m in MOJIBAKE_MARKERS):
+        print(f"{rel} is already clean UTF-8; nothing to fix", file=sys.stderr)
+        return 1
+
+    result, count = repair_mojibake(text.replace("\ufeff", ""))
+    leftover = [m for m in MOJIBAKE_MARKERS if m in result]
+    if leftover:
+        print(
+            f"{rel}: repaired {count} run(s), but markers {leftover} remain -- "
+            f"this is not a plain encoding round-trip and guessing further "
+            f"would risk corrupting real text. Inspect it, or restore the file "
+            f"from a known-good commit:\n"
+            f"  git log --oneline -- {rel}\n"
+            f"  git checkout <good-sha> -- {rel}",
+            file=sys.stderr,
+        )
+        return 1
+    p.write_text(result, encoding="utf-8")
+    print(f"repaired {count} damaged run(s) in {rel}")
+    return 0
 
 
 def _generated_locales():
@@ -236,11 +360,22 @@ def check_processes():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", action="store_true",
-                    help="check tracked files only; skip host and process checks")
+                    help="all tracked files; skip host and process checks (CI)")
+    ap.add_argument("--staged", action="store_true",
+                    help="only files this commit stages (pre-commit)")
+    ap.add_argument("--fix", metavar="PATH",
+                    help="rewrite one file as UTF-8, repairing a latin-1 round-trip")
     args = ap.parse_args()
 
-    failures = check_repo()
-    if not args.repo:
+    if args.fix:
+        return fix_file(args.fix)
+
+    only = staged_paths() if args.staged else None
+    if args.staged and only is not None and not only:
+        print("layer 1 -- staged files\n   ok: this commit stages no text file.")
+        return 0
+    failures = check_repo(only)
+    if not (args.repo or args.staged):
         check_host()
         check_processes()
     return 1 if failures else 0
