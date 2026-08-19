@@ -81,8 +81,8 @@ jobs:
             `python3 scripts/validate_configs.py` (pip install pyyaml
             first). The services themselves run on the boat and are not
             reachable from here -- for anything that can only be proven on
-            board, say exactly that instead of guessing. Flag service or
-            port changes that don't update RUNBOOK.md, and PRs mixing
+            board, say exactly that instead of guessing. Challenge service
+            or port changes that don't update RUNBOOK.md, and PRs mixing
             maintenance-log changes with infrastructure changes.
 
             Post findings as inline comments via
