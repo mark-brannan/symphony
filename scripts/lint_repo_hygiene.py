@@ -14,6 +14,7 @@ Usage:  python3 scripts/lint_repo_hygiene.py [--warn-only]
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,41 @@ CI = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
 
 failures: list[str] = []
 warnings: list[str] = []
+
+
+def staged_paths() -> set[str] | None:
+    """Repo-relative paths this commit stages, or None if git can't say.
+
+    None means "scope unknown", and every caller then behaves as if
+    everything is in scope. A broken git invocation must never be the thing
+    that quietly switches a guard off.
+    """
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return {line for line in result.stdout.splitlines() if line}
+
+
+def gitattributes_filters() -> dict[str, list[str]]:
+    """{filter name: [paths it covers]}, straight out of .gitattributes.
+
+    Read here rather than from .sops.yaml so these rules keep working with
+    no pyyaml -- which is exactly the clone they most need to work on.
+    """
+    ga = ROOT / ".gitattributes"
+    declared: dict[str, list[str]] = {}
+    if not ga.exists():
+        return declared
+    for line in ga.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        for match in re.finditer(r"(?:^|\s)filter=(\S+)", line):
+            declared.setdefault(match.group(1), []).append(line.split()[0])
+    return declared
 
 
 def fail(rule: str, msg: str) -> None:
@@ -50,44 +86,127 @@ def rule_declared_filters_are_configured() -> None:
     Skipped in CI, which legitimately has no filters: CI never commits, and
     a fresh checkout is expected to lack them.
     """
-    ga = ROOT / ".gitattributes"
-    if CI or not ga.exists():
+    if CI or not (ROOT / ".gitattributes").exists():
         return
-    declared = set()
-    for line in ga.read_text(encoding="utf-8").splitlines():
-        for m in re.finditer(r"(?:^|\s)filter=(\S+)", line):
-            declared.add(m.group(1))
+
+    declared = gitattributes_filters()
+    scope = staged_paths()
     for name in sorted(declared):
         clean = subprocess.run(
             ["git", "config", "--get", f"filter.{name}.clean"],
             cwd=ROOT, capture_output=True, text=True,
         ).stdout.strip()
-        if not clean:
-            # Mode-aware: on a clone that holds secrets an unconfigured
-            # filter is the 2026-08-14 incident waiting to repeat, so it
-            # blocks. On a clone with no key it is expected -- and failing
-            # here used to mean a contributor could not commit a typo fix in
-            # a markdown file. The staged-content guard still hard-blocks a
-            # covered file that actually reaches the index untransformed, in
-            # either mode, so nothing leaks either way.
-            message = symphony_mode.format(
-                "BLOCKED" if symphony_mode.mode() == "strict" else "warning",
-                "a declared git filter is not configured in this clone",
-                problem=(
-                    f".gitattributes declares filter={name}, but "
-                    f"filter.{name}.clean is unset. Files it covers would "
-                    f"commit UNTRANSFORMED."
-                ),
+        if clean:
+            continue
+
+        # Staging a covered path is the only moment untransformed content can
+        # actually reach git, and at that moment mode is irrelevant: a
+        # contributor committing plaintext into a public repo is the same
+        # incident as a maintainer doing it. Everywhere else the missing
+        # config is a fact about the clone, not about this commit -- which is
+        # what used to block a markdown typo fix -- so it is mode-gated.
+        at_risk = sorted(p for p in (scope or set()) if p in set(declared[name]))
+        if at_risk or scope is None:
+            failures.append(symphony_mode.format(
+                "BLOCKED",
+                "this commit stages a file whose git filter isn't configured",
+                problem=f".gitattributes routes it through filter={name}, but "
+                        f"filter.{name}.clean is unset in this clone, so it "
+                        f"would be committed UNTRANSFORMED -- for filter=sops, "
+                        f"that means in plaintext",
+                file=at_risk or declared[name],
                 needs=f"filter.{name}.clean in this clone's .git/config",
                 blocked_by="pre-commit hook 'repo-hygiene' "
                            "(scripts/lint_repo_hygiene.py)",
-                fix="bash scripts/setup-git-filters.sh",
+                fix="bash scripts/setup-git-filters.sh, then: "
+                    f"git add --renormalize {(at_risk or declared[name])[0]}",
+                if_stuck="can't run that here, or you didn't stage it? Take it "
+                         "out of this commit and the rest goes through: git "
+                         f"restore --staged {(at_risk or declared[name])[0]} "
+                         "-- or commit only your own paths: git commit -m ... "
+                         "-- <your paths>",
                 see="README.md, Setup -- or bash scripts/check_clone_setup.sh",
-            )
-            if symphony_mode.mode() == "strict":
-                failures.append(message)
-            else:
-                warnings.append(message)
+            ))
+            continue
+
+        message = symphony_mode.format(
+            "BLOCKED" if symphony_mode.mode() == "strict" else "warning",
+            "a declared git filter is not configured in this clone",
+            problem=f".gitattributes declares filter={name} and "
+                    f"filter.{name}.clean is unset. Nothing in this commit is "
+                    f"covered by it, so nothing is at risk right now",
+            needs=f"filter.{name}.clean in this clone's .git/config",
+            blocked_by="pre-commit hook 'repo-hygiene' "
+                       "(scripts/lint_repo_hygiene.py)",
+            fix="bash scripts/setup-git-filters.sh, before you commit a "
+                "covered file",
+            see="README.md, Setup -- or bash scripts/check_clone_setup.sh",
+        )
+        (failures if symphony_mode.mode() == "strict" else warnings).append(message)
+
+
+def rule_plaintext_secrets_are_protectable() -> None:
+    """Secrets sitting in the clear on a machine that cannot re-encrypt them.
+
+    Every other check here fires when you touch something. This one is about
+    a standing condition, and it is the one that fails late otherwise: a
+    machine that HAD a key and lost it -- sops uninstalled, keys.txt gone,
+    SOPS_AGE_KEY_FILE unset in a new shell -- has real secrets decrypted on
+    disk and no way to put them back. Nothing says so until someone happens
+    to stage one of those files, which may be days later and may be a
+    `git add .`.
+
+    So: check the state, not the operation, and say it on the first commit.
+
+    Cannot false-positive on a keyless contributor clone, which is the case
+    it must not annoy -- there the covered files are still ciphertext, so
+    there is nothing in the clear to protect. It takes both halves.
+    """
+    if CI:
+        return  # a fresh checkout is ciphertext by definition
+    covered = gitattributes_filters().get("sops", [])
+    if not covered:
+        return
+
+    missing = []
+    if shutil.which("sops") is None:
+        missing.append("sops on PATH")
+    if not symphony_mode.have_age_key():
+        missing.append("an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)")
+    if not missing:
+        return
+
+    exposed = []
+    for rel in covered:
+        path = ROOT / rel
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if '"sops"' not in text:
+            exposed.append(rel)
+    if not exposed:
+        return
+
+    failures.append(symphony_mode.format(
+        "BLOCKED",
+        "decrypted secrets are on disk and this machine cannot re-encrypt them",
+        problem="these files hold real credentials in the clear right now, and "
+                "nothing here can put them back. Any commit is one `git add .` "
+                "away from publishing them, so this blocks every commit rather "
+                "than waiting for the one that stages them",
+        file=exposed,
+        needs=", ".join(missing),
+        blocked_by="pre-commit hook 'repo-hygiene' (scripts/lint_repo_hygiene.py)",
+        fix="restore what 'needs' lists, then: bash scripts/setup-git-filters.sh",
+        if_stuck="if the plaintext is stale rather than live, delete those files "
+                 "and `git checkout --` them to get the encrypted form back. To "
+                 "commit anyway: SKIP=repo-hygiene git commit ... (CI's gitleaks "
+                 "and trufflehog passes still run on a PR)",
+        see="bash scripts/check_clone_setup.sh",
+    ))
 
 
 # Deliberately NOT here: "config file for a plugin that isn't installed".
@@ -199,6 +318,7 @@ def main() -> int:
     warn_only = "--warn-only" in sys.argv
     for rule in (
         rule_declared_filters_are_configured,
+        rule_plaintext_secrets_are_protectable,
         rule_audible_alarms_are_scoped,
         rule_frozen_secrets_untouched,
     ):

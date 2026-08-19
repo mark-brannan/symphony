@@ -2275,6 +2275,18 @@ Two things never relax, in either mode: staging a `filter=sops` file whose
 content isn't encrypted, and editing one you can't decrypt. Both stop the
 commit and name the file, what's missing and the fix.
 
+There is also a **pre-push** scan (`scripts/prepush_secret_scan.sh`), which
+looks at every commit in the range you are pushing rather than just the one
+in front of you — so it catches one made earlier with `--no-verify`. Push is
+the irreversible moment: a commit is on your laptop, a push is on GitHub,
+and deleting it there does not un-publish it. It matters most on a topic
+branch, where `validate.yml` doesn't run at all until a PR exists.
+
+`--no-verify` (and `git push --no-verify`) is a real escape hatch and every
+message names it. Use it when you need to; CI's gitleaks and trufflehog
+passes still run over full history on the PR. If you push a secret past
+these, treat it as a leak — *A secret was committed in plaintext*, below.
+
 The message names which check failed. In rough order of likelihood:
 
 - **"staged WITHOUT sops encryption markers"** — the clean filter didn't

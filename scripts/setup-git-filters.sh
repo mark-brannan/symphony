@@ -94,8 +94,10 @@ if git config --get core.hooksPath >/dev/null 2>&1; then
 fi
 
 if command -v pre-commit >/dev/null 2>&1; then
+  # Installs both stages named by default_install_hook_types in
+  # .pre-commit-config.yaml -- commit-time guards and the pre-push scan.
   pre-commit install
-  echo "configured: pre-commit hooks"
+  echo "configured: pre-commit and pre-push hooks"
 else
   echo >&2
   echo "warning: pre-commit is not installed -- COMMITS ARE NOT BEING SCANNED LOCALLY." >&2
