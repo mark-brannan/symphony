@@ -70,6 +70,10 @@ covered here.
   group.
 - `search_tasks` is a case-insensitive substring match on task labels and
   is the quick answer to "is X already on the list."
+- Task granularity: size each task so one person can finish it in a single
+  work session, with few interdependent steps — ADHD-friendly sizing, per
+  the owner's explicit ask (made twice). "Paint the bilge" is several
+  tasks — de-rust, clean, prime, paint — not one.
 
 ## reference/specs.md
 - Flat `key: value` list, one item per bullet (plain consecutive lines
