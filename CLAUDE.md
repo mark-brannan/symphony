@@ -88,6 +88,8 @@ covered here.
   order to run them in, and how to tell it worked. If a passage doesn't
   change what the reader does next, it belongs in
   `reference/software_stack.md` instead.
+- A procedure isn't done until it's been run verbatim once, including the
+  transition path for existing checkouts — the boat is never a fresh clone.
 - Include a *why* only where its absence causes the wrong action — e.g.
   "don't skip `verify`, here's what silently breaks without it." One or two
   sentences, next to the step. Not a background section.
