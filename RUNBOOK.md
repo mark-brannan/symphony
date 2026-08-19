@@ -2261,33 +2261,74 @@ plugin you think you're testing may be the one you replaced.
 
 ## When a hook blocks your commit
 
-First: `bash scripts/check_clone_setup.sh`. It reports what this clone has
-wired and what each gap costs you, and it needs nothing installed.
+First, when anything here blocks you:
 
-Hook messages carry a `mode:` line. **contributor** means this clone has no
-age key, so a guard that can't run says so and lets the commit through; CI
-is the gate. **strict** means it does, and the same guard fails. Mode is
-auto-detected (age key present *and* both git filters configured), and
-overridden by `SYMPHONY_STRICT=1` / `SYMPHONY_STRICT=0` or a `.symphony-mode`
-file at the repo root. CI is always strict.
+```bash
+bash scripts/check_clone_setup.sh      # what this clone has wired, and what to do
+```
+
+It needs nothing installed and it names the fix for every gap it finds.
+
+### Mode
+
+Hook messages carry a `mode:` line.
+
+- **contributor** — no age key here. A guard that can't run says so and lets
+  the commit through; CI is the gate.
+- **strict** — there is a key. The same guard fails instead.
+
+Auto-detected from an age key being present *and* both git filters being
+configured. To override:
+
+```bash
+SYMPHONY_STRICT=1 git commit ...        # one command, force strict
+SYMPHONY_STRICT=0 git commit ...        # one command, force contributor
+echo contributor > .symphony-mode       # pin this clone (one word: strict|contributor)
+bash scripts/check_clone_setup.sh       # confirm: the "mode:" line at the top
+```
+
+CI is always strict. `.symphony-mode` is gitignored — it never travels.
 
 Two things never relax, in either mode: staging a `filter=sops` file whose
-content isn't encrypted, and editing one you can't decrypt. Both stop the
-commit and name the file, what's missing and the fix.
+content isn't encrypted, and editing one you can't decrypt.
 
-There is also a **pre-push** scan (`scripts/prepush_secret_scan.sh`), which
-looks at every commit in the range you are pushing rather than just the one
-in front of you — so it catches one made earlier with `--no-verify`. Push is
-the irreversible moment: a commit is on your laptop, a push is on GitHub,
-and deleting it there does not un-publish it. It matters most on a topic
-branch, where `validate.yml` doesn't run at all until a PR exists.
+### When a push is blocked
 
-`--no-verify` (and `git push --no-verify`) is a real escape hatch and every
-message names it. Use it when you need to; CI's gitleaks and trufflehog
-passes still run over full history on the PR. If you push a secret past
-these, treat it as a leak — *A secret was committed in plaintext*, below.
+`scripts/prepush_secret_scan.sh` reads every commit you are about to
+publish, not just the tip — so it catches one made earlier with
+`--no-verify`. Push is the irreversible moment: deleting a commit from
+GitHub does not un-publish it, and on a topic branch nothing else looks
+until a PR exists.
 
-The message names which check failed. In rough order of likelihood:
+The message names a commit and a file. Then:
+
+```bash
+git show <commit>:<file>               # 1. confirm what is in there
+bash scripts/setup-git-filters.sh      # 2. wire the filter, if that was the problem
+git rebase -i <commit>~1               # 3. fix the commit that carries it
+git push                               # 4. re-run the scan
+```
+
+Step 3 is a history rewrite, so it is only safe while the branch is
+unpushed. If it is already pushed, the secret is out — go to *A secret was
+committed in plaintext*, below, and rotate.
+
+### Break glass
+
+```bash
+SKIP=<hook-id> git commit ...          # skip one hook
+git commit --no-verify                 # skip all commit hooks
+git push --no-verify                   # skip the pre-push scan
+```
+
+All three are legitimate and every message names the one that applies. CI's
+gitleaks and trufflehog passes still run over full history on a PR. If you
+push a secret past these, treat it as a leak — *A secret was committed in
+plaintext*, below.
+
+### Which check failed
+
+In rough order of likelihood:
 
 - **"staged WITHOUT sops encryption markers"** — the clean filter didn't
   run. Almost always a clone that never ran `scripts/setup-git-filters.sh`.

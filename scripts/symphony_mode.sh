@@ -37,8 +37,13 @@
 # is the one case where the permissive path would put a cleartext secret in
 # a public repo. Use symphony_block for those, never symphony_require.
 
-SYMPHONY_MODE="${SYMPHONY_MODE:-}"
-SYMPHONY_MODE_REASON="${SYMPHONY_MODE_REASON:-}"
+# Process-local cache, deliberately NOT seeded from the environment. Seeding
+# it made `_SYMPHONY_MODE=strict` a second, undocumented override that this
+# file honored and its python twin did not -- so the shell guards and the
+# python guards could disagree inside one `pre-commit run`, which is exactly
+# the drift the twin exists to prevent. SYMPHONY_STRICT is the one env knob.
+_SYMPHONY_MODE=""
+_SYMPHONY_MODE_REASON=""
 
 _symphony_repo_root() {
 	git rev-parse --show-toplevel 2>/dev/null || pwd
@@ -64,13 +69,19 @@ _symphony_filters_configured() {
 # exist and nobody would ever see it. When stderr isn't a terminal but one
 # is attached, write straight to it. One destination, never both, so
 # nothing is printed twice.
-_symphony_dest() {
+#
+# The stderr case duplicates FD 2 (`>&2`) rather than opening the path
+# /dev/stderr. Opening that path truncates: run a hook as
+# `pre-commit run 2>>build.log` and `> "/dev/stderr"` reopens the log with
+# O_TRUNC and destroys everything already in it. Verified, not theoretical.
+# /dev/tty is opened in append mode for the same reason.
+_symphony_route() {
 	if [ -t 2 ]; then
-		printf '/dev/stderr'
+		"$@" >&2
 	elif { : >/dev/tty; } 2>/dev/null; then
-		printf '/dev/tty'
+		"$@" >>/dev/tty
 	else
-		printf '/dev/stderr'
+		"$@" >&2
 	fi
 }
 
@@ -79,7 +90,7 @@ _symphony_lower() {
 }
 
 symphony_resolve_mode() {
-	if [ -n "$SYMPHONY_MODE" ]; then
+	if [ -n "$_SYMPHONY_MODE" ]; then
 		return 0
 	fi
 
@@ -88,13 +99,13 @@ symphony_resolve_mode() {
 	lowered="$(_symphony_lower "$raw")"
 	case "$lowered" in
 	1 | true | yes | on | strict)
-		SYMPHONY_MODE=strict
-		SYMPHONY_MODE_REASON="SYMPHONY_STRICT=$raw"
+		_SYMPHONY_MODE=strict
+		_SYMPHONY_MODE_REASON="SYMPHONY_STRICT=$raw"
 		return 0
 		;;
 	0 | false | no | off | contributor)
-		SYMPHONY_MODE=contributor
-		SYMPHONY_MODE_REASON="SYMPHONY_STRICT=$raw"
+		_SYMPHONY_MODE=contributor
+		_SYMPHONY_MODE_REASON="SYMPHONY_STRICT=$raw"
 		return 0
 		;;
 	"") : ;;
@@ -102,20 +113,24 @@ symphony_resolve_mode() {
 	esac
 
 	if [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
-		SYMPHONY_MODE=strict
-		SYMPHONY_MODE_REASON="CI"
+		_SYMPHONY_MODE=strict
+		_SYMPHONY_MODE_REASON="CI"
 		return 0
 	fi
 
 	root="$(_symphony_repo_root)"
 	if [ -f "$root/.symphony-mode" ]; then
+		# `|| true`: with `set -o pipefail` (setup-git-filters.sh) a
+		# comments-only file makes grep exit 1, which would propagate out
+		# of the assignment and kill the sourcing script before it
+		# configured anything.
 		line="$(grep -vE '^[[:space:]]*(#|$)' "$root/.symphony-mode" 2>/dev/null |
-			head -n1 | tr -d '[:space:]')"
+			head -n1 | tr -d '[:space:]' || true)"
 		line="$(_symphony_lower "$line")"
 		case "$line" in
 		strict | contributor)
-			SYMPHONY_MODE="$line"
-			SYMPHONY_MODE_REASON=".symphony-mode says $line"
+			_SYMPHONY_MODE="$line"
+			_SYMPHONY_MODE_REASON=".symphony-mode says $line"
 			return 0
 			;;
 		"") : ;;
@@ -129,27 +144,27 @@ symphony_resolve_mode() {
 	if _symphony_filters_configured; then filters=yes; fi
 
 	if [ "$key" = yes ] && [ "$filters" = yes ]; then
-		SYMPHONY_MODE=strict
-		SYMPHONY_MODE_REASON="auto-detected: age key available, git filters configured"
+		_SYMPHONY_MODE=strict
+		_SYMPHONY_MODE_REASON="auto-detected: age key available, git filters configured"
 	else
 		missing=""
 		if [ "$key" = no ]; then missing="no age key"; fi
 		if [ "$filters" = no ]; then
 			missing="${missing:+$missing, }git filters not configured"
 		fi
-		SYMPHONY_MODE=contributor
-		SYMPHONY_MODE_REASON="auto-detected: $missing"
+		_SYMPHONY_MODE=contributor
+		_SYMPHONY_MODE_REASON="auto-detected: $missing"
 	fi
 }
 
 symphony_mode() {
 	symphony_resolve_mode
-	printf '%s\n' "$SYMPHONY_MODE"
+	printf '%s\n' "$_SYMPHONY_MODE"
 }
 
 symphony_mode_reason() {
 	symphony_resolve_mode
-	printf '%s\n' "$SYMPHONY_MODE_REASON"
+	printf '%s\n' "$_SYMPHONY_MODE_REASON"
 }
 
 # symphony_msg LEVEL TITLE [problem=...] [file=...]... [needs=...]
@@ -165,6 +180,25 @@ symphony_mode_reason() {
 # Every guard message in this repo has this shape. Fields print in a fixed
 # order, absent ones are skipped, `file=` may repeat, and the `mode:` line
 # is always last and always present.
+# Prints the message body. Split out so the destination can be chosen with
+# a redirect on the call rather than a path opened inside it. Reads the
+# caller's locals -- bash scopes those dynamically.
+_symphony_msg_body() {
+		printf '\nsymphony %s: %s\n' "$level" "$title"
+		if [ -n "$problem" ]; then printf '  problem:    %s\n' "$problem"; fi
+		if [ -n "$files" ]; then
+			while IFS= read -r val; do
+				if [ -n "$val" ]; then printf '  file:       %s\n' "$val"; fi
+			done <<<"$files"
+		fi
+		if [ -n "$needs" ]; then printf '  needs:      %s\n' "$needs"; fi
+		if [ -n "$blocked_by" ]; then printf '  blocked by: %s\n' "$blocked_by"; fi
+		if [ -n "$fix" ]; then printf '  fix:        %s\n' "$fix"; fi
+		if [ -n "$if_stuck" ]; then printf '  if stuck:   %s\n' "$if_stuck"; fi
+		if [ -n "$see" ]; then printf '  see:        %s\n' "$see"; fi
+		printf '  mode:       %s (%s)\n' "$_SYMPHONY_MODE" "$_SYMPHONY_MODE_REASON"
+}
+
 symphony_msg() {
 	symphony_resolve_mode
 	local level="$1" title="$2"
@@ -186,21 +220,7 @@ symphony_msg() {
 		esac
 	done
 
-	{
-		printf '\nsymphony %s: %s\n' "$level" "$title"
-		if [ -n "$problem" ]; then printf '  problem:    %s\n' "$problem"; fi
-		if [ -n "$files" ]; then
-			while IFS= read -r val; do
-				if [ -n "$val" ]; then printf '  file:       %s\n' "$val"; fi
-			done <<<"$files"
-		fi
-		if [ -n "$needs" ]; then printf '  needs:      %s\n' "$needs"; fi
-		if [ -n "$blocked_by" ]; then printf '  blocked by: %s\n' "$blocked_by"; fi
-		if [ -n "$fix" ]; then printf '  fix:        %s\n' "$fix"; fi
-		if [ -n "$if_stuck" ]; then printf '  if stuck:   %s\n' "$if_stuck"; fi
-		if [ -n "$see" ]; then printf '  see:        %s\n' "$see"; fi
-		printf '  mode:       %s (%s)\n' "$SYMPHONY_MODE" "$SYMPHONY_MODE_REASON"
-	} >"$(_symphony_dest)"
+	_symphony_route _symphony_msg_body
 }
 
 # symphony_require TITLE [fields...]
@@ -211,7 +231,7 @@ symphony_require() {
 	symphony_resolve_mode
 	local title="$1"
 	shift
-	if [ "$SYMPHONY_MODE" = strict ]; then
+	if [ "$_SYMPHONY_MODE" = strict ]; then
 		symphony_msg BLOCKED "$title" "$@"
 		return 1
 	fi

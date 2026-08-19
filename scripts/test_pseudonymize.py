@@ -196,9 +196,22 @@ class TestStore(unittest.TestCase):
         # them.
         import symphony_mode
 
-        if symphony_mode.mode() != "strict" and not shutil.which("sops"):
-            self.skipTest("no sops on PATH and this clone is in contributor mode")
-        salt, mapping = p.load_store()
+        if symphony_mode.mode() != "strict" and (
+            not shutil.which("sops") or not symphony_mode.have_age_key()
+        ):
+            self.skipTest(
+                "no sops on PATH or no age key, and this clone is in "
+                "contributor mode"
+            )
+        try:
+            salt, mapping = p.load_store()
+        except p.StoreUnavailable as error:
+            # "I could not check this" and "I checked and it is wrong" are
+            # different results. Reporting the first as the second trains
+            # people to ignore the suite.
+            if symphony_mode.mode() == "strict":
+                raise
+            self.skipTest(f"the store is not openable here ({error})")
         self.assertTrue(salt)
         self.assertIsInstance(mapping, dict)
 

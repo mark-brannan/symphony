@@ -20,13 +20,21 @@
 # `bash scripts/check_clone_setup.sh` to see which mode a clone is in and
 # what it is missing.
 
-minimum_pre_commit_version: "3.0.0"
+# 3.2.0 is where `pre-commit` and `pre-push` became the stage names (they
+# were `commit` and `push` before), and both are used below.
+minimum_pre_commit_version: "3.2.0"
 
 # Two stages get installed by `pre-commit install`. The pre-push one is the
 # layer that still looks after `--no-verify`: commit-time hooks see only the
 # commit in front of them, a push-time hook sees every commit being
 # published, which is the last moment a mistake is still local.
 default_install_hook_types: [pre-commit, pre-push]
+
+# Without this, a hook that declares no `stages` runs at EVERY installed
+# hook type -- so every commit-time guard would run a second time on push,
+# re-scanning the index (which is empty by then) and doubling the wait for
+# nothing. Only prepush-secret-scan opts into the push stage.
+default_stages: [pre-commit]
 
 repos:
   # Broad secret detection. Catches credential-shaped strings in files that

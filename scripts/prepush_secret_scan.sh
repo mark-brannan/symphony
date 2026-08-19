@@ -51,8 +51,34 @@ if [ -z "$from_ref" ] || [ "$from_ref" = "$ZERO" ]; then
 fi
 
 range="${from_ref}..${to_ref}"
-changed="$(git diff --name-only "$range" 2>/dev/null || true)"
+
+# Per-commit, never endpoint-to-endpoint. `git diff A..B` compares only the
+# two ends, so a secret added in one commit and removed in the next is
+# invisible to it -- while still being published, and still retrievable by
+# anyone who clones. That is precisely the shape this hook exists to catch,
+# so the file list comes from `git log`, the content checks iterate
+# `git rev-list`, and the sweep reads every commit's own diff.
+changed="$(git log --format= --name-only "$range" 2>/dev/null | sort -u || true)"
 [ -n "$changed" ] || exit 0
+
+commits="$(git rev-list "$range" 2>/dev/null || true)"
+
+# First commit in the range that carries this path in the form the caller
+# rejects, or empty if every version of it is fine. Printed in the message
+# so the fix names a commit rather than "somewhere in your branch".
+#
+# $1 = path, $2 = grep pattern that a SAFE version of the file matches.
+first_bad_commit() {
+	local path="$1" safe="$2" commit
+	for commit in $commits; do
+		git cat-file -e "${commit}:${path}" 2>/dev/null || continue
+		if ! git show "${commit}:${path}" | grep -q "$safe"; then
+			printf '%s' "$commit"
+			return 0
+		fi
+	done
+	return 1
+}
 
 fail=0
 
@@ -67,9 +93,17 @@ covered_sops() {
 
 # --- 1. files that must never be tracked ------------------------------------
 for path in .env age.key; do
-	if grep -qxF "$path" <<<"$changed" && git cat-file -e "${to_ref}:${path}" 2>/dev/null; then
+	grep -qxF "$path" <<<"$changed" || continue
+	carrier=""
+	for commit in $commits; do
+		if git cat-file -e "${commit}:${path}" 2>/dev/null; then
+			carrier="$commit"
+			break
+		fi
+	done
+	if [ -n "$carrier" ]; then
 		symphony_block "a file that must never be tracked is in this push" \
-			problem="this file holds live credentials and is present in the commits you are about to publish" \
+			problem="this file holds live credentials and is present in commit ${carrier} -- deleting it in a later commit does not remove it from the history you are about to publish" \
 			file="$path" \
 			needs="the file removed from every commit in $range, not just the tip" \
 			blocked_by="pre-push hook 'prepush-secret-scan' (scripts/prepush_secret_scan.sh)" \
@@ -83,10 +117,9 @@ done
 while IFS= read -r path; do
 	[ -n "$path" ] || continue
 	grep -qxF "$path" <<<"$changed" || continue
-	git cat-file -e "${to_ref}:${path}" 2>/dev/null || continue
-	if ! git show "${to_ref}:${path}" | grep -q '"sops"'; then
+	if bad="$(first_bad_commit "$path" '"sops"')"; then
 		symphony_block "a secret-bearing file is unencrypted in this push" \
-			problem="the commits you are about to publish store this file without sops encryption markers -- readable to anyone who clones the repo" \
+			problem="commit ${bad} stores this file without sops encryption markers -- readable to anyone who clones the repo, even if a later commit fixed it" \
 			file="$path" \
 			needs="the sops clean filter to have run before it was committed" \
 			blocked_by="pre-push hook 'prepush-secret-scan' (scripts/prepush_secret_scan.sh)" \
@@ -99,10 +132,9 @@ done < <(covered_sops)
 for path in secrets/*.sops.yaml; do
 	[ -e "$path" ] || continue
 	grep -qxF "$path" <<<"$changed" || continue
-	git cat-file -e "${to_ref}:${path}" 2>/dev/null || continue
-	if ! git show "${to_ref}:${path}" | grep -q '^sops:'; then
+	if bad="$(first_bad_commit "$path" '^sops:')"; then
 		symphony_block "a whole-file secret store is unencrypted in this push" \
-			problem="this file is ciphertext at rest by design; what you are about to publish is not" \
+			problem="this file is ciphertext at rest by design; commit ${bad} publishes it in the clear" \
 			file="$path" \
 			needs="sops encryption applied before the commit" \
 			blocked_by="pre-push hook 'prepush-secret-scan' (scripts/prepush_secret_scan.sh)" \
@@ -116,17 +148,17 @@ done
 # The check most likely to catch a file nobody thought to configure, which
 # is the realistic leak. Same pattern as the pre-commit guard, over a range
 # of commits rather than the index.
-hits="$(git diff -U0 "$range" -- '*.json' '*.yaml' '*.yml' '.env*' ':!*.sops.yaml' 2>/dev/null |
+hits="$(git log --format= -U0 -p "$range" -- '*.json' '*.yaml' '*.yml' '.env*' ':!*.sops.yaml' 2>/dev/null |
 	grep -E '^\+' | grep -viE '^\+\+\+' |
 	grep -iE '"(password|secret[kK]ey|token|apikey|api_key|logbookToken)"[[:space:]]*:[[:space:]]*"[^"]+' |
 	grep -cv 'ENC\[' || true)"
 
 if [ "${hits:-0}" -gt 0 ]; then
 	symphony_block "a commit in this push adds what looks like a cleartext credential" \
-		problem="$hits added line(s) across $range set a password/secret/token field to a value that is not ENC[...]" \
+		problem="$hits added line(s) across the commits in $range set a password/secret/token field to a value that is not ENC[...]. A later commit removing one does not unpublish it" \
 		needs="the value encrypted, or the field renamed if it genuinely is not a secret" \
 		blocked_by="pre-push hook 'prepush-secret-scan' (scripts/prepush_secret_scan.sh)" \
-		fix="find them with: git diff -U0 $range -- '*.json' '*.yaml' '.env*' | grep -iE '\"(password|token|apikey)\"' -- then scripts/add_inplace_secret.sh <file> <field>" \
+		fix="find them with: git log -p -U0 $range -- '*.json' '*.yaml' '.env*' | grep -iE '\"(password|token|apikey)\"' -- then scripts/add_inplace_secret.sh <file> <field>" \
 		if_stuck="a genuine false positive (a test fixture, a deliberate wrong-password case)? git push --no-verify, and add the exclusion so the next person does not hit it" \
 		see="RUNBOOK.md, When a hook blocks your commit" || fail=1
 fi

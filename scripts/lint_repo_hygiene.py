@@ -185,7 +185,12 @@ def rule_plaintext_secrets_are_protectable() -> None:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if '"sops"' not in text:
+        # Both marker forms. JSON-form sops files carry "sops" as a key;
+        # YAML-form ones carry a top-level `sops:` block. Matching only the
+        # first would read an encrypted YAML file as plaintext and then
+        # block every commit -- a false positive on the one rule whose whole
+        # job is to block every commit.
+        if '"sops"' not in text and not re.search(r"^sops:", text, re.M):
             exposed.append(rel)
     if not exposed:
         return

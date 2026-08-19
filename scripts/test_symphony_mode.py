@@ -114,6 +114,19 @@ class ModeParity(unittest.TestCase):
         env = _env(CI="true", SYMPHONY_STRICT="contributor")
         self.assertAgree(env, "contributor")
 
+    def test_symphony_mode_env_var_is_ignored_by_both(self):
+        # SYMPHONY_MODE is each implementation's internal cache, not an
+        # input. The shell twin used to seed it from the environment, which
+        # made it a second undocumented override that python ignored --
+        # shell guards strict, python guards contributor, inside one
+        # `pre-commit run`. SYMPHONY_STRICT is the only env knob.
+        env = _env(SYMPHONY_STRICT=None)
+        env["SYMPHONY_MODE"] = "strict"
+        env["SYMPHONY_MODE_REASON"] = "should be ignored"
+        b, p_ = bash_mode(env), py_mode(env)
+        self.assertEqual(b, p_)
+        self.assertNotEqual(b[1], "should be ignored")
+
     def test_auto_detect_agrees(self):
         self.assertAgree(_env())
 
@@ -135,6 +148,52 @@ class ModeParity(unittest.TestCase):
                     self.assertAgree(_env(), word)
                 finally:
                     os.unlink(MODE_FILE)
+
+
+class Destination(unittest.TestCase):
+    def test_redirected_stderr_is_appended_not_truncated(self):
+        """`> /dev/stderr` reopens the redirect target with O_TRUNC.
+
+        A hook run as `pre-commit run 2>>build.log` would have its message
+        destroy everything already in that log. Duplicating FD 2 doesn't.
+        """
+        import tempfile
+
+        with tempfile.NamedTemporaryFile("w", suffix=".log", delete=False) as fh:
+            fh.write("EXISTING LOG LINE\n")
+            log = fh.name
+        try:
+            subprocess.run(
+                ["bash", "-c",
+                 "exec 2>>%s; . %s; symphony_msg note t problem=p" % (log, SH)],
+                cwd=REPO, env=_env(), check=True, start_new_session=True,
+                capture_output=True, text=True,
+            )
+            with open(log, encoding="utf-8") as fh:
+                body = fh.read()
+        finally:
+            os.unlink(log)
+        self.assertIn("EXISTING LOG LINE", body)
+        self.assertIn("symphony note: t", body)
+
+    def test_comments_only_mode_file_does_not_abort_a_set_e_caller(self):
+        """pipefail + a grep that matches nothing killed the sourcing script."""
+        mode_file = MODE_FILE
+        if os.path.exists(mode_file):
+            self.skipTest(".symphony-mode already exists; not clobbering it")
+        with open(mode_file, "w", encoding="utf-8") as fh:
+            fh.write("# only a comment\n\n")
+        try:
+            done = subprocess.run(
+                ["bash", "-c",
+                 "set -euo pipefail; . %s; symphony_mode" % SH],
+                cwd=REPO, env=_env(), capture_output=True, text=True,
+                start_new_session=True,
+            )
+        finally:
+            os.unlink(mode_file)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("contributor", done.stdout)
 
 
 class MessageParity(unittest.TestCase):

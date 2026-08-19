@@ -156,6 +156,14 @@ def contract(text, names, values):
     return text, unplaced
 
 
+def head_blob(path):
+    """Whatever HEAD has for `path`, or None. Companion to index_blob."""
+    result = subprocess.run(
+        ["git", "show", f"HEAD:{path}"], capture_output=True, text=True
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
 def index_blob(path):
     """Git's current copy of `path` (the index), or None if untracked."""
     result = subprocess.run(
@@ -304,12 +312,25 @@ def check():
 def main():
     args = sys.argv[1:]
 
-    # pyyaml is not in the stdlib. `check` runs on every commit via an
-    # always_run pre-commit hook, so an ImportError here used to block a
-    # clone that has no pyyaml from committing anything at all -- a
-    # markdown typo fix included. It degrades; the filter operations below
-    # do not, because a filter that silently doesn't run is how a
-    # per-machine value reaches git.
+    # pyyaml is not in the stdlib, and each subcommand has a different
+    # right answer when it is missing.
+    #
+    # `check` degrades: it runs on every commit via an always_run hook, so
+    # an ImportError here blocked a clone with no pyyaml from committing
+    # anything at all, a markdown typo fix included.
+    #
+    # `smudge` degrades too, and for the same reason scripts/sops_filter.py
+    # does: leaving the {{ placeholders }} in the working tree is exactly
+    # the documented fresh-clone state, and erroring would break
+    # `git clone` and `git checkout` on a machine that was never going to
+    # run SignalK.
+    #
+    # `clean` does NOT degrade, and the asymmetry is the point. Direction
+    # decides it. Smudging wrong leaves a placeholder in a file on your
+    # disk -- visible, local, fixable. Cleaning wrong writes one machine's
+    # literal value into the shared repo, which is the whole failure this
+    # filter exists to prevent. It passes content through only when that is
+    # provably a no-op: byte-identical to what git already has.
     if yaml is None:
         if args == ["check"]:
             gate = symphony_mode.require_pyyaml(
@@ -317,10 +338,41 @@ def main():
                 "(scripts/hostvars_filter.py check)"
             )
             return 1 if gate else 0
+
+        if args[:1] == ["smudge"] and len(args) == 2:
+            symphony_mode.line(
+                f"{args[1]} checked out with its {{{{ placeholders }}}} intact "
+                f"-- no pyyaml to expand them. Details: bash "
+                f"scripts/check_clone_setup.sh"
+            )
+            sys.stdout.write(sys.stdin.read())
+            return 0
+
+        if args[:1] == ["clean"] and len(args) == 2:
+            path, raw = args[1], sys.stdin.read()
+            if raw in (index_blob(path), head_blob(path)):
+                sys.stdout.write(raw)
+                return 0
+            symphony_mode.block(
+                "a per-machine value cannot be contracted back to a placeholder",
+                problem="this file changed and there is no pyyaml to read "
+                        ".hostvars.yaml, so this machine's literal value "
+                        "would be committed in place of the placeholder and "
+                        "every other machine would inherit it",
+                file=path,
+                needs="the pyyaml package for this python3",
+                blocked_by="the hostvars clean filter (scripts/hostvars_filter.py)",
+                fix="pip install pyyaml",
+                if_stuck=f"git restore --staged {path} to leave it out of this "
+                         f"commit -- the rest goes through",
+                see="RUNBOOK.md, Per-machine config values",
+            )
+            return 1
+
         symphony_mode.block(
             "the hostvars filter cannot run: pyyaml is missing",
-            problem="git is asking this filter to transform a covered file "
-                    "and it cannot parse .hostvars.yaml to do it",
+            problem="refresh and paths both read .hostvars.yaml and cannot "
+                    "parse it",
             needs="the pyyaml package for this python3",
             blocked_by="scripts/hostvars_filter.py",
             fix="pip install pyyaml",
