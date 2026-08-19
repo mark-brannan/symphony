@@ -139,6 +139,27 @@ curl -s http://symphony-pi:3000/signalk    # server version + endpoints
 
 SignalK admin UI: `http://symphony-pi:3000/admin/`.
 
+### A cloud Claude session can't reach symphony-pi
+
+Cloud sessions join the tailnet automatically at startup. If one can't
+reach `symphony-pi`:
+
+1. Check session startup output for a `tailscale-join:` line on stderr —
+   the hook reports a notice there for every failure (missing auth key,
+   join timeout, etc.), it doesn't fail silently.
+2. Confirm the join's actual state:
+   ```bash
+   tailscale status --socket="$HOME/.tailscale-cloud.sock"   # joined? authenticated?
+   cat "${TMPDIR:-/tmp}"/tailscaled.*.log                     # daemon's own log
+   ```
+3. If the notice says `TAILSCALE_AUTHKEY not set`, set or refresh that
+   env var on the cloud environment — a reusable, ephemeral,
+   `tag:cloud-ephemeral` key from the
+   [tailnet admin console](https://login.tailscale.com/admin/machines).
+
+Local/terminal sessions don't need this — they already have tailscale via
+the host machine.
+
 ### SSH users and the periodic check
 
 Tailscale SSH handles auth, so no key setup is needed, but the ACL names
