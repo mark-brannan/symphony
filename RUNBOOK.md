@@ -1318,6 +1318,11 @@ hardcoded key in a third-party device, say. It force-pushes, breaks every
 existing clone, and still does not remove the data from GitHub's servers
 without contacting GitHub Support.
 
+`main`'s [branch ruleset](https://github.com/mark-brannan/symphony/settings/rules/21060338)
+blocks force pushes with no standing bypass. To do this, temporarily disable
+the ruleset (or add yourself to its bypass list), push the rewritten history,
+then re-enable it. There is no faster path — this is by design.
+
 ---
 
 ## Recovering a lost age key
