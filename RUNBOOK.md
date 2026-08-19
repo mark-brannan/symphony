@@ -125,25 +125,26 @@ curl -s http://symphony-pi:3000/signalk    # server version + endpoints
 
 SignalK admin UI: `http://symphony-pi:3000/admin/`.
 
-### Cloud Claude sessions
+### A cloud Claude session can't reach symphony-pi
 
-A `SessionStart` hook (`.claude/hooks/tailscale-join.sh`) joins cloud
-sessions to the tailnet automatically, using a `TAILSCALE_AUTHKEY` env var
-set on the cloud environment (a reusable, ephemeral, `tag:cloud-ephemeral`
-key from the [tailnet admin console](https://login.tailscale.com/admin/machines)).
-It's a no-op on local/terminal sessions, which already have tailscale via
+Cloud sessions join the tailnet automatically at startup. If one can't
+reach `symphony-pi`:
+
+1. Check session startup output for a `tailscale-join:` line on stderr —
+   the hook reports a notice there for every failure (missing auth key,
+   join timeout, etc.), it doesn't fail silently.
+2. Confirm the join's actual state:
+   ```bash
+   tailscale status --socket="$HOME/.tailscale-cloud.sock"   # joined? authenticated?
+   cat "${TMPDIR:-/tmp}"/tailscaled.*.log                     # daemon's own log
+   ```
+3. If the notice says `TAILSCALE_AUTHKEY not set`, set or refresh that
+   env var on the cloud environment — a reusable, ephemeral,
+   `tag:cloud-ephemeral` key from the
+   [tailnet admin console](https://login.tailscale.com/admin/machines).
+
+Local/terminal sessions don't need this — they already have tailscale via
 the host machine.
-
-If a cloud session can't reach `symphony-pi`, check for a
-`tailscale-join:` line on stderr from session startup, then:
-
-```bash
-tailscale status --socket="$HOME/.tailscale-cloud.sock"   # joined? authenticated?
-cat "${TMPDIR:-/tmp}"/tailscaled.*.log                     # daemon's own log
-```
-
-A missing or expired `TAILSCALE_AUTHKEY` is the most common cause — the
-hook skips the join silently in that case rather than blocking startup.
 
 ### SSH users and the periodic check
 

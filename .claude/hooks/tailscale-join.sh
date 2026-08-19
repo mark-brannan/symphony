@@ -41,7 +41,10 @@ is_joined() {
 # can match an unrelated system daemon that doesn't serve $SOCKET at all,
 # in which case `tailscale up` below would just fail against it).
 daemon_reachable() {
-  tailscale --socket="$SOCKET" status >/dev/null 2>&1
+  # --json, not text mode: text `status` exits 1 for NeedsLogin/
+  # NeedsMachineAuth even when the LocalAPI itself is reachable, which
+  # would make this false-negative into starting a second daemon.
+  tailscale --socket="$SOCKET" status --json >/dev/null 2>&1
 }
 
 if is_joined; then
