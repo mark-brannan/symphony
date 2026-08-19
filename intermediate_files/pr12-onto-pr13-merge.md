@@ -76,3 +76,43 @@ CI must gain `hostvars_filter.py check --all` — once scoping lands, the
 existing unscoped `check` passes vacuously in CI, because nothing is staged
 there. Same for `lint_repo_hygiene.py --all` and
 `check_encoding_health.py --repo`.
+
+## Done for real, 2026-08-19, after #13 merged
+
+The trial above held. What it did not predict:
+
+- **A fifth conflict**, in `scripts/hostvars_filter.py` — #13's later review
+  round added `head_blob()` at the same place this branch added
+  `staged_paths()`. Purely additive; kept both.
+- **#13 had already landed `staged_paths()` and `gitattributes_filters()`**
+  in `lint_repo_hygiene.py`, so this branch's copies of both were dropped
+  rather than merged. The rule itself merged as the notes said: AND, via
+  `blocking = bool(hits) or secretguard.mode() == "strict"`.
+- **#13's version of the rule matched staged paths by exact membership**
+  (`p in set(declared[name])`) where this branch used fnmatch.
+  `.gitattributes` entries are globs, so exact membership silently missed
+  any pattern-declared path. Took fnmatch.
+- **The scoping tests passed vacuously on any clone that has the filters
+  wired** — the rule returns early there, so every assertion held while
+  testing nothing. `filter_is_configured()` is now a seam the tests pin.
+  This is the same failure mode as the `check --all` one, one level in.
+- The two wording assertions were rewritten to assert severity and the
+  presence of message fields, not phrasing.
+
+`validate.yml` needed no change — `check --all` came through the auto-merge
+intact. Confirmed the failure it prevents: `check` without `--all` in CI
+prints "this commit stages no hostvars-covered file" and exits 0.
+
+Verified in a throwaway keyless clone (no sops, no age key, no filters,
+mode auto-detects contributor):
+
+- doc edit → all four guards pass, commit lands;
+- `signalk/plugin-config-data/venus.json` staged → BLOCKED in contributor
+  mode, full message, and the named `git restore --staged` exit clears it;
+- latin-1 file staged → BLOCKED, and the `--fix` the message names works;
+- all six suites pass, `bash -n` clean over every script.
+
+One note-vs-reality difference worth recording: the notes say "take #13's
+`sops_filter.py` whole," which also drops this branch's one-line addition to
+the pseudonym-map warning (`git add secrets/pseudonyms.sops.yaml`). Followed
+the notes; the warning itself predates both PRs and still fires.
