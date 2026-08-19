@@ -76,6 +76,66 @@ response. Each names the session that raised it.
   until it's done, treat B4's scope as unknown rather than assuming the
   generator route.
 
+- **Do the connector denials actually save context? Unmeasured.** (2026-08-19,
+  session_016Lirgoonzz…, the one that applied them.) `.claude/settings.json`
+  now denies nine connectors. That was landed as defence-in-depth, but a
+  `/context` readout in that same session showed deferred MCP tool schemas at
+  **128.7k tokens, 12.9% of a 1M window** — larger than the whole
+  conversation. Intuit_QuickBooks alone was ~90k; Evernote ~26k;
+  Intuit_TurboTax ~11k. Two of those three are on the denylist and loaded
+  anyway, so the denial may be worth ~100k of context per session in this
+  repo rather than nothing. **That session could not measure it**: it was
+  seeded without symphony as a source, so the repo was `add_repo`'d and cloned
+  mid-session and project settings were absent when the connectors attached —
+  the confound is baked into that transcript and cannot be removed from it.
+  The clean test needs a *normally started* symphony cloud session (repo as a
+  session source at startup): run `/context` and check whether the
+  `mcp__Intuit_QuickBooks__*`, `mcp__Intuit_TurboTax__*` and `mcp__Evernote*`
+  rows are absent from the deferred-tools table. Verified by docs, not
+  assumption: `deniedMcpServers` is honored in any settings file and merges
+  from every source (`/docs/en/managed-mcp` § Configuration summary), and both
+  lists filter servers passed via `--mcp-config`, which is how cloud sessions
+  receive claude.ai connectors.
+- **dotfiles and symphony now both set Claude Code settings; three connectors
+  differ.** (2026-08-19.) `dotfiles/.claude/settings.json` already carries
+  `crossSessionInbound: "hold"` and denies six connectors —
+  Intuit_QuickBooks, Intuit_TurboTax, CourtListener, Courtroom5,
+  Legal_Data_Hunter, LegalZoom. Symphony denies those six **plus** Gmail,
+  Google_Drive, Google_Calendar. Denylists merge from every settings source,
+  so this is a union and not a conflict, and the duplicated
+  `crossSessionInbound: "hold"` is redundant rather than contradictory (a
+  project value applies only when *stricter* than user settings, and equal is
+  not stricter — it earns its place only in cloud sessions, which have no
+  `~/.claude/settings.json` at all). **Owner call outstanding:** whether
+  dotfiles should also deny the three Google connectors for parity. That is a
+  dotfiles-repo edit, not symphony's. Note dotfiles also sets
+  `disableClaudeAiConnectors: true` and `ENABLE_CLAUDEAI_MCP_SERVERS=false`,
+  which are a broader hammer than either denylist — worth checking whether the
+  denylists are load-bearing at all on a machine where those apply.
+- **Undelivered coordination note to the "Claude hooks and continuity
+  cleanup" session** (`session_014zxMuv2RQ3p4Z7PRA1eTm7`, cloud, on dotfiles +
+  claude_prompts_scratch, branch `claude/hooks-continuity-cleanup-sq7dnm`).
+  Mark asked for the two sessions to coordinate; **no channel exists between
+  two cloud sessions** — `ListAgents` returns "No reachable agents" without a
+  Remote Control connection, `SendMessage` fails, and the Claude Code Remote
+  MCP surface has no `send_message`. Recording the content here since it could
+  not be delivered. That session is parked on a four-question
+  `AskUserQuestion` for Mark (decision-log marker, auto-push on Stop, cloud
+  bootstrap scope, metrics scope) and a peer message could not have answered
+  it anyway — an inbound cross-session message never counts as the user's
+  consent and cannot change configuration. What it needs to know: (1) its
+  README's premise that cloud sessions have no `~/.claude/settings.json` is
+  right, but **project** settings *do* load in cloud when the repo is a
+  session source — symphony's PreToolUse hook was confirmed firing in cloud on
+  2026-08-19 — so repo-level settings already close the cloud gap for symphony
+  independent of the `cloud-session-setup.sh` snippet; (2) the
+  `crossSessionInbound` precedence above, if it is setting that key in
+  dotfiles user settings; (3) a fresh cloud clone has **no git filters wired**
+  — `scripts/lint_repo_hygiene.py` fails `unconfigured-filter` for both sops
+  and hostvars and `scripts/setup-git-filters.sh` cannot run because `sops` is
+  not on PATH, which is the failure mode to guard if its Stop-hook auto-commit
+  ever runs against a filter-covered repo from a cloud container.
+
 ## SignalK / IoT — detailed working backlog
 
 (Moved verbatim from maintenance/priorities.md on 2026-08-19; the human file

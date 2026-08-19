@@ -132,3 +132,38 @@ Commits still need `SKIP=gitleaks-docker`; Mark approved that in-session.
   intended — the audit deliberately cut that entry as repo-meta.
 - Branch left on origin pending Mark's call; deleting a pushed ref needs an
   explicit go-ahead. Parked under Blocked.
+
+## 2026-08-19 — Session-cost settings applied; coordination attempt failed
+
+- Applied the two settings parked under Blocked and pushed `97039c5` to main:
+  five more connectors on `deniedMcpServers` (`Google_Calendar`,
+  `CourtListener`, `Courtroom5`, `Legal_Data_Hunter`, `LegalZoom`) and
+  `crossSessionInbound: "hold"`. The key was verified real before writing it,
+  per the reference/*.md "never infer behavior from a config field name" rule:
+  `/docs/en/settings` and `/docs/en/cross-session-messaging` both document it
+  with values `accept`/`hold`/`refuse`, v2.1.224+, and state that when no
+  trusted source sets a value a project `hold` still applies. `.claude/settings.json`
+  survived the slop-segregation restructure byte-for-byte.
+- The `maintenance/log.md` entry this session wrote was deleted the same day
+  by `0926fa6`; the bloat audit named it explicitly as repo-meta that does not
+  belong in the human ship's log. Correct call — not re-added. This file is
+  where it belonged.
+- Self-correction on that session's own reporting: it told Mark the denials
+  were "defence-in-depth, no measured saving." A later `/context` readout in
+  the same session showed the deferred MCP schemas at 128.7k tokens (12.9%),
+  most of it the denied Intuit connectors. The original framing came from the
+  task brief and was passed on without challenge; the honest position is that
+  the saving is plausibly large and **unmeasured**, and this session could not
+  measure it because it was seeded without symphony as a source. Parked in
+  `kanban.md` with the exact test.
+- Mark asked this session to coordinate with the "Claude hooks and continuity
+  cleanup" cloud session. No channel exists between two cloud sessions:
+  `ListAgents` finds nothing without Remote Control, `SendMessage` fails, and
+  the Claude Code Remote MCP tools include `create_session` and
+  `interrupt_session` but no `send_message`. Read `mark-brannan/dotfiles`
+  directly instead and recorded the overlap and the undelivered note in
+  `kanban.md` under Blocked.
+- Cost note for future sessions: reaching this state took a full repo clone, a
+  second clone of dotfiles, four docs fetches and a restructure-recovery pass.
+  A session started with the repo already attached as a source, and with the
+  connector denials actually in force, would have skipped most of it.
