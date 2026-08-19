@@ -11,16 +11,15 @@ wrap-up. Dated session narrative goes in `log.md` beside this file.
 
 ## Doc-cleanup follow-ups (from the 2026-08-19 bloat audit)
 
-Verdicts and quotes in `intermediate_files/doc-bloat-audit.md`. Done tonight:
-claude_slop structure, CLAUDE.md rules, log.md and priorities.md trims,
-dotfiles boards descoped to dotfiles-only. Remaining:
+Verdicts and quotes in `intermediate_files/claude_slop/doc-bloat-audit.md`.
+Done: claude_slop structure, CLAUDE.md rules, log.md and priorities.md trims,
+dotfiles boards descoped to dotfiles-only, and (2026-08-19) all the reference/
+trims — monitoring_decisions Roles 1 and 4 restated, software_stack WSL
+incident and hedges cut, compute_hardware shopping status and HALOS section,
+containerization_strategy caveat plus checklist-stays-here decision, node_red
+Lists 2 and 3 cut, watchdog docs consolidated to one with the draft post moved
+to the plugin dir. Remaining:
 
-- Apply the reference/ trims per the audit: monitoring_decisions.md Role 4
-  restated (collapse amendment layers), software_stack.md WSL-incident
-  section + hedge blocks, compute_hardware.md cart/stock sentences + stale
-  HALOS section, containerization_strategy.md proxy caveat + decide where
-  the boat-side checklist lives, node_red survey trim (owner call on
-  keeping List 1), consolidate the three watchdog docs.
 - Purchase itemizations in maintenance/log.md: owner call pending — trim to
   one-line totals with detail moved to a purchases file, or keep.
 - Optional enforcement: extend `scripts/lint_repo_hygiene.py` with a soft

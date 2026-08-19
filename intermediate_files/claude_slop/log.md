@@ -50,3 +50,43 @@ commit e176d2b; read it there rather than re-deriving.
   binary hook looks like the right one.
 - Working tree note: `reference/monitoring_decisions.md` shows modified —
   another session's doc-trim work, not touched or committed by this one.
+
+## 2026-08-19 — reference/ trims from the doc-bloat audit
+
+Applied the remaining audit verdicts, one commit per file, all pushed to main.
+
+- `monitoring_decisions.md` 369 → 306. Role 4 restated as current truth
+  instead of four rounds of amendment; the mute-from-startup blind spot kept
+  as the rule it is, deployment narrative dropped (log.md 2026-08-15 has it).
+  Role 1's research trail trimmed to verdict plus one fact. Mark's QuestDB
+  paragraph in Role 3 (68e4e04, confirmed by blame) left alone, which is also
+  why Role 3's "first written as / amended" framing stays — his text is welded
+  to its tail.
+- `software_stack.md` 535 → 486. WSL Docker-Desktop stale-bind-mount section
+  deleted outright (dev-box forensics that the section itself said can't
+  happen on the boat, plus an explicit speculation list). grafanaPort hedge to
+  one line; SSO section stops narrating its own past errors.
+- `compute_hardware.md`: cart/stock sentences gone, price kept with its date.
+  Hal OS section rewritten from containerization_strategy.md's verified
+  2026-08-18 findings — the old text said SSO "overlaps the Dex work," but
+  HALOS uses Authelia and whether the two federate is an open trial question.
+- `containerization_strategy.md`: proxy caveat → source caveat; the "Stale —
+  compute_hardware.md's HALOS description" heading is no longer stale.
+  Checklist decision: **it stays here**, labelled a one-shot plan deleted on
+  execution, because RUNBOOK.md was out of scope this session. Its
+  instruction to future sessions moved into the kanban Track B item.
+- Watchdog docs consolidated to one. `signalk_plugin_watchdog.md` 117 → 77,
+  rewritten as why-it-exists; `watchdog_writeup_draft.md` moved to
+  `plugins/signalk-plugin-watchdog/DRAFT-POST.md` (publishing still intended,
+  waiting on the two upstream PRs). Fixed the inbound link in
+  `monitoring_posture.md`, which still said the failure was "covered by
+  nothing."
+- `node_red_signalk_use_cases.md` 441 → 224. List 1 kept per Mark's standing
+  instruction. Lists 2 and 3 cut; the owner-confirmed n/a facts (no generator,
+  no Starlink, no MOB hardware, nothing instrumented) consolidated into one
+  section so those categories don't get re-evaluated.
+
+Still open: the log.md purchase itemizations (Mark's call, untouched), and the
+optional lint_repo_hygiene soft-warn on long log bullets.
+
+Commits still need `SKIP=gitleaks-docker`; Mark approved that in-session.
