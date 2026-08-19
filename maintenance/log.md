@@ -711,6 +711,18 @@
   plugin). Plan, evidence and the boat-side checklist are in
   `reference/containerization_strategy.md`.
 
+## 2026-08-19
+- Reviewed the containerization strategy record before merging it. Corrected
+  two claims that were wrong rather than merely uncertain: `influxdb:latest`
+  has not been repointed to InfluxDB 3 (the Docker Hub notice dates that to
+  2026-09-15; today `latest` and `2` are the same digest), and HALOS on
+  Bookworm is untested, not incompatible. Found that
+  `reference/legacy_openplotter_stack.md` described the repo's provisioned
+  dashboards as uid-rewritten copies of the boat's five InfluxQL ones — they
+  have been six generated Flux dashboards since 2026-08-14. Corrected there;
+  which set the QuestDB port should target is parked in `priorities.md` under
+  Blocked.
+
 ## Date unknown
 - Cleaned fuel filter.
 - Cleaned oil filter.

@@ -111,7 +111,7 @@ module against a `file:...?mode=ro` URI.
   `http://localhost:8086` in **InfluxQL** mode with `dbName: symphony`. The
   repo's provisioned datasource is Flux against org `darkstarllc`.
 
-### Five dashboards, and the dangling datasource
+### Five dashboards aboard, and the dangling datasource
 
 No folders; five dashboards totalling 76 panels — Electricity (19), Navstation
 under way (22), Navigation (12), Life support (12), Weather (11). Queries are
@@ -122,11 +122,22 @@ which does not exist on this Grafana**; only 4 pointed at the real
 `ee2ppw626cqo0a`. The dashboards were imported from published examples and the
 datasource uid was never remapped.
 
-The copies committed under `grafana/provisioning/dashboards/json/` have all 162
-references rewritten to a single stable uid, `influxdb-symphony`. For them to
-resolve, the provisioned datasource must declare `uid: influxdb-symphony` — and
-because the queries are InfluxQL, that datasource must be in InfluxQL mode.
-Pointing them at the repo's current Flux datasource will not work.
+These five are **not** what is committed under
+`grafana/provisioning/dashboards/json/`. That directory holds six dashboards —
+`electricity`, `life-support`, `navigation`, `navstation`, `system`,
+`weather` — which are build output of `scripts/build_dashboards.py`, written
+against the SignalK paths this boat actually publishes and queried in **Flux**
+(`from(bucket: …)`) throughout. They began as an import of these five;
+commit 1ce4e87 (2026-08-14, "grafana: rebuild dashboards against paths this
+boat actually publishes") rewrote all of them, renamed
+`navstation-under-way` to `navstation`, and added `system` — a sixth
+dashboard with no counterpart aboard, covering host metrics. They reference uid
+`influxdb-symphony`, so the provisioned datasource must declare that uid, and
+because the queries are Flux it must be in Flux mode.
+
+So the boat's Grafana and the repo's Grafana currently show different
+dashboards against different query languages. Reconciling them is open work,
+tracked in `maintenance/priorities.md`.
 
 ## Traps
 
