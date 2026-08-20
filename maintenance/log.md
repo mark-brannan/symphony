@@ -270,3 +270,7 @@
 - Enabled `signalk-derived-data`'s heading calculator on the boat.
   `navigation.headingTrue` is now live and verified correct against
   `headingMagnetic` + `magneticVariation`.
+- Split CI into two workflows. Secret scanning (gitleaks, trufflehog,
+  encryption checks) now runs on a push to any branch, not just on `main`
+  and pull requests; syntax and config validation stays on `main` and PRs.
+  A branch pushed without a PR had been going unscanned.
