@@ -844,3 +844,23 @@ cleared -- Validate, Secret scan, and the claude[bot] independent review
 `run_secret_tooling_tests.sh` and `validate_configs.py`) -- and
 CodeRabbit's rate-limited status came back success. Squash-merged as
 91dc878; unsubscribed. Fix now runs on every push and PR to main.
+
+## 2026-08-20 — kanban approach adopted from signalk-noaa-space-weather PR #95
+
+Compared symphony's kanban.md/CLAUDE.md conventions against PR #95's model
+(one-line cards, write-at-discovery, cards die when done, close with a
+prompt not a status bullet). Kept symphony's existing file split
+(human `priorities.md` / Claude `kanban.md`) rather than merging into their
+single two-section file — it already maps onto the Yours/Claude's split and
+`priorities.md` has its own established Kanban-column structure worth
+keeping. Adopted their card-discipline rules into CLAUDE.md § "Claude
+session state".
+
+Mark's call: triage the existing ~960-line kanban.md now rather than let it
+decay organically. Did the triage — resolved entries deleted after
+confirming their durable facts already lived in `maintenance/log.md`, this
+file, a PR body, or `git log`; two decisions with no other durable home
+("CI advisory on main", "frozen-secrets guard stays hardcoded") moved to
+`reference/security_posture.md` first, since that's the file's own pattern.
+Still-open items kept their essential facts, lost the verification
+narrative. 960 lines → 132.

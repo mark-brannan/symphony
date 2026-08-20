@@ -66,11 +66,32 @@ covered here.
   session-facing rules, and the detailed state behind `priorities.md`'s
   high-level SignalK/IoT list. Pull from it to start work; flush loose ends
   back at wrap-up.
+- **Write the card when the loop is found, not at session end.** By wrap-up
+  the context has been compacted and the comment link, the timestamp, the
+  exact wording are gone. Discovery is the last moment the evidence still
+  exists — add the card to `kanban.md` right then.
+- **One line per card**: a link, the action in the imperative, and `blocked:`
+  plus the dependency only when it's blocked. The link is not optional — a
+  card nobody but its author can act on isn't a card. Facts belong in
+  `reference/`, decisions with no more work behind them belong in `log.md`;
+  `kanban.md` is only for what's still in flight.
+- **Cards die when done, immediately.** This is a work-in-progress list, not
+  a log — don't leave a resolved card in place with a paragraph of
+  after-the-fact narrative explaining how it closed. Delete the line. If the
+  resolution is a meaningful finished result, its one- to three-line
+  `log.md` entry gets written in the same edit, not batched for later.
 - **A wrap-up ends with zero unmeasured decisions** (owner's rule,
   2026-08-19). Every open question is either executed in-session or put to
   Mark as an explicit decision prompt before the turn ends, and his answer
   recorded here. Parking a question in a file without prompting him for the
   call is not wrapped up.
+- **End with a prompt, not a status bullet.** A closing summary that reads
+  "the vague thing is borked, your call" costs a read and returns nothing
+  actionable a week later, which is when it's actually read. If work is
+  still open when a session ends, close with either a ready-to-paste
+  follow-up prompt (naming the branch, PR, or file it acts on), a reference
+  to the `kanban.md` card that carries it, or nothing — never a narrative
+  status line that isn't one of those two.
 - `log.md` — dated session journal: wrap-up narrative, self-corrections,
   verification detail. Append at the bottom. This is where the continuity
   rule's "write state before ending" output goes.

@@ -89,6 +89,23 @@ and each time it costs the owner the same judgment call he already made
 and wrote down here. There is nothing to weigh: the answer is no,
 permanently, and silence is the correct output.
 
+## CI is advisory on `main`, deliberately
+
+`main` is ruleset-protected (ruleset 21060338: linear history, no
+force-push, no deletion) but has no required status checks. Requiring
+checks would also block direct pushes to `main`, and commit-straight-to-main
+is the working model — so CI staying red never blocks a push. Don't
+re-raise this as a finding. Read the live state with
+`gh api repos/mark-brannan/symphony/rulesets`; the legacy
+`/branches/main/protection` endpoint 404s on a ruleset-protected branch and
+reports `main` as unprotected, which has produced a wrong claim before.
+
+The frozen-secrets guard (`FROZEN_SECRET_KEYS` in
+`scripts/lint_repo_hygiene.py`) stays hardcoded rather than moving to a
+config file — a tuple in the source can't fail open the way a missing
+config file could. Don't add a config file, more test coverage, or
+additional guard rules around it without Mark asking first.
+
 ## The ntfy topic name isn't a secret
 
 `signalk-ntfy`'s setup screen warns to pick a random, hard-to-guess topic
