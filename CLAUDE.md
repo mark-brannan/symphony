@@ -226,6 +226,15 @@ covered here.
   Blocked**, not in session scrollback. A question that lives only in a
   session's last response is invisible the moment that session scrolls out
   of the list.
+- **Draft PRs opened here are mine to get ready and green — Mark is the
+  final gate, not the one who un-drafts them.** Resolve CodeRabbit/bot
+  comments, fix a real CI failure, and flip draft → ready myself the
+  moment the checks above come back clean; don't leave a green PR sitting
+  in draft waiting to be noticed. "Looks good"/sign-off given before CI
+  finishes is pre-authorization, not a stall — push (and un-draft) when
+  green, don't circle back to re-confirm. Stops at merge: getting a PR to
+  ready-and-green is mine by default, merging it is still a separate call.
+  Ported from `dotfiles/.claude/rules/code.md` § PR ownership, 2026-08-20.
 
 ## Git hygiene
 - At the start of every session, before doing any work: `git fetch` and check
