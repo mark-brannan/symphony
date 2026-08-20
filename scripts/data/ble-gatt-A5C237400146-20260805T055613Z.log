@@ -1,226 +1,0 @@
-Device A5:C2:37:40:01:46 (public)
-	Name: DP04S007L4S200A
-	Alias: DP04S007L4S200A
-	Paired: no
-	Bonded: no
-	Trusted: no
-	Blocked: no
-	Connected: no
-	LegacyPairing: no
-	UUID: Unknown                   (0000ff00-0000-1000-8000-00805f9b34fb)
-	ManufacturerData Key: 0x0146
-	ManufacturerData Value:
-  40 37 c2 a5                                      @7..            
-Waiting to connect to bluetoothd...[22P[0;94m[bluetooth][0m# [Kconnect A5:C2:37:40:01:46
-Attempting to connect to A5:C2:37:40:01:46
-[0;94m[bluetooth][0m# [K[KAgent registered
-[0;94m[bluetooth][0m# [0;94m[DP04S007L4S200A][0m# [K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 Connected: yes
-[0;94m[DP04S007L4S200A][0m# [KConnection successful
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Primary Service (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0008
-	00001801-0000-1000-8000-00805f9b34fb
-	Generic Attribute Profile
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0008/char0009
-	00002a05-0000-1000-8000-00805f9b34fb
-	Service Changed
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0008/char0009/desc000b
-	00002902-0000-1000-8000-00805f9b34fb
-	Client Characteristic Configuration
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Primary Service (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000c
-	0000180a-0000-1000-8000-00805f9b34fb
-	Device Information
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000c/char000d
-	00002a50-0000-1000-8000-00805f9b34fb
-	PnP ID
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Primary Service (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f
-	0000ff00-0000-1000-8000-00805f9b34fb
-	Unknown
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0010
-	0000ff01-0000-1000-8000-00805f9b34fb
-	Unknown
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0010/desc0012
-	00002902-0000-1000-8000-00805f9b34fb
-	Client Characteristic Configuration
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0010/desc0013
-	00002901-0000-1000-8000-00805f9b34fb
-	Characteristic User Description
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0014
-	0000ff02-0000-1000-8000-00805f9b34fb
-	Unknown
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0014/desc0016
-	00002901-0000-1000-8000-00805f9b34fb
-	Characteristic User Description
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Primary Service (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0017
-	00010203-0405-0607-0809-0a0b0c0d1912
-	Vendor specific
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0017/char0018
-	00010203-0405-0607-0809-0a0b0c0d2b12
-	Vendor specific
-[0;94m[DP04S007L4S200A][0m# [K[[0;92mNEW[0m] Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0017/char0018/desc001a
-	00002901-0000-1000-8000-00805f9b34fb
-	Characteristic User Description
-[0;94m[DP04S007L4S200A][0m# [K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 UUIDs: 00001800-0000-1000-8000-00805f9b34fb
-[0;94m[DP04S007L4S200A][0m# [K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 UUIDs: 00001801-0000-1000-8000-00805f9b34fb
-[0;94m[DP04S007L4S200A][0m# [K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 UUIDs: 0000180a-0000-1000-8000-00805f9b34fb
-[0;94m[DP04S007L4S200A][0m# [K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 UUIDs: 0000ff00-0000-1000-8000-00805f9b34fb
-[0;94m[DP04S007L4S200A][0m# [K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 UUIDs: 00010203-0405-0607-0809-0a0b0c0d1912
-[0;94m[DP04S007L4S200A][0m# [K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 ServicesResolved: yes
-[0;94m[DP04S007L4S200A][0m# [K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 Modalias: usb:v248Ap8266d0001
-[0;94m[DP04S007L4S200A][0m# [K[[0;91mDEL[0m] Device CE:B5:52:72:1C:81 CE-B5-52-72-1C-81
-[0;94m[DP04S007L4S200A][0m# menu gatt
-[1;39mMenu gatt:[0m
-[1;39mAvailable commands:[0m
-[1;39m-------------------[0m
-[1;39mlist-attributes [dev/local]                       [0mList attributes
-[1;39mselect-attribute <attribute/UUID>                 [0mSelect attribute
-[1;39mattribute-info [attribute/UUID]                   [0mSelect attribute
-[1;39mread [offset]                                     [0mRead attribute value
-[1;39mwrite <data=xx xx ...> [offset] [type]            [0mWrite attribute value
-[1;39macquire-write                                     [0mAcquire Write file descriptor
-[1;39mrelease-write                                     [0mRelease Write file descriptor
-[1;39macquire-notify                                    [0mAcquire Notify file descriptor
-[1;39mrelease-notify                                    [0mRelease Notify file descriptor
-[1;39mnotify <on/off>                                   [0mNotify attribute value
-[1;39mclone [dev/attribute/UUID]                        [0mClone a device or attribute
-[1;39mregister-application [UUID ...]                   [0mRegister profile to connect
-[1;39munregister-application                            [0mUnregister profile
-[1;39mregister-service <UUID> [handle]                  [0mRegister application service.
-[1;39munregister-service <UUID/object>                  [0mUnregister application service
-[1;39mregister-includes <UUID> [handle]                 [0mRegister as Included service in.
-[1;39munregister-includes <Service-UUID><Inc-UUID>      [0mUnregister Included service.
-[1;39mregister-characteristic <UUID> <Flags=read,write,notify...> [handle] [0mRegister application characteristic
-[1;39munregister-characteristic <UUID/object>           [0mUnregister application characteristic
-[1;39mregister-descriptor <UUID> <Flags=read,write...> [handle] [0mRegister application descriptor
-[1;39munregister-descriptor <UUID/object>               [0mUnregister application descriptor
-[1;39mback                                              [0mReturn to main menu
-[1;39mversion                                           [0mDisplay version
-[1;39mquit                                              [0mQuit program
-[1;39mexit                                              [0mQuit program
-[1;39mhelp                                              [0mDisplay help about this program
-[1;39mexport                                            [0mPrint environment variables
-[0;94m[DP04S007L4S200A][0m# list-attributes A5:C2:37:40:01:46
-Primary Service (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0008
-	00001801-0000-1000-8000-00805f9b34fb
-	Generic Attribute Profile
-Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0008/char0009
-	00002a05-0000-1000-8000-00805f9b34fb
-	Service Changed
-Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0008/char0009/desc000b
-	00002902-0000-1000-8000-00805f9b34fb
-	Client Characteristic Configuration
-Primary Service (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000c
-	0000180a-0000-1000-8000-00805f9b34fb
-	Device Information
-Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000c/char000d
-	00002a50-0000-1000-8000-00805f9b34fb
-	PnP ID
-Primary Service (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f
-	0000ff00-0000-1000-8000-00805f9b34fb
-	Unknown
-Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0010
-	0000ff01-0000-1000-8000-00805f9b34fb
-	Unknown
-Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0010/desc0012
-	00002902-0000-1000-8000-00805f9b34fb
-	Client Characteristic Configuration
-Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0010/desc0013
-	00002901-0000-1000-8000-00805f9b34fb
-	Characteristic User Description
-Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0014
-	0000ff02-0000-1000-8000-00805f9b34fb
-	Unknown
-Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service000f/char0014/desc0016
-	00002901-0000-1000-8000-00805f9b34fb
-	Characteristic User Description
-Primary Service (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0017
-	00010203-0405-0607-0809-0a0b0c0d1912
-	Vendor specific
-Characteristic (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0017/char0018
-	00010203-0405-0607-0809-0a0b0c0d2b12
-	Vendor specific
-Descriptor (Handle 0x0000)
-	/org/bluez/hci0/dev_A5_C2_37_40_01_46/service0017/char0018/desc001a
-	00002901-0000-1000-8000-00805f9b34fb
-	Characteristic User Description
-[0;94m[DP04S007L4S200A][0m# [K[K[[0;91mDEL[0m] Device F3:A1:4F:11:07:0E GoPro 2200
-[0;94m[DP04S007L4S200A][0m# [K[[0;91mDEL[0m] Device A4:C1:38:50:5C:B6 Govee_H5074_5CB6
-[0;94m[DP04S007L4S200A][0m# back
-[1;39mMenu main:[0m
-[1;39mAvailable commands:[0m
-[1;39m-------------------[0m
-[0;94madvertise                                         [0mAdvertise Options Submenu
-[0;94mmonitor                                           [0mAdvertisement Monitor Options Submenu
-[0;94mscan                                              [0mScan Options Submenu
-[0;94mgatt                                              [0mGeneric Attribute Submenu
-[0;94madmin                                             [0mAdmin Policy Submenu
-[0;94mplayer                                            [0mMedia Player Submenu
-[0;94mendpoint                                          [0mMedia Endpoint Submenu
-[0;94mtransport                                         [0mMedia Transport Submenu
-[1;39mlist                                              [0mList available controllers
-[1;39mshow [ctrl]                                       [0mController information
-[1;39mselect <ctrl>                                     [0mSelect default controller
-[1;39mdevices [Paired/Bonded/Trusted/Connected]         [0mList available devices, with an optional property as the filter
-[1;39msystem-alias <name>                               [0mSet controller alias
-[1;39mreset-alias                                       [0mReset controller alias
-[1;39mpower <on/off>                                    [0mSet controller power
-[1;39mpairable <on/off>                                 [0mSet controller pairable mode
-[1;39mdiscoverable <on/off>                             [0mSet controller discoverable mode
-[1;39mdiscoverable-timeout [value]                      [0mSet discoverable timeout
-[1;39magent <on/off/capability>                         [0mEnable/disable agent with given capability
-[1;39mdefault-agent                                     [0mSet agent as the default one
-[1;39madvertise <on/off/type>                           [0mEnable/disable advertising with given type
-[1;39mset-alias <alias>                                 [0mSet device alias
-[1;39mscan <on/off/bredr/le>                            [0mScan for devices
-[1;39minfo [dev]                                        [0mDevice information
-[1;39mpair [dev]                                        [0mPair with device
-[1;39mcancel-pairing [dev]                              [0mCancel pairing with device
-[1;39mtrust [dev]                                       [0mTrust device
-[1;39muntrust [dev]                                     [0mUntrust device
-[1;39mblock [dev]                                       [0mBlock device
-[1;39munblock [dev]                                     [0mUnblock device
-[1;39mremove <dev>                                      [0mRemove device
-[1;39mconnect <dev>                                     [0mConnect device
-[1;39mdisconnect [dev]                                  [0mDisconnect device
-[1;39mmenu <name>                                       [0mSelect submenu
-[1;39mversion                                           [0mDisplay version
-[1;39mquit                                              [0mQuit program
-[1;39mexit                                              [0mQuit program
-[1;39mhelp                                              [0mDisplay help about this program
-[1;39mexport                                            [0mPrint environment variables
-[0;94m[DP04S007L4S200A][0m# [K[[0;91mDEL[0m] Device 24:58:7C:1C:1C:CA LAP-V102S-WUS
-[0;94m[DP04S007L4S200A][0m# disconnect A5:C2:37:40:01:46
-Attempting to disconnect from A5:C2:37:40:01:46
-[0;94m[DP04S007L4S200A][0m# [K[K[[0;91mDEL[0m] Device A4:C1:38:50:5C:C3 Govee_H5074_5CC3
-[0;94m[DP04S007L4S200A][0m# [K[[0;91mDEL[0m] Device 7D:AC:15:9E:A3:36 house
-[0;94m[DP04S007L4S200A][0m# [K[[0;91mDEL[0m] Device A5:C2:37:3C:5C:90 DP04S007L4S200A
-[0;94m[DP04S007L4S200A][0m# [K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 ServicesResolved: no
-[0;94m[DP04S007L4S200A][0m# [KSuccessful disconnected
-[0;94m[DP04S007L4S200A][0m# [0;94m[bluetooth][0m# [K[K[[0;93mCHG[0m] Device A5:C2:37:40:01:46 Connected: no
-[0;94m[bluetooth][0m# quit
-[0;94m[bluetooth][0m# [K
