@@ -276,3 +276,11 @@
   A branch pushed without a PR had been going unscanned.
 - Bumped `actions/checkout` to v5 and `actions/setup-python` to v6 in both
   CI workflows, clearing the Node 20 deprecation warning on every run.
+
+## 2026-08-20
+- Landed the commit-check redesign (PR #12): guards judge only what a commit
+  stages, read content from the index, and every failure names a way out
+  that needs no sops and no key. Repo-wide enforcement moved to CI.
+- Fixed the secret-tooling tests for keyless CI runners and collapsed the CI
+  job onto the one canonical test runner; the shell guards now find sops the
+  same way the python ones do (PR #19).
