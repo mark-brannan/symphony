@@ -836,6 +836,15 @@ under "Blocked -- needs Mark's call" so it isn't re-proposed. Declined to
 touch anything else in the same pass (didn't rename FROZEN_SECRET_KEYS to a
 config file, didn't add more rules) per that same instruction.
 
+Subscribed to PR #22 for CI/review events rather than polling; one
+claude[bot] review comment came in confirming the `base.sha..github.sha`
+range reasoning for pull_request events, no action needed. All checks
+cleared -- Validate, Secret scan, and the claude[bot] independent review
+(no blocking findings, full checklist run including
+`run_secret_tooling_tests.sh` and `validate_configs.py`) -- and
+CodeRabbit's rate-limited status came back success. Squash-merged as
+91dc878; unsubscribed. Fix now runs on every push and PR to main.
+
 ## 2026-08-20 — kanban.md restructure to the Open Loops card contract
 
 Rewrote `kanban.md` to the global "Open loops" board contract (`## Yours` /
@@ -867,12 +876,3 @@ All other resolved kanban items had a matching entry already in
 without further logging. Full accounting of what moved where, what was
 dropped outright, and what's still ambiguous is in this session's wrap-up
 message to Mark.
-
-Subscribed to PR #22 for CI/review events rather than polling; one
-claude[bot] review comment came in confirming the `base.sha..github.sha`
-range reasoning for pull_request events, no action needed. All checks
-cleared -- Validate, Secret scan, and the claude[bot] independent review
-(no blocking findings, full checklist run including
-`run_secret_tooling_tests.sh` and `validate_configs.py`) -- and
-CodeRabbit's rate-limited status came back success. Squash-merged as
-91dc878; unsubscribed. Fix now runs on every push and PR to main.
