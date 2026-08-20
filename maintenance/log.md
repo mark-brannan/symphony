@@ -298,3 +298,7 @@
   which had stuck on the full disk, and capped QuestDB's preallocation.
 - Fixed the frozen-secrets guard passing vacuously in CI (PR #22); it now
   checks the actual commit range on a push or PR instead of an empty index.
+- Rescued two branches of unpushed work off the boat's checkout — the JBD BMS
+  BLE capture and the Pushover escalation — and brought that checkout up to
+  current main. No history had been rewritten; the apparent divergence was an
+  artifact of a shallow clone on the dev machine.

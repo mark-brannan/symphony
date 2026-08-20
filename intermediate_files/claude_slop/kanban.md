@@ -43,8 +43,47 @@ to the plugin dir. Remaining:
   Not looked at, not triaged — each needs the content-safety check that
   sweep used (merged in *content*, not ancestry alone) before anything is
   deleted. Captured, not started.
+  **Unblocked 2026-08-20:** the fear that this sweep would orphan the "old
+  lineage" is void — there is no second lineage (see § Blocked, the RESOLVED
+  shallow-clone entry). Note origin now carries two *live* branches that
+  must NOT be swept: `claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122
+  and `claude/symphony-pushover-setup-ce12i0` @3f08bd3, rescued off the boat
+  this session and not merged anywhere.
 
 ## Blocked
+- **Mark's physical-task list is stranded — Evernote connector needs
+  re-authorization.** (2026-08-20.) Recovered verbatim from the boat stash
+  `816c890` (`WIP on main: 54ef0e7`, `maintenance/priorities.md`). Per
+  § Evernote these are physical tasks and belong in "Symphony Important
+  Tasks", not `priorities.md` — but the connector's token expired mid-call
+  this session and the server disconnected, and a cloud session cannot run
+  the OAuth flow. **Mark: re-authorize Evernote in claude.ai connector
+  settings, then a session can file these.** Sized per § Evernote's
+  one-session rule; the composting-head sequence is already step-shaped in
+  his own notes. **The stash is deliberately left in place on the boat
+  until this transfer completes** — the text below is the durable copy.
+  - water line from dripless needs to go somewhere real — engineroom air
+    loop?
+  - small DIY cockpit drain needs a new/different fixture and hose going to
+    the stern
+  - freshwater pump (again)
+  - composting head, as Mark broke it down:
+    - cut new square HDPE for subfloor
+    - epoxy down purpleheart base
+    - screw in HDPE (sealant around far edge of HDPE)
+    - epoxy around sole and HDPE
+    - screw down brackets for Airhead
+    - run silicone line to shower sump (temp)
+    - cut hole for fan
+    - wire fan
+  Also in that stash, and **still open for Mark's call**: it deletes two
+  plumbing items from `priorities.md` that are still there today —
+  "Address remaining holding tank system work now that the old tank is out"
+  and "Tighten head pump / apply sealant; install Y valve between
+  Lectra-San and head". The stash's other four deletions (the whole Safety
+  & compliance block) have already landed in main independently, which
+  suggests these two were meant to move to Evernote the same way. Not
+  removed from `priorities.md` without his say-so.
 
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
@@ -173,36 +212,55 @@ response. Each names the session that raised it.
   session's GitHub API is 403-blocked (push works). Nothing in it is worth
   salvaging. It can't end "merged via PR" per § Git hygiene, and deleting a
   pushed ref needs an explicit go-ahead — so it sits until Mark says drop it.
-- **`main` was rewritten; the boat's checkout is stranded on the old
-  lineage, holding unpushed work.** (2026-08-20, QuestDB migration session.)
-  `origin/main` is 77a27e6 on a rebuilt history — a fetch this session
-  reported `+ 0286d8f...4bfc3cb main -> origin/main (forced update)`, and
-  the two lineages now report "unrelated histories" to `git merge`; 67
-  commits sit on the old side. **Content looks preserved, not lost**:
-  main's CLAUDE.md is 421 lines against the old tip's 346, and every
-  old-lineage marker sampled (worktree rules, the Evernote note GUID, the
-  no-persistent-polling hook, ADHD task granularity) is present. That is
-  four greps, not proof — confirm across the tree before acting on it.
-  The old lineage stays reachable only via several `origin/claude/*`
-  branches, so the stale-branch sweep above would orphan it if run first.
-  **What is actually at risk is on the boat.** `/home/pi/symphony` is on
-  `main` at 68e4e04 (old lineage) and has never fetched, so a plain
-  `git pull` there merges unrelated histories against a dirty tree. It
-  holds, nowhere else: `claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122
-  (8 commits, the JBD BMS BLE capture work) and
-  `claude/symphony-pushover-setup-ce12i0` @3f08bd3 — **neither tip exists
-  on origin** — plus two stashes (signalk-ntfy.json, priorities.md). Its
-  one modified file, `telegraf/telegraf.conf`, is deliberate and already
-  byte-identical to main's.
-  **And that directory is live**: `EnvironmentFile=/home/pi/symphony/.env`
-  is read by caddy, dex, telegraf, and the signalk and grafana OIDC
-  drop-ins; dex's `ExecStart` reads `dex/config.yaml` from it; and
-  `/etc/telegraf/telegraf.conf` is a symlink into it. Swapping that working
-  tree swaps what Dex runs, and Dex is the OIDC front door — breaking it
-  costs the remote access you would fix it with.
-  Order: push the two boat branches as-is first (no rebase, no squash),
-  then reconcile the checkout, then the stashes, then verify all five
-  services. Full handoff prompt was written out in that session's chat.
+- **RESOLVED — there was never a divergence; it was a shallow-clone
+  artifact.** (2026-08-20, reconciliation session. Supersedes the entry that
+  stood here.) The dev clone had a `.git/shallow` grafting `ae0391d` and
+  `fdf155f` as false roots. Every symptom followed from that and none were
+  real: after `git fetch --unshallow`, `git rev-list --count 0286d8f
+  ^origin/main` is **0**, `git merge-base 0286d8f origin/main` returns
+  0286d8f itself, and 4bfc3cb / 77a27e6 / 0286d8f / 68e4e04 are all
+  ancestors of main. main has 423 commits on the same `6f1ee30 "Initial
+  commit"` root — not 50 on a rebuilt one. The boat, a **non-shallow**
+  clone, fetched `68e4e04..eac1fc5` with **no forced-update marker**.
+  `main` was never force-updated; a shallow clone reports a moving graft
+  boundary as a forced update.
+  **Content preservation confirmed, but not for the assumed reason.** The
+  doc shrinkage is real (log.md 812→254, priorities.md 609→175,
+  `reference/watchdog_writeup_draft.md` deleted) and is Mark's own commit
+  `0926fa6 "Segregate Claude session state into intermediate_files/
+  claude_slop/"`, implementing the bloat audit; `f89786f` folded the
+  watchdog draft into one reference doc. Pre-trim text is preserved at
+  **e176d2b** (log.md 812 lines, priorities.md 609), an ancestor of main.
+  Nothing was lost.
+  **Which lineage is authoritative: CLOSED.** There is one lineage. `main`
+  is authoritative, and always was.
+  **Done this session:** both boat branches pushed as-is, no rebase —
+  `claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122 (8 commits, JBD BMS
+  BLE capture) and `claude/symphony-pushover-setup-ce12i0` @3f08bd3;
+  neither tip had existed on origin, and 3f08bd3 existed on no machine but
+  the boat. Boat then fast-forwarded 68e4e04 → eac1fc5 (92 commits),
+  `git status` clean. `telegraf/telegraf.conf` md5 stayed
+  `11f7e981fc31cee782100d1a835848d7` throughout (backup at
+  `/home/pi/telegraf.conf.bak.1787217111`). `.env` and `dex/config.yaml`
+  are **untracked**, so git never touched them — the blast radius feared
+  for that directory was smaller than assumed.
+  **Services verified after:** caddy, telegraf, signalk, grafana-server all
+  active+enabled. Telegraf dual-write live — InfluxDB fresh 09:12:04Z,
+  QuestDB fresh 09:11:02Z. The "no space left on device" errors in the
+  journal are from ~03:50–03:59Z, hours before the merge; disk now 78% with
+  6.0 GB free.
+  **`dex.service` is inactive/disabled and that is correct** — dex runs as
+  a Docker **container** (`ghcr.io/dexidp/dex:latest`, up 4 days,
+  127.0.0.1:5556, owned by `docker-compose.yml`), discovery returns HTTP
+  200 and signing keys rotate on schedule. Two stale claims follow from
+  this: the `dex.service` unit comment says "runs natively here because
+  this host has no Docker" — the host **does** have Docker (questdb, dex,
+  ntfy all containerized) — and the assumption that a checkout swap changes
+  what Dex runs is wrong, since the container reads a rendered
+  `/tmp/dex.config.yaml-*`, not the repo path. Worth correcting the unit
+  comment; not done here.
+  **The stale-`claude/*` branch sweep is now safe to run** — it orphans no
+  history, because there is no second lineage to orphan.
 
 - **Which Grafana dashboards are the QuestDB port target?** (PR #7 review
   session.) Two sets exist and they are not versions of each other. The boat's
@@ -295,6 +353,12 @@ now carries only the high-level list.)
 - Air quality sensors
 - BME680: settle which mechanism owns the sensor and get its data into the tree deliberately (needs boat access). Census 2026-08-14: the dedicated plugin `@oehoe83/signalk-raspberry-pi-bme680` is installed but disabled on both boxes, yet the boat receives 2 paths from source `OpenPlotter.I2C.BME680/688-1` — the legacy `openplotter-i2c-read` service. Identified 2026-08-15: the two paths are `environment.inside.relativeHumidity` (ratio) and `environment.outside.pressure` (Pa), both live and fresh; the OpenPlotter config leaves the temperature and gas channels unmapped, so nothing aboard publishes any airquality value. The plugin's formula (`500 - 5 × score`, 0 best / 500 worst) matches the zone bands in `signalk/baseDeltas.json` exactly. Decide: enable the dedicated plugin (its saved boat config already points at bus 1 / 0x77, the working sensor; set its pressure path to `outside` to keep the barometer-trend source continuity) and retire the OpenPlotter i2c entries — the service reads nothing else, and its second configured sensor at 0x68 errors permanently ("Chip ID 0x0") — or keep OpenPlotter and give up the airquality index, which it cannot compute. Both mechanisms polling the same chip is not an option: contention disturbs the gas heater cycle. Note the plugin only publishes after a 500 s burn-in on every start.
 - On the boat, remove the deprecated `@signalk/zones` plugin (installed 1.2.0, enabled, never registered) and mirror the airquality zone meta from `signalk/baseDeltas.json` into the boat's own baseDeltas — zones are server-core via `meta.zones` now, the plugin is only a broken editor UI. Fits the next maintenance window.
+- i2c IMU data isn't showing up in SignalK — settle whether it should be
+  configured via a plugin or via OpenPlotter. (Mark's own note, recovered
+  2026-08-20 from a stash on the boat.)
+- Temp sensors: unclear whether readings are being dropped or the sensors
+  just need new batteries. Determine which before replacing anything.
+  (Mark's own note, same stash.)
 - Air pressure sensor
 - Illuminance sensor
 - Additional temperature sensors
@@ -311,6 +375,13 @@ now carries only the high-level list.)
 - 3D-print IMU case
 
 ### Infrastructure
+- RUNBOOK gaps Mark called out (recovered 2026-08-20 from a stash on the
+  boat; his wording: "runbook should say how to..."):
+  - how to simulate a ping failure, and the common things to check and try
+    when there is a *real* failure
+  - how to test ntfy locally
+  - how to test Pushover
+  - he ended the list with "others?" — worth a pass for further gaps
 - ~~TASK: make CI able to run the secret-tooling suite, then collapse the CI
   job onto the existing runner~~ — **done 2026-08-20, PR #19**, all five
   steps as written. `secretguard.can_decrypt()` (sops AND age key) now
@@ -546,13 +617,12 @@ now carries only the high-level list.)
   `/etc/telegraf/telegraf.conf`, so deploying the Telegraf change meant
   editing that tracked file in place — the boat's checkout now shows
   `M telegraf/telegraf.conf` and will until PR #15 merges and it pulls.
-  Bigger: the boat's `main` is at `68e4e04`, which is **not an ancestor of
-  today's `origin/main`** — main was force-updated upstream at some point,
-  so the boat cannot fast-forward and a plain `git pull` there will merge
-  two lineages against a dirty file. Worth sorting deliberately rather than
-  discovering it mid-deploy. (The content looks preserved — PR #15's diff
-  against the rewritten main is exactly its own seven files — so this is a
-  history-shape problem, not lost work.)
+  Bigger: the boat's `main` is at `68e4e04`. ~~Not an ancestor of today's
+  `origin/main` — main was force-updated upstream.~~ **Corrected
+  2026-08-20:** that reading came from a *shallow* dev clone. 68e4e04 **is**
+  an ancestor of `origin/main`; the boat fast-forwarded cleanly, 92 commits,
+  no forced-update marker. main was never force-updated. See the RESOLVED
+  entry under § Blocked.
 
   **The tracked container-side configs were a trap too.**
   `signalk/plugin-config-data/signalk-questdb.json` (dirkwa's plugin) was
