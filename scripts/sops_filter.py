@@ -26,7 +26,6 @@ and only emits new ciphertext if the plaintext actually changed.
 """
 import json
 import os
-import shutil
 import subprocess
 import sys
 
@@ -47,7 +46,11 @@ try:
 except ImportError:
     pseudonymize = None
 
-SOPS = "sops"
+# Absolute path when we can find one, bare name otherwise so the failure
+# text still names what is missing. Resolved once: PATH cannot change
+# mid-process, and a filter runs per file.
+_SOPS_PATH = secretguard.find_sops()
+SOPS = _SOPS_PATH or "sops"
 
 
 def looks_encrypted(text):
@@ -62,8 +65,8 @@ def looks_encrypted(text):
 def can_encrypt():
     """Everything the encrypt path needs, in one question."""
     missing = []
-    if shutil.which(SOPS) is None:
-        missing.append("sops on PATH")
+    if not _SOPS_PATH:
+        missing.append("sops on PATH, in ~/.local/bin, or in /usr/local/bin")
     if not secretguard.have_age_key():
         missing.append("an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)")
     if yaml is None or pseudonymize is None:

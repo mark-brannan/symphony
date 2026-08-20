@@ -278,7 +278,14 @@ class Destination(unittest.TestCase):
         finally:
             os.unlink(mode_file)
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertIn("contributor", done.stdout)
+        # A comments-only file yields no mode, so the mode comes from
+        # auto-detection -- which legitimately differs per machine (strict
+        # where an age key and the filters are present, contributor where
+        # they are not). Pinning "contributor" here made this test fail on
+        # exactly the machines the strict path exists for. What this test is
+        # actually about is the returncode above; all this needs to add is
+        # that a real mode still came out.
+        self.assertIn(done.stdout.strip(), ("strict", "contributor"), done.stderr)
 
 
 class MessageParity(unittest.TestCase):

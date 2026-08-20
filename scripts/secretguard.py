@@ -25,6 +25,7 @@ Usage from the shell (for scripts and for debugging):
 """
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -109,6 +110,33 @@ def _have_age_key():
 def have_age_key():
     """Public: callers outside this module ask this, not the private form."""
     return _have_age_key()
+
+
+# git runs filters from whatever spawned git, and that is often not a login
+# shell -- an IDE, a GUI client, an agent harness. Those inherit a bare PATH
+# without ~/.local/bin, so `which("sops")` misses on a machine that has sops
+# installed and working. In strict mode a missing sops is fatal, and a fatal
+# smudge takes the whole checkout down with it, so resolving by PATH alone
+# turns "your shell config differs" into "git worktree add fails".
+_SOPS_DIRS = (
+    os.path.expanduser("~/.local/bin"),
+    "/usr/local/bin",
+    "/opt/homebrew/bin",
+    "/usr/bin",
+    "/bin",
+)
+
+
+def find_sops():
+    """Absolute path to a runnable sops, or "" if there isn't one."""
+    found = shutil.which("sops")
+    if found:
+        return found
+    for directory in _SOPS_DIRS:
+        candidate = os.path.join(directory, "sops")
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return ""
 
 
 def _filters_configured():

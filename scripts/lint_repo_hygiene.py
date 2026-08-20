@@ -14,7 +14,6 @@ Usage:  python3 scripts/lint_repo_hygiene.py [--warn-only]
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -169,7 +168,7 @@ def rule_plaintext_secrets_are_protectable() -> None:
         return
 
     missing = []
-    if shutil.which("sops") is None:
+    if not secretguard.find_sops():
         missing.append("sops on PATH")
     if not secretguard.have_age_key():
         missing.append("an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)")
