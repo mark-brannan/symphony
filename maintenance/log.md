@@ -301,4 +301,5 @@
 - Widened validate.yml to run on every branch push, with superseded runs
   cancelled; CI stays advisory, direct pushes to main unaffected.
 - Triaged the stale claude/* branches: seven verified content-merged and
-  queued for deletion, three kept for unlanded work, two carry open PRs.
+  deleted, plus an eighth (PR #15's) that went the same way via merge;
+  three kept for unlanded work, one carries an open PR (#10).
