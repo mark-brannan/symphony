@@ -298,6 +298,21 @@
   which had stuck on the full disk, and capped QuestDB's preallocation.
 - Fixed the frozen-secrets guard passing vacuously in CI (PR #22); it now
   checks the actual commit range on a push or PR instead of an empty index.
+- Widened validate.yml to run on every branch push, with superseded runs
+  cancelled; CI stays advisory, direct pushes to main unaffected.
+- Triaged the stale claude/* branches: seven verified content-merged and
+  deleted, plus an eighth (PR #15's) that went the same way via merge;
+  three kept for unlanded work, one carries an open PR (#10).
+- Fixed a flaky pre-commit test (PR #21): the encoding-health hook's
+  blocking message was escaping to /dev/tty instead of the test's captured
+  stderr on any machine with a real terminal attached, passing on headless
+  CI and failing everywhere else.
+- Found and fixed the cause of the house batteries publishing nothing:
+  bt-sensors-plugin-sk opens its D-Bus connection while SignalK is still
+  loading plugins, and the bus closed the connection at its 30s auth
+  timeout before the handshake could run. Raised the limit on the boat;
+  both banks are reporting again. Corrected the RUNBOOK section, which
+  had pointed at the radio and at boot ordering.
 - Rescued two branches of unpushed work off the boat's checkout — the JBD BMS
   BLE capture and the Pushover escalation — and brought that checkout up to
   current main. No history had been rewritten; the apparent divergence was an

@@ -935,3 +935,35 @@ PR #24 opened as a draft, all five checks green. Subscribed via webhook only —
 Mark's explicit constraint, and no scheduled wakeup was created (the
 no-persistent-polling hook enforces the same thing). CodeRabbit skipped review
 because the PR is a draft, which is expected and not a finding.
+
+## 2026-08-20 — kanban.md restructure to the Open Loops card contract
+
+Rewrote `kanban.md` to the global "Open loops" board contract (`## Yours` /
+`## Claude's`, one line per card, checkboxes, every card linked). Full prose
+that used to live inline moved to the new `kanban-detail.md`, one heading per
+surviving card. Two closed items found while triaging had no record in either
+log file, so recording them here before dropping their kanban entries:
+
+- **`wire-wright` published to npm, 2026-08-19.** `gh repo create --push` had
+  already created and pushed `mark-brannan/wire-wright` before it errored, so
+  no duplicate repo was needed. `npm publish --tag alpha` couldn't run from
+  the session's sandboxed shell — no TTY for the browser-approval OTP flow
+  npm 12 needs on a passkey-only account — so the exact command was handed to
+  Mark to run in his own terminal. Verified after: `gh repo view
+  mark-brannan/wire-wright` succeeds (public, default branch main), `npm view
+  wire-wright dist-tags` shows `alpha: 0.0.1-alpha.0` (also `latest`, as
+  expected for a first publish).
+- **Forking `signalk-fixed-position` to debounce its writes: considered and
+  rejected, 2026-08-13.** It subscribes to `navigation.position` at a
+  hardcoded 1000 ms and calls `savePluginOptions` on every delta, so its
+  fallback position gets persisted at GPS rate — ~86,000 writes/day, ~350
+  MB/day, roughly 3-9% of the box's ~10 GB/day total. The count looks
+  alarming; the volume doesn't justify maintaining a fork forever for a few
+  percent of SD life. Stays enabled as-is. If it's ever fixed upstream, an
+  issue is the right route, not a fork.
+
+All other resolved kanban items had a matching entry already in
+`maintenance/log.md`, this file, or a `reference/*.md` file, and were dropped
+without further logging. Full accounting of what moved where, what was
+dropped outright, and what's still ambiguous is in this session's wrap-up
+message to Mark.

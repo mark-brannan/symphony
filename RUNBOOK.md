@@ -2285,18 +2285,41 @@ first.
 
 ## BLE sensors go silent after a reboot
 
-Known, unfixed, and the thing most likely to confuse someone. On some boots
-`bt-sensors-plugin-sk` fails its D-Bus handshake to `org.bluez` as it loads:
+`bt-sensors-plugin-sk` publishes nothing at all — no `electrical.batteries.*`,
+no sensor of any kind — and the only clue is one uncaught exception as the
+server starts:
 
 ```
 Uncaught exception: Error: write EPIPE
   at auth (.../@jellybrick/dbus-next/lib/handshake.js:67)
 ```
 
-It does not retry. Every BLE sensor stays silent for the life of that process,
-and nothing else in the log says anything is wrong.
+Confirm it is this fault and not something else. The bus logs the other half:
 
-Restart SignalK once the box has settled:
+```bash
+journalctl --since -1h | grep "not authenticated soon enough"
+```
+
+A `Connection has not authenticated soon enough, closing it
+(auth_timeout=30000ms)` line a second or two before the EPIPE is this fault.
+Without that line, you are looking at something else — go to "A BLE sensor
+connects but never delivers data".
+
+Fix: give the bus longer to wait, then restart the server.
+
+```bash
+grep auth_timeout /etc/dbus-1/system-local.conf   # expect 120000
+```
+
+If that file is missing or the limit is absent, install it — `host/install.sh`
+places it and reloads dbus:
+
+```bash
+sudo host/install.sh
+```
+
+Then restart SignalK, socket first or the socket unit relaunches the service
+mid-stop:
 
 ```bash
 sudo systemctl stop signalk.socket
@@ -2305,16 +2328,33 @@ sudo systemctl start signalk.socket
 curl -s -o /dev/null http://localhost:3000/signalk/    # socket-activates it
 ```
 
-It is **not** a boot-ordering race, so don't spend time there. Measured
-2026-08-13 with `After=bluetooth.service` in place: bluetoothd owned the bus at
-18:35:15 and the handshake still failed at 18:37:15, a hundred seconds later.
-`host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
-hygiene, not because it fixes this.
+Verify with the `$source` census under "Setting up a BLE sensor" — each sensor
+publishes under its own configured `name`. Give it a few minutes: BLE connect
+plus a first poll is slower than the rest of startup.
 
-This matters more than it looks: the hardware watchdog exists to reboot the box
-when nobody is aboard, so an unattended reboot can come back with every BLE
-sensor dead until someone restarts SignalK by hand. If you depend on remote
-battery monitoring, either check after any reboot or add a self-healing check.
+Why the timeout, and why a restart alone never fixed it: the plugin opens its
+`org.bluez` connection at `require()` time (`createBluetooth()` runs at module
+scope in its `index.js`), so the socket opens during SignalK's plugin-load
+sweep. dbus-next runs the auth handshake from that socket's `connect` callback,
+and the callback cannot be dispatched until the event loop drains — which takes
+longer than 30s here, because loading the remaining plugins is synchronous. The
+bus closes the unauthenticated socket at its 30s `auth_timeout`; the handshake's
+first byte then lands on a dead socket. The plugin never retries, so the bus
+stays dead for that whole process. Every start blocks the same way, which is why
+this is not intermittent and why `signalk-ble-check` burns its entire restart
+budget each boot and gives up.
+
+Two dead ends, both already measured — don't spend time in either:
+
+- **The radio.** `hci0` is `UP RUNNING` with zero errors throughout. Nothing in
+  this fault ever reaches the controller.
+- **Boot ordering.** bluetoothd owns the bus long before SignalK loads.
+  `host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
+  hygiene, not because it fixes this.
+
+The real fix belongs in the plugin — open the bus lazily in `start()` and
+reconnect on error. `/etc/dbus-1/system-local.conf` is a workaround at the wrong
+layer; remove it once the plugin carries the fix.
 
 ---
 

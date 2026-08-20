@@ -1,11 +1,18 @@
 #!/bin/sh
 # Restart SignalK when bt-sensors-plugin-sk is loaded but publishing nothing.
 #
-# The plugin opens a D-Bus connection to org.bluez as it starts. On some starts
-# the handshake dies and it never retries, so every BLE sensor stays silent for
-# the life of that process. See RUNBOOK -> "BLE sensors go silent after a
-# reboot". Ordering after bluetooth.service was tried and measured not to help,
-# so this treats the symptom on purpose.
+# The plugin opens a D-Bus connection to org.bluez as it starts. If the
+# handshake dies it never retries, so every BLE sensor stays silent for the
+# life of that process. See RUNBOOK -> "BLE sensors go silent after a reboot".
+# Ordering after bluetooth.service was tried and measured not to help, so this
+# treats the symptom on purpose.
+#
+# Restarting does not clear the one cause found so far -- the bus closing the
+# connection at its 30s auth_timeout, because SignalK's plugin-load sweep keeps
+# the event loop from dispatching the handshake. That is deterministic, not
+# intermittent, so this check burns its whole budget each boot and gives up.
+# host/dbus-auth-timeout.conf is what addresses that one; this check stays for
+# the silent failures it does not cover.
 #
 # It matters because the hardware watchdog exists to reset this box when nobody
 # is aboard. Without this, an unattended reboot can come back with the house

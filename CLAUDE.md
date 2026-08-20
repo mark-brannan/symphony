@@ -44,8 +44,9 @@ covered here.
 - **A human file.** High-level items only, one to a few lines each. Claude
   edits it when real feature-level work completes or the owner asks — never
   to park session state, evidence dumps, "done" annotations, or rules for
-  other sessions. All of that lives in
-  `intermediate_files/claude_slop/kanban.md`.
+  other sessions. All of that lives under
+  `intermediate_files/claude_slop/` (`kanban.md` for cards, `kanban-detail.md`
+  for their detail, `log.md` for history).
 - Kanban-flavored, not GTD: **In Progress** (keep this small — WIP limit of
   roughly 2-3 items, matching the owner's stated preference for steady
   completion over a sprawling backlog) / **Backlog** (ordered —
@@ -54,23 +55,30 @@ covered here.
   from this file, so it always reflects only what's still open.
 - The **SignalK / IoT — high level** section is the human summary; the
   detailed working state for each item is in
-  `intermediate_files/claude_slop/kanban.md`. Update both when an item
-  opens or closes; update only the kanban for anything smaller.
+  `intermediate_files/claude_slop/kanban-detail.md`, linked from a card in
+  `kanban.md`. Update both when an item opens or closes; update only the
+  board for anything smaller.
 
 ## Claude session state — `intermediate_files/claude_slop/`
 - **All Claude working state is segregated here**, away from the "good"
   content in `maintenance/` and `reference/`. The owner chose this location
   and the name deliberately (2026-08-19): if a future session thinks a file
   here deserves promotion, that's a proposal to Mark, not a move to make.
-- `kanban.md` — Claude's working backlog: micro-tasks, blocked questions,
-  session-facing rules, and the detailed state behind `priorities.md`'s
-  high-level SignalK/IoT list. Pull from it to start work; flush loose ends
-  back at wrap-up.
+- `kanban.md` is this project's board under the global **Open loops** rule
+  (`~/.claude/CLAUDE.md` § Open loops — the standing-orders file, not this
+  repo). That rule owns the mechanics: `## Yours` / `## Claude's`, one line
+  per card (a link plus the action in the imperative), `blocked:` only when
+  the card is actually blocked, cards deleted on completion rather than
+  logged in place. Write the card the moment a loop is found, not at
+  wrap-up — by wrap-up the detail that made it actionable is gone. Pull from
+  it to start work; it also carries the detailed state behind
+  `priorities.md`'s high-level SignalK/IoT list.
 - **A wrap-up ends with zero unmeasured decisions** (owner's rule,
   2026-08-19). Every open question is either executed in-session or put to
   Mark as an explicit decision prompt before the turn ends, and his answer
   recorded here. Parking a question in a file without prompting him for the
-  call is not wrapped up.
+  call is not wrapped up — a `## Yours` card is a prompt already made, not a
+  substitute for making it.
 - `log.md` — dated session journal: wrap-up narrative, self-corrections,
   verification detail. Append at the bottom. This is where the continuity
   rule's "write state before ending" output goes.
@@ -336,15 +344,23 @@ cheap. Symphony-specific instances of those:
   a PR merge cleans itself up with no git command from any session. The
   rule stands for a cleaner reason: below the branch-vs-main threshold, a
   branch is unneeded ceremony, not an unclearable liability.
-- **Automatically delete head branches: keep it on.** Confirmed live and
-  working on this repo 2026-08-20 — PR #15's and PR #22's head branches
-  were both gone within moments of merge, no session action taken. This is
-  the fix for the stale-branch pileups that used to need manual sweeps and
-  a permission-blocked `git push --delete` (see `maintenance/log.md`'s
-  2026-08-20 branch-triage entries for what that cost before the setting
-  was on). It only fires on an actual PR merge — a branch that never gets
-  a PR (below-threshold work, correctly pushed straight to main instead)
-  isn't touched by it and was never the problem this solves.
+- **Automatically delete head branches has never fired on this repo — don't
+  count on it.** GitHub deletes a head branch on an actual *merge* event,
+  and this repo has never produced one: every closed PR from #1 through #23
+  reports `merged: false`. Work lands by direct push to `main` and the PR is
+  closed afterwards, so there is nothing for the setting to react to.
+  An earlier version of this bullet cited PR #15's and #22's branches
+  vanishing as proof it works. Those two were never merged either, so
+  whatever removed their branches, it was not delete-on-merge. Corrected
+  2026-08-20 after checking every closed PR; the repo setting itself was not
+  readable from that session, so this says nothing about whether it is
+  switched on — only that no merge has ever occurred for it to act on.
+  Assume nothing sweeps branches for you. Nine `claude/*` branches were on
+  the remote on 2026-08-20, four carrying open PRs and five with none.
+  Clearing them is a deliberate act with the owner's go-ahead, not a
+  background process — and a branch that never gets a PR (below-threshold
+  work, correctly pushed straight to main instead) was never what this was
+  meant to solve.
 - If a change is potentially destructive, or could affect adjacent
   environments for plugin testing, ask for explicit permission before
   changing, committing, or pushing.
