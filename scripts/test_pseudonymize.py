@@ -185,6 +185,20 @@ class TestMask(unittest.TestCase):
 
 
 class TestStore(unittest.TestCase):
+    """The only test here that needs the outside world.
+
+    Everything else in this file is pure substitution logic with its maps
+    passed in. This one decrypts the real store, so it needs sops on PATH
+    and an age identity -- which a contributor, a cloud session, or a fresh
+    checkout will not have.
+
+    Missing tools SKIP; a decryptable store that is malformed FAILS. The
+    difference matters: "I could not check this" and "I checked and it is
+    wrong" are not the same result, and reporting the first as the second
+    trains people to ignore the suite. A skip says so out loud, so it can
+    never be mistaken for a pass.
+    """
+
     def test_real_store_decrypts_and_has_a_salt(self):
         # The only test here that touches the real encrypted store, so the
         # only one that needs sops and a key. On a clone that has neither
@@ -211,7 +225,7 @@ class TestStore(unittest.TestCase):
             if secretguard.mode() == "strict":
                 raise
             self.skipTest(f"the store is not openable here ({error})")
-        self.assertTrue(salt)
+        self.assertTrue(salt, "the store decrypted but carries no salt")
         self.assertIsInstance(mapping, dict)
 
 

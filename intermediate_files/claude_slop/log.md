@@ -293,6 +293,204 @@ that reads as encrypted to one guard and plaintext to another, which is worse
 than either answer alone — the commit sails through, the push blocks, and
 neither message explains the disagreement. When a finding is "this predicate
 is wrong," the unit of repair is the predicate, not the lines cited.
+## 2026-08-19 — Pre-commit guards: block only on staged, fixable state (PR #12)
+
+**The incident this fixes.** Mark could not commit a one-line doc edit for
+days. `hostvars_filter.py clean` fails soft when `hostvars.local.yaml` is
+missing, so the machine-local ntfy URL landed in the index literally;
+`check` then failed unconditionally on every commit and named `refresh` as
+the remedy — which itself requires the file he did not have. Closed loop,
+and no message anywhere mentioned `--no-verify`. Reproduced it exactly in a
+throwaway clone before changing anything.
+
+**Invariant landed.** A hook may FAIL only on a condition (a) visible in a
+`git diff --cached` path and (b) fixable by the person committing right
+now. Clause (b) is the addition — the hostvars checker was arguably scoped
+correctly in spirit and still trapped him, because correct-and-unsatisfiable
+is still a trap. Repo-wide truth moved to CI.
+
+**`always_run` was never the bug.** None of the four moved to `files:`.
+Internal self-scoping from the index — what `precommit_secret_guard.sh`
+already did — is the right shape; `files:` would duplicate scope config
+living in `.sops.yaml`/`.hostvars.yaml` and miss deletion-only commits.
+
+**Rejected the obvious filter fix, deliberately.** Making `clean` hard-fail
+so bad bytes never reach the index is attractive and wrong: git runs clean
+to diff working tree against index, so a failing clean breaks `git status`
+in exactly the stuck state. Uncommittable would become unreadable. Both
+filter directions stay soft; the checker owns all blocking and pays for it
+with scoping and a named exit. Written down as: whichever layer cannot be
+escaped is the layer that must not block.
+
+**Two bugs in my own work, caught by testing rather than reasoning.**
+`--fix` re-encoded whole files, so it failed on any document containing a
+legitimate em dash — i.e. nearly all of them; now repairs per damaged run.
+And `test_encoding_health.py` contained literal mojibake fixtures and
+flagged itself on the first CI run. Both are the exact class of thing Mark
+called AI slop. A third followed later: two of my `test_repo_hygiene.py`
+assertions matched on message *wording* and broke the moment #13's
+formatter landed — change-detectors, which his own rules warn against.
+
+**Pseudonymizer, three findings, three different answers to "fail open?"**
+Clean side had no handler at all and died on a bare `FileNotFoundError`
+traceback — still refuses (a guest's mailbox in public history cannot be
+taken back) but now says so in words. Nothing guarded that the pseudonym
+map travels with the tokens: commit a token without the map and it is
+unresolvable forever — made a warning, not a block, since the map is still
+on disk. And the one sops-dependent test now skips rather than erroring.
+
+**Coordination with PR #13.** Could not message that session directly (no
+`send_message` in this session's toolset, `ListAgents` empty), so the PR
+thread was the channel — which Mark could read, arguably better. Rather
+than predict the merge I ran it: rebased onto their branch in a scratch
+clone, resolved all four conflicts, verified all six suites and all four
+of Mark's paths on the merged tree. Resolution saved at
+`intermediate_files/pr12-onto-pr13-merge.{patch,md}` (the patch
+half was deleted once the real rebase landed; see the notes).
+
+**The cross-PR hazard, and the invariant it produced.** Both PRs rewrote
+`rule_declared_filters_are_configured` on orthogonal axes — theirs keyed on
+who is committing, mine on what is in the commit. Composed as OR,
+contributor mode swallows the staged case and a plaintext secret only
+warns. Merged as AND. Stated as: **enforcement may soften a guard about
+your ENVIRONMENT; never one about the CONTENT of your commit.**
+
+**Naming.** Mark rejected `SYMPHONY_MODE`/`SYMPHONY_STRICT` on #13 — "mode"
+collides with vessel operating mode and SignalK's own usage, and the boat's
+name has no place in a mechanism that is not boat-specific. Proposed
+`SECRETS_ENFORCEMENT=strict|warn-only`, one variable rather than two (the
+old pair were two knobs on one axis and could disagree). Checked the
+extraction question rather than guessing: the whole secret-management core
+is already free of "symphony", and the real fork boundary is *inside*
+`lint_repo_hygiene.py`, which mixes one generic rule with two site-specific
+ones. #12's shipped code never referenced the old names, so the rename
+costs this branch nothing.
+
+**Self-correction.** Three times in this session I ran `git reset --hard` /
+`git checkout -- .` in the scratch clone *after* copying patched scripts in,
+silently reverting them and producing a bogus comparison I then reported.
+Caught each time by the output not making sense. Order matters: reset
+first, copy second.
+
+## 2026-08-19 (later still) — PR #12 rebased onto #13, ready for review
+
+PR #13 merged, so #12 came off the shelf. The prior session's saved notes and
+patch (`intermediate_files/pr12-onto-pr13-merge.{md,patch}`) held up: the
+four conflicts resolved as written, the `precommit_secret_guard.sh` commit
+was skipped as superseded, and `sops_filter.py` was taken whole from #13
+with the auto-merged `die()` deleted.
+
+Three things the trial did not predict, all recorded in the merge notes:
+
+- a fifth conflict in `hostvars_filter.py` (#13's later review round added
+  `head_blob()` where this branch added `staged_paths()`) — purely additive;
+- #13 had already landed `staged_paths()` and `gitattributes_filters()` in
+  `lint_repo_hygiene.py`, so #12's copies were dropped rather than merged;
+- #13's rule matched staged paths by exact membership where `.gitattributes`
+  entries are globs. Took #12's fnmatch. Worth noting because it is the
+  quiet kind of wrong: the rule looks right, runs, and matches nothing.
+
+**The bug I found in my own tests, which is the transferable one.** The
+scoping suite asserted against the real clone. On any machine that HAS the
+filters wired — every maintainer's — the rule returns early, and all six
+assertions passed while testing nothing. Same shape as the `check --all`
+trap this whole PR is about, one level in: a check that cannot fail is
+indistinguishable from a check that passes. `filter_is_configured()` is now
+a seam, and the tests pin it along with mode, scope and CI. Two more tests
+came out of pinning strict mode explicitly, which the old suite never
+exercised at all.
+
+Also rewrote the two wording assertions to assert severity and the presence
+of message fields. Mark had flagged this twice; the underlying reason is
+that the formatter's own parity suite already owns wording, so a second
+assertion on it is duplication that only ever produces false failures.
+
+Retrofitted all four guards onto `secretguard`'s formatter, using `block()`
+rather than `require()` for hostvars-placeholders and encoding-health —
+both are about content in the index, and content is never mode-softened.
+
+Put the invariant sentence in `secretguard.py`'s module docstring and its
+bash twin, per the open question the #13 session raised. Reasoning: that
+module is what a new guard imports to ask "am I strict," which is exactly
+the moment someone decides whether their guard should soften. The
+alternatives reach the wrong reader — `reference/precommit_guards.md` is
+read by someone hitting an error, and a comment on one rule only reaches
+whoever edits that rule.
+
+Verified in a throwaway keyless clone rather than by reasoning: doc edit
+commits, a staged `filter=sops` path blocks in contributor mode, the
+`git restore --staged` exit the message names actually clears it, and the
+`--fix` the encoding message names actually works. All six suites green,
+all ten CI checks green.
+
+Flagged to Mark on the PR, not fixed: the secret-tooling suites don't run
+in CI at all. `validate.yml` compiles every script and runs
+`test_dashboards.py`; `run_secret_tooling_tests.sh` is a pre-commit hook
+only. Predates both PRs, so it belongs in its own change.
+
+### 2026-08-20 — PR #12 review rounds: one bug shape, five times
+
+Five review rounds with two agentic reviewers after the rebase. Everything
+raised was verified against the code before acting; two findings were real
+bugs in code this branch had just written, and one was a fail-open nobody
+had asked about.
+
+**The thing worth carrying forward.** Every substantive finding this
+session was the same shape: *a check that never looked, reporting ok.*
+
+1. `hostvars_filter.py check` without `--all` in CI — nothing is staged
+   there, so it passed vacuously and repo-wide enforcement vanished.
+2. The scoping tests asserted against the real clone, where the filters
+   ARE configured, so the rule returned early and six assertions passed
+   while testing nothing. Fixed with the `filter_is_configured()` seam.
+3. My staged-blob test stubbed `staged_blob` but not `git ls-files`, so an
+   absent fixture would yield nothing and pass without calling anything.
+4. `git diff --cached --name-only` quotes any non-ASCII path
+   (`core.quotePath` defaults on), so `café.json` matched no covered
+   pattern and left the guard's scope silently.
+5. **My own reasoning.** I read one page of `list_branches`, saw
+   `protected: false` on every row, and concluded `main` was unprotected —
+   `main` was not on that page. I wrote that into
+   `reference/precommit_guards.md` and told two reviewers it was verified.
+   `main` is `protected: true`.
+
+Four in the guards, one in me, and the last one shipped furthest. The
+lesson is not "be careful" — it is that *absence of a signal is not a
+negative result*, and the fix in each case was to make the check unable to
+run without looking: stub every input a test reads, pin the seam, ask for
+NUL-delimited output, and read the row you are drawing a conclusion from.
+
+**Also fixed, all reproduced first:** the staged encoding scan read the
+working tree rather than the index (wrong in both directions after
+`git add -p`); `--fix` returned 0 on a file that still blocked, so its own
+advice looped; a C locale turned a non-ASCII path into a
+`UnicodeDecodeError` and took the hook down with a traceback — the exact
+failure mode this branch exists to remove.
+
+**Practice that paid for itself:** for the C-locale regression test I
+reverted the fix, watched the test fail, restored it, watched it pass. A
+regression test nobody has seen fail is finding #3 again.
+
+**Declined, with reasoning on the PR:** `rule_frozen_secrets_untouched`
+reads `git diff --cached` and CI's index is empty, so it is vacuous under
+`--all` — finding #1 in a rule this branch never touched. Pre-existing;
+the fix needs a change-range interface plus workflow wiring, which is a
+design change to how CI expresses "what changed". In kanban for Mark.
+
+**Open for Mark, both in kanban Blocked:** which status checks (if any)
+are *required* on `main` — `protected: true` does not say, and it decides
+whether "CI is the enforcement boundary" is true at all; and the fact that
+nothing automated runs the secret-tooling suites today (not `validate.yml`,
+and both reviewers were denied permission to execute them).
+
+Correction, same day: when first written that sentence said "both in
+kanban" and only the first one was — the suites question existed solely in
+this PR's comment thread, which is precisely the "session scrollback" that
+CLAUDE.md's park-it rule exists to keep questions out of. A reviewer
+caught it. Worth noting that *stating* a question is open is not the same
+as parking it where the next session will look, and I had done the former
+while claiming the latter.
+
 
 ## 2026-08-19 — Verified heading/COG derivation live on the boat
 

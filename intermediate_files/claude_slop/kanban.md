@@ -53,6 +53,20 @@ to the plugin dir. Remaining:
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
 
+- ~~PR #12 waiting on PR #13, and the cross-PR invariant enforced only in
+  #12's tests~~ — **both closed 2026-08-19** (pr12-rebase session). #13
+  merged; #12 rebased onto it and is out of draft. The invariant sentence
+  now lives in `scripts/secretguard.py`'s module docstring and its bash
+  twin, which is what every new guard imports to ask whether it is strict —
+  so the next session meets it at the moment it would otherwise re-derive
+  it. It blocks when `bool(hits) or mode is strict` — equivalently, it
+  passes only when nothing covered is staged AND enforcement isn't strict.
+  Both axes have to clear it; neither can wave the other through. Tests pin
+  it from both modes. Narrative in `log.md` for this date.
+- ~~Naming: `SYMPHONY_MODE`/`SYMPHONY_STRICT` rejected, replacement not
+  settled~~ — **closed 2026-08-19** by #13, which renamed the whole guard
+  surface to `secretguard` (`SECRETGUARD_MODE=strict|contributor`, one
+  variable taking a mode word, not the two booleans). Table in #13's body.
 - **RESOLVED 2026-08-19 — #13 merged 2 min after the split landed, so this
   was done in the same session** (`76e1e04`). Three cross-references had
   gone stale in the overlap, not the one predicted: `.pre-commit-config.yaml`
@@ -61,32 +75,42 @@ response. Each names the session that raised it.
   "Upgrading the scanners" opening with `pre-commit autoupdate` — a no-op
   once #13 made every hook `repo: local`. That last one was #13's staleness,
   not the split's, and was the one that would actually have misled someone.
-
-- **Node 20 deprecation on both workflows** (2026-08-19, same session).
-  Every run warns that `actions/checkout@v4` and `actions/setup-python@v5`
-  target Node 20 and are being forced onto Node 24. Pre-existing, affects
-  `validate.yml` and `secret-scan.yml` equally, nothing failing yet. The fix
-  is bumping to `checkout@v5` / `setup-python@v6`, which is a real (if
-  small) change to every job in both files — worth doing as its own pass,
-  not smuggled into unrelated work.
-
-- **Branch protection / required status checks on `main` — not enabled**
-  (2026-08-19, CI-design session). Confirmed via `list_branches`: `main` is
-  unprotected today, so `.github/workflows/validate.yml` and
-  `claude-review.yml` are both advisory-only — red X's are information, not
-  a block. Deliberately not touching this: an earlier session's framing of
-  "real boat hardware" had started nudging the workflows (mainly
-  `claude-review.yml`'s header/prompt) toward production-gate language —
-  corrected 2026-08-19 back to "real hardware, but rapid iteration, mistakes
-  recoverable; secrets are the one non-negotiable." If/when required checks
-  are wanted: the natural minimum set is `compose-config` and
-  `json-yaml-syntax` from `validate.yml`, plus `secrets-encrypted` and
-  `gitleaks` from `secret-scan.yml` (the four are fast, deterministic, no
-  false-positive risk) — not
-  `claude-review` (advisory reviewer, shouldn't block on its own judgment)
-  and not `trufflehog`/`dashboards`/`shellcheck`/`python-syntax` unless they
-  prove reliable over time. Owner's call, and low priority while still in
-  move-fast mode.
+- **The fork boundary inside `lint_repo_hygiene.py`** (2026-08-19, still
+  open). From Mark's own thought exercise: the secret-management core is
+  already free of "symphony", but this file mixes one generic rule
+  (unconfigured filter) with two site-specific ones (audible alarms, frozen
+  captain credentials). `FROZEN_SECRET_KEYS` is the last hardcoded
+  boat-specific fact in the guard surface — a review bot flagged it on #12.
+  Recommendation on the record: leave it hardcoded. Moving that list to a
+  config file makes the freeze editable and gives the rule a way to check
+  nothing if the file goes missing, where a tuple in the source cannot fail
+  open. Revisit only if a fork becomes real; it is not urgent.
+- ~~Nothing automated runs the secret-tooling test suites~~ — **closed
+  2026-08-20**: main gained a `secret-tooling-tests` CI job (`5c9f76c`),
+  with `test_pseudonymize.py` held out (`c104ddd`) pending the
+  keyless-runner fix. The rest of the story is the Infrastructure TASK
+  below ("make CI able to run the secret-tooling suite, then collapse the
+  CI job onto the existing runner").
+- **`rule_frozen_secrets_untouched` does not run in CI** (2026-08-19,
+  pr12-rebase session). It reads `git diff --cached`, and CI's index is
+  empty after checkout, so `lint_repo_hygiene.py --all` evaluates it
+  vacuously. Predates #12 — the `--all` flag did not create it — and the
+  fix needs a change-range interface plus workflow wiring, so it was raised
+  on the PR rather than folded in. For Mark: worth its own change?
+- ~~Branch protection on `main` — is it, and which checks are required?~~ —
+  **answered 2026-08-20**, see "RESOLVED — no required status checks on
+  main, deliberately" under "Blocked — needs Mark's call" below: `main` is
+  ruleset-protected (21060338: linear history, no force-push, no deletion)
+  with no required status checks, by Mark's explicit choice, so CI stays
+  advisory. That entry supersedes both the 2026-08-19 "main is unprotected,
+  confirmed via `list_branches`" claim and its 2026-08-20 correction; the
+  legacy `/branches/main/protection` endpoint 404s on a ruleset-protected
+  branch, which is how the wrong claim got written.
+- **Node 20 deprecation on both workflows** — mostly done 2026-08-19:
+  `6745f76` bumped `validate.yml` and `secret-scan.yml` to `checkout@v5` /
+  `setup-python@v6`. Stragglers as of 2026-08-20: the `secret-tooling-tests`
+  job was added after the bump and pins `checkout@v4` / `setup-python@v5`,
+  and `claude-review.yml` still uses `checkout@v4`.
 
 - ~~wire-wright publish~~ done 2026-08-19. Diagnosed both original failures:
   `gh repo create --push` had actually already created and pushed

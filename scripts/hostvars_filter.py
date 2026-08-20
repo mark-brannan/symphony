@@ -34,8 +34,9 @@ Usage:
     hostvars_filter.py refresh   # re-expand covered files after editing
                                  # hostvars.local.yaml, preserving all other
                                  # local edits (unlike `git checkout --`)
-    hostvars_filter.py check     # committed/staged form still holds every
-                                 # declared placeholder (pre-commit + CI)
+    hostvars_filter.py check     # staged covered files still hold their
+                                 # declared placeholders (pre-commit)
+    hostvars_filter.py check --all   # every covered file, staged or not (CI)
     hostvars_filter.py paths     # covered files, for setup-git-filters.sh
 """
 import json
@@ -164,6 +165,33 @@ def head_blob(path):
     return result.stdout if result.returncode == 0 else None
 
 
+def staged_paths():
+    """Repo-relative paths in this commit, or None if git can't say.
+
+    None means "scope unknown" -- callers then fall back to every covered
+    path, so a broken git invocation never silently disables the guard.
+    """
+    result = subprocess.run(
+        # -z, not --name-only alone: git quotes any path outside plain
+        # ASCII (core.quotePath defaults on), so `caf\u00e9.md` came back as
+        # a quoted display string and never matched a covered path. A guard
+        # that silently drops a file from its own scope fails open, which is
+        # the one direction these must not fail.
+        #
+        # --diff-filter=d: a staged deletion puts no content into git, so
+        # it is never a finding -- and naming a deleted file in a "fix it
+        # like this" message is just wrong.
+        ["git", "diff", "--cached", "--name-only", "-z", "--diff-filter=d"],
+        # Explicit UTF-8 -- see the same note in lint_repo_hygiene.py.
+        # Under a C locale, text=True decodes git's UTF-8 paths as ASCII
+        # and raises rather than returning them.
+        capture_output=True, text=True, cwd=REPO, encoding="utf-8", errors="surrogateescape",
+    )
+    if result.returncode != 0:
+        return None
+    return {name for name in result.stdout.split("\0") if name}
+
+
 def index_blob(path):
     """Git's current copy of `path` (the index), or None if untracked."""
     result = subprocess.run(
@@ -276,36 +304,63 @@ def refresh():
     return 0
 
 
-def check():
+def check(scope_all=False):
     """Assert git's copy of every covered file still holds its placeholders.
 
     Reads the index (`git show :path`), not the working tree -- the working
-    tree is *supposed* to hold the machine-local values. Run by pre-commit
-    and CI; a failure means a literal value got past the clean filter,
-    usually a clone that never ran scripts/setup-git-filters.sh.
+    tree is *supposed* to hold the machine-local values.
+
+    Scoped to paths this commit actually stages, unless scope_all. The
+    unscoped form used to block EVERY commit -- including a one-line doc
+    edit -- whenever any covered file anywhere in the repo held a literal
+    value, and on a machine with no hostvars.local.yaml the remedy it named
+    (`refresh`) could not run. A guard whose only exit needs a resource you
+    don't have is a trap, not a guard. CI runs `check --all`, which is where
+    whole-repo truth belongs.
     """
+    config = load_config()
+    scope = None if scope_all else staged_paths()
+    if scope is not None:
+        config = {p: n for p, n in config.items() if p in scope}
+        if not config:
+            print("OK: this commit stages no hostvars-covered file.")
+            return 0
+
     failures = []
-    for path, names in load_config().items():
+    for path, names in config.items():
         blob = index_blob(path)
         if blob is None:
             continue  # not tracked (yet) -- nothing to leak
         for name in names:
             if token(name) not in blob:
-                failures.append(
-                    f"{path}: git's copy is missing the '{{{{ {name} }}}}' "
-                    f"placeholder -- a machine-local value is being committed "
-                    f"literally. If the value on disk changed (e.g. via the "
-                    f"admin UI), set it in hostvars.local.yaml and run "
-                    f"scripts/hostvars_filter.py refresh; if this clone never "
-                    f"ran scripts/setup-git-filters.sh, run that. Either way, "
-                    f"re-stage with: git add --renormalize {path}"
-                )
+                failures.append((path, name))
+
     if failures:
-        print(f"hostvars check failed ({len(failures)} problem(s)):", file=sys.stderr)
-        for failure in failures:
-            print(f"  - {failure}", file=sys.stderr)
+        rel_local = os.path.relpath(LOCAL, REPO)
+        for path, name in failures:
+            secretguard.block(
+                "a staged file holds this machine's value where a "
+                "placeholder belongs",
+                problem=f"git's staged copy holds this machine's literal value "
+                        f"where '{{{{ {name} }}}}' should be, so committing it "
+                        f"would overwrite every other machine's value",
+                file=path,
+                needs=f"{name} in {rel_local}",
+                blocked_by="pre-commit hook 'hostvars-placeholders' "
+                           "(scripts/hostvars_filter.py)",
+                fix=f"set {name} in {rel_local} (copy {LOCAL_EXAMPLE} if you "
+                    f"have none), then: python3 scripts/hostvars_filter.py "
+                    f"refresh && git add --renormalize {path}",
+                if_stuck=f"no {rel_local}, or can't run that? Drop this one "
+                         f"file and the rest of the commit goes through: git "
+                         f"restore --staged {path}. Didn't stage it yourself? "
+                         f"Another session did -- leave it alone and use "
+                         f"SKIP=hostvars-placeholders git commit ... (last "
+                         f"resort, bypasses all hooks: git commit --no-verify)",
+                see="reference/precommit_guards.md",
+            )
         return 1
-    print(f"OK: {len(load_config())} hostvars file(s) hold their placeholders in git.")
+    print(f"OK: {len(config)} hostvars file(s) hold their placeholders in git.")
     return 0
 
 
@@ -388,17 +443,25 @@ def main():
         try:
             return refresh()
         except LocalUnavailable as error:
-            warn(f"{error}")
+            warn(f"refresh cannot run: {error}")
+            warn(
+                "If you only need to commit something else, you don't need "
+                "refresh at all -- drop the covered file from the commit "
+                "instead:  git restore --staged <path>  (see "
+                "`hostvars_filter.py paths` for which files are covered)."
+            )
             return 1
     if args == ["check"]:
         return check()
+    if args == ["check", "--all"]:
+        return check(scope_all=True)
     if args == ["paths"]:
         for path in load_config():
             print(path)
         return 0
     print(
         "usage: hostvars_filter.py clean|smudge <repo-relative-path>\n"
-        "       hostvars_filter.py refresh|check|paths",
+        "       hostvars_filter.py refresh|check [--all]|paths",
         file=sys.stderr,
     )
     return 1

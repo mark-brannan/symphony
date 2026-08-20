@@ -6,6 +6,17 @@
 #
 #     . "$(git rev-parse --show-toplevel)/scripts/secretguard.sh"
 #
+# The invariant every caller is composing against:
+#
+#     Enforcement may soften a guard about your ENVIRONMENT.
+#     It may never soften a guard about the CONTENT of your commit.
+#
+# So secretguard_require is for a missing capability, secretguard_block is
+# for what is in the index. Where both apply, the guard passes only when
+# nothing covered is staged AND enforcement is not strict -- i.e. it blocks
+# on stages-a-covered-path OR mode-is-strict. Neither axis can wave the
+# other through. The long form is in scripts/secretguard.py's docstring.
+#
 # Two modes:
 #
 #   strict       -- this clone can hold secrets. A missing capability is an
