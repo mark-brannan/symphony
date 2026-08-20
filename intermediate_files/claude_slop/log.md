@@ -844,3 +844,94 @@ cleared -- Validate, Secret scan, and the claude[bot] independent review
 `run_secret_tooling_tests.sh` and `validate_configs.py`) -- and
 CodeRabbit's rate-limited status came back success. Squash-merged as
 91dc878; unsubscribed. Fix now runs on every push and PR to main.
+
+## 2026-08-20 (git-divergence reconciliation session)
+
+Handed a detailed brief asserting `origin/main` had been force-updated onto a
+rebuilt history, with 67 commits stranded on an old lineage reachable only via
+`claude/*` branches. Told to confirm content preservation across the whole tree
+first, because a wrong answer there changed the plan. It changed the plan
+completely, but in the opposite direction from the one anticipated.
+
+**The divergence did not exist.** The dev clone was shallow — `.git/shallow`
+grafted `ae0391d` and `fdf155f` as false roots, and every symptom fell out of
+that: a shallow clone whose graft boundary moves reports the fetch as
+`(forced update)`, and commits below the boundary look unrelated because their
+parents are absent. `git fetch --unshallow` settled it: `git rev-list --count
+0286d8f ^origin/main` is 0, `git merge-base 0286d8f origin/main` returns
+0286d8f itself, main has 423 commits on the original `6f1ee30` root, and
+4bfc3cb / 77a27e6 / 0286d8f / 68e4e04 are all ancestors. The boat, a
+non-shallow clone, then fetched `68e4e04..eac1fc5` with no forced-update
+marker — independent confirmation from a second machine.
+
+Self-correction worth recording: the first pass at "confirm content
+preservation" built a corpus of every line in main's tree and diffed the old
+tip's lines against it, which reported 601/710 lines of `maintenance/log.md`
+missing and looked like real loss. That was the right check with the wrong
+conclusion — the content was neither in the working tree nor deleted, it was
+*in history*. `0926fa6`, Mark's own commit, trimmed log.md 812→254 and
+priorities.md 609→175 implementing the bloat audit, and its message names
+`e176d2b` as the pre-trim ref; verified e176d2b holds both at full length and
+is an ancestor of main. `f89786f` folded `watchdog_writeup_draft.md` into one
+reference doc. Lesson: "absent from the tip" and "lost" are different claims,
+and a corpus diff only answers the first.
+
+Order of operations held: pushed the two boat branches before touching any
+ref on the boat. `claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122 (8
+commits) and `claude/symphony-pushover-setup-ce12i0` @3f08bd3 existed on no
+origin ref — `ls-remote` confirmed absence rather than trusting the boat's
+never-fetched tracking refs, which still showed them as tracked. 3f08bd3
+existed on no machine but the boat.
+
+The feared blast radius was smaller than the brief assumed, and checking
+rather than accepting it is what made the fast-forward routine: `.env` and
+`dex/config.yaml` are both **untracked**, so git could never have touched
+them, and `telegraf/telegraf.conf`'s worktree content was byte-identical to
+main's target (md5 `11f7e981…`), so the file's content never changed at any
+point. Backed it up anyway, cleared the single-file modification with an
+explicit pathspec, fast-forwarded 92 commits.
+
+Dex turned out to be the interesting one. `systemctl is-active dex` says
+`inactive` and the unit is `disabled`, which reads as a dead OIDC front door —
+but something was listening on 5556, and it was a **container**
+(`ghcr.io/dexidp/dex:latest`, compose-managed via `docker-compose.yml`),
+serving discovery 200 with keys rotating on schedule. The move was deliberate
+(`d3d690e`); only the docs lagged, and they lagged self-contradictorily —
+`RUNBOOK.md:1519` said "Dex is a container" while `RUNBOOK.md:67` listed it
+among the systemd units and `software_stack.md` had a section titled "The boat
+Pi runs none of this in Docker". Fixed all three at Mark's ask, plus the unit
+file on the boat, now headed SUPERSEDED -- do not enable.
+
+That dig turned up a real latent finding: `compose-idp.yml` pins Dex to
+v2.45.1 by digest, deliberately, but the running container is `:latest` at
+v2.46.0. The pin is defeated, and the next `compose up` would *downgrade* and
+bounce the front door — with `storage_type=memory`, dropping every session.
+Not caused by this session's fast-forward (that range never touched
+`compose-idp.yml`). Boarded, not acted on: recreating Dex is precisely the
+"breaking it costs the remote access you'd fix it with" case.
+
+The boat rebooted at 09:18 UTC mid-session, which briefly looked like fallout.
+It wasn't — clean `systemd-logind`-requested reboot, and per Mark it was the
+InfluxDB→QuestDB migration session that asked for one; nobody was aboard
+despite the tty1 console session. Useful accident: it proved the
+fast-forwarded checkout survives a reboot with every service returning on its
+own.
+
+Verified on both sides of that reboot: caddy, telegraf, signalk,
+grafana-server, influxdb active+enabled, dex container serving, telegraf
+dual-writing with InfluxDB and QuestDB both fresh and zero write errors. The
+"no space left on device" errors in the journal predate the merge by ~5 hours
+and were not this session's.
+
+Stashes: `be26ff3` (signalk-ntfy.json) was superseded by main, which makes the
+same change better ("Self-hosted ntfy" vs the stash's "Self-hosted") — dropped
+with Mark's say-so. `816c890` (priorities.md) was Mark's own handwriting and
+not junk; content is now durably in the kanban, and the stash is deliberately
+left in place on the boat because the Evernote connector's token expired
+mid-call and a cloud session cannot run OAuth. Its two plumbing deletions he
+confirmed as ancient history and valid; both removed from priorities.md.
+
+PR #24 opened as a draft, all five checks green. Subscribed via webhook only —
+Mark's explicit constraint, and no scheduled wakeup was created (the
+no-persistent-polling hook enforces the same thing). CodeRabbit skipped review
+because the PR is a draft, which is expected and not a finding.
