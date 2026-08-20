@@ -490,3 +490,288 @@ CLAUDE.md's park-it rule exists to keep questions out of. A reviewer
 caught it. Worth noting that *stating* a question is open is not the same
 as parking it where the next session will look, and I had done the former
 while claiming the latter.
+
+
+## 2026-08-19 — Verified heading/COG derivation live on the boat
+
+Independently ssh'd to `symphony-pi` and checked the other session's
+`derived-data.json` change (cog_true, heading, magneticVariation flipped to
+`true`) against the running system, rather than trusting the diff alone.
+
+Findings:
+- The live `~/.signalk/plugin-config-data/derived-data.json` already
+  matched the committed change — someone (or something) had saved it
+  through the SignalK admin UI around 17:27 PDT, ~1.7 hours before the
+  commit landed on `main`. The repo checkout on the boat itself
+  (`~/symphony`) is many commits stale (`68e4e04`, from the MOB-detection
+  work) and unrelated to how the live config got there — worth noting for
+  anyone who assumes `git pull` on the boat is what ships config changes;
+  it isn't, the admin UI writes `~/.signalk/plugin-config-data/*.json`
+  directly and the repo copy is a tracked mirror, not the source of truth.
+- `signalk.service` hadn't restarted (`ActiveEnterTimestamp` still Aug 16),
+  but the wrapped `node` process had — a new PID appears in `journalctl`
+  right after the config save, consistent with SignalK's own plugin-restart
+  mechanics rather than a systemd restart. No `derived-data`-related errors
+  in the log window around the save.
+- `navigation.headingTrue` is live, `$source: derived-data`, and numerically
+  correct: fetched `headingMagnetic` + `magneticVariation` in one API call
+  and confirmed they sum to the reported `headingTrue` to within rounding
+  (checked twice, a minute apart, values were moving so a stale cache was
+  ruled out).
+- `navigation.courseOverGroundTrue` stayed on `$source: n2k-can0.2` — the
+  `cog_true` calculator needs `courseOverGroundMagnetic`, which doesn't
+  exist on this boat (confirmed 404 on that path); the boat's GPS already
+  publishes true COG natively, so the calculator has nothing to derive and
+  is correctly inert, not broken.
+- `magneticVariation` now has two competing sources (native `n2k-can0.2` and
+  the newly-live `derived-data` WMM 2025 calculation); the native one keeps
+  source priority, so nothing regressed there either.
+
+Updated `reference/signalk_paths.md` to stop claiming `headingTrue` is
+absent (it documented the exact "calculators set to false" state that no
+longer holds) and closed the item out of `priorities.md` and this file's
+kanban.
+## 2026-08-19 (later still) — CI: close the unscanned-branch-push window
+
+**Problem.** `validate.yml` fired on `push: branches: [main]` and
+`pull_request: branches: [main]`. A `claude/*` branch pushed without a PR
+matched neither, so gitleaks and trufflehog never saw it. PR #13's
+`scripts/prepush_secret_scan.sh` covers the same window locally, but
+`git push --no-verify` skips it; CI can't be skipped from a laptop.
+
+**The fact that resized the question.** `mark-brannan/symphony` is public,
+so Actions on standard runners is unmetered — every option on the table
+cost $0. The real currencies were wall-clock, check-row noise, and what the
+bill would be if the repo ever goes private. Measured baseline from run
+`32307681599`: 9 jobs, ~30s wall, 9 billed job-minutes (each job rounds up
+to a minute); the four secret jobs are 46s of compute, 4 job-minutes.
+Branch-push volume from the last 200 runs: ~22 on the busiest day
+(2026-08-19), 0 on quiet ones.
+
+**Options Mark asked about, and the answers.**
+- *Split the secret jobs onto a wider trigger* — sound, and taken. Note the
+  mechanical constraint: `on:` is per-workflow, not per-job, so splitting
+  means a second file or `if:` guards. Second file was cleaner.
+- *`paths:` filter* — rejected, and Mark's suspicion was right for a reason
+  he hadn't named. Two independent failures: (1) gitleaks exists to catch
+  strings in files sops was never told about, so a path allowlist is a
+  second list-of-files-we-thought-about gating the tool whose job is the
+  gaps in the first; (2) scope mismatch — both scanners run `fetch-depth: 0`
+  over full history, so gating a whole-history scan on one push's changed
+  files skips it whenever the newest commit only touched a README.
+- *Size/heuristic gate* — same allowlist flaw plus custom logic to maintain,
+  to save 46s of free compute.
+
+**Landed** (three commits, straight to main, each verified before the next):
+`9ec5095` adds `secret-scan.yml` with the four jobs *while they were still
+in validate.yml* — deliberate duplication so no window had reduced coverage;
+`e952e33` removes them there; `4fd5fc7` fixes the stale required-checks note
+in this kanban.
+
+`concurrency` uses `cancel-in-progress: ${{ github.event_name == 'push' }}`
+rather than a bare `true`, so a rapid push series can't cancel the weekly
+sweep of unchanged history — the one run whose entire purpose is firing when
+nothing changed.
+
+**Interaction with PR #13: none, checked rather than assumed.** #13 touches
+21 files, none under `.github/workflows/`. Two near-misses steered around:
+its `.pre-commit-config.yaml` hunk starts at line 7 and carries line 6 as
+context, so editing line 6 was the one guaranteed conflict — left alone (see
+Blocked); its RUNBOOK hunk is at ~2261, mine at 628. #13's body claims
+"CI's gitleaks and trufflehog passes are what make `--no-verify`
+affordable" — that was false for branch pushes until this change, so #13
+lands more safely in either order.
+
+**Verified against the real thing,** not just reasoned about: pushed a
+throwaway `tmp/verify-secret-scan-trigger` ref with no PR — exactly the
+unscanned case — and `Secret scan` fired, four jobs green, 18s, while
+`Validate` correctly did not. Ref deleted.
+
+**Not touched, pre-existing:** every run emits a Node 20 deprecation warning
+for `actions/checkout@v4` and `actions/setup-python@v5`. Predates this work,
+affects both workflows.
+
+## 2026-08-19 — Enabled and verified cog_magnetic derivation
+
+Follow-up to the heading verification above, per owner's ask: audited the
+rest of the COG/heading key family for gaps. Found one real, low-effort one
+— `navigation.courseOverGroundMagnetic` was entirely absent, and
+`signalk-derived-data`'s `"course data".cog_magnetic` calculator (the
+mirror of the `heading` calculator: derives magnetic COG from the native
+true COG + magnetic variation, rather than the other way around) was off.
+Everything else in that section (`dtg`, `setDrift`, `steer_error`,
+`vmg_Course`, `vmg_Wind`) needs an active route or `speedThroughWater`
+(no log impeller aboard), so those correctly stay inert. `headingCompass`
+and `magneticDeviation` are also absent but not gaps: `pypilot` publishes
+fused/corrected `headingMagnetic` directly and never routes through the
+raw-compass/deviation stage. `rateOfTurn` isn't something this plugin
+calculates at all.
+
+Owner approved enabling it. Flipped `"course data".cog_magnetic` to `true`
+in both the repo's `signalk/plugin-config-data/derived-data.json` and the
+live `~/.signalk/plugin-config-data/derived-data.json` on the boat (the
+two files disagree on several unrelated fields — pre-existing drift, not
+something this touched — so edited only the one key in each rather than
+overwriting one with the other). `sudo systemctl restart signalk`, then
+verified: `courseOverGroundMagnetic` now reports from `$source:
+derived-data`, and its value matches `courseOverGroundTrue - variation`
+normalized into `[0, 2π)` exactly. No `derived-data` errors in the log
+around the restart — only pre-existing unrelated noise (barograph policy
+warning, a couple of plugins' network calls failing, same as before this
+change).
+
+## 2026-08-19 — sops resolved by absolute path (worktree checkout failure)
+
+Symptom: `git worktree add` failed for symphony sessions with
+`secretguard BLOCKED: cannot decrypt a file this machine is expected to
+read` / `fatal: host/boat-heartbeat.json: smudge filter sops failed`, on a
+machine where sops is installed and working. Fixed in PR #18
+(`fix/sops-path-resolution`).
+
+**Cause.** git runs filters from whatever spawned git, and that is often not
+a login shell. `~/.local/bin` is on PATH only via the shell profile, so
+`shutil.which("sops")` missed and the strict-mode smudge filter refused the
+checkout. A fatal smudge aborts the whole operation, so a shell-config
+difference became a failed worktree creation. Nothing was wrong with the
+filter's policy — only with how it located the binary.
+
+**What the investigation got wrong first.** The initial diagnosis named one
+call site (`sops_filter.SOPS`) and read as a one-line fix. It wasn't:
+`pseudonymize.load_store` and `save_store` also shell out to a bare `"sops"`
+and are on the smudge path via `to_worktree_form`, so fixing the guard alone
+just moved the failure from `host/boat-heartbeat.json` to
+`signalk/security.json`. Four bare call sites total (plus `render.py`). The
+end-to-end reproduction is what caught it; a unit test would not have.
+
+**Method worth repeating.** Reproduce the *caller's* environment, not a
+convenient local one:
+
+    env -i HOME=$HOME PATH=/usr/local/bin:/usr/bin:/bin git worktree add ...
+
+The first by-hand `git worktree add` succeeded and nearly sent the
+investigation down a blind alley — the agent's Bash tool initializes from
+the login profile, so it had the full PATH and could not see the bug. The
+`env -i` form is the honest test. Verification beyond exit 0: the checked-out
+files are plaintext not ciphertext, and `git status` in the new worktree is
+clean, proving smudge output round-trips through clean.
+
+**Policy unchanged, deliberately.** Missing sops still blocks in strict mode.
+Degrading to a ciphertext checkout would hand SignalK and Grafana `ENC[...]`
+blobs where they expect configuration — a silent failure on the boat, traded
+for a loud one. The fix only stops us concluding "no sops" on a machine that
+has it. The one thing a reviewer should weigh is that `find_sops()` will
+execute `~/.local/bin/sops` when PATH omits it; not an escalation (that
+directory is already account-owned) but it belongs in review, not folded
+silently into a checkout fix.
+
+**Also fixed:** `test_secretguard.py` pinned `"contributor"` in the
+comments-only-mode-file test, but a comments-only file leaves the mode to
+auto-detection, which is legitimately `strict` wherever an age key and the
+filters are present — so it failed on exactly the machines the strict path
+exists for. That test is about not aborting a `set -euo pipefail` caller; it
+now asserts a valid mode came out, not a specific one. Confirmed pre-existing
+by stashing the diff and re-running against a clean tree.
+
+**Local hook note.** The gitleaks pre-commit hook could not run (Docker
+daemon down on nucbox). Ran gitleaks natively instead —
+`/usr/bin/gitleaks`, repo's `.gitleaks.toml`, staged diff, no leaks — and
+skipped only that hook via `SKIP=gitleaks`, leaving the rest enforcing. CI's
+gitleaks and trufflehog both passed on the branch push, which is the
+authoritative scan.
+
+**Left open:** shell-side lookups in `precommit_secret_guard.sh` and
+`check_clone_setup.sh` are still PATH-only, same bug. Boarded in kanban.md
+§ Secret tooling.
+
+**Outcome (same session).** PR #18 merged to main 2026-08-19 as `49adbf7`
+(squash), branch deleted both sides. Final check ran the `env -i` worktree
+add against merged main: exit 0, `host/boat-heartbeat.json` plaintext, all
+five test files pass.
+
+Review raised two points, both fair, both taken in `6a86384`:
+
+- *Diagnostics had drifted from the resolver.* `can_encrypt()` listed three
+  of the five fallback directories and `lint_repo_hygiene` still said only
+  "sops on PATH" — a message could send someone to install sops somewhere
+  the resolver does not look. `secretguard.sops_locations()` is now the
+  single source for that text, and a test asserts it covers every entry in
+  `_SOPS_DIRS` so the two cannot drift again. `_SOPS_DIRS` also moved to
+  unexpanded paths expanded at lookup, which keeps `~/.local/bin` legible in
+  the message and honours a HOME that changes after import.
+- *`find_sops` had no tests*, despite deciding whether secrets reach disk as
+  plaintext. Seven cases, each building its own fake sops in a tmpdir with
+  both PATH and `_SOPS_DIRS` overridden, so none depend on whether the host
+  running the suite has the real binary.
+
+**Worth repeating: the new tests were checked by mutation, not by counting
+assertions.** Dropping the `X_OK` check failed 2, letting the fallbacks beat
+PATH failed 1, truncating the location list failed 1, returning `"sops"`
+instead of `""` failed 3. Writing tests and seeing them green proves nothing
+about whether they *can* fail; four one-line mutations do.
+
+**Process note.** Two review comments looked like two findings; the second
+was the first re-anchored after the fix (`line: null` = outdated). Checked
+the current code before answering, rather than trusting either the comment
+or my own memory of having fixed it.
+
+**Local hook caveat, again.** Docker still down, so gitleaks ran natively
+for both commits and CI's gitleaks + trufflehog were the authoritative
+scans. If Docker stays down on nucbox this will recur every commit — worth
+either starting Docker Desktop's WSL integration or teaching
+`gitleaks_precommit.sh` to fall back to a native binary when one is on PATH.
+
+## 2026-08-20 — PR #12 follow-up: CI tests, the ruleset, and a wrong claim
+
+Acted on the three decisions PR #12's closing comment left open.
+
+**Landed.** `secret-tooling-tests` job in `secret-scan.yml` running
+test_secretguard, test_sops_recipients and test_hostvars_filter on every
+branch push — nothing automated ran them before. The PR reviewer's
+`--allowedTools` now carries the suites and its prompt says "verified" must
+mean executed; across seven rounds of #12 both reviewers were denied any
+execution, so every verification in those reports was hand-traced.
+
+**A wrong claim, corrected.** I reported main as unprotected on the strength
+of `gh api repos/.../branches/main/protection` returning 404. It is
+protected — by ruleset 21060338 (linear history, no force-push, no deletion),
+which that legacy endpoint does not report. The substance survived (no
+required status checks) but the reasoning was wrong, and Mark had to supply
+the ruleset URL. `gh api repos/mark-brannan/symphony/rulesets` is the correct
+read; it is now written into `validate.yml`'s header.
+
+**Mark's call: no required status checks**, because requiring them would also
+block direct pushes to main and commit-straight-to-main is the working model.
+Recorded in validate.yml so it does not return as a review finding.
+
+**A second wrong claim, caught by CI.** I wrote "no age key, no sops binary,
+no network" on the new job. `test_pseudonymize.py` needs both — run
+32319051952 went red. Backed that one suite out with the reasoning in a
+comment rather than papering over it. Root cause is boarded: `resolve()`
+calls every runner strict, but "strict" is read elsewhere as "can open
+secrets", and these workflows are keyless by design.
+
+**Then found the duplication.** `scripts/run_secret_tooling_tests.sh` already
+owned the canonical suite list, under the same name as my new job. My CI job
+is a second copy of it. It cannot be collapsed until the strict/keyless fix
+lands, so both are now one boarded task with numbered steps — written up
+because an extraction of the secret tooling into its own repo is being
+scoped, and a keyless standalone CI makes that defect load-bearing.
+
+**Shared checkout, mid-session.** Another session switched
+`~/symphony` onto `fix/sops-path-resolution` while I was working. My commits
+were already on origin/main; the last edit I moved out — restored the file
+untouched, cloned to scratch, committed and pushed from there. Worktrees are
+erroring on this box, so a throwaway clone in the scratchpad is the working
+substitute. `origin/main` moved four times during the session; fetch-rebase
+handled each.
+
+**For whoever scopes the extraction:** the boundary is cleaner than it looks.
+In sops_paths, sops_filter, sops_recipients, hostvars_filter and pseudonymize
+every symphony-specific string is a comment or doc example — no code knows
+about SignalK. `lint_repo_hygiene.py` is the exception and stays: its rules
+are boat-specific, and PR #12's still-open `rule_frozen_secrets_untouched`
+thread belongs to it, not to the extracted tooling. The real coupling is
+configuration — `.sops.yaml`, `.gitattributes`, `.pre-commit-config.yaml`,
+the RUNBOOK sections — which a dedicated repo must take as inputs it is
+handed rather than files it owns. Do not start on top of the unlanded
+`fix/sops-path-resolution` work.

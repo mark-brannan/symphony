@@ -25,7 +25,12 @@ import sys
 import yaml
 from jinja2 import Template
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import secretguard  # noqa: E402  -- needs the sys.path line above
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SOPS = secretguard.find_sops() or "sops"
 SECRETS_FILE = os.path.join(REPO_ROOT, "secrets", "symphony.sops.yaml")
 
 TEMPLATES = [
@@ -37,7 +42,7 @@ TEMPLATES = [
 
 def load_secrets():
     result = subprocess.run(
-        ["sops", "--decrypt", SECRETS_FILE], capture_output=True, text=True
+        [SOPS, "--decrypt", SECRETS_FILE], capture_output=True, text=True
     )
     if result.returncode != 0:
         sys.stderr.write(result.stderr)

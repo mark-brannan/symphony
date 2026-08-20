@@ -15,7 +15,7 @@
 # (and differently-spelled) scanner than the one CI runs.
 #
 # Upgrading: this is now the pin `pre-commit autoupdate` used to move. Bump
-# GITLEAKS_VERSION here AND the image tag in .github/workflows/validate.yml
+# GITLEAKS_VERSION here AND the image tag in .github/workflows/secret-scan.yml
 # together, so laptop and CI keep agreeing on which scanner cleared a commit.
 #
 # CI is unaffected by any of this: the gitleaks job in validate.yml runs the

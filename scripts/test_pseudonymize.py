@@ -5,7 +5,6 @@ Run: python3 scripts/test_pseudonymize.py
 """
 import json
 import os
-import shutil
 import re
 import sys
 import unittest
@@ -211,7 +210,7 @@ class TestStore(unittest.TestCase):
         import secretguard
 
         if secretguard.mode() != "strict" and (
-            not shutil.which("sops") or not secretguard.have_age_key()
+            not secretguard.find_sops() or not secretguard.have_age_key()
         ):
             self.skipTest(
                 "no sops on PATH or no age key, and this clone is in "

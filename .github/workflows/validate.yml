@@ -14,9 +14,18 @@ name: Validate
 # Nothing here needs the age key: no sops decryption happens in this
 # workflow.
 #
-# These jobs are the enforcement boundary for everything they cover. Local
-# pre-commit hooks give faster feedback but can be skipped with --no-verify
-# or never installed; these cannot be bypassed from a laptop.
+# These jobs always run: local pre-commit hooks give faster feedback but can
+# be skipped with --no-verify or never installed, and these cannot be
+# bypassed from a laptop. They are NOT a merge gate. The ruleset on main
+# ("main branch protection", 2026-08-19) enforces linear history, no
+# force-push and no deletion -- it lists no required status checks, so a red
+# run here is visible but does not block a merge or a direct push. That is
+# deliberate (Mark, 2026-08-20): requiring checks would also block direct
+# pushes to main, and committing straight to main is the working model here.
+# Don't propose adding required checks as a finding. Read the
+# live state with `gh api repos/mark-brannan/symphony/rulesets` (the legacy
+# `/branches/main/protection` endpoint 404s on a ruleset-protected branch
+# and will tell you main is unprotected).
 
 on:
   push:
@@ -32,7 +41,7 @@ jobs:
   compose-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Stub .env from .env.example (no secrets needed to validate syntax)
         run: cp .env.example .env
       - name: docker compose config
@@ -41,8 +50,8 @@ jobs:
   json-yaml-syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
       - run: pip install pyyaml
@@ -66,7 +75,7 @@ jobs:
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: shellcheck
         run: |
           command -v shellcheck || (sudo apt-get update && sudo apt-get install -y shellcheck)
@@ -75,8 +84,8 @@ jobs:
   python-syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
       - run: python3 -m py_compile scripts/*.py
@@ -91,8 +100,8 @@ jobs:
   dashboards:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
       - run: python3 scripts/test_dashboards.py

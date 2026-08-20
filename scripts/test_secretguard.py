@@ -10,8 +10,10 @@ helper. So: run both, assert byte-identical answers.
 Stdlib unittest, no dependency. Runs in well under a second.
 """
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -278,7 +280,95 @@ class Destination(unittest.TestCase):
         finally:
             os.unlink(mode_file)
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertIn("contributor", done.stdout)
+        # A comments-only file yields no mode, so the mode comes from
+        # auto-detection -- which legitimately differs per machine (strict
+        # where an age key and the filters are present, contributor where
+        # they are not). Pinning "contributor" here made this test fail on
+        # exactly the machines the strict path exists for. What this test is
+        # actually about is the returncode above; all this needs to add is
+        # that a real mode still came out.
+        self.assertIn(done.stdout.strip(), ("strict", "contributor"), done.stderr)
+
+
+class FindSops(unittest.TestCase):
+    """find_sops is what stands between a working sops and a failed checkout.
+
+    Every case here builds its own fake sops, so the result never depends on
+    whether the host running the tests happens to have the real one.
+    """
+
+    def setUp(self):
+        sys.path.insert(0, os.path.join(REPO, "scripts"))
+        import secretguard
+
+        self.secretguard = secretguard
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+        # Restore whatever the suite was run with, whichever way we exit.
+        self.addCleanup(os.environ.__setitem__, "PATH", os.environ["PATH"])
+        self.addCleanup(
+            setattr, secretguard, "_SOPS_DIRS", secretguard._SOPS_DIRS
+        )
+
+    def _fake_sops(self, name="sops", executable=True):
+        directory = tempfile.mkdtemp(dir=self.tmp)
+        path = os.path.join(directory, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("#!/bin/sh\nexit 0\n")
+        os.chmod(path, 0o755 if executable else 0o644)
+        return directory, path
+
+    def test_path_wins_over_the_fallback_dirs(self):
+        """A sops the caller can already reach is the one we should run."""
+        on_path, expected = self._fake_sops()
+        fallback, _ = self._fake_sops()
+        os.environ["PATH"] = on_path
+        self.secretguard._SOPS_DIRS = (fallback,)
+        self.assertEqual(self.secretguard.find_sops(), expected)
+
+    def test_falls_back_when_path_does_not_have_it(self):
+        """The whole point: PATH misses, sops is installed, we still find it."""
+        fallback, expected = self._fake_sops()
+        os.environ["PATH"] = ""
+        self.secretguard._SOPS_DIRS = (fallback,)
+        self.assertEqual(self.secretguard.find_sops(), expected)
+
+    def test_non_executable_candidate_is_not_sops(self):
+        """A readable file named sops is not something we can run."""
+        fallback, _ = self._fake_sops(executable=False)
+        os.environ["PATH"] = ""
+        self.secretguard._SOPS_DIRS = (fallback,)
+        self.assertEqual(self.secretguard.find_sops(), "")
+
+    def test_directory_named_sops_is_not_sops(self):
+        """isfile, not exists -- a directory would pass a bare exists check."""
+        fallback = tempfile.mkdtemp(dir=self.tmp)
+        os.mkdir(os.path.join(fallback, "sops"))
+        os.environ["PATH"] = ""
+        self.secretguard._SOPS_DIRS = (fallback,)
+        self.assertEqual(self.secretguard.find_sops(), "")
+
+    def test_nothing_anywhere_is_empty_not_a_guess(self):
+        """Callers treat "" as 'blocked'; it must never be a bare "sops"."""
+        os.environ["PATH"] = ""
+        self.secretguard._SOPS_DIRS = (os.path.join(self.tmp, "nonexistent"),)
+        self.assertEqual(self.secretguard.find_sops(), "")
+
+    def test_first_matching_dir_wins(self):
+        """Order in _SOPS_DIRS is a preference, so it has to be honoured."""
+        first, expected = self._fake_sops()
+        second, _ = self._fake_sops()
+        os.environ["PATH"] = ""
+        self.secretguard._SOPS_DIRS = (first, second)
+        self.assertEqual(self.secretguard.find_sops(), expected)
+
+    def test_locations_message_lists_every_dir_searched(self):
+        """The `needs:` line must not send anyone somewhere we don't look."""
+        message = self.secretguard.sops_locations()
+        self.assertIn("PATH", message)
+        for directory in self.secretguard._SOPS_DIRS:
+            self.assertIn(directory, message)
 
 
 class MessageParity(unittest.TestCase):

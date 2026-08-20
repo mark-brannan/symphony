@@ -382,9 +382,11 @@ entries below are for when you're not.
 - Detached HEAD after a bad checkout in the shared checkout — note the commit
   you were on (`git log --oneline -1`), then `git switch main` (name only, not
   a reset) to get back onto the branch.
-- If the gitleaks pre-commit hook errors with "docker could not be found in
-  this WSL 2 distro", Docker Desktop's WSL integration is off. Commit with
-  `SKIP=gitleaks-docker` and move on — decided 2026-08-19; the local
+- If the gitleaks pre-commit hook errors with "gitleaks did not run: no
+  docker on PATH" (docker isn't installed in this distro, or Docker
+  Desktop's WSL integration is off) or "docker daemon not reachable"
+  (Docker Desktop isn't running), commit with
+  `SKIP=gitleaks` and move on — decided 2026-08-19; the local
   staged-secrets guard still runs and covers the commit. This sanctions
   skipping that one hook for that one failure, nothing else.
 - sops-encrypted files must round-trip through the `sops` filter, never

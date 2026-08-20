@@ -28,6 +28,26 @@ to the plugin dir. Remaining:
   with the Standing orders additions session" and deleting the board-rework
   handoff note — dotfiles-side, not symphony's.
 
+## Secret tooling — PATH resolution follow-up
+
+- **Shell-side sops lookup is still PATH-only.** `scripts/precommit_secret_guard.sh:76`
+  and `scripts/check_clone_setup.sh:105` use `command -v sops`, which is the
+  same bug PR #18 fixed on the Python side: git runs hooks and filters from
+  whatever spawned git, and an IDE, GUI client, or agent harness has no
+  `~/.local/bin` on PATH. The pre-commit one is the one that bites —
+  committing from a GUI client would report sops missing on a machine that
+  has it. Wants a shared shell resolver (a `secretguard_find_sops` in
+  `secretguard.sh`) rather than the fallback directory list copy-pasted into
+  two scripts. Raised 2026-08-19 while fixing the worktree-checkout failure;
+  deliberately left out of PR #18 (merged 2026-08-19 as `49adbf7`) to keep
+  that diff to the failing path.
+
+- **Symphony has 15 stale `claude/*` remote branches.** Noticed while
+  cleaning up after PR #18; the same sprawl dotfiles swept on 2026-08-19.
+  Not looked at, not triaged — each needs the content-safety check that
+  sweep used (merged in *content*, not ancestry alone) before anything is
+  deleted. Captured, not started.
+
 ## Blocked
 
 Open questions parked here so they don't live only in a session's last
@@ -47,6 +67,14 @@ response. Each names the session that raised it.
   settled~~ — **closed 2026-08-19** by #13, which renamed the whole guard
   surface to `secretguard` (`SECRETGUARD_MODE=strict|contributor`, one
   variable taking a mode word, not the two booleans). Table in #13's body.
+- **RESOLVED 2026-08-19 — #13 merged 2 min after the split landed, so this
+  was done in the same session** (`76e1e04`). Three cross-references had
+  gone stale in the overlap, not the one predicted: `.pre-commit-config.yaml`
+  naming `validate.yml` as the every-push gate, `gitleaks_precommit.sh`
+  sending a version bump to `validate.yml`'s image tag, and RUNBOOK's
+  "Upgrading the scanners" opening with `pre-commit autoupdate` — a no-op
+  once #13 made every hook `repo: local`. That last one was #13's staleness,
+  not the split's, and was the one that would actually have misled someone.
 - **The fork boundary inside `lint_repo_hygiene.py`** (2026-08-19, still
   open). From Mark's own thought exercise: the secret-management core is
   already free of "symphony", but this file mixes one generic rule
@@ -57,54 +85,32 @@ response. Each names the session that raised it.
   config file makes the freeze editable and gives the rule a way to check
   nothing if the file goes missing, where a tuple in the source cannot fail
   open. Revisit only if a fork becomes real; it is not urgent.
-- **Nothing automated runs the secret-tooling test suites** (2026-08-20,
-  pr12-rebase session). `run_secret_tooling_tests.sh` is a pre-commit hook
-  only; `validate.yml` compiles every script and runs `test_dashboards.py`,
-  but never `test_repo_hygiene.py`, `test_hostvars_filter.py`,
-  `test_encoding_health.py`, `test_pseudonymize.py` or
-  `test_secretguard.py`. So the suites that guard the secret tooling run
-  only when someone commits locally with hooks installed — which the
-  contributor path explicitly does not require.
-  Confirmed from the other side too: both agentic reviewers on PR #12 were
-  denied permission to execute them in all five rounds, and said so. Nobody
-  is running these but a maintainer at commit time.
-  Predates PR #12; raised there but not fixed, because adding a CI job is a
-  cost call. For Mark: add a job to `validate.yml`?
-
+- ~~Nothing automated runs the secret-tooling test suites~~ — **closed
+  2026-08-20**: main gained a `secret-tooling-tests` CI job (`5c9f76c`),
+  with `test_pseudonymize.py` held out (`c104ddd`) pending the
+  keyless-runner fix. The rest of the story is the Infrastructure TASK
+  below ("make CI able to run the secret-tooling suite, then collapse the
+  CI job onto the existing runner").
 - **`rule_frozen_secrets_untouched` does not run in CI** (2026-08-19,
   pr12-rebase session). It reads `git diff --cached`, and CI's index is
   empty after checkout, so `lint_repo_hygiene.py --all` evaluates it
   vacuously. Predates #12 — the `--all` flag did not create it — and the
   fix needs a change-range interface plus workflow wiring, so it was raised
   on the PR rather than folded in. For Mark: worth its own change?
-- **Branch protection on `main` — CORRECTION, it IS protected**
-  (2026-08-20, pr12-rebase session). The 2026-08-19 entry below said `main`
-  was unprotected "confirmed via list_branches". That is wrong: a fresh
-  `list_branches` returns `main` with `protected: true`. The likely cause
-  of the original error is reading a paginated page that did not contain
-  `main` at all and treating absence as absence of protection — I repeated
-  the same mistake today and nearly shipped it into `reference/`.
-  Still unknown, and NOT to be guessed at: *which* protections are on, in
-  particular whether any status check is required. `protected: true` alone
-  does not say. Someone with admin view should check the branch-protection
-  settings and record the specifics here.
-  Original entry, left for the record but do not trust its conclusion:
-  (2026-08-19, CI-design session) "Confirmed via `list_branches`: `main` is
-  unprotected today, so `.github/workflows/validate.yml` and
-  `claude-review.yml` are both advisory-only — red X's are information, not
-  a block. Deliberately not touching this: an earlier session's framing of
-  "real boat hardware" had started nudging the workflows (mainly
-  `claude-review.yml`'s header/prompt) toward production-gate language —
-  corrected 2026-08-19 back to "real hardware, but rapid iteration, mistakes
-  recoverable; secrets are the one non-negotiable." If/when required checks
-  are wanted: the natural minimum set is `compose-config` and
-  `json-yaml-syntax` from `validate.yml`, plus `secrets-encrypted` and
-  `gitleaks` from `secret-scan.yml` (the four are fast, deterministic, no
-  false-positive risk) — not
-  `claude-review` (advisory reviewer, shouldn't block on its own judgment)
-  and not `trufflehog`/`dashboards`/`shellcheck`/`python-syntax` unless they
-  prove reliable over time. Owner's call, and low priority while still in
-  move-fast mode.
+- ~~Branch protection on `main` — is it, and which checks are required?~~ —
+  **answered 2026-08-20**, see "RESOLVED — no required status checks on
+  main, deliberately" under "Blocked — needs Mark's call" below: `main` is
+  ruleset-protected (21060338: linear history, no force-push, no deletion)
+  with no required status checks, by Mark's explicit choice, so CI stays
+  advisory. That entry supersedes both the 2026-08-19 "main is unprotected,
+  confirmed via `list_branches`" claim and its 2026-08-20 correction; the
+  legacy `/branches/main/protection` endpoint 404s on a ruleset-protected
+  branch, which is how the wrong claim got written.
+- **Node 20 deprecation on both workflows** — mostly done 2026-08-19:
+  `6745f76` bumped `validate.yml` and `secret-scan.yml` to `checkout@v5` /
+  `setup-python@v6`. Stragglers as of 2026-08-20: the `secret-tooling-tests`
+  job was added after the bump and pins `checkout@v4` / `setup-python@v5`,
+  and `claude-review.yml` still uses `checkout@v4`.
 
 - ~~wire-wright publish~~ done 2026-08-19. Diagnosed both original failures:
   `gh repo create --push` had actually already created and pushed
@@ -158,9 +164,12 @@ response. Each names the session that raised it.
   Drive only): owner deferred 2026-08-19 — "plumbing we'll figure out
   later." Not blocking anything; revisit when plumbing diagrams start.
 - ~~gitleaks-docker hook vs Docker Desktop~~ decided 2026-08-19:
-  `SKIP=gitleaks-docker` is the sanctioned path when WSL integration is
-  off; rule added to CLAUDE.md § Git hygiene. Native-binary hook swap not
-  wanted — closed.
+  skipping the gitleaks hook is the sanctioned path when docker is
+  missing from PATH or the daemon isn't reachable (Docker Desktop not
+  running / WSL integration off); rule added to CLAUDE.md § Git
+  hygiene. Incantation
+  updated to `SKIP=gitleaks` on 2026-08-20 after PR #13 renamed the hook
+  id. Native-binary hook swap not wanted — closed.
 - **Stale branch `claude/git-hygiene-redesign` (7be6e6a) — delete it?**
   (2026-08-19). The pre-worktree take on the git-hygiene redesign,
   superseded by `0a76db4` / `a861190`; no PR was ever opened because that
@@ -274,6 +283,56 @@ now carries only the high-level list.)
 - 3D-print IMU case
 
 ### Infrastructure
+- **TASK: make CI able to run the secret-tooling suite, then collapse the CI
+  job onto the existing runner.** Moderately high. Boarded 2026-08-20 (PR #12
+  follow-up session), Mark's explicit ask. Do this BEFORE any extraction of
+  the secret tooling into its own repo — a standalone repo's CI is keyless on
+  every job, so this defect is load-bearing there, not incidental.
+
+  *The defect.* `scripts/secretguard.py` `resolve()` returns `("strict",
+  "CI")` for any runner, first in the chain and unconditionally, so no
+  workflow can downgrade it. That part is deliberate and should stay. The bug
+  is that other code reads `mode() == "strict"` as "this machine can open
+  secrets", while both workflows deliberately carry no age key and say so in
+  their headers. On a runner the two beliefs collide.
+
+  *Where it shows.* `scripts/test_pseudonymize.py` `TestStore` skips its
+  real-store decryption only outside strict mode, so in CI it refuses to skip
+  and then cannot decrypt: `FileNotFoundError: 'sops'`. Run 32319051952 is
+  the red build. It is currently held out of the CI job, with the reasoning
+  in a comment in `.github/workflows/secret-scan.yml`.
+
+  *Steps, in order:*
+  1. `grep -rn "mode()\|resolve()\|SECRETGUARD_MODE" scripts/` and classify
+     every caller: which ones mean "be rigorous" and which mean "I hold a
+     key". Both `secretguard.py` and `secretguard.sh` — they are twins and
+     `test_secretguard.py` asserts they agree, so any change lands in both.
+  2. Add a separate predicate for the second meaning — `can_decrypt()`, built
+     from `shutil.which("sops")` and `have_age_key()` — rather than
+     weakening strict. Do NOT give CI an age key: that contradicts both
+     workflow headers and puts a live decryption key in Actions.
+  3. Point `TestStore` at the new predicate: strict still means a failure to
+     decrypt is a real failure *on a machine that holds keys*; a keyless
+     runner skips.
+  4. Replace the four `- run: python3 scripts/test_*.py` lines in the
+     `secret-tooling-tests` job of `.github/workflows/secret-scan.yml` with a
+     single `- run: bash scripts/run_secret_tooling_tests.sh`, and delete the
+     comment block explaining why test_pseudonymize is excluded.
+  5. Delete the now-stale suite list from `claude_args --allowedTools` in
+     `.github/workflows/claude-review.yml`, replacing it with
+     `Bash(bash scripts/run_secret_tooling_tests.sh)`.
+
+  *Why step 4 matters on its own.* `scripts/run_secret_tooling_tests.sh`
+  already owns the canonical list of suites, and the pre-commit hook that
+  calls it is also named `secret-tooling-tests`. The CI job I added on
+  2026-08-20 duplicates that list, so a suite added to one will silently not
+  run in the other — the exact failure `.sops.yaml`'s header bans ("Do not
+  keep a second copy of this list anywhere"). It cannot be collapsed until
+  steps 1-3 are done, because the runner includes test_pseudonymize.py.
+
+  *Done when:* `secret-scan.yml` names no individual test file, a green run
+  exists on main, and `bash scripts/run_secret_tooling_tests.sh` still passes
+  locally on a machine that does hold the age key (strict path unchanged).
 - Deploy the openweather-signalk humidity-fix Node-RED flow (needs boat
   access). `environment.outside.relativeHumidity` publishes OpenWeatherMap's
   raw percent instead of SignalK's 0-1 ratio, so every dashboard panel on
@@ -657,7 +716,6 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Decide what to do about `signalk-polar`. It depends on `better-sqlite3@7.6.2`, which cannot compile against Node 22 — see `reference/legacy_openplotter_stack.md` — so no `.node` artifact exists and the plugin cannot work. Either pin a newer `better-sqlite3` via an npm override, or remove the plugin. **`signalk-postgsail` is not affected**: it declares no dependencies at all, and it is enabled, loaded and configured against the hosted `api.openplotter.cloud`. The earlier claim that both were blocked on better-sqlite3, and that postgsail was silently dead, was wrong — corrected 2026-08-14 by reading its package.json and its live status.
 - Decide who owns InfluxDB break-glass. Fixed 2026-08-14: `POST /api/v2/signin` with the `.env` credentials returned 401 because `DOCKER_INFLUXDB_INIT_USERNAME` was `admin` and no such user exists — those `INIT_` vars only apply to a *fresh* volume, and this one predates them, so the user was never created. Repointed at `captain`; signin now returns 204, so the last-resort path works. **The credential itself is frozen — see the captain credentials hold above. Do not rotate it, and do not offer to.** What remains open is only the ownership question: who is responsible for InfluxDB break-glass, and whether the token and the password should have different owners. Note `influxdb_init_password` is unreferenced by `.env.j2` and should be deleted once someone confirms nothing reads it.
 - Reconcile the InfluxDB secrets in `symphony.sops.yaml` against the running database. As of 2026-08-11 all three sops tokens (`influx_token`, `influxdb_operator_token`, `influxdb_signalk_token`) return 401; the only working credential is "captain's Token" (all-access), held in `signalk/plugin-config-data/signalk-to-influxdb2.json`. The org is also wrong: the database has `symphony`, while `.env.j2` renders `DOCKER_INFLUXDB_INIT_ORG=darkstarllc`. Buckets present: `symphony` (30d), `_monitoring` (7d), `_tasks` (3d). Which side is authoritative is an open question — the repo copy is not automatically the correct one. Also measured 2026-08-14: `POST /api/v2/signin` with `DOCKER_INFLUXDB_INIT_USERNAME`/`_PASSWORD` from `.env` returns 401, so the username-and-password path the age-key recovery procedure depends on does not currently work either. That matters more than the tokens — it is the credential of last resort when every token is lost, and right now the boat does not have a working one. The only credential that authenticates is captain's all-access token.
-- Derive true heading from magnetic heading + variation. `signalk-derived-data` is already installed, but its `heading.heading`, `heading.cog_true` and `heading.magneticVariation` calculators are all set to `false`, so `navigation.headingTrue` has never been published — even though `headingMagnetic` and `magneticVariation` are both already live on the boat. Flipping the existing calculator's config on may be all that's needed; a Node-RED flow doing the same subtraction is the fallback if the built-in calculator doesn't behave as expected. Flagged as the lowest-effort item in `reference/node_red_signalk_use_cases.md` (List 3, section J), 2026-08-15.
 - Add a notification/zone for a fast barometric pressure drop (squall/foul-weather warning). Both `environment.barometer.*` and `environment.outside.pressure.{trend,prediction}.*` already carry trend/prediction data (`reference/signalk_paths.md` notes the two parallel barometer stacks), but nothing currently turns a fast drop into a notification — no zone is configured on either path. A `meta.zones` entry (server-native, no plugin) or a small Node-RED flow would both work. Flagged in `reference/node_red_signalk_use_cases.md` (List 3, section M), 2026-08-15.
 - MOB detection — open research item, medium-low priority, not immediately planned. **Never live-test the DSC emergency button, on this or any other item — standing rule, not a one-off caution.** Owner confirmed 2026-08-15: triggering it sends a real distress call to the Coast Guard on Ch 16 DSC, with possible fines or legal consequences, and it "ain't happening." What's aboard today: a handheld VHF with DSC and an emergency button, and an AIS Class B transceiver — no MOB button or crew-tag hardware of any other kind. `signalk-mob-notifier` is installed; whether it (or anything else) actually consumes that DSC/AIS hardware is unconfirmed, and has to stay that way until it can be settled by reading documentation or source — never by pressing the button to see what happens. Owner is only willing to adopt a solution already proven elsewhere to work reliably, not something built and validated on this boat. See `reference/node_red_signalk_use_cases.md` section H.
 
@@ -668,6 +726,16 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Install exterior Tapo cam
 
 ## Blocked — needs Mark's call
+
+- **RESOLVED 2026-08-20 — no required status checks on main, deliberately.**
+  Asked whether the ruleset should require CI to pass. Mark: no, not at this
+  point; requiring checks also blocks direct pushes to main, and
+  commit-straight-to-main is the working model. Ruleset 21060338 stays as it
+  is — linear history, no force-push, no deletion. So CI is advisory by
+  choice, not by oversight; don't re-raise it as a finding. Read the live
+  state with `gh api repos/mark-brannan/symphony/rulesets`; the legacy
+  `/branches/main/protection` endpoint 404s on a ruleset-protected branch and
+  reports main as unprotected, which cost this session a wrong claim.
 
 - **`validate.yml` triggers on branch pushes?** Today it runs on push to
   `main` and PRs to `main` only, so a `claude/*` branch pushed without a PR

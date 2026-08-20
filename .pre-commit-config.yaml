@@ -26,9 +26,10 @@
 #
 # These give fast feedback at commit time. They are NOT the enforcement
 # boundary: any of them can be skipped with `--no-verify`, or simply never
-# installed on a fresh clone. The real gate is .github/workflows/validate.yml,
-# which runs the same checks plus a verified-secret scan on every push and
-# cannot be bypassed from a laptop.
+# installed on a fresh clone. The real gate is CI, which cannot be bypassed
+# from a laptop: .github/workflows/secret-scan.yml re-runs these checks over
+# full history plus a verified-live scan, on a push to ANY branch, and
+# .github/workflows/validate.yml covers syntax and config on main and PRs.
 #
 # Every hook here is `repo: local`, so `pre-commit autoupdate` has nothing
 # to fetch and installing them needs no network. That is deliberate: the
