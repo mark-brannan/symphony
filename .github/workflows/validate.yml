@@ -5,11 +5,14 @@ name: Validate
 # not (and can't be) the integration suite in scripts/test_integration.sh.
 # The point here is catching mistakes before they reach the boat.
 #
-# Secret scanning is NOT here -- it lives in secret-scan.yml, on a wider
-# trigger. The split is by deadline, not by subject: nothing in this file
-# can reach the boat without a merge, so PR time is soon enough, whereas a
-# credential is exposed the moment a branch is pushed to a public repo.
-# Don't add a secret-related job here; it would only run on main and PRs.
+# Secret scanning is NOT here -- it lives in secret-scan.yml, which also
+# carries a weekly re-scan schedule these jobs don't need. Both workflows
+# now run on a push to any branch (validation widened 2026-08-20): a
+# claude/* branch pushed without a PR used to get no validation until
+# someone opened one, and a red result the author sees at push time is
+# cheaper than the same red discovered at PR time. Advisory on every
+# branch, main included -- see the ruleset note below; widening the trigger
+# changes nothing about direct pushes to main.
 #
 # Nothing here needs the age key: no sops decryption happens in this
 # workflow.
@@ -29,10 +32,17 @@ name: Validate
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+# A session that pushes four times in two minutes only needs the newest
+# commit validated; superseded runs are cancelled. Same shape as
+# secret-scan.yml, minus the schedule exemption it needs and this doesn't.
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

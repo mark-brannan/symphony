@@ -38,11 +38,29 @@ to the plugin dir. Remaining:
   them. Raised 2026-08-19 while fixing the worktree-checkout failure;
   deliberately left out of PR #18 to keep that diff to the failing path.
 
-- **Symphony has 15 stale `claude/*` remote branches.** Noticed while
-  cleaning up after PR #18; the same sprawl dotfiles swept on 2026-08-19.
-  Not looked at, not triaged — each needs the content-safety check that
-  sweep used (merged in *content*, not ancestry alone) before anything is
-  deleted. Captured, not started.
+- **Stale `claude/*` branches: triaged 2026-08-20, deletion handed to Mark.**
+  Content-safety check done (merged in *content*, not ancestry — patch-ids
+  vs main, plus per-file diffs of each branch's own commits, isolated
+  against old-main tip `0286d8f` for the eight branches rooted in the
+  pre-rewrite lineage). Mark authorized the sweep; the session's
+  `git push --delete` was blocked by its permission layer, so the deletion
+  is his one command:
+  `git push origin --delete claude/backlog-issue-candidates-kb6qnb claude/symphony-mcp-tools-context-ia7dgx claude/git-hygiene-recovery-procedures-4ezeho claude/usage-limits-troubleshoot-efhfwc claude/git-hygiene-redesign claude/branch-deletion-cleanup-rules-nisoon claude/boat-containerization-strategy-j2z35u`
+  All seven are content-merged: two have zero commits beyond old main, two
+  have their single patch verbatim in main, the fold-back rule and the
+  containerization additions are line-verified present in main's files, and
+  git-hygiene-redesign had its no-salvage verdict here already.
+  **Kept, not stale — do NOT delete:** `grafana-questdb-port-target` (open
+  PR #10), `influxdb-questdb-container-backlog-kq3t7q` (open PR #15),
+  and three holding unlanded work main does not have:
+  `signalk-oidc-identity-permissions-4kk8gl` (the OIDC proposal,
+  `proposals/signalk-oidc-identity-permissions.md`, exists nowhere else),
+  `symphony-docs-corrections-aeuorm` (DSC/AIS distress-chain test procedure
+  and `reference/distress_monitoring.md` — main's RUNBOOK has no distress
+  content at all), `laughing-hamilton-7f7pbg` (cherry-pick metrics
+  framework `.claude/hooks/measure-cherry-pick.sh` + `maintenance/stats.*`,
+  plus security_posture/software_stack edits not checked line-by-line).
+  Each of those three needs its own land-or-discard decision.
 
 ## Blocked
 
@@ -88,11 +106,21 @@ response. Each names the session that raised it.
   below ("make CI able to run the secret-tooling suite, then collapse the
   CI job onto the existing runner").
 - **`rule_frozen_secrets_untouched` does not run in CI** (2026-08-19,
-  pr12-rebase session). It reads `git diff --cached`, and CI's index is
-  empty after checkout, so `lint_repo_hygiene.py --all` evaluates it
-  vacuously. Predates #12 — the `--all` flag did not create it — and the
-  fix needs a change-range interface plus workflow wiring, so it was raised
-  on the PR rather than folded in. For Mark: worth its own change?
+  pr12-rebase session; put to Mark in plain language 2026-08-20, awaiting
+  his call). The plain version, verbatim so no session re-derives it: the
+  rule that blocks any commit touching the two frozen captain passwords
+  works by looking at what the commit *changes*, so it only means something
+  at commit time on a laptop with hooks. CI can't run it — CI sees a
+  finished checkout, not a change, so in CI the rule silently checks
+  nothing. Every other guard got a whole-repo CI mode; this one can't have
+  one, because "untouched" is a claim about a change, not a state. The fix
+  would be teaching the rule to take a commit range ("check what this push
+  changed") and having CI pass it — a contained, ~30-line change. What the
+  gap costs today: someone committing with `--no-verify` or from a hookless
+  clone could alter those two entries and CI would not specifically flag
+  it. Recommendation on record: worth doing, small, low urgency — the rule
+  is boat-specific and stays in symphony regardless of any extraction.
+  Decision for Mark: do it, or accept the gap and close this entry.
 - ~~Branch protection on `main` — is it, and which checks are required?~~ —
   **answered 2026-08-20**, see "RESOLVED — no required status checks on
   main, deliberately" under "Blocked — needs Mark's call" below: `main` is
@@ -291,11 +319,15 @@ now carries only the high-level list.)
   previously-red path (run 32319051952). This unblocks extraction of the
   secret tooling into its own repo, where every CI job is keyless.
 - **Confirm the strict path on a keyed machine** — the one leg of the TASK
-  above that a keyless session cannot run: one
-  `bash scripts/run_secret_tooling_tests.sh` on a machine holding the age
-  key, confirming `TestStore` still opens the real store. The gate change is
-  keyless-only by construction, so this is confirmation, not open design —
-  but it stays listed until someone has actually run it.
+  above that a keyless session cannot run. Mark ran the runner on
+  NucBoxK12 (2026-08-20): four suites, all OK, and `test_pseudonymize`'s
+  27 tests passed with **no skip**, which proves the real store opens on a
+  keyed machine. But the output shape (four suites, a 22-test
+  `test_secretguard`) is the pre-PR-#19 runner — the checkout predated the
+  merge. Remaining: `git pull` there and re-run; the new runner prints six
+  OK blocks and `test_secretguard` has 27 tests. The gate change is
+  keyless-only by construction, so this is a formality — but it closes only
+  when the new code has run under a key.
 
 - Deploy the openweather-signalk humidity-fix Node-RED flow (needs boat
   access). `environment.outside.relativeHumidity` publishes OpenWeatherMap's
@@ -701,10 +733,12 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   `/branches/main/protection` endpoint 404s on a ruleset-protected branch and
   reports main as unprotected, which cost this session a wrong claim.
 
-- **`validate.yml` triggers on branch pushes?** Today it runs on push to
-  `main` and PRs to `main` only, so a `claude/*` branch pushed without a PR
-  gets no gitleaks and no trufflehog until someone opens one. The pre-push
-  hook added in PR #13 covers that window locally, but `git push
-  --no-verify` bypasses it and CI cannot be bypassed. Widening the trigger
-  closes it properly and costs Actions minutes on every branch push.
-  Raised 2026-08-19 (PR #13).
+- ~~`validate.yml` triggers on branch pushes?~~ — **RESOLVED 2026-08-20,
+  widened.** Mark's condition: fine only if it never removes the ability to
+  push directly to main or start requiring merges. Satisfied by
+  construction — the trigger controls when jobs *run*, not what a push
+  needs; the ruleset still requires no status checks, so red stays
+  advisory everywhere including main. Widened `on.push.branches` to `'**'`
+  with superseded-run cancellation (same shape as secret-scan.yml). The
+  secret-scan half of the original gap had already been closed by the
+  2026-08-19 CI split; this closes the validation half.

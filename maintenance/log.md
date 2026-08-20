@@ -284,3 +284,7 @@
 - Fixed the secret-tooling tests for keyless CI runners and collapsed the CI
   job onto the one canonical test runner; the shell guards now find sops the
   same way the python ones do (PR #19).
+- Widened validate.yml to run on every branch push, with superseded runs
+  cancelled; CI stays advisory, direct pushes to main unaffected.
+- Triaged the stale claude/* branches: seven verified content-merged and
+  queued for deletion, three kept for unlanded work, two carry open PRs.
