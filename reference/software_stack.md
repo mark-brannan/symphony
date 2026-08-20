@@ -16,7 +16,7 @@ it includes:
 | `influxdb` | `influxdb:2.7` | 8086 | `influxdb-data`, `influxdb-config` volumes |
 | `grafana` | `grafana/grafana:latest` | 3001→3000 | `grafana-data` volume, `./grafana/provisioning` |
 | `caddy` | built from `./caddy` | 443 | `caddy-data` volume (certificates) |
-| `dex` | `ghcr.io/dexidp/dex:latest` | none (proxied by caddy) | none (memory only) |
+| `dex` | `ghcr.io/dexidp/dex:v2.45.1` (pinned by digest) | none (proxied by caddy) | none (memory only) |
 | `dex-dev` | `ghcr.io/dexidp/dex:latest` | 5556 | none (memory only) |
 
 The last three sit behind compose profiles and don't start with a plain
