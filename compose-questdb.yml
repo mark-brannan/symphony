@@ -1,0 +1,63 @@
+services:
+  questdb:
+    # Pinned by digest, same reasoning as dex in compose-idp.yml: `latest`
+    # moving under the boat is not a surprise worth having offshore. This is
+    # the multi-arch index (linux/amd64 for the dev box, linux/arm64 for the
+    # Pi), resolved from the `latest` tag on 2026-08-19.
+    image: questdb/questdb@sha256:76b642b035b2366eaf8ca56d0d00b111efe981f5d25e024bf6b3b234e108b4f3
+    container_name: questdb
+    restart: unless-stopped
+    # 768m is the marine plugin's own Pi default (dirkwa/signalk-questdb
+    # README) -- keeps QuestDB from growing unbounded on a 4GB box that also
+    # carries SignalK (~1.1GB), Grafana and Telegraf.
+    mem_limit: 768m
+    environment:
+      - TZ=UTC
+      # QuestDB's default fsyncs nothing on the ingest path -- a power cut
+      # costs recent writes. This Pi has no UPS and is powered straight off
+      # the N2K bus, so sync is worth the write-latency cost here (per the
+      # signalk-questdb-history-provider README's own tuning notes).
+      - QDB_CAIRO_COMMIT_MODE=sync
+      # QuestDB fallocates an append page per column file up front, and the
+      # 64-bit default is 16 MB. That is sized for a server with terabytes to
+      # spend, and it filled this Pi's root filesystem on 2026-08-20: adding
+      # Telegraf's second output created 20 host-metric tables at once, and
+      # ~200 columns x 16 MB took 5 GB of real disk for a few hundred rows.
+      # The disk hit 100%, InfluxDB's WAL writer wedged on ENOSPC and had to be
+      # restarted. 256 KB is ample here -- the write rates are per-minute host
+      # metrics and per-second vessel deltas, not ingest-benchmark volumes.
+      - QDB_CAIRO_WRITER_DATA_APPEND_PAGE_SIZE=256k
+      # Not a disk cap -- this one bounds the RAM QuestDB maps per column
+      # during out-of-order merges. Kept alongside the disk caps because the
+      # same "sized for a server" default applies on a 4 GB box.
+      - QDB_CAIRO_O3_COLUMN_MEMORY_SIZE=256k
+      # Same trap, second file class: every SYMBOL column gets a bitmap index,
+      # whose .v (rowid) file preallocates 16 MB of its own. Host-metric tables
+      # are mostly SYMBOL tags, so this was the larger half of the 5 GB.
+      - QDB_CAIRO_WRITER_DATA_INDEX_VALUE_APPEND_PAGE_SIZE=256k
+      # And a third: each WAL segment preallocates a 1 MB page per column
+      # before the rows are applied to the table. Segments roll over at
+      # 200k rows, which for per-minute host metrics is a long time to hold
+      # ~40 MB of empty file per wide table.
+      - QDB_CAIRO_WAL_WRITER_DATA_APPEND_PAGE_SIZE=128k
+    # Bound to loopback: native clients on the Pi (SignalK, Telegraf, native
+    # Grafana) reach these at localhost; compose services reach the same
+    # ports at questdb:9000/:9009/:8812 over symphony-net without needing a
+    # published port at all. Publishing is only for the native-process side.
+    ports:
+      - "127.0.0.1:9000:9000"   # HTTP: REST, web console, and line protocol
+                                #   over /api/v2/write (Telegraf writes here)
+      - "127.0.0.1:9009:9009"   # ILP over raw TCP (the history plugin's writer)
+      - "127.0.0.1:8812:8812"   # PGWire (Grafana's QuestDB datasource)
+    volumes:
+      - questdb-data:/var/lib/questdb
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    networks:
+      - symphony-net
+
+volumes:
+  questdb-data:

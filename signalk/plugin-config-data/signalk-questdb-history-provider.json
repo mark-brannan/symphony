@@ -1,0 +1,30 @@
+{
+  "configuration": {
+    "managedContainer": false,
+    "questdbHost": "questdb",
+    "questdbHttpPort": 9000,
+    "questdbIlpPort": 9009,
+    "questdbPgPort": 8812,
+    "questdbVersion": "latest",
+    "questdbMemoryLimit": "768m",
+    "questdbCpuLimit": 1.5,
+    "pathFilter": {
+      "mode": "exclude",
+      "paths": []
+    },
+    "defaultSamplingRate": 2000,
+    "ilpFlushIntervalMs": 5000,
+    "samplingRates": {},
+    "recordSelf": true,
+    "recordOthers": true,
+    "restoreOnStart": false,
+    "restoreMaxAgeMinutes": 9,
+    "enableConsole": false,
+    "retentionDays": 30,
+    "networkName": "symphony-net",
+    "exposeToContainers": false,
+    "compression": "lz4",
+    "compressionLevel": 3
+  },
+  "enabled": true
+}

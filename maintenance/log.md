@@ -284,6 +284,20 @@
 - Fixed the secret-tooling tests for keyless CI runners and collapsed the CI
   job onto the one canonical test runner; the shell guards now find sops the
   same way the python ones do (PR #19).
+- InfluxDB backed up (raw data directory + line-protocol export) and the
+  backup verified to restore cleanly with matching data.
+- QuestDB stood up as a container on the boat, the first step of the
+  InfluxDB-to-QuestDB migration.
+- QuestDB's SignalK history plugin installed on the boat, configured and
+  recording with 30-day retention. It runs alongside the InfluxDB plugin
+  for a multi-day comparison soak.
+- Telegraf now writes host metrics to both InfluxDB and QuestDB.
+- The boat's root filesystem filled while QuestDB's new tables were created;
+  it preallocates megabytes per column regardless of rows written. Dropped
+  the new tables and trimmed the journal to recover, restarted InfluxDB,
+  which had stuck on the full disk, and capped QuestDB's preallocation.
+- Fixed the frozen-secrets guard passing vacuously in CI (PR #22); it now
+  checks the actual commit range on a push or PR instead of an empty index.
 - Widened validate.yml to run on every branch push, with superseded runs
   cancelled; CI stays advisory, direct pushes to main unaffected.
 - Triaged the stale claude/* branches: seven verified content-merged and

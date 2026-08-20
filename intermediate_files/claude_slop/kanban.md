@@ -105,22 +105,13 @@ response. Each names the session that raised it.
   keyless-runner fix. The rest of the story is the Infrastructure TASK
   below ("make CI able to run the secret-tooling suite, then collapse the
   CI job onto the existing runner").
-- **`rule_frozen_secrets_untouched` does not run in CI** (2026-08-19,
-  pr12-rebase session; put to Mark in plain language 2026-08-20, awaiting
-  his call). The plain version, verbatim so no session re-derives it: the
-  rule that blocks any commit touching the two frozen captain passwords
-  works by looking at what the commit *changes*, so it only means something
-  at commit time on a laptop with hooks. CI can't run it — CI sees a
-  finished checkout, not a change, so in CI the rule silently checks
-  nothing. Every other guard got a whole-repo CI mode; this one can't have
-  one, because "untouched" is a claim about a change, not a state. The fix
-  would be teaching the rule to take a commit range ("check what this push
-  changed") and having CI pass it — a contained, ~30-line change. What the
-  gap costs today: someone committing with `--no-verify` or from a hookless
-  clone could alter those two entries and CI would not specifically flag
-  it. Recommendation on record: worth doing, small, low urgency — the rule
-  is boat-specific and stays in symphony regardless of any extraction.
-  Decision for Mark: do it, or accept the gap and close this entry.
+- ~~`rule_frozen_secrets_untouched` does not run in CI~~ — **closed
+  2026-08-20**: `HYGIENE_COMMIT_RANGE` env var switches the rule to
+  diffing a commit range instead of the (empty-in-CI) index; `validate.yml`
+  fetches full history and sets the range from the push/PR event. Mark
+  pushed back on going further than this one technical gap (no config
+  file, no more rules) — see his call under "Blocked — needs Mark's call"
+  below.
 - ~~Branch protection on `main` — is it, and which checks are required?~~ —
   **answered 2026-08-20**, see "RESOLVED — no required status checks on
   main, deliberately" under "Blocked — needs Mark's call" below: `main` is
@@ -372,8 +363,9 @@ now carries only the high-level list.)
   plan amends the plan rather than being worked around silently; delete the
   checklist from the file once it has been executed. **Dex and ntfy are done** — containers,
   native units disabled, verified through Caddy. SignalK, Grafana and Caddy
-  are still native systemd services. Next up is B1: back up InfluxDB offline
-  and prove the backup restores off-boat. Migrate one service at a time, not
+  are still native systemd services. **QuestDB is now also a container**
+  (2026-08-20, see the QuestDB entry below) — Dex, ntfy and QuestDB.
+  Migrate one service at a time, not
   in one move — anything mid-migration runs native and containerized at once.
   Caddy is last and is the one to do carefully: it is the front door, so a bad
   move takes the SignalK UI, Grafana and the OIDC callback with it, including
@@ -382,16 +374,192 @@ now carries only the high-level list.)
   by service name on `symphony-net` instead.
 - Migrate the history store from InfluxDB to QuestDB. **The evaluation is
   closed** — decided 2026-08-18 with Mark, reasoning and evidence in
-  `reference/containerization_strategy.md`. What is open is the execution,
-  steps B1-B5 there, in order: back up InfluxDB offline and prove the backup
-  restores; stand QuestDB up as a compose service; swap the SignalK history
-  plugin to the external-mode QuestDB one and soak it alongside
-  `signalk-to-influxdb2` with Telegraf dual-writing; port the dashboards
-  (scope blocked, see Blocked); retire InfluxDB once measured parity passes.
-  Retiring InfluxDB also clears the dead sops tokens, the `symphony` vs
-  `darkstarllc` org disagreement, the retention mismatch between `.env.j2`
-  and `provision_influxdb.sh`, and Telegraf's captain-token stopgap. Assets
-  already in place: the compose Grafana keeps the QuestDB datasource plugin
+  `reference/containerization_strategy.md`. Steps B1-B5, in order: back up
+  InfluxDB offline and prove the backup restores; stand QuestDB up as a
+  compose service; swap the SignalK history plugin to the external-mode
+  QuestDB one and soak it alongside `signalk-to-influxdb2` with Telegraf
+  dual-writing; port the dashboards (scope blocked, see Blocked); retire
+  InfluxDB once measured parity passes.
+
+  **B1 done, 2026-08-20.** Stopped `influxdb.service` (down ~19 min: tar +
+  export-lp took most of that on the Pi's SD card, not the stop itself),
+  took two artifacts — `influxdb-data-<ts>.tar.gz` (478MB raw data dir) and
+  `symphony-<ts>.lp.gz` (952MB `influxd inspect export-lp`, needs no
+  token — sidesteps the boat's dead InfluxDB tokens) — both sha256-summed,
+  both at `/home/pi/influx-export/` on the boat, restarted InfluxDB
+  (confirmed healthy, all three buckets intact). **Verified on-boat, not
+  off-boat**: this session's tailnet path to any off-boat host (this cloud
+  sandbox, and relayed on to `nucboxk12`) ran at ~30-50KB/s — a 1.4GB
+  transfer would have taken 7+ hours, so instead of waiting, restored the
+  tarball into a second, disposable native `influxd` process on the boat
+  (different bolt/engine paths, port 8087, torn down after) since no
+  Docker daemon was available in this session and pulling a fresh
+  `influxdb` image over the same slow link was similarly impractical
+  (aborted after ~10 min, no image landed). All 3 buckets and every
+  measurement present; a spot-check of `navigation.position` lat/lon
+  matched the live instance exactly at matching timestamps; full-history
+  row counts differed by exactly the ~19 minutes of live writes that
+  happened during and after the backup window (451441 vs 449375 on the
+  main GPS source) — expected, not a discrepancy. The `.lp.gz` cross-
+  checked separately: decompresses clean (127.2M lines), and the first
+  2000 lines wrote into a scratch QuestDB-instance bucket and queried back
+  correctly. **This proves the backup mechanism restores correctly; it
+  does not prove survival of a boat-level disk failure**, since the
+  restore target was the same SD card. A true off-boat copy is still
+  worth getting — the artifacts are sitting at `/home/pi/influx-export/`
+  ready for Mark to `scp` directly from one of his own devices (which
+  should hold a direct tailnet P2P connection rather than this session's
+  apparent DERP relay, and therefore be much faster) whenever convenient;
+  not urgent, since the on-boat restore test is solid evidence the backup
+  itself is good.
+
+  **B2 done, 2026-08-20.** `compose-questdb.yml` added and running on the
+  boat as the `questdb` container (pinned by digest, ports 9000/9009/8812
+  on localhost, `QDB_CAIRO_COMMIT_MODE=sync` for durability — this Pi has
+  no UPS). Two prerequisites from the history-plugin's own tuning notes,
+  also done: `vm.max_map_count` raised to 1048576 via
+  `/etc/sysctl.d/99-questdb.conf` (was 65530, no reboot needed); **the
+  `mem_limit: 768m` in the compose file is NOT actually enforced** — this
+  Pi's kernel lacks `cgroup_enable=memory` on the boot cmdline, so `docker
+  compose up` logs "kernel does not support memory limit capabilities...
+  Limitation discarded." Fixing that needs a `cmdline.txt` edit and a
+  reboot; deferred rather than done blind. QuestDB is being watched
+  instead (`free -m` / `pswp`) — measured healthy at deploy time: ~486MB
+  RSS, boat available memory 872-912MB throughout, swap stable, well
+  inside the ~400MB pressure threshold. Deployed by merging
+  `compose-questdb.yml` with the boat's on-`main` `docker-compose.yml` via
+  `docker compose -f docker-compose.yml -f <tmp-copy> up -d questdb`,
+  deliberately without checking the boat's shared `/home/pi/symphony`
+  checkout onto this session's feature branch — that checkout is shared
+  across sessions and other people may be relying on it staying on
+  `main`. The boat's checkout will pick up `compose-questdb.yml` itself
+  once PR #15 merges; nothing further needed there.
+
+  **B3 (plugin swap) half done, 2026-08-20 — package installed, not yet
+  configured.** `signalk-questdb-history-provider` 1.10.0 (Hat Labs'
+  external-only fork, the plan's preferred option over dirkwa's managed
+  one) is now in `~/.signalk/package.json` and `node_modules` on the boat.
+  Stopping SignalK to install it was initially denied by this session's
+  permission classifier (a materially bigger ask than the InfluxDB risk
+  pre-authorized earlier); **Mark explicitly authorized it in-chat**
+  ("Take the risk... we're not concerned with nav, just power
+  monitoring... if it goes dark I can drive down and check on it"), so
+  the install went ahead. Sequence used, matching RUNBOOK.md's own
+  procedure: `systemctl stop signalk.socket` then `signalk.service`
+  (the latter went to `failed (Result: timeout)` and needed
+  `reset-failed` before restart — expected, RUNBOOK already documents
+  this), snapshotted `node_modules` before and after
+  (`find node_modules -maxdepth 2 -mindepth 1 | sort`) and diffed —
+  **zero packages pruned**, so the package-lock=false pruning risk the
+  plan warned about did not bite here. Restarted `signalk.socket` +
+  `signalk.service`; confirmed back up within ~10s (HTTP 200 on
+  `/signalk`, fresh live data on `/signalk/v1/api/vessels/self/electrical`
+  with current timestamps). Total live-nav downtime was a few minutes,
+  not "seconds to low tens of seconds" as estimated beforehand — the npm
+  install itself (resolving into an 11.6k-entry flat tree) took longer
+  than expected. Worth knowing for next time, not a problem this time.
+
+  **B3 finished, 2026-08-20 (later session).** Plugin enabled and
+  recording; Telegraf dual-writing. Details:
+
+  - **Auth stayed unsolved, and was worked around.** No sops/age key in a
+    cloud session, so the captain password could not be read; minting a JWT
+    from the server's own `secretKey` was blocked by the session's
+    permission classifier (it reads as credential extraction, fairly).
+    Mark authorized any of "admin UI / restart / token" in-chat, so the
+    file route was taken: write
+    `~/.signalk/plugin-config-data/signalk-questdb-history-provider.json`
+    with the server stopped, then start it. **The plugin id is
+    `signalk-questdb-history-provider`** — the README's REST paths still
+    say `signalk-questdb`, which is the upstream id, not this fork's.
+  - Config set: `managedContainer: false`, host `127.0.0.1`, HTTP 9000,
+    ILP 9009, PGWire 8812, `retentionDays: 30`, `enableConsole: false`,
+    everything else at schema defaults. **30 days was Mark's call**, made
+    against a boat root filesystem at 82% with InfluxDB still running.
+  - Verified recording: `signalk`, `signalk_str` and `signalk_position`
+    exist and climb (511 → 1888 → 2066 rows over ~3 min), 86 distinct
+    paths, values are SI with a real `source` (`n2k-can0.2`), and
+    `max(ts)` tracks the server clock to within seconds.
+  - **`retentionDays` is not a QuestDB TTL.** All three tables read
+    `ttlValue 0` — the plugin drops aged partitions itself. So there is
+    nothing in QuestDB's own metadata to check the setting against;
+    checking means watching partitions age out at day 30, or reading the
+    plugin's config back.
+  - **Telegraf dual-write done** — second `[[outputs.influxdb_v2]]` at
+    `http://127.0.0.1:9000` in `telegraf/telegraf.conf`, 20 host-metric
+    tables landing, no output errors. Retention and dedup are applied by
+    `scripts/questdb_table_hygiene.sh` rather than by hand: line protocol
+    auto-creates tables with neither, and a dropped-and-recreated table or a
+    new input comes back bare and silent, so the script is written to re-run.
+    **It owns an explicit table list, not "everything that looks unmanaged"**
+    — a TTL deletes data at the far end, so auto-adopting an unfamiliar table
+    would put someone else's data on a deletion clock. Unrecognised tables are
+    reported instead, which is also how a newly added Telegraf input announces
+    that it needs listing.
+    **Dedup turned out to matter more than retention.** Telegraf retries a
+    batch whose HTTP response timed out, and QuestDB may already have
+    committed it — measured on the boat: writing the same line twice landed
+    two rows before dedup and was absorbed after. That is a duplicate-data
+    bug *and* a hole in B5's row-count parity check, since the count on the
+    QuestDB side would have been inflated by exactly the retries. The
+    history plugin's own tables already ship with dedup on; only Telegraf's
+    were exposed.
+
+  **The disk incident, 2026-08-20 — read this before adding any writer.**
+  Deploying the Telegraf output filled the boat's root filesystem within
+  15 minutes: 5.1 GB consumed by 20 new tables holding a few hundred rows.
+  QuestDB `fallocate`s an append page per column file (16 MB default), and
+  every SYMBOL column also carries a bitmap index whose rowid file
+  preallocates another 16 MB; host-metric tables are mostly SYMBOL tags.
+  Root hit 100%, and InfluxDB's WAL writer then wedged in an ENOSPC retry
+  loop that **outlived the recovery** — it kept failing after space was
+  free and needed `systemctl restart influxdb`. SignalK was throwing
+  write errors throughout. Recovered with Mark's go-ahead by dropping the
+  20 Telegraf tables (5 GB back) and `journalctl --vacuum-size=200M`
+  (1.1 GB back, and journald still has no `SystemMaxUse` — separate
+  standing item). Fixed properly in `compose-questdb.yml` with four
+  `QDB_*` env vars: data append page, index value append page, O3 column
+  memory and WAL writer append page, all cut to 256k/128k. Same 20 tables
+  now cost ~20 MB. Two things learned the hard way: the settings are
+  read at container start, so each try meant recreate + re-measure; and
+  `du -sm` on the volume after the first few flushes is the only honest
+  check, because row counts say nothing about footprint here.
+
+  **Watch item for the soak:** the volume settled around 140 MB within ten
+  minutes of both writers running, most of it one-time preallocation rather
+  than data. **Short-window sampling cannot measure its growth** — an 85 s
+  sample came back *negative* (146.5 MB → 141.5 MB) because WAL segments
+  roll over and get purged on their own schedule, so the number oscillates.
+  Measure over hours, not minutes, and treat ~6 GB free as the budget.
+
+  **Two things about the boat's own checkout,** noticed while deploying:
+  `/home/pi/symphony/telegraf/telegraf.conf` is a symlink target for
+  `/etc/telegraf/telegraf.conf`, so deploying the Telegraf change meant
+  editing that tracked file in place — the boat's checkout now shows
+  `M telegraf/telegraf.conf` and will until PR #15 merges and it pulls.
+  Bigger: the boat's `main` is at `68e4e04`, which is **not an ancestor of
+  today's `origin/main`** — main was force-updated upstream at some point,
+  so the boat cannot fast-forward and a plain `git pull` there will merge
+  two lineages against a dirty file. Worth sorting deliberately rather than
+  discovering it mid-deploy. (The content looks preserved — PR #15's diff
+  against the rewritten main is exactly its own seven files — so this is a
+  history-shape problem, not lost work.)
+
+  **The tracked container-side configs were a trap too.**
+  `signalk/plugin-config-data/signalk-questdb.json` (dirkwa's plugin) was
+  still `enabled: true` with `managedContainer: true`, `retentionDays: 0`
+  and ports 9000/9009/8812 — so B6 bringing the containerized SignalK up
+  would have started a second, managed QuestDB fighting our compose one for
+  the same ports. Disabled, and the fork's config added beside it with
+  `questdbHost: questdb` (the container-side endpoint; `127.0.0.1` inside a
+  container is that container, which is the same trap B2 documents).
+
+  **What's left:** the multi-day soak itself, then B5's parity checks
+  (`reference/containerization_strategy.md`). Don't uninstall
+  `signalk-to-influxdb2`. B4 (dashboards) is still blocked on the
+  two-set question above.
+
+  Assets already in place: the compose Grafana keeps the QuestDB datasource plugin
   installed, and the retired `signalk-grafana` plugin's auto-built QuestDB
   dashboards are preserved in
   `signalk/plugin-config-data/signalk-grafana/grafana-data/`.
@@ -722,6 +890,16 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Install exterior Tapo cam
 
 ## Blocked — needs Mark's call
+
+- **RESOLVED 2026-08-20 — frozen-secrets enforcement stays exactly where
+  it is; no expansion.** Fixed the one real bug (CI's index is empty, so
+  the rule ran vacuously there — see above), nothing more. Mark: he's fine
+  leaving the captain credentials as-is for now and doesn't want Claude
+  touching them, but doesn't want a standing rule policing what he does to
+  his own password either — called the existing depth (a lint rule, a CI
+  gate, a test class) AI slop for something this narrow. Don't add a config
+  file for `FROZEN_SECRET_KEYS`, more test coverage, or additional guard
+  rules here without him asking first.
 
 - **RESOLVED 2026-08-20 — no required status checks on main, deliberately.**
   Asked whether the ruleset should require CI to pass. Mark: no, not at this

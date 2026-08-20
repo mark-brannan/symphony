@@ -14,6 +14,10 @@ a hook that blocks on repo-wide state punishes whoever commits next rather
 than whoever caused it. `--all` checks everything and is what CI runs.
 
 Usage:  python3 scripts/lint_repo_hygiene.py [--all] [--warn-only]
+
+HYGIENE_COMMIT_RANGE=<base>..<head> makes rule_frozen_secrets_untouched diff
+that range instead of the index -- CI's index is empty after checkout, so
+without this it would pass vacuously regardless of what a push changed.
 """
 import json
 import os
@@ -415,14 +419,36 @@ def rule_frozen_secrets_untouched() -> None:
     own standing orders say it: anything that must happen belongs in a hook, not
     in a document.
 
-    Passes when the working tree is clean of changes to those keys; fails on a
-    staged diff that touches one. Override needs a human deciding to, which is
-    the point.
+    Passes when there's no change to those keys; fails on a diff that
+    touches one. Override needs a human deciding to, which is the point.
+
+    Local pre-commit runs read the index (`git diff --cached`), since that's
+    the diff about to be committed. CI has nothing staged after checkout, so
+    that read is vacuously empty there -- this rule used to pass on every CI
+    run regardless of what a push actually changed. HYGIENE_COMMIT_RANGE
+    (set by the workflow, e.g. "<before>..<sha>") switches it to diffing
+    that range instead, so CI checks the commits a push or PR actually
+    introduces. An unusable range (shallow history, first push on a branch)
+    warns and skips rather than failing the whole job over a range this
+    rule can't evaluate.
     """
-    staged = subprocess.run(
-        ["git", "diff", "--cached", "-U0", "--", "secrets/"],
-        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="surrogateescape",
-    ).stdout
+    commit_range = os.environ.get("HYGIENE_COMMIT_RANGE", "").strip()
+    if commit_range:
+        diff = subprocess.run(
+            ["git", "diff", commit_range, "-U0", "--", "secrets/"],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="surrogateescape",
+        )
+        if diff.returncode != 0:
+            warn("frozen-secret-range",
+                 f"couldn't diff {commit_range} ({diff.stderr.strip() or 'git error'}); "
+                 f"frozen-secret check skipped for this run.")
+            return
+        staged = diff.stdout
+    else:
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "-U0", "--", "secrets/"],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="surrogateescape",
+        ).stdout
     if not staged:
         return
     for line in staged.splitlines():

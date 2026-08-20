@@ -5,7 +5,7 @@
     "questdbHttpPort": 9000,
     "questdbPgPort": 8812,
     "questdbVersion": "latest",
-    "managedContainer": true,
+    "managedContainer": false,
     "defaultSamplingRate": 2000,
     "recordSelf": true,
     "recordOthers": false,
@@ -13,12 +13,12 @@
     "compression": "lz4",
     "compressionLevel": 3,
     "networkName": "symphony-net",
-    "exposeToContainers": true,
+    "exposeToContainers": false,
     "pathFilter": {
       "mode": "exclude",
       "paths": []
     },
     "samplingRates": {}
   },
-  "enabled": true
+  "enabled": false
 }

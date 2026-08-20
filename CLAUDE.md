@@ -185,6 +185,14 @@ covered here.
   the owner the same judgment twice.
 - Raising a real objection to one of them is fine — one line, then move on.
   Re-deriving the whole analysis is not.
+- **The owner's email address, GitHub handle, and GitHub numeric user ID
+  (including `oidc.sub` values that encode it) stay in the clear, fixtures
+  and docstrings included.** Decided, written up in
+  `reference/security_posture.md`, and re-raised by session after session
+  anyway. Never report it as a finding, never offer to scrub it, don't
+  mention it at all — not even as a one-line aside at the end of unrelated
+  work. This is the one item where "raise a real objection in one line"
+  does not apply; the objection has been heard and rejected.
 - **Do not touch the `captain` credentials.** `signalk_captain_password` and
   `influxdb_captain_password` in `secrets/symphony.sops.yaml` are frozen at
   Mark's instruction until his own hardening pass. Don't rotate, split, or
@@ -200,32 +208,20 @@ covered here.
   gets flagged to the owner rather than silently resolved by guessing.
 
 ## PR automation and session cost
-- **Never bind a scheduled wakeup to a live session.** No `send_later`, and no
-  `create_trigger` carrying `persistent_session_id` or lacking
-  `create_new_session_on_fire`. Each firing re-sends that session's whole
-  accumulated context, so the cost grows with every wake — and because the
-  harness asks a PR-watching session to re-arm before ending a turn, the shape
-  reproduces itself. A PreToolUse hook
-  (`.claude/hooks/no-persistent-polling.sh`) enforces this; if it denies a
-  call, take the redirect rather than looking for another way to schedule.
-- **Wake on events, not timers.** `subscribe_pr_activity` costs nothing while
-  idle and fires the moment a check completes or a comment lands, which is both
-  cheaper and faster than polling. "I'll check back in a few minutes" is a
-  polling loop in disguise — if a check is still running, say so and end the
-  turn.
-- **One watcher per PR.** Before subscribing or scheduling, check whether
-  another session already has it. Two sessions babysat PR #8 while four
-  triggers queued against it.
-- **Batch review responses.** Address all open threads in one pass, then push
-  once. Don't wake per comment.
-- **Long agentic loops are the real expense**, not long conversations. Every
-  tool call re-sends the full context, so a tool-dense task (PR review, CI
-  chasing, branch cleanup) costs far more than its wall-clock suggests. Scope
-  these tightly and prefer one considered pass over iterative poking.
-- **Park open questions in `intermediate_files/claude_slop/kanban.md` under
-  Blocked**, not in session scrollback. A question that lives only in a
-  session's last response is invisible the moment that session scrolls out
-  of the list.
+The general conventions — wake on events not timers, never bind a scheduled
+wakeup to a live session, one watcher per PR, batch review responses, long
+agentic loops (not long conversations) are the real expense, park open
+questions durably rather than in scrollback, and draft PRs are mine to get
+ready-and-green without being asked — live in
+`dotfiles/.claude/rules/code.md` § PR ownership / § Babysitting a PR is
+cheap. Symphony-specific instances of those:
+- A PreToolUse hook (`.claude/hooks/no-persistent-polling.sh`) enforces the
+  no-scheduled-wakeup rule here — if it denies a call, take the redirect
+  rather than looking for another way to schedule.
+- One-watcher-per-PR has bitten this repo concretely: two sessions babysat
+  PR #8 while four triggers queued against it.
+- Open questions park in `intermediate_files/claude_slop/kanban.md` under
+  Blocked — that's this repo's "durable" per the dotfiles rule.
 
 ## Git hygiene
 - At the start of every session, before doing any work: `git fetch` and check
@@ -269,6 +265,17 @@ covered here.
 - Keep worktrees short-lived — same session, same task. A worktree revisited
   days later has quietly reacquired the "how far behind main am I" problem
   this whole model exists to avoid.
+- **Never run `docker compose up` (directly, or via `scripts/dev_stack.sh`)
+  from a worktree/scratch checkout before it's fully populated.**
+  `compose-grafana.yml` bind-mounts `./grafana/provisioning`, a relative,
+  git-tracked path. If that directory doesn't exist yet when Docker starts
+  the container, dockerd — which runs as root even under WSL — silently
+  creates it as `root:root` before the container ever runs. That root-owned
+  stub then survives the worktree being torn down and, because Claude Code's
+  local tmpdir is shared per-uid across all projects, breaks every later
+  Claude Code session on the machine with an unrelated-looking
+  `/tmp/claude-<uid>` ownership error. `dev_stack.sh` now refuses to run if
+  `grafana/provisioning` is missing or empty — don't remove that guard.
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
@@ -310,11 +317,10 @@ covered here.
   above as normal — if nothing crosses a trigger, land the work with
   `git push origin HEAD:main`, pushed early and often, rather than treating
   the assigned name as the destination; don't manufacture a PR to justify a
-  branch name you didn't choose. Cloud sessions can't reliably delete their
-  own remote branches, so the cheapest fix is not creating one. This does
-  **not** apply when a session's own task instructions separately name one
-  specific branch and say to stay on it — that instruction is for that
-  session only and takes precedence; finish that branch with a PR as usual.
+  branch name you didn't choose. This does **not** apply when a session's
+  own task instructions separately name one specific branch and say to stay
+  on it — that instruction is for that session only and takes precedence;
+  finish that branch with a PR as usual.
   Standing grant, confirmed 2026-08-19; ported from
   `dotfiles/.claude/rules/code.md`, see
   `claude_prompts_scratch/state/global/log/2026-08-19-git-hygiene-branch-override.md`.
@@ -322,7 +328,23 @@ covered here.
   handling of this case — the fix is now not branching in the first place,
   which also settles the 2026-08-19 split where two sessions resolved the
   same situation oppositely (one folded back, one opened PR #9 to ban
-  folding back outright); see `maintenance/log.md`.
+  folding back outright); see `maintenance/log.md`. **The reason has
+  changed as of 2026-08-20**: this used to lean on "cloud sessions can't
+  reliably delete their own remote branches" as the justification — true,
+  but no longer the operative one. With "Automatically delete head
+  branches" now on (see next bullet), a branch that actually goes through
+  a PR merge cleans itself up with no git command from any session. The
+  rule stands for a cleaner reason: below the branch-vs-main threshold, a
+  branch is unneeded ceremony, not an unclearable liability.
+- **Automatically delete head branches: keep it on.** Confirmed live and
+  working on this repo 2026-08-20 — PR #15's and PR #22's head branches
+  were both gone within moments of merge, no session action taken. This is
+  the fix for the stale-branch pileups that used to need manual sweeps and
+  a permission-blocked `git push --delete` (see `maintenance/log.md`'s
+  2026-08-20 branch-triage entries for what that cost before the setting
+  was on). It only fires on an actual PR merge — a branch that never gets
+  a PR (below-threshold work, correctly pushed straight to main instead)
+  isn't touched by it and was never the problem this solves.
 - If a change is potentially destructive, or could affect adjacent
   environments for plugin testing, ask for explicit permission before
   changing, committing, or pushing.
