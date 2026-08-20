@@ -19,9 +19,12 @@ formatter's own parity suite doesn't already cover.
 
 Run: python3 scripts/test_repo_hygiene.py
 """
+import json
 import os
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -154,6 +157,69 @@ class StrictScopingTest(RuleTestCase):
     def test_staging_a_covered_file_blocks(self):
         fails, _ = self.run_rule({self.covered})
         self.assertTrue(fails)
+
+
+class AudibleAlarmScopeTest(RuleTestCase):
+    """The staged-vs-working-tree split, for the rule that had no tests.
+
+    Same shape as test_encoding_health's StagedScopeReadsTheIndexTest: a
+    scoped run is a statement about what the commit records, so it has to
+    read the index. Reading scope from the index and content from disk --
+    which this rule did until d2aae17 -- warns about bytes the commit does
+    not contain after `git add -p`, and misses ones it does.
+    """
+
+    CONFIG = "signalk/plugin-config-data/noisy.json"
+
+    def setUp(self):
+        super().setUp()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        (root / "signalk" / "plugin-config-data").mkdir(parents=True)
+        self._root, lint.ROOT = lint.ROOT, root
+        self.addCleanup(lambda: setattr(lint, "ROOT", self._root))
+
+    def write(self, sound, on_disk=True):
+        """A config that trips the rule only when sound is True."""
+        doc = {"configuration": {"notificationSound": sound,
+                                 "notificationStates": "WA"}}
+        text = json.dumps(doc)
+        if on_disk:
+            (lint.ROOT / self.CONFIG).write_text(text, encoding="utf-8")
+        return text
+
+    def run_rule(self, staged, index_text):
+        lint.staged_paths = lambda: staged
+        lint.staged_blob = lambda path: index_text
+        lint.rule_audible_alarms_are_scoped()
+        return lint.failures, lint.warnings
+
+    def test_scoped_run_judges_the_index_not_the_working_tree(self):
+        """The bug: staged copy is quiet, working tree is loud."""
+        self.write(sound=True)                       # working tree: loud
+        _, warns = self.run_rule({self.CONFIG}, self.write(False, on_disk=False))
+        self.assertEqual(warns, [],
+                         "warned about content this commit does not record")
+
+    def test_scoped_run_still_catches_a_real_one(self):
+        """And the converse, so the fix can't be 'never warn'."""
+        self.write(sound=False)                      # working tree: quiet
+        _, warns = self.run_rule({self.CONFIG}, self.write(True, on_disk=False))
+        self.assertTrue(warns, "must warn on what the commit actually records")
+
+    def test_unrelated_commit_is_silent(self):
+        self.write(sound=True)
+        _, warns = self.run_rule({"maintenance/log.md"}, None)
+        self.assertEqual(warns, [])
+
+    def test_all_mode_reads_the_working_tree(self):
+        """CI's --all is about the files on disk, so it must not use the index."""
+        lint.SCOPE_ALL = True
+        self.write(sound=True)
+        lint.staged_blob = lambda path: self.fail("--all must not read the index")
+        lint.rule_audible_alarms_are_scoped()
+        self.assertTrue(lint.warnings)
 
 
 class FrozenSecretsStillBlockTest(unittest.TestCase):
