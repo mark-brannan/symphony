@@ -173,6 +173,37 @@ response. Each names the session that raised it.
   session's GitHub API is 403-blocked (push works). Nothing in it is worth
   salvaging. It can't end "merged via PR" per § Git hygiene, and deleting a
   pushed ref needs an explicit go-ahead — so it sits until Mark says drop it.
+- **`main` was rewritten; the boat's checkout is stranded on the old
+  lineage, holding unpushed work.** (2026-08-20, QuestDB migration session.)
+  `origin/main` is 77a27e6 on a rebuilt history — a fetch this session
+  reported `+ 0286d8f...4bfc3cb main -> origin/main (forced update)`, and
+  the two lineages now report "unrelated histories" to `git merge`; 67
+  commits sit on the old side. **Content looks preserved, not lost**:
+  main's CLAUDE.md is 421 lines against the old tip's 346, and every
+  old-lineage marker sampled (worktree rules, the Evernote note GUID, the
+  no-persistent-polling hook, ADHD task granularity) is present. That is
+  four greps, not proof — confirm across the tree before acting on it.
+  The old lineage stays reachable only via several `origin/claude/*`
+  branches, so the stale-branch sweep above would orphan it if run first.
+  **What is actually at risk is on the boat.** `/home/pi/symphony` is on
+  `main` at 68e4e04 (old lineage) and has never fetched, so a plain
+  `git pull` there merges unrelated histories against a dirty tree. It
+  holds, nowhere else: `claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122
+  (8 commits, the JBD BMS BLE capture work) and
+  `claude/symphony-pushover-setup-ce12i0` @3f08bd3 — **neither tip exists
+  on origin** — plus two stashes (signalk-ntfy.json, priorities.md). Its
+  one modified file, `telegraf/telegraf.conf`, is deliberate and already
+  byte-identical to main's.
+  **And that directory is live**: `EnvironmentFile=/home/pi/symphony/.env`
+  is read by caddy, dex, telegraf, and the signalk and grafana OIDC
+  drop-ins; dex's `ExecStart` reads `dex/config.yaml` from it; and
+  `/etc/telegraf/telegraf.conf` is a symlink into it. Swapping that working
+  tree swaps what Dex runs, and Dex is the OIDC front door — breaking it
+  costs the remote access you would fix it with.
+  Order: push the two boat branches as-is first (no rebase, no squash),
+  then reconcile the checkout, then the stashes, then verify all five
+  services. Full handoff prompt was written out in that session's chat.
+
 - **Which Grafana dashboards are the QuestDB port target?** (PR #7 review
   session.) Two sets exist and they are not versions of each other. The boat's
   native Grafana has five dashboards, 76 panels, InfluxQL, imported from
