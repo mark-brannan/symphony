@@ -1,0 +1,18 @@
+{
+  "configuration": {
+    "enabled": true,
+    "watchScheme": "simple-cycle",
+    "utcOffsetEnabled": false,
+    "utcOffsetMinutes": 0,
+    "playbackMethod": "both",
+    "muteWhenAnchoredOrMoored": false,
+    "quietHoursEnabled": true,
+    "quietHoursStart": "24:00",
+    "quietHoursEnd": "06:00",
+    "nightVolumeEnabled": false,
+    "nightVolumeStart": "22:00",
+    "nightVolumeEnd": "06:00",
+    "nightVolumeLevel": 80
+  },
+  "enabled": true
+}
