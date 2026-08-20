@@ -47,11 +47,13 @@ Outbound integrations that need credentials: PostgSail
 (`api.openplotter.cloud`), OpenWeather, Windy, and InfluxDB. Each token is
 encrypted in the relevant `signalk/plugin-config-data/*.json`.
 
-## The boat Pi runs none of this in Docker
+## The boat Pi runs only part of this in Docker
 
 The table above describes the intended deployment. The Pi aboard Symphony
-doesn't match it: Docker isn't installed there, and SignalK, InfluxDB,
-Grafana, Caddy, Dex, and Telegraf all run as systemd units instead.
+doesn't match it, and no longer matches it in one direction either: Docker
+*is* installed there now, and Dex, QuestDB and ntfy run as containers. Dex
+moved first, in `d3d690e`. SignalK, InfluxDB, Grafana, Caddy and Telegraf
+still run as systemd units.
 
 The constraint is the hardware. It's a Pi 4B with 4 GB of RAM on a 32 GB SD
 card, and the live data — SignalK's state directory, the InfluxDB store,
@@ -67,7 +69,6 @@ natively:
 | Service | Native form | Config source |
 |---|---|---|
 | `caddy` | `/usr/local/bin/caddy`, custom build with `caddy-dns/cloudflare` | `/etc/caddy/Caddyfile`, a copy of `caddy/Caddyfile` with the three upstreams repointed from container names to `localhost` |
-| `dex` | `/usr/local/bin/dex`, binary extracted from the OCI image | reads `dex/config.yaml` from the repo directly |
 | `telegraf` | Debian package | `/etc/telegraf/telegraf.conf`, a symlink to `telegraf/telegraf.conf` |
 | `signalk`, `grafana-server`, `influxdb` | Debian/npm installs predating the repo | their own config trees, not the repo's |
 
@@ -76,11 +77,16 @@ passed as `env_file`, delivered by an `EnvironmentFile=` drop-in under
 `/etc/systemd/system/<unit>.service.d/`. So `scripts/render.py` remains the
 single path from sops to running configuration, container or not.
 
-Two traps live here. Dex and Telegraf run as `pi` rather than their own
-service users, because `/home/pi` is mode 0700 and their config lives
-inside it — the same reason `compose-idp.yml` pins Dex to uid 1000. And
+Two traps live here. Telegraf runs as `pi` rather than its own service
+user, because `/home/pi` is mode 0700 and its config lives inside it — the
+same reason `compose-idp.yml` pins the Dex container to uid 1000. And
 Telegraf's packaged unit is `Type=notify`, which times out under this
 configuration; the drop-in overrides it.
+
+A disabled `dex.service` unit is still present on the boat, left from
+before `d3d690e`. It is superseded by the container and must stay disabled:
+`systemctl is-active dex` reporting `inactive` there is the correct state,
+not a fault. Check Dex with `docker ps` and its discovery endpoint instead.
 
 SignalK is installed twice on that host, 2.14.4 under `/usr/lib` and 2.30.0
 under `/usr/local`. The service ran the older one — which predates OIDC

@@ -63,10 +63,12 @@ logged in `maintenance/log.md`.
 
 ## Two deployments, one runbook
 
-The compose files are the intended deployment. **The boat Pi does not match
-them** — SignalK, InfluxDB, Grafana, Caddy and Dex run there as systemd units
-(why, in [reference/software_stack.md](reference/software_stack.md)). Commands
-below are written for compose. On the boat, translate:
+The compose files are the intended deployment. **The boat Pi is a mix** —
+SignalK, InfluxDB, Grafana and Caddy run there as systemd units, while Dex,
+QuestDB and ntfy are containers (why, in
+[reference/software_stack.md](reference/software_stack.md)). Commands below are
+written for compose. For the three containers they work as written. For the
+systemd units, translate:
 
 | Compose | Boat Pi |
 |---|---|

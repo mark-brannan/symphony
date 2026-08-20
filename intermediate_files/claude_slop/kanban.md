@@ -76,14 +76,14 @@ to the plugin dir. Remaining:
     - run silicone line to shower sump (temp)
     - cut hole for fan
     - wire fan
-  Also in that stash, and **still open for Mark's call**: it deletes two
-  plumbing items from `priorities.md` that are still there today —
-  "Address remaining holding tank system work now that the old tank is out"
-  and "Tighten head pump / apply sealant; install Y valve between
-  Lectra-San and head". The stash's other four deletions (the whole Safety
-  & compliance block) have already landed in main independently, which
-  suggests these two were meant to move to Evernote the same way. Not
-  removed from `priorities.md` without his say-so.
+  **Settled 2026-08-20:** the stash's two plumbing deletions — "Address
+  remaining holding tank system work now that the old tank is out" and
+  "Tighten head pump / apply sealant; install Y valve between Lectra-San
+  and head" — are ancient history per Mark and valid to drop; both removed
+  from `priorities.md`. Its other four deletions (the Safety & compliance
+  block) had already landed in main independently; Mark doesn't recall the
+  detail and isn't worried about it, so they stay gone. Nothing outstanding
+  here but the Evernote filing itself.
 
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
@@ -244,8 +244,14 @@ response. Each names the session that raised it.
   `/home/pi/telegraf.conf.bak.1787217111`). `.env` and `dex/config.yaml`
   are **untracked**, so git never touched them — the blast radius feared
   for that directory was smaller than assumed.
-  **Services verified after:** caddy, telegraf, signalk, grafana-server all
-  active+enabled. Telegraf dual-write live — InfluxDB fresh 09:12:04Z,
+  **The boat rebooted at 09:18 UTC mid-session** — clean
+  `systemd-logind`-requested reboot, and per Mark it was the InfluxDB→QuestDB
+  migration session asking for one; nobody was aboard despite the tty1
+  console session. Useful side effect: it proves the fast-forwarded checkout
+  survives a reboot. Everything came back on its own; SignalK took ~5 min to
+  finish deactivating before going active, which is boot churn, not a fault.
+  **Services verified after, on both sides of that reboot:** caddy, telegraf,
+  signalk, grafana-server all active+enabled. Telegraf dual-write live — InfluxDB fresh 09:12:04Z,
   QuestDB fresh 09:11:02Z. The "no space left on device" errors in the
   journal are from ~03:50–03:59Z, hours before the merge; disk now 78% with
   6.0 GB free.
@@ -253,12 +259,21 @@ response. Each names the session that raised it.
   a Docker **container** (`ghcr.io/dexidp/dex:latest`, up 4 days,
   127.0.0.1:5556, owned by `docker-compose.yml`), discovery returns HTTP
   200 and signing keys rotate on schedule. Two stale claims follow from
-  this: the `dex.service` unit comment says "runs natively here because
+  this: the `dex.service` unit comment said "runs natively here because
   this host has no Docker" — the host **does** have Docker (questdb, dex,
   ntfy all containerized) — and the assumption that a checkout swap changes
   what Dex runs is wrong, since the container reads a rendered
-  `/tmp/dex.config.yaml-*`, not the repo path. Worth correcting the unit
-  comment; not done here.
+  `/tmp/dex.config.yaml-*`, not the repo path.
+  **Both fixed 2026-08-20** at Mark's ask, because nothing else would have:
+  `RUNBOOK.md` § Two deployments no longer lists Dex as a systemd unit and
+  says which commands need no translation; `reference/software_stack.md`
+  lost its "runs none of this in Docker" framing and its `dex` native-form
+  row, and now states that a disabled `dex.service` is the correct state;
+  and the boat's `/etc/systemd/system/dex.service` is headed SUPERSEDED --
+  do not enable (backup `dex.service.bak.1787219199`, unit left disabled and
+  inactive, container untouched). The container move itself was deliberate,
+  in `d3d690e "dex: run in a container, first service off systemd"` — only
+  the docs had lagged.
   **The stale-`claude/*` branch sweep is now safe to run** — it orphans no
   history, because there is no second lineage to orphan.
 
@@ -969,6 +984,25 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Install exterior Tapo cam
 
 ## Blocked — needs Mark's call
+- **The running Dex is not the pinned Dex.** (Found 2026-08-20.)
+  `compose-idp.yml` pins
+  `ghcr.io/dexidp/dex:v2.45.1@sha256:8499afd690c437f...`, with a comment
+  saying `latest` moving under the boat is "not a surprise worth having
+  offshore". The container actually running is `ghcr.io/dexidp/dex:latest`,
+  digest `af9469509350...`, reporting **v2.46.0**-20260806171424-ab64ed77.
+  So the pin is defeated: something started Dex from `:latest` at some
+  point. Not caused by the 2026-08-20 fast-forward — that commit range
+  never touched `compose-idp.yml`.
+  The trap is that this is **latent**: the next
+  `docker compose --profile tls up -d dex` reconciles to the pin and
+  *downgrades* v2.46.0 → v2.45.1, bouncing the OIDC front door. Dex uses
+  `storage_type=memory`, so any recreate drops all sessions and refresh
+  tokens and everyone re-logs-in. That is fine dockside and bad offshore.
+  **Mark's call:** either re-pin forward to the digest actually running and
+  accept v2.46.0, or deliberately recreate onto v2.45.1 at a time of his
+  choosing. Doing nothing leaves an unscheduled downgrade armed behind the
+  next unrelated `compose up`. Not touched — recreating Dex is exactly the
+  "breaking it costs the remote access you'd fix it with" case.
 
 - **RESOLVED 2026-08-20 — frozen-secrets enforcement stays exactly where
   it is; no expansion.** Fixed the one real bug (CI's index is empty, so
