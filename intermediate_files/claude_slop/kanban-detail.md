@@ -393,15 +393,6 @@ itself stays: it's the offline fallback when a keyed device is dead and the
 boat is far from anywhere, so rate-limiting is the right control, not
 keys-only.
 
-## Ansible clock and watchdog roles
-
-Decided 2026-08-13. Plan, scope boundaries and open decisions are in
-`reference/host_provisioning.md`. The SignalK/Ansible repo dependency is
-settled: `tkurki/marinepi-provisioning` is upstream and not ours — read its
-roles, don't push to it. Next step is the `clock` and `watchdog` roles,
-since `host/install.sh` already has both fully described and they're the
-smallest honest slice.
-
 ## Reconcile signalk/security.json (repo vs boat)
 
 The repo's `signalk/security.json` is the dev container's, not the boat's
