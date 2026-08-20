@@ -37,7 +37,7 @@ such tag, so a query that filters on it returns nothing for them.
 Confirmed against the boat's InfluxDB. Present and carrying data:
 
 - **Navigation** — `position`, `speedOverGround`, `courseOverGroundTrue`,
-  `headingMagnetic`, `magneticVariation`, `attitude.{pitch,roll,yaw}`,
+  `headingMagnetic`, `headingTrue`, `magneticVariation`, `attitude.{pitch,roll,yaw}`,
   `trip.log`, `state`, `datetime`, `gnss.*`, `courseRhumbline.*`
 - **Steering** — `steering.autopilot.{state,engaged,defaultPilot,availableActions}`
 - **Electrical** — `batteries.house.*` (voltage, current, power, SOC, time
@@ -63,15 +63,22 @@ Absent entirely — no path under these prefixes has ever been written:
 | `propulsion.*` | no engine hours and no engine state |
 | `electrical.solar.*`, `electrical.venus.totalPanelPower` | no solar or MPPT yield |
 | `electrical.inverters.*`, `electrical.chargers.alternator.power` | no inverter or alternator output |
-| `navigation.headingTrue`, `navigation.speedThroughWater` | heading is magnetic only; no log impeller |
+| `navigation.speedThroughWater` | no log impeller |
 | `navigation.anchor.*`, `performance.polarSpeed`, `networking.*` | no anchor alarm, polars or uplink telemetry |
 
-Two of these are configured for but not delivered. `signalk-alternator-engine-on`
+One of these is configured for but not delivered. `signalk-alternator-engine-on`
 reads `electrical.chargers.alternator.power` and writes `propulsion.main.state`;
-neither path exists, so the plugin is inert. `signalk-derived-data` has
-`heading.heading`, `heading.cog_true` and `heading.magneticVariation` all set
-to `false`, which is why `navigation.headingTrue` is absent even though
-`headingMagnetic` and `magneticVariation` are both present and would be
+neither path exists, so the plugin is inert.
+
+`signalk-derived-data`'s `heading.heading`, `heading.cog_true` and
+`heading.magneticVariation` calculators were enabled 2026-08-19.
+`navigation.headingTrue` is now live, derived from `headingMagnetic` and
+`magneticVariation` (verified against live values on the boat: the two sum
+to the reported `headingTrue` to within rounding). `cog_true` has nothing to
+derive from — the boat has no `navigation.courseOverGroundMagnetic` source,
+only a native true COG from the GPS/N2K bus, which is what
+`navigation.courseOverGroundTrue` was already carrying before this change —
+so that calculator stays inert with no source to conflict with.
 enough to derive it.
 
 ## Where the naming is inconsistent

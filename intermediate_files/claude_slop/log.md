@@ -293,3 +293,43 @@ that reads as encrypted to one guard and plaintext to another, which is worse
 than either answer alone — the commit sails through, the push blocks, and
 neither message explains the disagreement. When a finding is "this predicate
 is wrong," the unit of repair is the predicate, not the lines cited.
+
+## 2026-08-19 — Verified heading/COG derivation live on the boat
+
+Independently ssh'd to `symphony-pi` and checked the other session's
+`derived-data.json` change (cog_true, heading, magneticVariation flipped to
+`true`) against the running system, rather than trusting the diff alone.
+
+Findings:
+- The live `~/.signalk/plugin-config-data/derived-data.json` already
+  matched the committed change — someone (or something) had saved it
+  through the SignalK admin UI around 17:27 PDT, ~1.7 hours before the
+  commit landed on `main`. The repo checkout on the boat itself
+  (`~/symphony`) is many commits stale (`68e4e04`, from the MOB-detection
+  work) and unrelated to how the live config got there — worth noting for
+  anyone who assumes `git pull` on the boat is what ships config changes;
+  it isn't, the admin UI writes `~/.signalk/plugin-config-data/*.json`
+  directly and the repo copy is a tracked mirror, not the source of truth.
+- `signalk.service` hadn't restarted (`ActiveEnterTimestamp` still Aug 16),
+  but the wrapped `node` process had — a new PID appears in `journalctl`
+  right after the config save, consistent with SignalK's own plugin-restart
+  mechanics rather than a systemd restart. No `derived-data`-related errors
+  in the log window around the save.
+- `navigation.headingTrue` is live, `$source: derived-data`, and numerically
+  correct: fetched `headingMagnetic` + `magneticVariation` in one API call
+  and confirmed they sum to the reported `headingTrue` to within rounding
+  (checked twice, a minute apart, values were moving so a stale cache was
+  ruled out).
+- `navigation.courseOverGroundTrue` stayed on `$source: n2k-can0.2` — the
+  `cog_true` calculator needs `courseOverGroundMagnetic`, which doesn't
+  exist on this boat (confirmed 404 on that path); the boat's GPS already
+  publishes true COG natively, so the calculator has nothing to derive and
+  is correctly inert, not broken.
+- `magneticVariation` now has two competing sources (native `n2k-can0.2` and
+  the newly-live `derived-data` WMM 2025 calculation); the native one keeps
+  source priority, so nothing regressed there either.
+
+Updated `reference/signalk_paths.md` to stop claiming `headingTrue` is
+absent (it documented the exact "calculators set to false" state that no
+longer holds) and closed the item out of `priorities.md` and this file's
+kanban.

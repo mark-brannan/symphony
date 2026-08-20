@@ -267,3 +267,6 @@
 - Renamed the guard scripts and their settings from Symphony-specific names
   to `secretguard`, so the secret-management tooling could be reused on
   another boat as-is.
+- Enabled `signalk-derived-data`'s heading calculator on the boat.
+  `navigation.headingTrue` is now live and verified correct against
+  `headingMagnetic` + `magneticVariation`.
