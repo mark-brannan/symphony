@@ -336,15 +336,23 @@ cheap. Symphony-specific instances of those:
   a PR merge cleans itself up with no git command from any session. The
   rule stands for a cleaner reason: below the branch-vs-main threshold, a
   branch is unneeded ceremony, not an unclearable liability.
-- **Automatically delete head branches: keep it on.** Confirmed live and
-  working on this repo 2026-08-20 — PR #15's and PR #22's head branches
-  were both gone within moments of merge, no session action taken. This is
-  the fix for the stale-branch pileups that used to need manual sweeps and
-  a permission-blocked `git push --delete` (see `maintenance/log.md`'s
-  2026-08-20 branch-triage entries for what that cost before the setting
-  was on). It only fires on an actual PR merge — a branch that never gets
-  a PR (below-threshold work, correctly pushed straight to main instead)
-  isn't touched by it and was never the problem this solves.
+- **Automatically delete head branches has never fired on this repo — don't
+  count on it.** GitHub deletes a head branch on an actual *merge* event,
+  and this repo has never produced one: every closed PR from #1 through #23
+  reports `merged: false`. Work lands by direct push to `main` and the PR is
+  closed afterwards, so there is nothing for the setting to react to.
+  An earlier version of this bullet cited PR #15's and #22's branches
+  vanishing as proof it works. Those two were never merged either, so
+  whatever removed their branches, it was not delete-on-merge. Corrected
+  2026-08-20 after checking every closed PR; the repo setting itself was not
+  readable from that session, so this says nothing about whether it is
+  switched on — only that no merge has ever occurred for it to act on.
+  Assume nothing sweeps branches for you. Nine `claude/*` branches were on
+  the remote on 2026-08-20, four carrying open PRs and five with none.
+  Clearing them is a deliberate act with the owner's go-ahead, not a
+  background process — and a branch that never gets a PR (below-threshold
+  work, correctly pushed straight to main instead) was never what this was
+  meant to solve.
 - If a change is potentially destructive, or could affect adjacent
   environments for plugin testing, ask for explicit permission before
   changing, committing, or pushing.
