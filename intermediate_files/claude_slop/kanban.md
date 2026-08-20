@@ -526,10 +526,12 @@ now carries only the high-level list.)
   `du -sm` on the volume after the first few flushes is the only honest
   check, because row counts say nothing about footprint here.
 
-  **Watch item for the soak:** the volume was 140 MB about ten minutes in,
-  most of it one-time preallocation rather than data. Nobody has a second
-  data point yet — take one before trusting a growth estimate, and treat
-  ~6 GB free as the budget.
+  **Watch item for the soak:** the volume settled around 140 MB within ten
+  minutes of both writers running, most of it one-time preallocation rather
+  than data. **Short-window sampling cannot measure its growth** — an 85 s
+  sample came back *negative* (146.5 MB → 141.5 MB) because WAL segments
+  roll over and get purged on their own schedule, so the number oscillates.
+  Measure over hours, not minutes, and treat ~6 GB free as the budget.
 
   **Two things about the boat's own checkout,** noticed while deploying:
   `/home/pi/symphony/telegraf/telegraf.conf` is a symlink target for
