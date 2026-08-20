@@ -33,14 +33,22 @@ to the plugin dir. Remaining:
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
 
-- **`.pre-commit-config.yaml` line 6 is now slightly wrong — fix it after
-  PR #13 merges** (2026-08-19, CI-trigger-split session). It reads *"The
-  real gate is `.github/workflows/validate.yml`, which runs the same checks
-  plus a verified-secret scan on every push."* The scan moved to
-  `secret-scan.yml`. Deliberately not fixed in-session: #13's diff hunk
-  starts at line 7 and carries line 6 as context, so editing it was the one
-  change guaranteed to conflict with a PR that is otherwise entirely
-  disjoint from this work. One-line edit once #13 lands.
+- **RESOLVED 2026-08-19 — #13 merged 2 min after the split landed, so this
+  was done in the same session** (`76e1e04`). Three cross-references had
+  gone stale in the overlap, not the one predicted: `.pre-commit-config.yaml`
+  naming `validate.yml` as the every-push gate, `gitleaks_precommit.sh`
+  sending a version bump to `validate.yml`'s image tag, and RUNBOOK's
+  "Upgrading the scanners" opening with `pre-commit autoupdate` — a no-op
+  once #13 made every hook `repo: local`. That last one was #13's staleness,
+  not the split's, and was the one that would actually have misled someone.
+
+- **`SKIP=gitleaks-docker` in CLAUDE.md is stale** (2026-08-19, same
+  session). PR #13 renamed the hook id `gitleaks-docker` → `gitleaks`, so
+  the sanctioned incantation for the WSL "docker could not be found"
+  failure — written into `symphony/CLAUDE.md` § Git hygiene — no longer
+  skips anything and the commit still fails. Correct name is now
+  `SKIP=gitleaks`. Needs a one-line CLAUDE.md edit; flagged to Mark rather
+  than made silently, since that file is his.
 
 - **Node 20 deprecation on both workflows** (2026-08-19, same session).
   Every run warns that `actions/checkout@v4` and `actions/setup-python@v5`
