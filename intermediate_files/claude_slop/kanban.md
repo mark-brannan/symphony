@@ -38,20 +38,23 @@ to the plugin dir. Remaining:
   them. Raised 2026-08-19 while fixing the worktree-checkout failure;
   deliberately left out of PR #18 to keep that diff to the failing path.
 
-- **Stale `claude/*` branches: triaged 2026-08-20, deletion handed to Mark.**
-  Content-safety check done (merged in *content*, not ancestry — patch-ids
+- ~~Stale `claude/*` branches: triaged 2026-08-20, deletion handed to
+  Mark~~ — **done**: all seven are gone from the remote (confirmed via
+  `list_branches`, 2026-08-20) — `claude/backlog-issue-candidates-kb6qnb`,
+  `claude/symphony-mcp-tools-context-ia7dgx`,
+  `claude/git-hygiene-recovery-procedures-4ezeho`,
+  `claude/usage-limits-troubleshoot-efhfwc`, `claude/git-hygiene-redesign`,
+  `claude/branch-deletion-cleanup-rules-nisoon`,
+  `claude/boat-containerization-strategy-j2z35u`. Content-safety check that
+  cleared them for deletion: merged in *content*, not ancestry — patch-ids
   vs main, plus per-file diffs of each branch's own commits, isolated
   against old-main tip `0286d8f` for the eight branches rooted in the
-  pre-rewrite lineage). Mark authorized the sweep; the session's
-  `git push --delete` was blocked by its permission layer, so the deletion
-  is his one command:
-  `git push origin --delete claude/backlog-issue-candidates-kb6qnb claude/symphony-mcp-tools-context-ia7dgx claude/git-hygiene-recovery-procedures-4ezeho claude/usage-limits-troubleshoot-efhfwc claude/git-hygiene-redesign claude/branch-deletion-cleanup-rules-nisoon claude/boat-containerization-strategy-j2z35u`
-  All seven are content-merged: two have zero commits beyond old main, two
-  have their single patch verbatim in main, the fold-back rule and the
-  containerization additions are line-verified present in main's files, and
-  git-hygiene-redesign had its no-salvage verdict here already.
-  **Kept, not stale — do NOT delete:** `grafana-questdb-port-target` (open
-  PR #10), `influxdb-questdb-container-backlog-kq3t7q` (open PR #15),
+  pre-rewrite lineage.
+  `influxdb-questdb-container-backlog-kq3t7q` (PR #15) is also gone now —
+  PR #15 merged 2026-08-20 and "Automatically delete head branches" took
+  it, same as the seven above, just via a real merge instead of a manual
+  sweep.
+  **Still open, still kept:** `grafana-questdb-port-target` (open PR #10),
   and three holding unlanded work main does not have:
   `signalk-oidc-identity-permissions-4kk8gl` (the OIDC proposal,
   `proposals/signalk-oidc-identity-permissions.md`, exists nowhere else),
@@ -416,9 +419,9 @@ now carries only the high-level list.)
   **B2 done, 2026-08-20.** `compose-questdb.yml` added and running on the
   boat as the `questdb` container (pinned by digest, ports 9000/9009/8812
   on localhost, `QDB_CAIRO_COMMIT_MODE=sync` for durability — this Pi has
-  no UPS). Two prerequisites from the history-plugin's own tuning notes,
-  also done: `vm.max_map_count` raised to 1048576 via
-  `/etc/sysctl.d/99-questdb.conf` (was 65530, no reboot needed); **the
+  no UPS). Of the two prerequisites from the history-plugin's own tuning
+  notes, `vm.max_map_count` is done: raised to 1048576 via
+  `/etc/sysctl.d/99-questdb.conf` (was 65530, no reboot needed). **The
   `mem_limit: 768m` in the compose file is NOT actually enforced** — this
   Pi's kernel lacks `cgroup_enable=memory` on the boot cmdline, so `docker
   compose up` logs "kernel does not support memory limit capabilities...
