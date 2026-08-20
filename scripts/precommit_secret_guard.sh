@@ -73,8 +73,8 @@ missing_capability() {
 		printf 'an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)'
 	elif [ -z "$(git config --get filter.sops.clean 2>/dev/null)" ]; then
 		printf "filter.sops.clean in this clone's .git/config"
-	elif ! command -v sops >/dev/null 2>&1; then
-		printf 'sops on PATH'
+	elif ! secretguard_find_sops >/dev/null; then
+		secretguard_sops_locations | tr -d '\n'
 	else
 		printf 'the sops clean filter to have run on this file'
 	fi

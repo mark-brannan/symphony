@@ -371,6 +371,120 @@ class FindSops(unittest.TestCase):
             self.assertIn(directory, message)
 
 
+class CanDecryptParity(unittest.TestCase):
+    """mode() and can_decrypt() are different questions, in both languages.
+
+    Strict answers "how rigorously to enforce"; can_decrypt answers "does
+    this machine hold a runnable sops and an age key". CI is strict while
+    holding neither, by design, so a twin that conflates them blocks a
+    keyless runner on a capability it is never going to have. Every case
+    builds its own fake sops and key, pins CI=true so mode resolves strict
+    everywhere, and asserts the twins give the same yes/no.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        # A controlled PATH still has to let the child find bash itself --
+        # replacing PATH wholesale made the bash twin unrunnable, which
+        # reads as a parity failure and is actually a broken test harness.
+        self.toolbox = tempfile.mkdtemp(dir=self.tmp)
+        os.symlink(shutil.which("bash"), os.path.join(self.toolbox, "bash"))
+
+    def _path(self, *dirs):
+        return os.pathsep.join(list(dirs) + [self.toolbox])
+
+    def _fake_sops_dir(self):
+        directory = tempfile.mkdtemp(dir=self.tmp)
+        path = os.path.join(directory, "sops")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("#!/bin/sh\nexit 0\n")
+        os.chmod(path, 0o755)
+        return directory
+
+    def _fake_key(self):
+        path = os.path.join(self.tmp, "keys.txt")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("# stands in for an age key; existence is the test\n")
+        return path
+
+    # Both twins get their fallback-directory list emptied, the same way
+    # FindSops monkeypatches the python one -- otherwise a real sops in
+    # /usr/bin would decide these cases on exactly the machines the strict
+    # path exists for.
+    def _bash(self, env):
+        done = subprocess.run(
+            ["bash", "-c",
+             ". %s; _secretguard_sops_dirs() { :; }; "
+             "secretguard_can_decrypt" % SH],
+            cwd=REPO, env=env, capture_output=True, text=True,
+            start_new_session=True,
+        )
+        return done.returncode == 0
+
+    def _py(self, env):
+        code = (
+            "import sys; sys.path.insert(0, %r); import secretguard as m; "
+            "m._SOPS_DIRS = (); sys.exit(0 if m.can_decrypt() else 1)"
+            % os.path.join(REPO, "scripts")
+        )
+        done = subprocess.run(
+            [sys.executable, "-c", code], cwd=REPO, env=env,
+            capture_output=True, text=True, start_new_session=True,
+        )
+        return done.returncode == 0
+
+    def assertBothSay(self, env, expected):
+        self.assertEqual(self._py(env), expected, "python")
+        self.assertEqual(self._bash(env), expected, "bash")
+
+    def test_sops_and_key_present_is_yes_even_in_strict(self):
+        env = _env(CI="true", PATH=self._path(self._fake_sops_dir()),
+                   SOPS_AGE_KEY_FILE=self._fake_key())
+        self.assertBothSay(env, True)
+
+    def test_no_key_is_no_even_though_ci_is_strict(self):
+        # The defect this predicate exists to fix: CI resolves strict and
+        # holds no key, and "strict" must not be read as "keys exist here".
+        env = _env(CI="true", PATH=self._path(self._fake_sops_dir()),
+                   SOPS_AGE_KEY_FILE=None)
+        env["HOME"] = os.path.join(REPO, "intermediate_files", "no-such-home")
+        self.assertBothSay(env, False)
+
+    def test_no_sops_is_no_whatever_the_key_says(self):
+        env = _env(CI="true", PATH=self._path(), SOPS_AGE_KEY_FILE=self._fake_key())
+        self.assertBothSay(env, False)
+
+    def test_find_sops_resolves_the_same_path_in_both_languages(self):
+        directory = self._fake_sops_dir()
+        env = _env(PATH=self._path(directory))
+        from_bash = _run(
+            ["bash", "-c", ". %s; secretguard_find_sops" % SH], env
+        ).strip()
+        code = (
+            "import sys; sys.path.insert(0, %r); import secretguard as m; "
+            "print(m.find_sops())" % os.path.join(REPO, "scripts")
+        )
+        from_py = _run([sys.executable, "-c", code], env).strip()
+        self.assertEqual(from_bash, from_py)
+        self.assertEqual(from_bash, os.path.join(directory, "sops"))
+
+    def test_locations_text_is_byte_identical(self):
+        # The bash text is hand-written and the python one is generated from
+        # _SOPS_DIRS, so this equality is what keeps the two search lists
+        # from drifting apart.
+        env = _env()
+        from_bash = _run(
+            ["bash", "-c", ". %s; secretguard_sops_locations" % SH], env
+        ).strip()
+        code = (
+            "import sys; sys.path.insert(0, %r); import secretguard as m; "
+            "print(m.sops_locations())" % os.path.join(REPO, "scripts")
+        )
+        from_py = _run([sys.executable, "-c", code], env).strip()
+        self.assertEqual(from_bash, from_py)
+
+
 class MessageParity(unittest.TestCase):
     def test_same_message_shape(self):
         env = _env(SECRETGUARD_MODE="strict")

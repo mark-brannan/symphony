@@ -278,6 +278,12 @@
   CI workflows, clearing the Node 20 deprecation warning on every run.
 
 ## 2026-08-20
+- Landed the commit-check redesign (PR #12): guards judge only what a commit
+  stages, read content from the index, and every failure names a way out
+  that needs no sops and no key. Repo-wide enforcement moved to CI.
+- Fixed the secret-tooling tests for keyless CI runners and collapsed the CI
+  job onto the one canonical test runner; the shell guards now find sops the
+  same way the python ones do (PR #19).
 - InfluxDB backed up (raw data directory + line-protocol export) and the
   backup verified to restore cleanly with matching data.
 - QuestDB stood up as a container on the boat, the first step of the
