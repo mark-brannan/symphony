@@ -274,3 +274,5 @@
   encryption checks) now runs on a push to any branch, not just on `main`
   and pull requests; syntax and config validation stays on `main` and PRs.
   A branch pushed without a PR had been going unscanned.
+- Bumped `actions/checkout` to v5 and `actions/setup-python` to v6 in both
+  CI workflows, clearing the Node 20 deprecation warning on every run.
