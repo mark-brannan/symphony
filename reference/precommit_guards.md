@@ -37,7 +37,8 @@ one-line typo fix in a text document was refused for days because of an
 unrelated settings file, on a machine that had no way to fix it.
 
 The repo-wide checking didn't disappear. It moved to GitHub, which runs the
-same programs over everything with `--all`. Your laptop checks your change;
+same programs over everything with their repo-wide switches — `--all` for
+the hostvars and hygiene checks, `--repo` for the encoding one. Your laptop checks your change;
 GitHub checks the whole repo.
 
 Know when that happens, because it is not "after every push":
@@ -67,6 +68,20 @@ risky file*, instead of firing on every commit forever once anything
 anywhere is off. In every one of those rows, the danger only becomes real
 at the moment the file is actually in a commit. Before that moment there's
 nothing to catch.
+
+**Two things still block every commit,** and deliberately so. Both are
+about a clone that is unsafe, rather than a commit that is:
+
+- **Real secrets sitting readable on this machine, with no way to scramble
+  them again.** That is a standing condition, not something you did in this
+  commit, and it does not fix itself. Waiting for you to stage one of those
+  files means you might find out via `git add .`. A fresh laptop with no
+  key never trips this: there the files are still scrambled, so nothing is
+  in the clear.
+- **A clone that holds secrets but has no scrambling set up.** On a machine
+  in strict mode that is the August 2026 incident waiting to happen, so it
+  blocks even with nothing risky staged. A contributor clone gets a warning
+  instead and can still commit.
 
 **The one thing that is genuinely weaker,** stated plainly rather than
 buried: if something bad is *already* in the repo and nobody stages it
@@ -135,6 +150,11 @@ clone can't encrypt — sort that before you commit one of those files" and
 lets you through. Secret file *is* in your commit? It stops you, names the
 file, and says: set it up, or take that file out of the commit, and if you
 didn't put it there, skip the check and tell whoever did.
+
+Two exceptions, both above under *What changed*: on a machine that already
+holds secrets (strict mode) the "heads up" is a block instead, and a
+machine with readable secrets it cannot re-scramble is stopped on every
+commit until that is sorted. Neither depends on what you staged.
 
 **If it blocks you:** don't force it. That message means a real secret would
 go into a public repo readable. Take the file out of the commit.
@@ -217,12 +237,19 @@ noisy. There are tests for this.
 
 **They can be skipped entirely.** `--no-verify` skips all of them, and a
 fresh clone doesn't have them installed until someone runs the setup. This
-is by design and always was. GitHub is the real gate, and it can't be
-bypassed from a laptop -- but mind the window: the repo-wide checks run on
-pull requests and on `main`, so a `--no-verify` commit sitting on an
-unproposed topic branch has been seen only by `prepush-secret-scan`, which
-runs locally and is itself bypassable with `git push --no-verify`. Secret
-scanning in CI does cover every branch push.
+is by design and always was. GitHub is where the repo-wide checking
+actually happens, and unlike the local hooks it can't be switched off from
+a laptop — but two limits are worth knowing rather than assuming:
+
+- **A red check on GitHub does not currently block a merge.** `main` has no
+  branch protection and no required status checks, so the results are
+  information, not a gate. Whether that changes is the owner's call; until
+  it does, "CI will catch it" means someone still has to look.
+- **The repo-wide checks only run on pull requests and on `main`.** A
+  `--no-verify` commit sitting on a topic branch with no PR open has been
+  seen only by `prepush-secret-scan`, which runs locally and is itself
+  bypassable with `git push --no-verify`. Secret scanning is the exception
+  and covers every branch push.
 
 **GitHub could drift out of step.** The checks are now scoped on your laptop
 and unscoped on GitHub. If someone edits one side only, the two disagree and

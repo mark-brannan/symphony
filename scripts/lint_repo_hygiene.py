@@ -76,15 +76,21 @@ def staged_paths() -> set[str] | None:
     that quietly switches a guard off.
     """
     result = subprocess.run(
+        # -z, not --name-only alone: git quotes any path outside plain
+        # ASCII (core.quotePath defaults on), so `caf\u00e9.md` came back as
+        # a quoted display string and never matched a covered path. A guard
+        # that silently drops a file from its own scope fails open, which is
+        # the one direction these must not fail.
+        #
         # --diff-filter=d: a staged deletion puts no content into git, so
         # it is never a finding -- and naming a deleted file in a "fix it
         # like this" message is just wrong.
-        ["git", "diff", "--cached", "--name-only", "--diff-filter=d"],
+        ["git", "diff", "--cached", "--name-only", "-z", "--diff-filter=d"],
         cwd=ROOT, capture_output=True, text=True,
     )
     if result.returncode != 0:
         return None
-    return {line for line in result.stdout.splitlines() if line}
+    return {name for name in result.stdout.split("\0") if name}
 
 
 def gitattributes_filters() -> dict[str, list[str]]:
@@ -150,8 +156,8 @@ def rule_declared_filters_are_configured() -> None:
         if filter_is_configured(name):
             continue
 
-        # Two axes, composed as AND -- this is the one place PR #12's and
-        # #13's reworks of this rule could have cancelled each other out.
+        # Two axes -- this is the one place PR #12's and #13's reworks of
+        # this rule could have cancelled each other out.
         #
         #   MODE  says who is committing        (contributor / strict)
         #   SCOPE says what is in this commit   (does it stage a covered path)

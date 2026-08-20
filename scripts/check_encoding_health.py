@@ -111,11 +111,15 @@ def staged_paths():
     None means "scope unknown"; callers fall back to every tracked file, so
     a broken git invocation can never silently disable the check.
     """
-    r = subprocess.run(["git", "diff", "--cached", "--name-only", "--diff-filter=d"],
-                       cwd=ROOT, capture_output=True, text=True)
+    # -z: git quotes any path outside plain ASCII (core.quotePath defaults
+    # on), so `caf\u00e9.md` came back as a quoted display string and never
+    # matched. Dropping a file from the guard's own scope fails open.
+    r = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "-z", "--diff-filter=d"],
+        cwd=ROOT, capture_output=True, text=True)
     if r.returncode != 0:
         return None
-    return {line for line in r.stdout.splitlines() if line}
+    return {name for name in r.stdout.split("\0") if name}
 
 
 def staged_blob(name):

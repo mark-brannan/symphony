@@ -14,6 +14,7 @@ none.
 # under test.
 import io
 import contextlib
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -171,17 +172,65 @@ class StagedScopeReadsTheIndexTest(unittest.TestCase):
     """
 
     def test_scoped_run_reads_the_staged_blob(self):
-        seen = {}
-        real_ls, real_blob = eh.subprocess.run, eh.staged_blob
-        eh.staged_blob = lambda name: seen.setdefault(name, b"clean text\n")
+        """Both halves pinned: ls-files is stubbed too, so this cannot pass
+        by yielding nothing at all -- which is exactly how the first version
+        of this test passed while checking nothing."""
+        seen = []
+
+        class FakeLsFiles:
+            stdout = "doc.md\0other.md\0"
+            returncode = 0
+
+        real_run, real_blob = eh.subprocess.run, eh.staged_blob
+        eh.subprocess.run = lambda *a, **k: FakeLsFiles()
+        eh.staged_blob = lambda name: seen.append(name) or b"from the index\n"
         try:
             files = list(eh.tracked_text_files(only={"doc.md"}))
         finally:
-            eh.staged_blob, eh.subprocess.run = real_blob, real_ls
-        # Whatever git ls-files returns in this checkout, nothing yielded
-        # here may have come from a working-tree read.
-        for _, raw in files:
-            self.assertEqual(raw, b"clean text\n")
+            eh.subprocess.run, eh.staged_blob = real_run, real_blob
+
+        self.assertEqual(seen, ["doc.md"], "must read the staged blob, once")
+        self.assertEqual([(p.name, raw) for p, raw in files],
+                         [("doc.md", b"from the index\n")])
+
+    def test_unscoped_run_reads_the_working_tree(self):
+        """--repo is a statement about the files on disk, so it reads them."""
+        real_run, real_blob = eh.subprocess.run, eh.staged_blob
+        eh.staged_blob = lambda name: self.fail("--repo must not read the index")
+        try:
+            list(eh.tracked_text_files(only=None))
+        finally:
+            eh.subprocess.run, eh.staged_blob = real_run, real_blob
+
+
+class NonAsciiPathsStayInScopeTest(unittest.TestCase):
+    """git quotes any path outside plain ASCII unless asked for -z.
+
+    Without it `caf\u00e9.md` arrives as a quoted display string, matches no
+    covered path, and drops out of the guard's scope silently -- the guard
+    reports ok on a file it never looked at. Run against real git rather
+    than a stub, because the thing being pinned is git's own behaviour.
+    """
+
+    def test_a_non_ascii_staged_path_is_returned_verbatim(self):
+        name = "caf\u00e9-\u00e5\u00df.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            run = lambda *c: subprocess.run(c, cwd=tmp, capture_output=True)
+            run("git", "init", "-q", ".")
+            run("git", "config", "user.email", "t@example.com")
+            run("git", "config", "user.name", "t")
+            (Path(tmp) / name).write_text("x\n", encoding="utf-8")
+            run("git", "add", name)
+
+            real_root = eh.ROOT
+            eh.ROOT = Path(tmp)
+            try:
+                staged = eh.staged_paths()
+            finally:
+                eh.ROOT = real_root
+
+        self.assertEqual(staged, {name},
+                         "a non-ASCII covered path must not fall out of scope")
 
 
 class MessageContractTest(unittest.TestCase):

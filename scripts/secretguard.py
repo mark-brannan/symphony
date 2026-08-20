@@ -27,10 +27,16 @@ lint_repo_hygiene's unconfigured-filter rule -- they compose as
 
     blocking = <this commit stages a covered path> or <mode is strict>
 
-an AND of the two concerns, never an OR of the two verdicts. Written down
-here because two sessions derived it independently and very nearly
-composed it the other way, which would have let contributor mode wave a
-staged plaintext secret through.
+Read it as the pass condition and the ambiguity goes away: it passes only
+when nothing covered is staged AND enforcement is not strict. Both axes
+have to clear it, and neither can wave the other through. (Saying "an AND"
+next to an `or` has already misled one reader; the boolean is an OR of the
+two blocking triggers, which is the same thing as an AND of the two pass
+conditions.)
+
+Written down here because two sessions derived this independently and very
+nearly composed it the other way, which would have let contributor mode
+wave a staged plaintext secret through.
 
 Deliberately stdlib-only. It is on the path a clone takes when pyyaml is
 what's missing, so it cannot import yaml.

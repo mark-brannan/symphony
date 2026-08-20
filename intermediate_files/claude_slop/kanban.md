@@ -39,8 +39,10 @@ response. Each names the session that raised it.
   now lives in `scripts/secretguard.py`'s module docstring and its bash
   twin, which is what every new guard imports to ask whether it is strict —
   so the next session meets it at the moment it would otherwise re-derive
-  it. Severity is `bool(hits) or mode is strict`, an AND, with tests
-  pinning it from both modes. Narrative in `log.md` for this date.
+  it. It blocks when `bool(hits) or mode is strict` — equivalently, it
+  passes only when nothing covered is staged AND enforcement isn't strict.
+  Both axes have to clear it; neither can wave the other through. Tests pin
+  it from both modes. Narrative in `log.md` for this date.
 - ~~Naming: `SYMPHONY_MODE`/`SYMPHONY_STRICT` rejected, replacement not
   settled~~ — **closed 2026-08-19** by #13, which renamed the whole guard
   surface to `secretguard` (`SECRETGUARD_MODE=strict|contributor`, one
