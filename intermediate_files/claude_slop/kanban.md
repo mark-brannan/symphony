@@ -63,8 +63,19 @@ response. Each names the session that raised it.
   vacuously. Predates #12 — the `--all` flag did not create it — and the
   fix needs a change-range interface plus workflow wiring, so it was raised
   on the PR rather than folded in. For Mark: worth its own change?
-- **Branch protection / required status checks on `main` — not enabled**
-  (2026-08-19, CI-design session). Confirmed via `list_branches`: `main` is
+- **Branch protection on `main` — CORRECTION, it IS protected**
+  (2026-08-20, pr12-rebase session). The 2026-08-19 entry below said `main`
+  was unprotected "confirmed via list_branches". That is wrong: a fresh
+  `list_branches` returns `main` with `protected: true`. The likely cause
+  of the original error is reading a paginated page that did not contain
+  `main` at all and treating absence as absence of protection — I repeated
+  the same mistake today and nearly shipped it into `reference/`.
+  Still unknown, and NOT to be guessed at: *which* protections are on, in
+  particular whether any status check is required. `protected: true` alone
+  does not say. Someone with admin view should check the branch-protection
+  settings and record the specifics here.
+  Original entry, left for the record but do not trust its conclusion:
+  (2026-08-19, CI-design session) "Confirmed via `list_branches`: `main` is
   unprotected today, so `.github/workflows/validate.yml` and
   `claude-review.yml` are both advisory-only — red X's are information, not
   a block. Deliberately not touching this: an earlier session's framing of

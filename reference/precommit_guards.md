@@ -239,12 +239,8 @@ noisy. There are tests for this.
 fresh clone doesn't have them installed until someone runs the setup. This
 is by design and always was. GitHub is where the repo-wide checking
 actually happens, and unlike the local hooks it can't be switched off from
-a laptop — but two limits are worth knowing rather than assuming:
+a laptop — but one limit is worth knowing rather than assuming:
 
-- **A red check on GitHub does not currently block a merge.** `main` has no
-  branch protection and no required status checks, so the results are
-  information, not a gate. Whether that changes is the owner's call; until
-  it does, "CI will catch it" means someone still has to look.
 - **The repo-wide checks only run on pull requests and on `main`.** A
   `--no-verify` commit sitting on a topic branch with no PR open has been
   seen only by `prepush-secret-scan`, which runs locally and is itself
