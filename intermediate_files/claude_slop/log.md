@@ -421,3 +421,66 @@ normalized into `[0, 2π)` exactly. No `derived-data` errors in the log
 around the restart — only pre-existing unrelated noise (barograph policy
 warning, a couple of plugins' network calls failing, same as before this
 change).
+
+## 2026-08-19 — sops resolved by absolute path (worktree checkout failure)
+
+Symptom: `git worktree add` failed for symphony sessions with
+`secretguard BLOCKED: cannot decrypt a file this machine is expected to
+read` / `fatal: host/boat-heartbeat.json: smudge filter sops failed`, on a
+machine where sops is installed and working. Fixed in PR #18
+(`fix/sops-path-resolution`).
+
+**Cause.** git runs filters from whatever spawned git, and that is often not
+a login shell. `~/.local/bin` is on PATH only via the shell profile, so
+`shutil.which("sops")` missed and the strict-mode smudge filter refused the
+checkout. A fatal smudge aborts the whole operation, so a shell-config
+difference became a failed worktree creation. Nothing was wrong with the
+filter's policy — only with how it located the binary.
+
+**What the investigation got wrong first.** The initial diagnosis named one
+call site (`sops_filter.SOPS`) and read as a one-line fix. It wasn't:
+`pseudonymize.load_store` and `save_store` also shell out to a bare `"sops"`
+and are on the smudge path via `to_worktree_form`, so fixing the guard alone
+just moved the failure from `host/boat-heartbeat.json` to
+`signalk/security.json`. Four bare call sites total (plus `render.py`). The
+end-to-end reproduction is what caught it; a unit test would not have.
+
+**Method worth repeating.** Reproduce the *caller's* environment, not a
+convenient local one:
+
+    env -i HOME=$HOME PATH=/usr/local/bin:/usr/bin:/bin git worktree add ...
+
+The first by-hand `git worktree add` succeeded and nearly sent the
+investigation down a blind alley — the agent's Bash tool initializes from
+the login profile, so it had the full PATH and could not see the bug. The
+`env -i` form is the honest test. Verification beyond exit 0: the checked-out
+files are plaintext not ciphertext, and `git status` in the new worktree is
+clean, proving smudge output round-trips through clean.
+
+**Policy unchanged, deliberately.** Missing sops still blocks in strict mode.
+Degrading to a ciphertext checkout would hand SignalK and Grafana `ENC[...]`
+blobs where they expect configuration — a silent failure on the boat, traded
+for a loud one. The fix only stops us concluding "no sops" on a machine that
+has it. The one thing a reviewer should weigh is that `find_sops()` will
+execute `~/.local/bin/sops` when PATH omits it; not an escalation (that
+directory is already account-owned) but it belongs in review, not folded
+silently into a checkout fix.
+
+**Also fixed:** `test_secretguard.py` pinned `"contributor"` in the
+comments-only-mode-file test, but a comments-only file leaves the mode to
+auto-detection, which is legitimately `strict` wherever an age key and the
+filters are present — so it failed on exactly the machines the strict path
+exists for. That test is about not aborting a `set -euo pipefail` caller; it
+now asserts a valid mode came out, not a specific one. Confirmed pre-existing
+by stashing the diff and re-running against a clean tree.
+
+**Local hook note.** The gitleaks pre-commit hook could not run (Docker
+daemon down on nucbox). Ran gitleaks natively instead —
+`/usr/bin/gitleaks`, repo's `.gitleaks.toml`, staged diff, no leaks — and
+skipped only that hook via `SKIP=gitleaks`, leaving the rest enforcing. CI's
+gitleaks and trufflehog both passed on the branch push, which is the
+authoritative scan.
+
+**Left open:** shell-side lookups in `precommit_secret_guard.sh` and
+`check_clone_setup.sh` are still PATH-only, same bug. Boarded in kanban.md
+§ Secret tooling.

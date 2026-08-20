@@ -28,6 +28,19 @@ to the plugin dir. Remaining:
   with the Standing orders additions session" and deleting the board-rework
   handoff note — dotfiles-side, not symphony's.
 
+## Secret tooling — PATH resolution follow-up
+
+- **Shell-side sops lookup is still PATH-only.** `scripts/precommit_secret_guard.sh:76`
+  and `scripts/check_clone_setup.sh:105` use `command -v sops`, which is the
+  same bug PR #18 fixed on the Python side: git runs hooks and filters from
+  whatever spawned git, and an IDE, GUI client, or agent harness has no
+  `~/.local/bin` on PATH. The pre-commit one is the one that bites —
+  committing from a GUI client would report sops missing on a machine that
+  has it. Wants a shared shell resolver (a `secretguard_find_sops` in
+  `secretguard.sh`) rather than the fallback directory list copy-pasted into
+  two scripts. Raised 2026-08-19 while fixing the worktree-checkout failure;
+  deliberately left out of PR #18 to keep that diff to the failing path.
+
 ## Blocked
 
 Open questions parked here so they don't live only in a session's last
