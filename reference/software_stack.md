@@ -482,5 +482,22 @@ The layers are not equally trustworthy:
 | GitHub Actions | all of the above, plus full-history and live-credential scans | **no** — runs on every push |
 
 CI is the enforcement boundary; the hooks are fast feedback, not a guarantee.
-That is why `.github/workflows/validate.yml` re-runs the same checks rather
-than trusting that a hook already ran.
+That is why CI re-runs the same checks rather than trusting that a hook
+already ran.
+
+There are two workflows, split by deadline rather than by subject.
+`validate.yml` (compose, JSON/YAML, shellcheck, python, dashboards) runs on
+pushes to `main` and on pull requests: nothing it covers can reach the boat
+without a merge, so PR time is soon enough. `secret-scan.yml` (sops config
+consistency, encryption check, gitleaks, trufflehog) runs on a push to *any*
+branch, because this repo is public and a credential is exposed the moment
+the branch is pushed, PR or no PR. Before that split (2026-08-19) a `claude/*`
+branch pushed without a PR matched neither trigger and went unscanned.
+
+Deliberately not used on `secret-scan.yml`: a `paths:` filter. It would cut
+the run count, but gitleaks is there precisely to catch credential-shaped
+strings in files sops was never told about, and a path allowlist is another
+list of the files someone remembered to think about. It is also incoherent
+with the scan's scope — both scanners read full history, so gating them on
+one push's changed files would skip a whole-history scan whenever the newest
+commit happened to touch only a README.

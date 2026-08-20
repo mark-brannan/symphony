@@ -617,16 +617,24 @@ someone is actually at a screen.
 
 ## Upgrading the scanners
 
+`pre-commit autoupdate` does nothing here — every hook is `repo: local`, so
+there are no upstream revisions to bump. The versions live in three places
+and all three must move together, or a commit gets cleared by one scanner
+version and a push by another:
+
 ```bash
-pre-commit autoupdate      # bumps pinned hook revisions
+grep -n GITLEAKS_VERSION   scripts/gitleaks_precommit.sh    # commit-time
+grep -n TRUFFLEHOG_VERSION scripts/scan_verified_secrets.sh # CI + local
+grep -n zricethezav        .github/workflows/secret-scan.yml # CI
 ```
 
-This fetches from GitHub, so do it **dockside, not underway** — a failed
-fetch mid-passage will block commits until you revert the config. Commit the
-resulting rev change so every machine and CI agree on which scanner version
-cleared a given commit. Bump the pinned image tags in
-`.github/workflows/validate.yml` and `scripts/scan_verified_secrets.sh` to
-match.
+Edit all three to the same tag, then pull the new images **dockside, not
+underway** — the first run after a bump fetches from Docker Hub, and a
+failed fetch mid-passage leaves the commit-time hook degrading to a warning
+just when you can least check it by hand.
+
+The scanners live in `secret-scan.yml`, not `validate.yml`. Nothing in
+`validate.yml` is version-pinned this way.
 
 ---
 
@@ -2313,7 +2321,79 @@ plugin you think you're testing may be the one you replaced.
 
 ## When a hook blocks your commit
 
-The message names which check failed. In rough order of likelihood:
+First, when anything here blocks you:
+
+```bash
+bash scripts/check_clone_setup.sh      # what this clone has wired, and what to do
+```
+
+It needs nothing installed and it names the fix for every gap it finds.
+
+### Mode
+
+Hook messages carry a `mode:` line.
+
+- **contributor** — no age key here. A guard that can't run says so and lets
+  the commit through; CI is the gate.
+- **strict** — there is a key. The same guard fails instead.
+
+Auto-detected from an age key being present *and* both git filters being
+configured. To override:
+
+```bash
+SECRETGUARD_MODE=strict git commit ...       # one command, force strict
+SECRETGUARD_MODE=contributor git commit ...  # one command, force contributor
+echo contributor > .secretguard-mode         # pin this clone (same two words)
+bash scripts/check_clone_setup.sh            # confirm: the "mode:" line at the top
+```
+
+Those two words are the whole vocabulary — `SECRETGUARD_MODE=1` is ignored,
+with a message, rather than guessed at.
+
+CI is always strict, and resolves before both of the above: a
+`SECRETGUARD_MODE` exported in a workflow cannot downgrade it.
+`.secretguard-mode` is gitignored — it never travels.
+
+Two things never relax, in either mode: staging a `filter=sops` file whose
+content isn't encrypted, and editing one you can't decrypt.
+
+### When a push is blocked
+
+`scripts/prepush_secret_scan.sh` reads every commit you are about to
+publish, not just the tip — so it catches one made earlier with
+`--no-verify`. Push is the irreversible moment: deleting a commit from
+GitHub does not un-publish it, and on a topic branch nothing else looks
+until a PR exists.
+
+The message names a commit and a file. Then:
+
+```bash
+git show <commit>:<file>               # 1. confirm what is in there
+bash scripts/setup-git-filters.sh      # 2. wire the filter, if that was the problem
+git rebase -i <commit>~1               # 3. fix the commit that carries it
+git push                               # 4. re-run the scan
+```
+
+Step 3 is a history rewrite, so it is only safe while the branch is
+unpushed. If it is already pushed, the secret is out — go to *A secret was
+committed in plaintext*, below, and rotate.
+
+### Break glass
+
+```bash
+SKIP=<hook-id> git commit ...          # skip one hook
+git commit --no-verify                 # skip all commit hooks
+git push --no-verify                   # skip the pre-push scan
+```
+
+All three are legitimate and every message names the one that applies. CI's
+gitleaks and trufflehog passes still run over full history on a PR. If you
+push a secret past these, treat it as a leak — *A secret was committed in
+plaintext*, below.
+
+### Which check failed
+
+In rough order of likelihood:
 
 - **"staged WITHOUT sops encryption markers"** — the clean filter didn't
   run. Almost always a clone that never ran `scripts/setup-git-filters.sh`.

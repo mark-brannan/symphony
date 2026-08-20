@@ -1,18 +1,31 @@
 name: Validate
 
-# Syntax/config validation and secret scanning. This repo's actual services
-# run on the boat's own hardware, not reachable from a GitHub-hosted runner,
-# so this is not (and can't be) the integration suite in
-# scripts/test_integration.sh. The point here is catching mistakes before
-# they reach the boat -- and, for the secret-scanning jobs, before they
-# reach the public internet.
+# Syntax and config validation. This repo's actual services run on the
+# boat's own hardware, not reachable from a GitHub-hosted runner, so this is
+# not (and can't be) the integration suite in scripts/test_integration.sh.
+# The point here is catching mistakes before they reach the boat.
+#
+# Secret scanning is NOT here -- it lives in secret-scan.yml, on a wider
+# trigger. The split is by deadline, not by subject: nothing in this file
+# can reach the boat without a merge, so PR time is soon enough, whereas a
+# credential is exposed the moment a branch is pushed to a public repo.
+# Don't add a secret-related job here; it would only run on main and PRs.
 #
 # Nothing here needs the age key: no sops decryption happens in this
-# workflow. The encryption checks work on ciphertext by design.
+# workflow.
 #
-# This workflow is the enforcement boundary. Local pre-commit hooks give
-# faster feedback but can be skipped with --no-verify or never installed;
-# these jobs cannot be bypassed from a laptop.
+# These jobs always run: local pre-commit hooks give faster feedback but can
+# be skipped with --no-verify or never installed, and these cannot be
+# bypassed from a laptop. They are NOT a merge gate. The ruleset on main
+# ("main branch protection", 2026-08-19) enforces linear history, no
+# force-push and no deletion -- it lists no required status checks, so a red
+# run here is visible but does not block a merge or a direct push. That is
+# deliberate (Mark, 2026-08-20): requiring checks would also block direct
+# pushes to main, and committing straight to main is the working model here.
+# Don't propose adding required checks as a finding. Read the
+# live state with `gh api repos/mark-brannan/symphony/rulesets` (the legacy
+# `/branches/main/protection` endpoint 404s on a ruleset-protected branch
+# and will tell you main is unprotected).
 
 on:
   push:
@@ -20,11 +33,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-  schedule:
-    # Weekly re-scan of unchanged history. Not redundant: trufflehog ships
-    # new detectors continuously, so a commit that was clean last month can
-    # be flagged this month by a detector that didn't exist then.
-    - cron: "17 9 * * 1"
 
 permissions:
   contents: read
@@ -33,7 +41,7 @@ jobs:
   compose-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Stub .env from .env.example (no secrets needed to validate syntax)
         run: cp .env.example .env
       - name: docker compose config
@@ -42,8 +50,8 @@ jobs:
   json-yaml-syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
       - run: pip install pyyaml
@@ -51,12 +59,23 @@ jobs:
       # Per-machine values: assert git's copy of every hostvars-covered file
       # still holds its {{ placeholders }} rather than one machine's literal
       # value (same relationship to the local hook as the sops checks).
-      - run: python3 scripts/hostvars_filter.py check
+      #
+      # --all is required, not optional. The pre-commit hook scopes itself to
+      # what a commit stages, so that a bad file cannot block unrelated work;
+      # nothing is staged in CI, so without --all this would pass vacuously
+      # and repo-wide enforcement would quietly disappear. CI is where whole-
+      # repo truth is asserted -- that is the trade the scoping is built on.
+      - run: python3 scripts/hostvars_filter.py check --all
+
+      # Same trade, same reason: both of these scope to the staged set at
+      # commit time and must run unscoped here.
+      - run: python3 scripts/lint_repo_hygiene.py --all
+      - run: python3 scripts/check_encoding_health.py --repo
 
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: shellcheck
         run: |
           command -v shellcheck || (sudo apt-get update && sudo apt-get install -y shellcheck)
@@ -65,8 +84,8 @@ jobs:
   python-syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
       - run: python3 -m py_compile scripts/*.py
@@ -81,69 +100,8 @@ jobs:
   dashboards:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
       - run: python3 scripts/test_dashboards.py
-
-  # Asserts .sops.yaml and .gitattributes still describe the same set of
-  # files. A file with a sops rule but no filter entry commits as PLAINTEXT
-  # and nothing else would notice.
-  sops-config-consistency:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-      - run: pip install pyyaml
-      - run: python3 scripts/sops_paths.py check
-
-  # Asserts every secret-bearing file is encrypted in what git actually
-  # stores. File list is derived from .sops.yaml, so adding a secret
-  # extends this check automatically.
-  secrets-encrypted:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-      - run: pip install pyyaml
-      - run: bash scripts/verify_encrypted.sh
-
-  # Pattern/entropy scan over the entire history, not just the diff --
-  # catches a secret introduced in any commit on the branch, including one
-  # that a bypassed local hook let through. Pinned to the same version the
-  # pre-commit hook uses so laptop and CI agree.
-  gitleaks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: gitleaks (full history)
-        run: |
-          docker run --rm -v "$PWD:/repo" -w /repo \
-            zricethezav/gitleaks:v8.30.1 \
-            git --no-banner --redact --verbose \
-            --config /repo/.gitleaks.toml \
-            --exit-code 1
-
-  # Complements gitleaks rather than duplicating it: trufflehog calls the
-  # provider API to check whether a candidate credential is actually live.
-  # It fails only on confirmed-live secrets, so a red build here is never a
-  # false alarm and is always urgent.
-  #
-  # Wrapped in a script because trufflehog has no --redact flag and prints
-  # raw secret values -- this repo's Actions logs are public, so the wrapper
-  # reports detector/file/commit only. Run it locally the same way.
-  trufflehog:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: trufflehog (verified-live secrets, full history)
-        run: bash scripts/scan_verified_secrets.sh

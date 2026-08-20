@@ -60,7 +60,15 @@ import sys
 
 import yaml
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import secretguard  # noqa: E402  -- needs the sys.path line above
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# See secretguard.find_sops: git runs filters without a login shell's PATH,
+# and this module is on the smudge path, so a bare "sops" here fails the
+# checkout on a machine that has sops installed.
+SOPS = secretguard.find_sops() or "sops"
 CONFIG = os.path.join(REPO, ".pseudonyms.yaml")
 STORE = os.path.join(REPO, "secrets", "pseudonyms.sops.yaml")
 
@@ -136,7 +144,7 @@ def load_store():
     write back as if they were real addresses.
     """
     result = subprocess.run(
-        ["sops", "--decrypt", STORE], capture_output=True, text=True
+        [SOPS, "--decrypt", STORE], capture_output=True, text=True
     )
     if result.returncode != 0:
         raise StoreUnavailable(
@@ -162,7 +170,7 @@ def save_store(salt, mapping):
         sort_keys=False,
     )
     result = subprocess.run(
-        ["sops", "--encrypt", "--filename-override", STORE, "/dev/stdin"],
+        [SOPS, "--encrypt", "--filename-override", STORE, "/dev/stdin"],
         input=STORE_HEADER + body,
         capture_output=True,
         text=True,

@@ -185,9 +185,47 @@ class TestMask(unittest.TestCase):
 
 
 class TestStore(unittest.TestCase):
+    """The only test here that needs the outside world.
+
+    Everything else in this file is pure substitution logic with its maps
+    passed in. This one decrypts the real store, so it needs sops on PATH
+    and an age identity -- which a contributor, a cloud session, or a fresh
+    checkout will not have.
+
+    Missing tools SKIP; a decryptable store that is malformed FAILS. The
+    difference matters: "I could not check this" and "I checked and it is
+    wrong" are not the same result, and reporting the first as the second
+    trains people to ignore the suite. A skip says so out loud, so it can
+    never be mistaken for a pass.
+    """
+
     def test_real_store_decrypts_and_has_a_salt(self):
-        salt, mapping = p.load_store()
-        self.assertTrue(salt)
+        # The only test here that touches the real encrypted store, so the
+        # only one that needs sops and a key. On a clone that has neither
+        # it used to error on import of the sops binary and fail the whole
+        # secret-tooling-tests hook -- i.e. block a contributor's commit
+        # over a capability they are not expected to have. Strict mode
+        # still runs it: a machine that holds secrets must be able to open
+        # them.
+        import secretguard
+
+        if secretguard.mode() != "strict" and (
+            not secretguard.find_sops() or not secretguard.have_age_key()
+        ):
+            self.skipTest(
+                "no sops on PATH or no age key, and this clone is in "
+                "contributor mode"
+            )
+        try:
+            salt, mapping = p.load_store()
+        except p.StoreUnavailable as error:
+            # "I could not check this" and "I checked and it is wrong" are
+            # different results. Reporting the first as the second trains
+            # people to ignore the suite.
+            if secretguard.mode() == "strict":
+                raise
+            self.skipTest(f"the store is not openable here ({error})")
+        self.assertTrue(salt, "the store decrypted but carries no salt")
         self.assertIsInstance(mapping, dict)
 
 

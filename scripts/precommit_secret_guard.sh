@@ -17,10 +17,68 @@
 #
 # The file lists come from .sops.yaml via scripts/sops_paths.py. Nothing
 # secret-bearing is hardcoded in this file.
+#
+# This guard does NOT relax in contributor mode. Everything else local can
+# degrade to a warning when the tooling isn't installed; this one cannot,
+# because the thing it stops is a cleartext secret entering a public repo.
+# What it does instead is stay runnable: when python3 or pyyaml is missing
+# it reads the covered-path list out of .gitattributes rather than skipping
+# the check, and says that it did.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
+# shellcheck source=scripts/secretguard.sh disable=SC1091
+. "$(pwd)/scripts/secretguard.sh"
+
 fail=0
+
+have_python_yaml() {
+	command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1
+}
+
+# Resolved once, here: the path helpers below run inside process
+# substitutions, so anything they set would be lost in a subshell.
+degraded=0
+have_python_yaml || degraded=1
+
+# In-place (partially encrypted) paths. .sops.yaml is the source of truth;
+# .gitattributes is asserted to agree with it by the sops-config-consistency
+# hook and by CI, which is what makes it a safe fallback here.
+inplace_paths() {
+	if [ "$degraded" -eq 0 ] && python3 scripts/sops_paths.py list 2>/dev/null; then
+		return 0
+	fi
+	[ -f .gitattributes ] || return 0
+	awk '/^[[:space:]]*#/ { next }
+	     { for (i = 2; i <= NF; i++) if ($i == "filter=sops") { print $1; break } }' \
+		.gitattributes
+}
+
+# Whole-file sops stores. The fallback is the layout .sops.yaml has always
+# used for these; a new one outside secrets/ would be caught by CI.
+whole_paths() {
+	if [ "$degraded" -eq 0 ] && python3 scripts/sops_paths.py list --whole 2>/dev/null; then
+		return 0
+	fi
+	local path
+	for path in secrets/*.sops.yaml; do
+		[ -e "$path" ] && printf '%s\n' "$path"
+	done
+	return 0
+}
+
+# What is missing, phrased for the `needs:` line of a blocked message.
+missing_capability() {
+	if ! _secretguard_have_age_key; then
+		printf 'an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)'
+	elif [ -z "$(git config --get filter.sops.clean 2>/dev/null)" ]; then
+		printf "filter.sops.clean in this clone's .git/config"
+	elif ! command -v sops >/dev/null 2>&1; then
+		printf 'sops on PATH'
+	else
+		printf 'the sops clean filter to have run on this file'
+	fi
+}
 
 # --- 1. never-tracked files -------------------------------------------------
 # Deleting them (untracking via `git rm --cached`) is fine and expected;
@@ -37,27 +95,39 @@ done
 # --- 2. sops-configured files must be encrypted -----------------------------
 staged="$(git diff --cached --name-only)"
 
+# Hard-fails in every mode, including contributor: what git is about to
+# store is the secret itself, in the clear, in a public repo. The message
+# names the file, what's missing, which hook stopped it, the fix and where
+# the procedure is written down -- rather than leaving a raw filter error.
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   if grep -qxF "$path" <<<"$staged"; then
-    if ! git show ":$path" | grep -q '"sops"'; then
-      echo "BLOCKED: '$path' is staged WITHOUT sops encryption markers." >&2
-      echo "  The clean filter did not run. Did this clone run scripts/setup-git-filters.sh?" >&2
-      fail=1
+    if ! git show ":$path" | secretguard_is_sops_encrypted; then
+      secretguard_block "a secret-bearing file is staged in the clear" \
+        problem="the sops clean filter did not run, so git's copy of this file has no sops metadata block -- the values in it would be committed readable" \
+        file="$path" \
+        needs="$(missing_capability)" \
+        blocked_by="pre-commit hook 'sops-secret-guard' (scripts/precommit_secret_guard.sh)" \
+        fix="bash scripts/setup-git-filters.sh, then: git reset \"$path\" && git add \"$path\"" \
+        see="RUNBOOK.md, When a hook blocks your commit" || fail=1
     fi
   fi
-done < <(python3 scripts/sops_paths.py list)
+done < <(inplace_paths)
 
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   if grep -qxF "$path" <<<"$staged"; then
-    if ! git show ":$path" | grep -q '^sops:'; then
-      echo "BLOCKED: '$path' is staged without sops encryption." >&2
-      echo "  Encrypt it:  sops --encrypt --in-place $path" >&2
-      fail=1
+    if ! git show ":$path" | secretguard_is_sops_encrypted; then
+      secretguard_block "a whole-file secret store is staged unencrypted" \
+        problem="this file is ciphertext at rest by design; git's copy of it is not" \
+        file="$path" \
+        needs="$(missing_capability)" \
+        blocked_by="pre-commit hook 'sops-secret-guard' (scripts/precommit_secret_guard.sh)" \
+        fix="sops --encrypt --in-place $path" \
+        see="RUNBOOK.md, Adding a secret" || fail=1
     fi
   fi
-done < <(python3 scripts/sops_paths.py list --whole)
+done < <(whole_paths)
 
 # --- 3. cleartext credential sweep ------------------------------------------
 # Scoped to config-shaped files (json/yaml/env) only. Application and test
@@ -84,6 +154,20 @@ fi
 # A hit means the clean filter did not substitute -- usually a clone that
 # never ran setup-git-filters.sh, or a path added to .pseudonyms.yaml
 # without being wired to filter=sops.
+#
+# Needs python3 + pyyaml to know which paths are covered, and has no safe
+# .gitattributes fallback (coverage comes from .pseudonyms.yaml, which is a
+# subset). Skipping it is tolerable where the marker check above is not: an
+# address only survives into git if the clean filter didn't run, which the
+# marker check already blocks on every one of these files.
+if [ "$degraded" -ne 0 ]; then
+  secretguard_note "cleartext-address check skipped: no python3 with pyyaml" \
+    problem="the encryption-marker check above still covers every one of these files, so this is a narrowing, not a hole" \
+    needs="pyyaml for this python3" \
+    blocked_by="pre-commit hook 'sops-secret-guard' (scripts/precommit_secret_guard.sh)" \
+    fix="pip install pyyaml" \
+    see="bash scripts/check_clone_setup.sh"
+fi
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   grep -qxF "$path" <<<"$staged" || continue
@@ -94,7 +178,43 @@ while IFS= read -r path; do
     echo "  scripts/setup-git-filters.sh and that the path is filter=sops." >&2
     fail=1
   fi
-done < <(python3 scripts/pseudonymize.py paths)
+done < <(if [ "$degraded" -eq 0 ]; then python3 scripts/pseudonymize.py paths; fi)
+
+if [ "$degraded" -ne 0 ]; then
+  secretguard_note "covered-file list came from .gitattributes, not .sops.yaml" \
+    problem="python3 with pyyaml is not available to read .sops.yaml; the two are asserted to agree by CI, so the check still ran over the same files" \
+    needs="pyyaml for this python3" \
+    fix="pip install pyyaml" \
+    see="bash scripts/check_clone_setup.sh"
+fi
+
+# --- 5. the pseudonym map must travel with the tokens (WARNS) -------------
+# When the clean filter meets an address it has not seen, it mints a token
+# AND rewrites secrets/pseudonyms.sops.yaml on disk as a side effect. If you
+# commit the file with the new token but not the updated map, the token is
+# unresolvable in a fresh clone -- nobody can ever answer "who was this?"
+#
+# Warns rather than blocks, deliberately. The map is still sitting on disk,
+# so the recovery is to commit it next -- annoying, not lost. Blocking here
+# would stop a commit over something already safe, which is what this whole
+# pass exists to stop doing. Needs no age key: it compares staged paths and
+# unstaged modifications, never decrypting anything.
+store="secrets/pseudonyms.sops.yaml"
+if [ -n "$(git diff --name-only -- "$store")" ]; then
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    if grep -qxF "$path" <<<"$staged"; then
+      echo "NOTE (sops-secret-guard, not blocking):" >&2
+      echo "  '$path' is staged, and $store has changes you have NOT staged." >&2
+      echo "  what:  the filter minted a new pseudonym and updated the map on disk." >&2
+      echo "         Commit the token without the map and nobody can ever resolve it." >&2
+      echo "  fix:   git add $store" >&2
+      echo "  Not sure? Committing anyway is safe -- the map is still on disk, just" >&2
+      echo "  commit it next. Nothing leaks either way." >&2
+      break
+    fi
+  done < <(python3 scripts/pseudonymize.py paths)
+fi
 
 if [ "$fail" -ne 0 ]; then
   echo >&2

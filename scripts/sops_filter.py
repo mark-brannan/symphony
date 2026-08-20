@@ -29,11 +29,56 @@ import os
 import subprocess
 import sys
 
-import yaml
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import pseudonymize
+import secretguard  # noqa: E402  -- needs the sys.path line above
 
-SOPS = "sops"
+# Both optional at import time so this file can still run its no-key
+# pass-through paths on a clone that has neither. Anything that actually
+# needs them checks first and fails loudly, never silently.
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+try:
+    import pseudonymize
+except ImportError:
+    pseudonymize = None
+
+# Absolute path when we can find one, bare name otherwise so the failure
+# text still names what is missing. Resolved once: PATH cannot change
+# mid-process, and a filter runs per file.
+_SOPS_PATH = secretguard.find_sops()
+SOPS = _SOPS_PATH or "sops"
+
+
+def looks_encrypted(text):
+    """What a sops document looks like from the outside, without parsing it.
+
+    One policy, shared with the pre-commit and pre-push guards, so a file
+    cannot read as encrypted to one of them and plaintext to another.
+    """
+    return secretguard.is_sops_encrypted(text)
+
+
+def can_encrypt():
+    """Everything the encrypt path needs, in one question."""
+    missing = []
+    if not _SOPS_PATH:
+        missing.append(secretguard.sops_locations())
+    if not secretguard.have_age_key():
+        missing.append("an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)")
+    if yaml is None or pseudonymize is None:
+        missing.append("the pyyaml package for this python3")
+    return missing
+
+
+def blob(ref, path):
+    result = subprocess.run(
+        ["git", "show", f"{ref}:{path}"], capture_output=True, text=True
+    )
+    return result.stdout if result.returncode == 0 else None
 
 
 def warn(message):
@@ -142,12 +187,59 @@ def index_blob(path):
 
 
 def clean(path):
+    raw = sys.stdin.read()
+
+    # A fresh clone with no key checks these files out as ciphertext -- that
+    # is the documented, expected state, and it is what the working tree
+    # holds until setup-git-filters.sh decrypts them. Staging anything else
+    # in the repo then makes git run this filter over them, and every
+    # encrypt path below needs sops and a key. That turned "no sops on this
+    # laptop" into "git commit dies on a traceback", for a README edit.
+    #
+    # So: if the working-tree copy is still exactly the ciphertext git
+    # already has, hand it straight back. Byte-identical to the blob, needs
+    # nothing installed, and cannot leak -- it is the encrypted form.
+    if looks_encrypted(raw):
+        if raw in (index_blob(path), blob("HEAD", path)):
+            sys.stdout.write(raw)
+            return
+        secretguard.block(
+            "a sops-encrypted file was edited without being decrypted first",
+            problem="this file is still ciphertext in the working tree but no "
+                    "longer matches what git has, so it cannot be passed "
+                    "through and cannot be re-encrypted -- committing it "
+                    "would store a document whose MAC no longer verifies",
+            file=path,
+            needs=", ".join(can_encrypt()) or "the sops clean filter to run",
+            blocked_by="the sops clean filter (scripts/sops_filter.py)",
+            fix=f"git checkout -- {path} to discard the edit, or provision a "
+                f"key and run: bash scripts/setup-git-filters.sh",
+            see="RUNBOOK.md, When a hook blocks your commit",
+        )
+        sys.exit(1)
+
+    missing = can_encrypt()
+    if missing:
+        secretguard.block(
+            "a secret-bearing file cannot be encrypted on this machine",
+            problem="this file is plaintext and git is about to store it. "
+                    "Refusing, because storing it as-is would put the secret "
+                    "in the clear in a public repo",
+            file=path,
+            needs=", ".join(missing),
+            blocked_by="the sops clean filter (scripts/sops_filter.py)",
+            fix="bash scripts/setup-git-filters.sh (after installing what "
+                "'needs' lists), or unstage the file",
+            see="RUNBOOK.md, When a hook blocks your commit",
+        )
+        sys.exit(1)
+
     # Pseudonymize FIRST, then treat the result as the plaintext for every
     # step below. The unchanged-comparison further down decrypts the staged
     # blob, which is already in git form -- comparing it against the raw
     # working tree would never match, so every commit would rewrite the blob
     # and these files would look permanently modified.
-    new_plaintext = to_git_form(path, sys.stdin.read())
+    new_plaintext = to_git_form(path, raw)
     old_ciphertext = index_blob(path)
 
     # SOPS_FILTER_REKEY forces fresh encryption even when the plaintext is
@@ -161,8 +253,8 @@ def clean(path):
         sys.stdout.write(sops_encrypt(path, new_plaintext))
         return
 
-    already_encrypted = old_ciphertext is not None and (
-        '"sops"' in old_ciphertext or "sops:" in old_ciphertext
+    already_encrypted = old_ciphertext is not None and looks_encrypted(
+        old_ciphertext
     )
     if already_encrypted:
         try:
@@ -178,6 +270,41 @@ def clean(path):
 
 def smudge(path):
     ciphertext = sys.stdin.read()
+
+    # Contributor: check the file out as ciphertext rather than failing.
+    # That is exactly the state a fresh clone is in before
+    # setup-git-filters.sh runs, it is what RUNBOOK.md already describes,
+    # and the alternative is `git clone` erroring out on a machine that was
+    # never going to read these files anyway.
+    #
+    # Strict: fail. A machine that holds secrets is a machine something
+    # READS them -- SignalK and Grafana parse these files directly. Handing
+    # them ENC[...] blobs where they expect configuration is a silent
+    # runtime failure on the boat, where a checkout that errors is a loud
+    # one. Degrading here would trade a visible problem for an invisible
+    # one, which is the opposite of the trade this mode switch exists for.
+    missing = can_encrypt()
+    if missing:
+        if secretguard.mode() == "strict":
+            secretguard.block(
+                "cannot decrypt a file this machine is expected to read",
+                problem="checking it out as ciphertext would leave SignalK or "
+                        "Grafana parsing ENC[...] blobs as configuration -- a "
+                        "silent failure, where this is a loud one",
+                file=path,
+                needs=", ".join(missing),
+                blocked_by="the sops smudge filter (scripts/sops_filter.py)",
+                fix="restore what 'needs' lists, then: bash scripts/setup-git-filters.sh",
+                see="bash scripts/check_clone_setup.sh",
+            )
+            sys.exit(1)
+        secretguard.line(
+            f"{path} checked out as ciphertext -- missing {missing[0]}. "
+            f"Details: bash scripts/check_clone_setup.sh"
+        )
+        sys.stdout.write(ciphertext)
+        return
+
     sys.stdout.write(to_worktree_form(path, sops_decrypt(path, ciphertext)))
 
 

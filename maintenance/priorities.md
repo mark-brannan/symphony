@@ -173,7 +173,7 @@ Detailed state, evidence and micro-tasks for every item below live in
 - Cameras: interior and exterior Tapo cams
 - Custom plugin ideas: COLREGs nav-light switching; single-path arithmetic
 - Plugin housekeeping: nine major-version upgrades, broken/unconfigured
-  plugins, derive true heading, barometric-drop notification
+  plugins, barometric-drop notification
 - MOB detection — research only; **never live-test the DSC emergency button**
   (standing rule)
 - Install BLE hub for lighting and related devices
