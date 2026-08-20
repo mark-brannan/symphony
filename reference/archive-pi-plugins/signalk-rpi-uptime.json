@@ -1,0 +1,9 @@
+{
+  "configuration": {
+    "path_seconds": "environment.rpi.uptime",
+    "prettyenable": true,
+    "path_pretty": "environment.rpi.uptimepretty",
+    "rate": 60
+  },
+  "enabled": true
+}
