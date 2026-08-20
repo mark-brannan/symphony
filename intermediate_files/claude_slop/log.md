@@ -392,3 +392,32 @@ unscanned case — and `Secret scan` fired, four jobs green, 18s, while
 **Not touched, pre-existing:** every run emits a Node 20 deprecation warning
 for `actions/checkout@v4` and `actions/setup-python@v5`. Predates this work,
 affects both workflows.
+
+## 2026-08-19 — Enabled and verified cog_magnetic derivation
+
+Follow-up to the heading verification above, per owner's ask: audited the
+rest of the COG/heading key family for gaps. Found one real, low-effort one
+— `navigation.courseOverGroundMagnetic` was entirely absent, and
+`signalk-derived-data`'s `"course data".cog_magnetic` calculator (the
+mirror of the `heading` calculator: derives magnetic COG from the native
+true COG + magnetic variation, rather than the other way around) was off.
+Everything else in that section (`dtg`, `setDrift`, `steer_error`,
+`vmg_Course`, `vmg_Wind`) needs an active route or `speedThroughWater`
+(no log impeller aboard), so those correctly stay inert. `headingCompass`
+and `magneticDeviation` are also absent but not gaps: `pypilot` publishes
+fused/corrected `headingMagnetic` directly and never routes through the
+raw-compass/deviation stage. `rateOfTurn` isn't something this plugin
+calculates at all.
+
+Owner approved enabling it. Flipped `"course data".cog_magnetic` to `true`
+in both the repo's `signalk/plugin-config-data/derived-data.json` and the
+live `~/.signalk/plugin-config-data/derived-data.json` on the boat (the
+two files disagree on several unrelated fields — pre-existing drift, not
+something this touched — so edited only the one key in each rather than
+overwriting one with the other). `sudo systemctl restart signalk`, then
+verified: `courseOverGroundMagnetic` now reports from `$source:
+derived-data`, and its value matches `courseOverGroundTrue - variation`
+normalized into `[0, 2π)` exactly. No `derived-data` errors in the log
+around the restart — only pre-existing unrelated noise (barograph policy
+warning, a couple of plugins' network calls failing, same as before this
+change).

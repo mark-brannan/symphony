@@ -15,7 +15,7 @@
       "batterPower0": false
     },
     "course data": {
-      "cog_magnetic": false,
+      "cog_magnetic": true,
       "eta_waypoint": false,
       "setDrift": false,
       "steer_error": false,

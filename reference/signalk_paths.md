@@ -37,7 +37,8 @@ such tag, so a query that filters on it returns nothing for them.
 Confirmed against the boat's InfluxDB. Present and carrying data:
 
 - **Navigation** — `position`, `speedOverGround`, `courseOverGroundTrue`,
-  `headingMagnetic`, `headingTrue`, `magneticVariation`, `attitude.{pitch,roll,yaw}`,
+  `courseOverGroundMagnetic`, `headingMagnetic`, `headingTrue`,
+  `magneticVariation`, `attitude.{pitch,roll,yaw}`,
   `trip.log`, `state`, `datetime`, `gnss.*`, `courseRhumbline.*`
 - **Steering** — `steering.autopilot.{state,engaged,defaultPilot,availableActions}`
 - **Electrical** — `batteries.house.*` (voltage, current, power, SOC, time
@@ -79,7 +80,11 @@ derive from — the boat has no `navigation.courseOverGroundMagnetic` source,
 only a native true COG from the GPS/N2K bus, which is what
 `navigation.courseOverGroundTrue` was already carrying before this change —
 so that calculator stays inert with no source to conflict with.
-enough to derive it.
+
+`"course data".cog_magnetic` was also enabled 2026-08-19, the mirror image:
+`navigation.courseOverGroundMagnetic` is now live too, derived from the
+native `courseOverGroundTrue` and `magneticVariation` (verified: the two
+combine to the reported value, normalized into `[0, 2π)`).
 
 ## Where the naming is inconsistent
 
