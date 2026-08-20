@@ -22,8 +22,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -81,11 +81,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.inside.refrigerator.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, (value - 273.15) * 9.0 / 5.0 + 32.0 AS value\nFROM signalk\nWHERE path = 'environment.inside.refrigerator.temperature' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Fridge",
@@ -93,8 +96,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -140,11 +143,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.inside.refrigerator.humidity\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 100.0 AS value\nFROM signalk\nWHERE path = 'environment.inside.refrigerator.humidity' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Fridge humidity",
@@ -152,8 +158,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -199,11 +205,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.inside.relativeHumidity\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 100.0 AS value\nFROM signalk\nWHERE path = 'environment.inside.relativeHumidity' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Cabin humidity",
@@ -211,8 +220,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -270,11 +279,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.house.capacity.stateOfCharge\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 100.0 AS value\nFROM signalk\nWHERE path = 'electrical.batteries.house.capacity.stateOfCharge' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "House SOC",
@@ -282,8 +294,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -329,11 +341,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.house.capacity.timeRemaining\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'electrical.batteries.house.capacity.timeRemaining' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Battery time remaining",
@@ -341,8 +356,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -428,19 +443,25 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.inside.refrigerator.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, (avg(value) - 273.15) * 9.0 / 5.0 + 32.0 AS value\nFROM signalk\nWHERE path = 'environment.inside.refrigerator.temperature' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.outside.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, (avg(value) - 273.15) * 9.0 / 5.0 + 32.0 AS value\nFROM signalk\nWHERE path = 'environment.outside.temperature' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         }
       ],
       "title": "Fridge temperature",
@@ -448,8 +469,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -547,27 +568,36 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.inside.refrigerator.humidity\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) * 100.0 AS value\nFROM signalk\nWHERE path = 'environment.inside.refrigerator.humidity' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.inside.relativeHumidity\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) * 100.0 AS value\nFROM signalk\nWHERE path = 'environment.inside.relativeHumidity' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.outside.relativeHumidity\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "C"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) * 100.0 AS value\nFROM signalk\nWHERE path = 'environment.outside.relativeHumidity' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "C",
+          "selectedFormat": 0
         }
       ],
       "title": "Humidity",
@@ -588,8 +618,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -643,11 +673,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.refrigerator.switchbot.battery\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'sensors.refrigerator.switchbot.battery' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Fridge sensor battery",
@@ -655,8 +688,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -710,11 +743,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.refrigerator.switchbot.signalStrength\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'sensors.refrigerator.switchbot.signalStrength' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Fridge sensor RSSI",
@@ -722,8 +758,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -777,11 +813,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.houseBattery1.signalStrength\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'sensors.houseBattery1.signalStrength' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "House battery 1 RSSI",
@@ -789,8 +828,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -844,11 +883,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.houseBattery2.signalStrength\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'sensors.houseBattery2.signalStrength' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "House battery 2 RSSI",
@@ -856,8 +898,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -911,11 +953,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.chargers.VictronACCharger.signalStrength\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'electrical.chargers.VictronACCharger.signalStrength' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "IP22 charger RSSI",
@@ -923,8 +968,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1039,35 +1084,47 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.House_Battery_1_A5_C2_37_40_01_46.reachable\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, last(value_str) AS value\nFROM signalk_str\nWHERE path = 'sensors.House_Battery_1_A5_C2_37_40_01_46.reachable' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 1
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.House_Battery_2_A5_C2_37_3C_5C_90.reachable\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, last(value_str) AS value\nFROM signalk_str\nWHERE path = 'sensors.House_Battery_2_A5_C2_37_3C_5C_90.reachable' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 1
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.SwitchBotTH_Fridge_Thermometer_CE_B5_52_72_1C_81.reachable\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "C"
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, last(value_str) AS value\nFROM signalk_str\nWHERE path = 'sensors.SwitchBotTH_Fridge_Thermometer_CE_B5_52_72_1C_81.reachable' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "C",
+          "selectedFormat": 1
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.Victron_Blue_Smart_IP22_Charger_12_30_3_D2_2A_6F_EF_DB_36.reachable\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "D"
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, last(value_str) AS value\nFROM signalk_str\nWHERE path = 'sensors.Victron_Blue_Smart_IP22_Charger_12_30_3_D2_2A_6F_EF_DB_36.reachable' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "D",
+          "selectedFormat": 1
         }
       ],
       "title": "Sensor reachability",
@@ -1075,8 +1132,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1186,35 +1243,47 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.refrigerator.switchbot.signalStrength\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) AS value\nFROM signalk\nWHERE path = 'sensors.refrigerator.switchbot.signalStrength' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.houseBattery1.signalStrength\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) AS value\nFROM signalk\nWHERE path = 'sensors.houseBattery1.signalStrength' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"sensors.houseBattery2.signalStrength\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "C"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) AS value\nFROM signalk\nWHERE path = 'sensors.houseBattery2.signalStrength' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "C",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.chargers.VictronACCharger.signalStrength\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "D"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) AS value\nFROM signalk\nWHERE path = 'electrical.chargers.VictronACCharger.signalStrength' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "D",
+          "selectedFormat": 0
         }
       ],
       "title": "Bluetooth signal strength",
