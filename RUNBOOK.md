@@ -362,13 +362,18 @@ it's gitignored and must never be committed).
 docker compose up -d
 ```
 
-On the boat, once SSO is configured ([SSO login](#sso-login-github--google)),
-use this instead so
-the TLS proxy and the identity provider come up too:
+Once SSO is configured ([SSO login](#sso-login-github--google)), on a host
+where everything is containerized use this instead so the TLS proxy and the
+identity provider come up too:
 
 ```bash
 docker compose --profile tls up -d --build
 ```
+
+**On the boat, don't use the command above** — Caddy there is still a native
+systemd service, and the Compose `caddy` container fails to bind `:443`
+against it. Bring up only `dex` and restart the native Caddy (see
+[Deploy (on the boat)](#4--deploy-on-the-boat) below).
 
 Compose starts InfluxDB first; SignalK and Grafana both declare
 `depends_on: influxdb`. Note that `depends_on` waits for the *container*,

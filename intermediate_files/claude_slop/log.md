@@ -923,9 +923,9 @@ dual-writing with InfluxDB and QuestDB both fresh and zero write errors. The
 "no space left on device" errors in the journal predate the merge by ~5 hours
 and were not this session's.
 
-Stashes: `be26ff3` (signalk-ntfy.json) was superseded by main, which makes the
-same change better ("Self-hosted ntfy" vs the stash's "Self-hosted") — dropped
-with Mark's say-so. `816c890` (priorities.md) was Mark's own handwriting and
+Stashes: `be26ff3` (signalk-ntfy.json) was superseded by main, which contains
+the same change with the more specific label "Self-hosted ntfy" vs the
+stash's "Self-hosted" — dropped with Mark's say-so. `816c890` (priorities.md) was Mark's own handwriting and
 not junk; content is now durably in the kanban, and the stash is deliberately
 left in place on the boat because the Evernote connector's token expired
 mid-call and a cloud session cannot run OAuth. Its two plumbing deletions he
