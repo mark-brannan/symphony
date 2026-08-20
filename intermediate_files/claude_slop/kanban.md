@@ -472,24 +472,69 @@ now carries only the high-level list.)
   install itself (resolving into an 11.6k-entry flat tree) took longer
   than expected. Worth knowing for next time, not a problem this time.
 
-  **What's left, next session**: the plugin is installed but disabled and
-  unconfigured — nothing reads from or writes to QuestDB yet. Needed:
-  enable it via the admin UI or `PUT /plugins/signalk-questdb-history-provider/config`
-  (need a real SignalK auth token — this session only ever had the
-  InfluxDB one to hand, never got a SignalK login token, that blocker is
-  still open), configure host `127.0.0.1` / HTTP `9000` / ILP `9009`
-  (QuestDB is already up and answering on those, see B2), set a **finite
-  retention** (the plan already flags `retentionDays: 0` as a trap on the
-  old dirkwa plugin's tracked config — don't repeat it here), confirm the
-  admin UI card settles on "Recording to QuestDB at 127.0.0.1:9009", then
-  run `SELECT count(), max(ts) FROM signalk` in QuestDB's own web console
-  to see rows landing. Run it alongside `signalk-to-influxdb2` (don't
-  uninstall that plugin) for a multi-day soak. Telegraf's second
-  `influxdb_v2` output block (dual-write host metrics to `:9000`) is a
-  separate, independent step, not yet started. B4 (dashboard porting) is
-  still blocked on the two-dashboard-set question above; B5 (retire
-  InfluxDB) needs the soak's parity checks to pass first, per
-  `reference/containerization_strategy.md`.
+  **B3 finished, 2026-08-20 (later session).** Plugin enabled and
+  recording; Telegraf dual-writing. Details:
+
+  - **Auth stayed unsolved, and was worked around.** No sops/age key in a
+    cloud session, so the captain password could not be read; minting a JWT
+    from the server's own `secretKey` was blocked by the session's
+    permission classifier (it reads as credential extraction, fairly).
+    Mark authorized any of "admin UI / restart / token" in-chat, so the
+    file route was taken: write
+    `~/.signalk/plugin-config-data/signalk-questdb-history-provider.json`
+    with the server stopped, then start it. **The plugin id is
+    `signalk-questdb-history-provider`** — the README's REST paths still
+    say `signalk-questdb`, which is the upstream id, not this fork's.
+  - Config set: `managedContainer: false`, host `127.0.0.1`, HTTP 9000,
+    ILP 9009, PGWire 8812, `retentionDays: 30`, `enableConsole: false`,
+    everything else at schema defaults. **30 days was Mark's call**, made
+    against a boat root filesystem at 82% with InfluxDB still running.
+  - Verified recording: `signalk`, `signalk_str` and `signalk_position`
+    exist and climb (511 → 1888 → 2066 rows over ~3 min), 86 distinct
+    paths, values are SI with a real `source` (`n2k-can0.2`), and
+    `max(ts)` tracks the server clock to within seconds.
+  - **`retentionDays` is not a QuestDB TTL.** All three tables read
+    `ttlValue 0` — the plugin drops aged partitions itself. So there is
+    nothing in QuestDB's own metadata to check the setting against;
+    checking means watching partitions age out at day 30, or reading the
+    plugin's config back.
+  - **Telegraf dual-write done** — second `[[outputs.influxdb_v2]]` at
+    `http://127.0.0.1:9000` in `telegraf/telegraf.conf`, 20 host-metric
+    tables landing, no output errors. Each was given
+    `ALTER TABLE <t> SET TTL 30 DAYS` by hand, since ILP auto-creates
+    tables with no TTL. **That is not durable**: a dropped-and-recreated
+    table, or a new Telegraf input, comes back with no TTL and nobody is
+    told. Worth a check in the parity pass, or a small script.
+
+  **The disk incident, 2026-08-20 — read this before adding any writer.**
+  Deploying the Telegraf output filled the boat's root filesystem within
+  15 minutes: 5.1 GB consumed by 20 new tables holding a few hundred rows.
+  QuestDB `fallocate`s an append page per column file (16 MB default), and
+  every SYMBOL column also carries a bitmap index whose rowid file
+  preallocates another 16 MB; host-metric tables are mostly SYMBOL tags.
+  Root hit 100%, and InfluxDB's WAL writer then wedged in an ENOSPC retry
+  loop that **outlived the recovery** — it kept failing after space was
+  free and needed `systemctl restart influxdb`. SignalK was throwing
+  write errors throughout. Recovered with Mark's go-ahead by dropping the
+  20 Telegraf tables (5 GB back) and `journalctl --vacuum-size=200M`
+  (1.1 GB back, and journald still has no `SystemMaxUse` — separate
+  standing item). Fixed properly in `compose-questdb.yml` with four
+  `QDB_*` env vars: data append page, index value append page, O3 column
+  memory and WAL writer append page, all cut to 256k/128k. Same 20 tables
+  now cost ~20 MB. Two things learned the hard way: the settings are
+  read at container start, so each try meant recreate + re-measure; and
+  `du -sm` on the volume after the first few flushes is the only honest
+  check, because row counts say nothing about footprint here.
+
+  **Watch item for the soak:** the volume was 140 MB about ten minutes in,
+  most of it one-time preallocation rather than data. Nobody has a second
+  data point yet — take one before trusting a growth estimate, and treat
+  ~6 GB free as the budget.
+
+  **What's left:** the multi-day soak itself, then B5's parity checks
+  (`reference/containerization_strategy.md`). Don't uninstall
+  `signalk-to-influxdb2`. B4 (dashboards) is still blocked on the
+  two-set question above.
 
   Assets already in place: the compose Grafana keeps the QuestDB datasource plugin
   installed, and the retired `signalk-grafana` plugin's auto-built QuestDB

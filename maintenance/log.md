@@ -282,5 +282,11 @@
   backup verified to restore cleanly with matching data.
 - QuestDB stood up as a container on the boat, the first step of the
   InfluxDB-to-QuestDB migration.
-- QuestDB's SignalK history plugin installed on the boat (not yet
-  configured or recording).
+- QuestDB's SignalK history plugin installed on the boat, configured and
+  recording with 30-day retention. It runs alongside the InfluxDB plugin
+  for a multi-day comparison soak.
+- Telegraf now writes host metrics to both InfluxDB and QuestDB.
+- The boat's root filesystem filled while QuestDB's new tables were created;
+  it preallocates megabytes per column regardless of rows written. Dropped
+  the new tables and trimmed the journal to recover, restarted InfluxDB,
+  which had stuck on the full disk, and capped QuestDB's preallocation.
