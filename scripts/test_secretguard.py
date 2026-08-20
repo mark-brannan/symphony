@@ -263,6 +263,30 @@ class Destination(unittest.TestCase):
         self.assertIn("EXISTING LOG LINE", body)
         self.assertIn("secretguard note: t", body)
 
+    def test_an_in_process_redirect_of_stderr_captures_the_message(self):
+        """A deliberate redirect outranks /dev/tty.
+
+        _dest() prefers a controlling terminal when stderr is not one, so
+        that a passing-but-degraded guard still reaches a human through
+        pre-commit's capture. Applied blindly that also defeats
+        contextlib.redirect_stderr: the message goes to the terminal, the
+        caller collects nothing, and any assertion on the text fails --
+        but only on a machine that HAS a terminal, so CI stayed green while
+        a developer's commit was blocked by a phantom failure with the guard
+        blocks dumped into unrelated hook output. Pin the precedence.
+        """
+        import contextlib
+        import io
+
+        sys.path.insert(0, os.path.join(REPO, "scripts"))
+        import secretguard
+
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            secretguard.block("t", problem="p", file="some/file.md")
+        self.assertIn("some/file.md", buf.getvalue())
+        self.assertIn("secretguard BLOCKED: t", buf.getvalue())
+
     def test_comments_only_mode_file_does_not_abort_a_set_e_caller(self):
         """pipefail + a grep that matches nothing killed the sourcing script."""
         mode_file = MODE_FILE

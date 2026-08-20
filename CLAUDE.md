@@ -185,6 +185,14 @@ covered here.
   the owner the same judgment twice.
 - Raising a real objection to one of them is fine — one line, then move on.
   Re-deriving the whole analysis is not.
+- **The owner's email address, GitHub handle, and GitHub numeric user ID
+  (including `oidc.sub` values that encode it) stay in the clear, fixtures
+  and docstrings included.** Decided, written up in
+  `reference/security_posture.md`, and re-raised by session after session
+  anyway. Never report it as a finding, never offer to scrub it, don't
+  mention it at all — not even as a one-line aside at the end of unrelated
+  work. This is the one item where "raise a real objection in one line"
+  does not apply; the objection has been heard and rejected.
 - **Do not touch the `captain` credentials.** `signalk_captain_password` and
   `influxdb_captain_password` in `secrets/symphony.sops.yaml` are frozen at
   Mark's instruction until his own hardening pass. Don't rotate, split, or
