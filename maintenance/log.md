@@ -307,3 +307,9 @@
   blocking message was escaping to /dev/tty instead of the test's captured
   stderr on any machine with a real terminal attached, passing on headless
   CI and failing everywhere else.
+- Found and fixed the cause of the house batteries publishing nothing:
+  bt-sensors-plugin-sk opens its D-Bus connection while SignalK is still
+  loading plugins, and the bus closed the connection at its 30s auth
+  timeout before the handshake could run. Raised the limit on the boat;
+  both banks are reporting again. Corrected the RUNBOOK section, which
+  had pointed at the radio and at boot ordering.
