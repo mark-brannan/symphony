@@ -266,12 +266,30 @@ commits.
   `compose-grafana.yml` already documents for InfluxDB with
   `host.docker.internal`; each of B3, B4 and B6 crosses that boundary and
   has to switch the endpoint when it does.
-- **B3. Swap the SignalK history plugin.** Install Hat Labs'
+  **QuestDB's file preallocation is sized for a server, and this Pi is
+  not one.** Every column file gets an `fallocate`d append page — 16 MB by
+  default on 64-bit — and every SYMBOL column additionally carries a
+  bitmap index whose rowid file preallocates another 16 MB. That is real
+  disk, not sparse. On 2026-08-20 pointing Telegraf at QuestDB created 20
+  host-metric tables in one flush and took 5 GB for a few hundred rows;
+  the boat's root filesystem hit 100%, and InfluxDB's WAL writer then
+  wedged in a retry loop on ENOSPC that outlived the recovery and needed
+  `systemctl restart influxdb` to clear. `compose-questdb.yml` now sets
+  `cairo.writer.data.append.page.size`,
+  `cairo.writer.data.index.value.append.page.size` and
+  `cairo.o3.column.memory.size` to 256 KB via `QDB_*` env vars. Anything
+  that adds tables here — new Telegraf inputs, a second writer — should be
+  watched with `du -sm` on the volume for the first few flushes, not
+  assumed to be proportional to the rows written.
+- **B3. Swap the SignalK history plugin.** Hat Labs'
   `signalk-questdb-history-provider` (external-DB-only fork — no
-  `signalk-container`, no docker socket) pointed at localhost, or
-  dirkwa's `signalk-questdb` in external mode (`managedContainer:
-  false`) if the fork isn't on npm yet **[unverified — check]**. Set a
-  finite retention. Run it alongside `signalk-to-influxdb2` for a short
+  `signalk-container`, no docker socket) is on npm and installed on the
+  boat, pointed at localhost. Its plugin id is
+  `signalk-questdb-history-provider`, not the `signalk-questdb` its README
+  still uses for the REST mount path, so its config file is
+  `~/.signalk/plugin-config-data/signalk-questdb-history-provider.json`.
+  Set a finite retention — `retentionDays` defaults to 0, which is the same
+  infinite-retention trap the old InfluxDB plugin config carried. Run it alongside `signalk-to-influxdb2` for a short
   soak (days); Telegraf dual-writes via a second `influxdb_v2` output to
   `:9000`. Mind the npm-prune hazard in the checklist.
 - **B4. Port the dashboards.** Stand the compose Grafana up against
@@ -446,11 +464,18 @@ marked; Mark has pre-authorized them, except where a line says otherwise.
    nulls. Record which SignalK paths appear, for the B5 parity comparison.
    Do **not** uninstall `signalk-to-influxdb2` in the same session —
    dual-run is the plan.
-7. **Telegraf dual-write (semi-destructive, reversible).** Add a second
-   `[[outputs.influxdb_v2]]` block pointed at `http://localhost:9000`
-   with `content_encoding = "identity"` to the repo-tracked
-   `telegraf/telegraf.conf`, restart telegraf, confirm host-metric
-   tables appear in QuestDB. Revert by deleting the block.
+7. **Telegraf dual-write (semi-destructive, reversible).** Done
+   2026-08-20: a second `[[outputs.influxdb_v2]]` block pointed at
+   `http://127.0.0.1:9000` in the repo-tracked `telegraf/telegraf.conf`.
+   Revert by deleting the block. Two corrections to the plan as written
+   here. `content_encoding = "identity"` is not needed — QuestDB 10
+   accepts gzipped line protocol on `/api/v2/write`, verified by writing
+   a probe table three ways (plain, with an `Authorization: Token`
+   header, gzipped) and reading the rows back. And the output needs
+   `timeout = "30s"`: the first flush after a restart creates a table per
+   measurement, which does not finish inside the 5 s default on this Pi.
+   Org, bucket and token are ignored by QuestDB; the token is sent and
+   discarded, so nothing is rendered into it.
 8. **Grafana ⇄ QuestDB probe (read-mostly).** Add a PGWire datasource to
    the *native* Grafana by hand (`localhost:8812`) or bring up the compose
    Grafana with `--no-deps` (per the compose file's own warning about the
