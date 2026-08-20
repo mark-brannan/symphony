@@ -501,7 +501,7 @@ now carries only the high-level list.)
   `/home/pi/symphony/telegraf/telegraf.conf` is a symlink target for
   `/etc/telegraf/telegraf.conf`, so deploying the Telegraf change meant
   editing that tracked file in place — the boat's checkout now shows
-  ` M telegraf/telegraf.conf` and will until PR #15 merges and it pulls.
+  `M telegraf/telegraf.conf` and will until PR #15 merges and it pulls.
   Bigger: the boat's `main` is at `68e4e04`, which is **not an ancestor of
   today's `origin/main`** — main was force-updated upstream at some point,
   so the boat cannot fast-forward and a plain `git pull` there will merge

@@ -27,6 +27,9 @@ services:
       # restarted. 256 KB is ample here -- the write rates are per-minute host
       # metrics and per-second vessel deltas, not ingest-benchmark volumes.
       - QDB_CAIRO_WRITER_DATA_APPEND_PAGE_SIZE=256k
+      # Not a disk cap -- this one bounds the RAM QuestDB maps per column
+      # during out-of-order merges. Kept alongside the disk caps because the
+      # same "sized for a server" default applies on a 4 GB box.
       - QDB_CAIRO_O3_COLUMN_MEMORY_SIZE=256k
       # Same trap, second file class: every SYMBOL column gets a bitmap index,
       # whose .v (rowid) file preallocates 16 MB of its own. Host-metric tables
@@ -42,8 +45,9 @@ services:
     # ports at questdb:9000/:9009/:8812 over symphony-net without needing a
     # published port at all. Publishing is only for the native-process side.
     ports:
-      - "127.0.0.1:9000:9000"   # HTTP / REST / web console
-      - "127.0.0.1:9009:9009"   # ILP (line protocol, used by Telegraf's influxdb_v2 output)
+      - "127.0.0.1:9000:9000"   # HTTP: REST, web console, and line protocol
+                                #   over /api/v2/write (Telegraf writes here)
+      - "127.0.0.1:9009:9009"   # ILP over raw TCP (the history plugin's writer)
       - "127.0.0.1:8812:8812"   # PGWire (Grafana's QuestDB datasource)
     volumes:
       - questdb-data:/var/lib/questdb

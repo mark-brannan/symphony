@@ -276,10 +276,13 @@ commits.
   wedged in a retry loop on ENOSPC that outlived the recovery and needed
   `systemctl restart influxdb` to clear. `compose-questdb.yml` now sets
   `cairo.writer.data.append.page.size`,
-  `cairo.writer.data.index.value.append.page.size`,
-  `cairo.o3.column.memory.size` and `cairo.wal.writer.data.append.page.size`
-  down to 256 KB / 128 KB via `QDB_*` env vars — each is read at container
-  start, so changing one means recreating the container. Anything
+  `cairo.writer.data.index.value.append.page.size` and
+  `cairo.wal.writer.data.append.page.size` down to 256 KB / 128 KB via
+  `QDB_*` env vars — each is read at container start, so changing one means
+  recreating the container. `cairo.o3.column.memory.size` is set alongside
+  them but is **not** one of the disk caps: it bounds mapped memory during
+  out-of-order merges, and it is there because the same server-sized default
+  applies to RAM on a 4 GB box. Anything
   that adds tables here — new Telegraf inputs, a second writer — should be
   watched with `du -sm` on the volume for the first few flushes, not
   assumed to be proportional to the rows written.
@@ -477,8 +480,11 @@ marked; Mark has pre-authorized them, except where a line says otherwise.
    header, gzipped) and reading the rows back. And the output needs
    `timeout = "30s"`: the first flush after a restart creates a table per
    measurement, which does not finish inside the 5 s default on this Pi.
-   Org, bucket and token are ignored by QuestDB; the token is sent and
-   discarded, so nothing is rendered into it.
+   QuestDB has no org/bucket concept and this deployment sets no
+   authentication options, so those fields are inert here — but the probe
+   only shows the endpoint *accepting* an `Authorization: Token` header, not
+   what it does with it. Nothing sensitive is rendered into the field either
+   way. QuestDB's own auth, if it is ever wanted, is HTTP Basic.
 8. **Grafana ⇄ QuestDB probe (read-mostly).** Add a PGWire datasource to
    the *native* Grafana by hand (`localhost:8812`) or bring up the compose
    Grafana with `--no-deps` (per the compose file's own warning about the

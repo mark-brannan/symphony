@@ -1677,32 +1677,72 @@ service mid-install brings it up against a half-written plugin directory.
 
 ## Bringing up QuestDB on the boat
 
-`compose-questdb.yml` is included from `docker-compose.yml`. Before starting
-it, raise the kernel's memory-mapping limit — QuestDB memory-maps every
-partition column file and a grown database exhausts the default on this
-Pi's kernel, after which queries fail with out-of-memory errors while RAM is
-free:
+`compose-questdb.yml` is included from `docker-compose.yml`.
 
-```bash
-cat /proc/sys/vm/max_map_count      # if well below 1048576:
-echo 'vm.max_map_count=1048576' | sudo tee /etc/sysctl.d/99-questdb.conf
-sudo sysctl --system
-```
+1. Raise the kernel's memory-mapping limit. QuestDB memory-maps every
+   partition column file, and a grown database exhausts the default — queries
+   then fail with out-of-memory errors while RAM is free. It is a host
+   setting; it cannot be set from inside the container.
 
-This is a host-level kernel setting — it cannot be set from inside the
-QuestDB container. Takes effect immediately, no reboot.
+   ```bash
+   cat /proc/sys/vm/max_map_count      # if well below 1048576:
+   echo 'vm.max_map_count=1048576' | sudo tee /etc/sysctl.d/99-questdb.conf
+   sudo sysctl --system
+   cat /proc/sys/vm/max_map_count      # must now read 1048576
+   ```
 
-```bash
-docker compose -f docker-compose.yml up -d questdb
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9000/   # 301 = up
-```
+   Still the old value → another file sets it later in load order:
+   `grep -r max_map_count /etc/sysctl.d/ /etc/sysctl.conf`, remove the loser,
+   re-run `sudo sysctl --system`.
 
-`mem_limit: 768m` in the compose file is not actually enforced on this Pi —
-`docker compose up` logs "Your kernel does not support memory limit
-capabilities or the cgroup is not mounted." Raspberry Pi OS ships without
-`cgroup_enable=memory` on the kernel command line by default. Fixing that
-needs a `cmdline.txt` edit and a reboot, so for now QuestDB's memory is
-watched (`free -m`, `grep ^pswp /proc/vmstat`), not capped.
+2. Start it and check it is ready.
+
+   ```bash
+   docker compose -f docker-compose.yml up -d questdb
+   curl -sf -G --data-urlencode 'query=SELECT 1;' \
+     http://127.0.0.1:9000/exec                     # answers = ready
+   docker logs questdb 2>&1 | grep -c QDB_CAIRO_    # must be 5
+   ```
+
+   `http://127.0.0.1:9000/` is not a readiness check — it answers 301 as soon
+   as the listener binds, before the database can serve anything.
+
+   Count below 5 → the container came up without the page-size caps. Recreate
+   it (`docker compose ... up -d --force-recreate questdb`) and re-check
+   before going on; they are read only at start. Without them QuestDB
+   preallocates 16 MB per column file, and one Telegraf flush creating a table
+   per measurement takes gigabytes for a few hundred rows. That filled this
+   Pi's root filesystem on 2026-08-20, and InfluxDB's WAL writer then stuck in
+   an ENOSPC retry loop that outlived the recovery.
+
+3. Start the writers and make their tables durable.
+
+   ```bash
+   sudo systemctl restart telegraf
+   sleep 90 && scripts/questdb_table_hygiene.sh                # TTL + dedup
+   du -sm /var/lib/docker/volumes/symphony_questdb-data/_data  # tens of MB, not GB
+   ```
+
+   Line protocol creates tables with no TTL and no dedup keys, so re-run the
+   hygiene script after adding a Telegraf input or recreating a table. Without
+   dedup, a batch whose HTTP response timed out is retried into rows QuestDB
+   already committed — duplicate data, and a skewed row-count parity check.
+
+   `du` in gigabytes → stop the writers and go back to step 2's count.
+
+4. Check whether the memory cap is real.
+
+   ```bash
+   docker inspect questdb --format '{{.HostConfig.Memory}}'   # 0 = not enforced
+   ```
+
+   0 on this Pi: Raspberry Pi OS ships without `cgroup_enable=memory`, and
+   `docker compose up` logs "Your kernel does not support memory limit
+   capabilities or the cgroup is not mounted." To enforce it, append
+   `cgroup_enable=memory cgroup_memory=1` to the single line in
+   `/boot/firmware/cmdline.txt` and reboot. Until then watch instead of
+   capping — `free -m`, `grep ^pswp /proc/vmstat` — and stop QuestDB if
+   available memory goes under ~400 MB.
 
 ---
 
