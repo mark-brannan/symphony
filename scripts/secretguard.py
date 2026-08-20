@@ -181,6 +181,20 @@ def sops_locations():
     return "sops on PATH or in " + ", ".join(_SOPS_DIRS)
 
 
+def can_decrypt():
+    """This machine can open the encrypted store: runnable sops AND an age key.
+
+    Deliberately a separate question from mode(). Strict answers "how
+    rigorously to enforce"; it does not answer "does this machine hold
+    keys" -- CI is strict unconditionally while carrying no key at all, by
+    design. Code that needs to actually decrypt asks this; code deciding
+    block-vs-warn asks mode(). Reading `mode() == "strict"` as "keys exist
+    here" is the conflation that made test_pseudonymize demand a key from a
+    keyless runner. The shell twin is secretguard_can_decrypt.
+    """
+    return bool(find_sops()) and _have_age_key()
+
+
 def _filters_configured():
     return bool(_git_config("filter.sops.clean")) and bool(
         _git_config("filter.hostvars.clean")

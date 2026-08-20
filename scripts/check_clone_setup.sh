@@ -101,10 +101,15 @@ else
 	unknown "pyyaml" "no python3 to ask"
 fi
 
-if have sops; then
-	ok "sops" "$(command -v sops)"
+# Resolved with secretguard_find_sops, not `command -v` alone: git runs
+# hooks and filters from whatever spawned git, and an IDE or agent harness
+# inherits a bare PATH without ~/.local/bin -- the exact machine this report
+# is for would otherwise be told sops is missing when it isn't.
+sops_path="$(secretguard_find_sops || true)"
+if [ -n "$sops_path" ]; then
+	ok "sops" "$sops_path"
 else
-	gap "sops" "not found" \
+	gap "sops" "not found ($(secretguard_sops_locations))" \
 		"secret-bearing files stay ciphertext on disk; you cannot read or edit a secret" \
 		"see RUNBOOK.md, Bringing up a host -- Phase 1 (or skip it: contributors don't need secrets)"
 fi

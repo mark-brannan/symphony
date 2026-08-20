@@ -30,17 +30,13 @@ to the plugin dir. Remaining:
 
 ## Secret tooling — PATH resolution follow-up
 
-- **Shell-side sops lookup is still PATH-only.** `scripts/precommit_secret_guard.sh:76`
-  and `scripts/check_clone_setup.sh:105` use `command -v sops`, which is the
-  same bug PR #18 fixed on the Python side: git runs hooks and filters from
-  whatever spawned git, and an IDE, GUI client, or agent harness has no
-  `~/.local/bin` on PATH. The pre-commit one is the one that bites —
-  committing from a GUI client would report sops missing on a machine that
-  has it. Wants a shared shell resolver (a `secretguard_find_sops` in
-  `secretguard.sh`) rather than the fallback directory list copy-pasted into
-  two scripts. Raised 2026-08-19 while fixing the worktree-checkout failure;
-  deliberately left out of PR #18 (merged 2026-08-19 as `49adbf7`) to keep
-  that diff to the failing path.
+- ~~Shell-side sops lookup is still PATH-only~~ — **done 2026-08-20, PR #19.**
+  `secretguard.sh` gained `secretguard_find_sops` and
+  `secretguard_sops_locations` (twins of the python pair, parity-tested,
+  locations text pinned byte-identical), and both `command -v sops` call
+  sites — `precommit_secret_guard.sh` and `check_clone_setup.sh` — now use
+  them. Raised 2026-08-19 while fixing the worktree-checkout failure;
+  deliberately left out of PR #18 to keep that diff to the failing path.
 
 - **Symphony has 15 stale `claude/*` remote branches.** Noticed while
   cleaning up after PR #18; the same sprawl dotfiles swept on 2026-08-19.
@@ -106,11 +102,11 @@ response. Each names the session that raised it.
   confirmed via `list_branches`" claim and its 2026-08-20 correction; the
   legacy `/branches/main/protection` endpoint 404s on a ruleset-protected
   branch, which is how the wrong claim got written.
-- **Node 20 deprecation on both workflows** — mostly done 2026-08-19:
-  `6745f76` bumped `validate.yml` and `secret-scan.yml` to `checkout@v5` /
-  `setup-python@v6`. Stragglers as of 2026-08-20: the `secret-tooling-tests`
-  job was added after the bump and pins `checkout@v4` / `setup-python@v5`,
-  and `claude-review.yml` still uses `checkout@v4`.
+- ~~Node 20 deprecation on both workflows~~ — **done.** `6745f76` bumped
+  `validate.yml` and `secret-scan.yml` on 2026-08-19; PR #19 (2026-08-20)
+  swept the two stragglers that postdated the bump — the
+  `secret-tooling-tests` job's steps and `claude-review.yml`'s checkout. No
+  `checkout@v4` / `setup-python@v5` remains in any workflow.
 
 - ~~wire-wright publish~~ done 2026-08-19. Diagnosed both original failures:
   `gh repo create --push` had actually already created and pushed
@@ -283,56 +279,24 @@ now carries only the high-level list.)
 - 3D-print IMU case
 
 ### Infrastructure
-- **TASK: make CI able to run the secret-tooling suite, then collapse the CI
-  job onto the existing runner.** Moderately high. Boarded 2026-08-20 (PR #12
-  follow-up session), Mark's explicit ask. Do this BEFORE any extraction of
-  the secret tooling into its own repo — a standalone repo's CI is keyless on
-  every job, so this defect is load-bearing there, not incidental.
+- ~~TASK: make CI able to run the secret-tooling suite, then collapse the CI
+  job onto the existing runner~~ — **done 2026-08-20, PR #19**, all five
+  steps as written. `secretguard.can_decrypt()` (sops AND age key) now
+  carries the "this machine holds keys" meaning in both twins, parity-pinned
+  from both sides; `TestStore` gates on it and skips on a keyless runner
+  naming what is missing, while `StoreUnavailable` stays strict-fatal;
+  `secret-scan.yml`'s job runs `bash scripts/run_secret_tooling_tests.sh`
+  and names no individual suite; `claude-review.yml`'s allowedTools names
+  the runner. Verified keyless: `CI=1` run of the full runner green — the
+  previously-red path (run 32319051952). This unblocks extraction of the
+  secret tooling into its own repo, where every CI job is keyless.
+- **Confirm the strict path on a keyed machine** — the one leg of the TASK
+  above that a keyless session cannot run: one
+  `bash scripts/run_secret_tooling_tests.sh` on a machine holding the age
+  key, confirming `TestStore` still opens the real store. The gate change is
+  keyless-only by construction, so this is confirmation, not open design —
+  but it stays listed until someone has actually run it.
 
-  *The defect.* `scripts/secretguard.py` `resolve()` returns `("strict",
-  "CI")` for any runner, first in the chain and unconditionally, so no
-  workflow can downgrade it. That part is deliberate and should stay. The bug
-  is that other code reads `mode() == "strict"` as "this machine can open
-  secrets", while both workflows deliberately carry no age key and say so in
-  their headers. On a runner the two beliefs collide.
-
-  *Where it shows.* `scripts/test_pseudonymize.py` `TestStore` skips its
-  real-store decryption only outside strict mode, so in CI it refuses to skip
-  and then cannot decrypt: `FileNotFoundError: 'sops'`. Run 32319051952 is
-  the red build. It is currently held out of the CI job, with the reasoning
-  in a comment in `.github/workflows/secret-scan.yml`.
-
-  *Steps, in order:*
-  1. `grep -rn "mode()\|resolve()\|SECRETGUARD_MODE" scripts/` and classify
-     every caller: which ones mean "be rigorous" and which mean "I hold a
-     key". Both `secretguard.py` and `secretguard.sh` — they are twins and
-     `test_secretguard.py` asserts they agree, so any change lands in both.
-  2. Add a separate predicate for the second meaning — `can_decrypt()`, built
-     from `shutil.which("sops")` and `have_age_key()` — rather than
-     weakening strict. Do NOT give CI an age key: that contradicts both
-     workflow headers and puts a live decryption key in Actions.
-  3. Point `TestStore` at the new predicate: strict still means a failure to
-     decrypt is a real failure *on a machine that holds keys*; a keyless
-     runner skips.
-  4. Replace the four `- run: python3 scripts/test_*.py` lines in the
-     `secret-tooling-tests` job of `.github/workflows/secret-scan.yml` with a
-     single `- run: bash scripts/run_secret_tooling_tests.sh`, and delete the
-     comment block explaining why test_pseudonymize is excluded.
-  5. Delete the now-stale suite list from `claude_args --allowedTools` in
-     `.github/workflows/claude-review.yml`, replacing it with
-     `Bash(bash scripts/run_secret_tooling_tests.sh)`.
-
-  *Why step 4 matters on its own.* `scripts/run_secret_tooling_tests.sh`
-  already owns the canonical list of suites, and the pre-commit hook that
-  calls it is also named `secret-tooling-tests`. The CI job I added on
-  2026-08-20 duplicates that list, so a suite added to one will silently not
-  run in the other — the exact failure `.sops.yaml`'s header bans ("Do not
-  keep a second copy of this list anywhere"). It cannot be collapsed until
-  steps 1-3 are done, because the runner includes test_pseudonymize.py.
-
-  *Done when:* `secret-scan.yml` names no individual test file, a green run
-  exists on main, and `bash scripts/run_secret_tooling_tests.sh` still passes
-  locally on a machine that does hold the age key (strict path unchanged).
 - Deploy the openweather-signalk humidity-fix Node-RED flow (needs boat
   access). `environment.outside.relativeHumidity` publishes OpenWeatherMap's
   raw percent instead of SignalK's 0-1 ratio, so every dashboard panel on

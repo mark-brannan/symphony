@@ -775,3 +775,43 @@ configuration — `.sops.yaml`, `.gitattributes`, `.pre-commit-config.yaml`,
 the RUNBOOK sections — which a dedicated repo must take as inputs it is
 handed rather than files it owns. Do not start on top of the unlanded
 `fix/sops-path-resolution` work.
+
+## 2026-08-20 — PR #12 landed; the keyless-CI follow-up executed (PR #19)
+
+PR #12 had been done for hours — 24 review threads worked, 22 resolved, two
+declined on the merits, all checks green — and was blocked only by a merge
+conflict against a main that had moved 17 commits (PRs #17/#18, the interim
+secret-tooling CI job, the actions bump). Merged main into the branch rather
+than rebasing 25 shared commits: conflicts were the two slop files (union,
+with entries main had since resolved reconciled to their outcomes — the
+required-checks question got Mark's "no, deliberately", the suites-in-CI
+question became the boarded TASK) and test_pseudonymize.py, where PR #18's
+find_sops() superseded the branch's shutil.which and left a dead import.
+Verified the merged tree exactly as the PR itself had been (six suites,
+CI=1 repo-wide checks, syntax passes) before pushing. The independent
+reviewer's final pass on the merge commit found nothing; squash-merged as
+4bfc3cb per the linear-history ruleset. CodeRabbit's kanban-hedges thread
+resolved itself in the merge — the entry it flagged was superseded by the
+answered question, so the reconciliation satisfied both the bot and the
+convention it had misapplied.
+
+Then executed the boarded keyless/strict TASK as PR #19 (draft), steps 1-5
+as written, on this session's assigned branch. The one bug shape again:
+mode() == "strict" read as "keys exist here". The new can_decrypt() is the
+second meaning given its own name, in both twins, with the parity suite
+grown to pin it from both sides — including a locations-text byte-identity
+check that keeps the two sops search lists from drifting, and a toolbox-dir
+trick because a test that empties PATH also loses bash. Folded in the
+shell-side find_sops (the other open PATH-resolution bullet) and the last
+Node 20 stragglers, both already boarded against these same files.
+
+Self-correction for the record: the first commit's message accidentally
+embedded its own pathspec as a trailing line (the `--` separator written
+into the -m string as well as after it); amended before push.
+
+Open after this session, all needing Mark: merge PR #19 (green CI plus one
+run of run_secret_tooling_tests.sh on a keyed machine is the remaining
+done-when leg); the frozen-secrets CI change-range design (PR #12's one
+deliberately-open thread); the stale claude/* branch sweep (now 16-ish with
+PR #12's branch merged and this one pending — deletion needs his go-ahead);
+whether validate.yml should also run on branch pushes.
