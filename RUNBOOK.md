@@ -63,10 +63,12 @@ logged in `maintenance/log.md`.
 
 ## Two deployments, one runbook
 
-The compose files are the intended deployment. **The boat Pi does not match
-them** — SignalK, InfluxDB, Grafana, Caddy and Dex run there as systemd units
-(why, in [reference/software_stack.md](reference/software_stack.md)). Commands
-below are written for compose. On the boat, translate:
+The compose files are the intended deployment. **The boat Pi is a mix** —
+SignalK, InfluxDB, Grafana and Caddy run there as systemd units, while Dex,
+QuestDB and ntfy are containers (why, in
+[reference/software_stack.md](reference/software_stack.md)). Commands below are
+written for compose. For the three containers they work as written. For the
+systemd units, translate:
 
 | Compose | Boat Pi |
 |---|---|
@@ -360,13 +362,18 @@ it's gitignored and must never be committed).
 docker compose up -d
 ```
 
-On the boat, once SSO is configured ([SSO login](#sso-login-github--google)),
-use this instead so
-the TLS proxy and the identity provider come up too:
+Once SSO is configured ([SSO login](#sso-login-github--google)), on a host
+where everything is containerized use this instead so the TLS proxy and the
+identity provider come up too:
 
 ```bash
 docker compose --profile tls up -d --build
 ```
+
+**On the boat, don't use the command above** — Caddy there is still a native
+systemd service, and the Compose `caddy` container fails to bind `:443`
+against it. Bring up only `dex` and restart the native Caddy (see
+[Deploy (on the boat)](#4--deploy-on-the-boat) below).
 
 Compose starts InfluxDB first; SignalK and Grafana both declare
 `depends_on: influxdb`. Note that `depends_on` waits for the *container*,
@@ -2287,7 +2294,7 @@ first.
 no sensor of any kind — and the only clue is one uncaught exception as the
 server starts:
 
-```
+```text
 Uncaught exception: Error: write EPIPE
   at auth (.../@jellybrick/dbus-next/lib/handshake.js:67)
 ```
@@ -2309,8 +2316,8 @@ Fix: give the bus longer to wait, then restart the server.
 grep auth_timeout /etc/dbus-1/system-local.conf   # expect 120000
 ```
 
-If that file is missing or the limit is absent, install it — `host/install.sh`
-places it and reloads dbus:
+If that file is missing or `auth_timeout` is not `120000`, install it —
+`host/install.sh` places it and reloads dbus:
 
 ```bash
 sudo host/install.sh
@@ -2342,17 +2349,21 @@ stays dead for that whole process. Every start blocks the same way, which is why
 this is not intermittent and why `signalk-ble-check` burns its entire restart
 budget each boot and gives up.
 
-Two dead ends, both already measured — don't spend time in either:
+Two dead ends — check them, but don't expect to find anything:
 
-- **The radio.** `hci0` is `UP RUNNING` with zero errors throughout. Nothing in
-  this fault ever reaches the controller.
+- **The radio.** `sudo hciconfig hci0` should show `UP RUNNING` with no error
+  counters climbing. If it doesn't, this fault isn't reaching the controller
+  at all — look elsewhere.
 - **Boot ordering.** bluetoothd owns the bus long before SignalK loads.
   `host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
   hygiene, not because it fixes this.
 
 The real fix belongs in the plugin — open the bus lazily in `start()` and
 reconnect on error. `/etc/dbus-1/system-local.conf` is a workaround at the wrong
-layer; remove it once the plugin carries the fix.
+layer; once the plugin carries the fix, remove both the deployed file and its
+installer — `sudo rm /etc/dbus-1/system-local.conf` and reload dbus, then drop
+`host/dbus-auth-timeout.conf` and its install step from `host/install.sh`, or a
+later run of that script reinstalls the workaround.
 
 ---
 

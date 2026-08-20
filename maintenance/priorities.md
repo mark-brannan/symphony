@@ -64,8 +64,6 @@ blocked questions, and detailed working state live in
 - Refinish wooden blocks/pulleys
 
 ### Plumbing & sanitation
-- Address remaining holding tank system work now that the old tank is out
-- Tighten head pump / apply sealant; install Y valve between Lectra-San and head
 - Deep-clean water tank (due again)
 
 ### Electrical (core, non-IoT)

@@ -313,3 +313,7 @@
   timeout before the handshake could run. Raised the limit on the boat;
   both banks are reporting again. Corrected the RUNBOOK section, which
   had pointed at the radio and at boot ordering.
+- Rescued two branches of unpushed work off the boat's checkout — the JBD BMS
+  BLE capture and the Pushover escalation — and brought that checkout up to
+  current main. No history had been rewritten; the apparent divergence was an
+  artifact of a shallow clone on the dev machine.

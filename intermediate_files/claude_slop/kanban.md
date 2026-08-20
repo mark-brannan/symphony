@@ -17,8 +17,10 @@ already carries enough context.
 - [ ] [Decide dotfiles Google-connector parity](kanban-detail.md#dotfiles-google-connector-parity) — symphony denies three more connectors than dotfiles does; dotfiles-repo edit if wanted.
 - [ ] [Approve deleting stale branch `claude/git-hygiene-redesign`](kanban-detail.md#stale-branch-claudegit-hygiene-redesign) — superseded, nothing to salvage, but deleting a pushed ref needs your go-ahead.
 - [ ] [Check whether the dotfiles "hooks-continuity-cleanup" session's PR #3 still needs your two manual web-UI steps](kanban-detail.md#undelivered-coordination-note-to-the-hooks-continuity-cleanup-session) — last known state 2026-08-19; may already be resolved.
+- [ ] [Re-authorize the Evernote connector](kanban-detail.md#evernote-connector-needs-re-authorization) — token expired mid-session; once it's back, a session files your recovered physical-task list and drops the boat stash.
 
 ### Boat systems / SignalK
+- [ ] [Pick a moment for Claude to reconcile the boat's Dex onto its pin](kanban-detail.md#dex-is-running-latest-instead-of-its-pin) — recreates the container and drops every OIDC session/refresh token; fine dockside, bad offshore.
 - [ ] [Decide BME680 sensor ownership](kanban-detail.md#bme680-sensor-ownership) — enable the dedicated plugin and retire the OpenPlotter i2c entries, or keep OpenPlotter and give up the airquality index.
 - [ ] [Confirm PostgSail is receiving voyages](kanban-detail.md#confirm-postgsail-is-receiving) — needs Mark's own PostgSail account to check.
 - [ ] [Decide what Cerbo GX 1, solar-forecast, influxdb-v2-buffering and aisreporter should be configured to do](kanban-detail.md#stalled-plugin-configs-needing-a-decision) — four stalled plugins, each missing one piece of owner-known info.
@@ -42,7 +44,7 @@ already carries enough context.
 
 ### Infrastructure
 - [ ] [Re-run the secret-tooling suite on a keyed machine (NucBoxK12) after pulling latest main](kanban-detail.md#confirm-secret-tooling-suite-on-a-keyed-machine) — closes the last leg of PR #19's TASK.
-- [ ] [Reconcile the boat's checkout with the rewritten main lineage](kanban-detail.md#boats-checkout-stranded-on-the-old-main-lineage) — push its two stranded branches first, then the checkout, then the stashes, then verify all five services. Real blast radius (Dex/OIDC) if done out of order.
+- [ ] [Sweep the stale claude/* branches, excluding the two rescued from the boat](kanban-detail.md#land-or-discard-three-held-claude-branches) — `ecoworthy-signalk-telemetry-vy82ta` @48f3122 and `symphony-pushover-setup-ce12i0` @3f08bd3 are unmerged and exist nowhere else; don't touch them.
 - [ ] [Finish dockerizing the boat computer](../../reference/containerization_strategy.md) — Track B; SignalK, Grafana and Caddy are still native. Caddy last, done carefully — it's the front door.
 - [ ] [Run the QuestDB multi-day soak, then B5 parity checks, then retire InfluxDB](kanban-detail.md#questdb-migration-execution-notes-not-in-the-reference-doc) — B1-B3 are mostly done; B1's off-boat backup copy is still outstanding. Don't uninstall signalk-to-influxdb2 yet. Read the linked notes before touching B5 parity — the reference doc alone is missing a load-bearing gotcha.
 - [ ] [Resolve which Grafana dashboard set is the QuestDB port target](kanban-detail.md#which-grafana-dashboard-set-is-the-questdb-port-target) — blocks open PR #10.
@@ -79,6 +81,9 @@ already carries enough context.
 - [ ] [Audit and fork signalk-pushover-notification-relay](kanban-detail.md#audit-and-fork-signalk-pushover-notification-relay) — or fall back to the Node-RED flow if it's beyond saving.
 - [ ] [Research MOB detection options](kanban-detail.md#mob-detection-research) — never live-test the DSC emergency button, standing rule.
 - [ ] [Remove the deprecated @signalk/zones plugin](kanban-detail.md#remove-the-deprecated-signalkzones-plugin) — mirror its zone meta into the boat's own baseDeltas first.
+- [ ] [Settle i2c IMU data not showing up in SignalK](kanban-detail.md#recovered-boat-stash-notes-imu-temp-sensors-runbook-gaps) — plugin or OpenPlotter; Mark's own note.
+- [ ] [Determine why temp sensor readings look off](kanban-detail.md#recovered-boat-stash-notes-imu-temp-sensors-runbook-gaps) — dropped readings vs. dead batteries; Mark's own note.
+- [ ] [Fill the RUNBOOK gaps Mark called out](kanban-detail.md#recovered-boat-stash-notes-imu-temp-sensors-runbook-gaps) — simulating a ping failure, testing ntfy and Pushover locally, and a pass for further gaps.
 
 ### Hardware design backlog
 - [ ] [Fit a DS3231 RTC to the boat Pi](kanban-detail.md#fit-a-ds3231-rtc-to-the-boat-pi) — cheap, independent of the GNSS question, makes the offline clock survivable.

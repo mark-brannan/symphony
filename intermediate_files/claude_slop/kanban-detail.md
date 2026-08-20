@@ -32,6 +32,15 @@ checks against old-main). Each needs its own land-or-discard decision:
 tracked separately — see "Which Grafana dashboard set is the QuestDB port
 target".
 
+**Two more branches now exist and must stay out of any further sweep**:
+`claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122 (8 commits, JBD BMS BLE
+capture) and `claude/symphony-pushover-setup-ce12i0` @3f08bd3, rescued off
+the boat's stranded checkout 2026-08-20 (git-divergence reconciliation
+session) and pushed after the sweep above ran. Neither is merged anywhere,
+and the boat was their only other copy — a Claude's-list card tracks
+sweeping the rest of the stale `claude/*` branches, but a session picking
+that up must exclude these two the same way.
+
 ## Rotate the Tailscale OAuth client credential
 
 A read-only `policy_file:read` OAuth client lives in
@@ -284,39 +293,78 @@ there and re-run; the new runner should print six OK blocks and
 construction, so this is a formality, but it only closes once the new code
 has actually run under a key.
 
-## Boat's checkout stranded on the old main lineage
+## Evernote connector needs re-authorization
 
-`origin/main` was force-updated at some point — `origin/claude/*` branches
-are the only place the old lineage is still reachable, so the stale-branch
-sweep (already done) did *not* touch these. **Content looks preserved, not
-lost**: main's CLAUDE.md is 421 lines against the old tip's 346, and every
-old-lineage marker sampled (worktree rules, the Evernote note GUID, the
-no-persistent-polling hook, ADHD task granularity) is present — but that
-was four greps, not proof; confirm across the tree before acting.
+Token expired mid-session on 2026-08-20 (git-divergence reconciliation);
+a cloud session can't run the OAuth flow. **Mark: re-authorize Evernote in
+claude.ai connector settings**, then a session can file the list below into
+"Symphony Important Tasks" per § Evernote, and drop boat stash `816c890`
+(deliberately left in place until the transfer completes). Recovered
+verbatim from that stash (`WIP on main: 54ef0e7`, `maintenance/priorities.md`):
 
-**What's actually at risk is on the boat.** `/home/pi/symphony` is on
-`main` at `68e4e04` (old lineage) and has never fetched, so a plain `git
-pull` there merges unrelated histories against a dirty tree. It holds,
-nowhere else: `claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122 (8
-commits, the JBD BMS BLE capture work) and
-`claude/symphony-pushover-setup-ce12i0` @3f08bd3 — **neither tip exists on
-origin** — plus two stashes (signalk-ntfy.json, priorities.md). Its one
-modified file, `telegraf/telegraf.conf`, is deliberate and already
-byte-identical to main's (the Telegraf QuestDB dual-write change).
+- water line from dripless needs to go somewhere real — engineroom air loop?
+- small DIY cockpit drain needs a new/different fixture and hose going to
+  the stern
+- freshwater pump (again)
+- composting head, as Mark broke it down:
+  - cut new square HDPE for subfloor
+  - epoxy down purpleheart base
+  - screw in HDPE (sealant around far edge of HDPE)
+  - epoxy around sole and HDPE
+  - screw down brackets for Airhead
+  - run silicone line to shower sump (temp)
+  - cut hole for fan
+  - wire fan
 
-**And that directory is live**: `EnvironmentFile=/home/pi/symphony/.env` is
-read by caddy, dex, telegraf, and the signalk and grafana OIDC drop-ins;
-dex's `ExecStart` reads `dex/config.yaml` from it; and
-`/etc/telegraf/telegraf.conf` is a symlink into it. Swapping that working
-tree swaps what Dex runs, and Dex is the OIDC front door — breaking it
-costs the remote access you'd need to fix it.
+Settled 2026-08-20: the stash's two plumbing deletions ("Address remaining
+holding tank system work now that the old tank is out" and "Tighten head
+pump / apply sealant; install Y valve between Lectra-San and head") are
+ancient history per Mark and valid to drop; both already removed from
+`priorities.md`. Its other four deletions (the Safety & compliance block)
+had already landed in main independently — Mark doesn't recall the detail
+and isn't worried about it, so they stay gone. Nothing outstanding here but
+the Evernote filing itself.
 
-**Order to do this in**: push the two boat branches as-is first (no
-rebase, no squash), then reconcile the checkout, then the stashes, then
-verify all five services (caddy, dex, telegraf, signalk, grafana). A full
-handoff prompt was written out in the 2026-08-20 QuestDB session's chat but
-not preserved verbatim here — re-derive the order above if picking this up
-fresh.
+## Dex is running :latest instead of its pin
+
+Found 2026-08-20 (git-divergence reconciliation). `compose-idp.yml` pins
+`ghcr.io/dexidp/dex:v2.45.1@sha256:8499afd690c437f...`, with a comment
+explaining that `latest` moving under the boat is "not a surprise worth
+having offshore." The container actually running is
+`ghcr.io/dexidp/dex:latest`, digest `af9469509350...`, self-reporting
+**v2.46.0**-20260806171424-ab64ed77 — the pin is defeated. Not caused by
+this session's fast-forward; that commit range never touched
+`compose-idp.yml`.
+
+**Checked the registry rather than guessing**: `v2.45.1` is already the
+newest actual release. `v2.42.0` … `v2.45.1` exist; `v2.45.2`, `v2.46.0`,
+`v2.46.1`, `v2.47.0` do not. `:latest` is a rolling nightly off `main`
+(built 2026-08-06, never released). So the repo's pin is correct and the
+boat is wrong — there is nothing to re-pin *to*.
+
+The fix is `docker compose --profile tls up -d dex`, which recreates the
+container onto v2.45.1. Dex uses `storage_type=memory`, so any recreate
+drops every session and refresh token — fine dockside, bad offshore.
+**Needs Mark to pick the moment**; this is the same "breaking it costs the
+remote access you'd fix it with" case as the checkout swap. Also worth
+finding out what started Dex from `:latest` in the first place, or the pin
+keeps getting defeated.
+
+## Recovered boat-stash notes: IMU, temp sensors, RUNBOOK gaps
+
+Recovered 2026-08-20 from a stash on the boat (Mark's own notes, not yet
+investigated):
+
+- i2c IMU data isn't showing up in SignalK — settle whether it should be
+  configured via a plugin or via OpenPlotter.
+- Temp sensors: unclear whether readings are being dropped or the sensors
+  just need new batteries. Determine which before replacing anything.
+- RUNBOOK gaps, in Mark's wording ("runbook should say how to..."):
+  - how to simulate a ping failure, and the common things to check and try
+    when there is a *real* failure
+  - how to test ntfy locally
+  - how to test Pushover
+  - he ended the list with "others?" — worth a pass for further gaps
 
 ## Which Grafana dashboard set is the QuestDB port target
 
