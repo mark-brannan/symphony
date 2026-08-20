@@ -486,8 +486,8 @@ gets scoped: read PGN 126992 once SignalK is on `can0`, or the wider GNSS
 position fix. Until then the clock is internet-only and free-runs offline,
 on a box with no RTC — which is also what makes the DS3231 fit worth doing
 regardless; doesn't remove the case for the RTC either way, since a GNSS
-clock needs a fix and the bus powered, so it doesn't cover a cold offline
-boot.
+clock needs a fix and a powered bus, so it cannot cover a cold boot while
+offline.
 
 ## Set source priorities for position once AIS is powered
 

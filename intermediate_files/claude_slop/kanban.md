@@ -15,7 +15,7 @@ already carries enough context.
 - [ ] [Land or discard three held claude/* branches](kanban-detail.md#land-or-discard-three-held-claude-branches) — signalk-oidc-identity-permissions-4kk8gl, symphony-docs-corrections-aeuorm, laughing-hamilton-7f7pbg each need their own call.
 - [ ] [Rotate the Tailscale OAuth client credential](kanban-detail.md#rotate-the-tailscale-oauth-client-credential) — it was pasted into a session transcript; read-only scope, not urgent.
 - [ ] [Decide dotfiles Google-connector parity](kanban-detail.md#dotfiles-google-connector-parity) — symphony denies three more connectors than dotfiles does; dotfiles-repo edit if wanted.
-- [ ] [Say drop it on stale branch `claude/git-hygiene-redesign`](kanban-detail.md#stale-branch-claudegit-hygiene-redesign) — superseded, nothing to salvage, but deleting a pushed ref needs your go-ahead.
+- [ ] [Approve deleting stale branch `claude/git-hygiene-redesign`](kanban-detail.md#stale-branch-claudegit-hygiene-redesign) — superseded, nothing to salvage, but deleting a pushed ref needs your go-ahead.
 - [ ] [Check whether the dotfiles "hooks-continuity-cleanup" session's PR #3 still needs your two manual web-UI steps](kanban-detail.md#undelivered-coordination-note-to-the-hooks-continuity-cleanup-session) — last known state 2026-08-19; may already be resolved.
 
 ### Boat systems / SignalK
@@ -44,7 +44,7 @@ already carries enough context.
 - [ ] [Re-run the secret-tooling suite on a keyed machine (NucBoxK12) after pulling latest main](kanban-detail.md#confirm-secret-tooling-suite-on-a-keyed-machine) — closes the last leg of PR #19's TASK.
 - [ ] [Reconcile the boat's checkout with the rewritten main lineage](kanban-detail.md#boats-checkout-stranded-on-the-old-main-lineage) — push its two stranded branches first, then the checkout, then the stashes, then verify all five services. Real blast radius (Dex/OIDC) if done out of order.
 - [ ] [Finish dockerizing the boat computer](../../reference/containerization_strategy.md) — Track B; SignalK, Grafana and Caddy are still native. Caddy last, done carefully — it's the front door.
-- [ ] [Run the QuestDB multi-day soak, then B5 parity checks, then retire InfluxDB](kanban-detail.md#questdb-migration-execution-notes-not-in-the-reference-doc) — B1-B3 done; don't uninstall signalk-to-influxdb2 yet. Read the linked notes before touching B5 parity — the reference doc alone is missing a load-bearing gotcha.
+- [ ] [Run the QuestDB multi-day soak, then B5 parity checks, then retire InfluxDB](kanban-detail.md#questdb-migration-execution-notes-not-in-the-reference-doc) — B1-B3 are mostly done; B1's off-boat backup copy is still outstanding. Don't uninstall signalk-to-influxdb2 yet. Read the linked notes before touching B5 parity — the reference doc alone is missing a load-bearing gotcha.
 - [ ] [Resolve which Grafana dashboard set is the QuestDB port target](kanban-detail.md#which-grafana-dashboard-set-is-the-questdb-port-target) — blocks open PR #10.
 - [ ] [Deploy the repo's Grafana provisioning to the boat](kanban-detail.md#deploy-the-repos-grafana-provisioning-to-the-boat) — the native install is still hand-configured.
 - [ ] [Build a host-health Grafana dashboard from Telegraf's existing metrics](kanban-detail.md#build-a-host-health-grafana-dashboard) — four queries already verified live; it's panels, not discovery.
