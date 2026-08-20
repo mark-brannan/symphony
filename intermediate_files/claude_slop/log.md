@@ -521,3 +521,59 @@ for both commits and CI's gitleaks + trufflehog were the authoritative
 scans. If Docker stays down on nucbox this will recur every commit — worth
 either starting Docker Desktop's WSL integration or teaching
 `gitleaks_precommit.sh` to fall back to a native binary when one is on PATH.
+
+## 2026-08-20 — PR #12 follow-up: CI tests, the ruleset, and a wrong claim
+
+Acted on the three decisions PR #12's closing comment left open.
+
+**Landed.** `secret-tooling-tests` job in `secret-scan.yml` running
+test_secretguard, test_sops_recipients and test_hostvars_filter on every
+branch push — nothing automated ran them before. The PR reviewer's
+`--allowedTools` now carries the suites and its prompt says "verified" must
+mean executed; across seven rounds of #12 both reviewers were denied any
+execution, so every verification in those reports was hand-traced.
+
+**A wrong claim, corrected.** I reported main as unprotected on the strength
+of `gh api repos/.../branches/main/protection` returning 404. It is
+protected — by ruleset 21060338 (linear history, no force-push, no deletion),
+which that legacy endpoint does not report. The substance survived (no
+required status checks) but the reasoning was wrong, and Mark had to supply
+the ruleset URL. `gh api repos/mark-brannan/symphony/rulesets` is the correct
+read; it is now written into `validate.yml`'s header.
+
+**Mark's call: no required status checks**, because requiring them would also
+block direct pushes to main and commit-straight-to-main is the working model.
+Recorded in validate.yml so it does not return as a review finding.
+
+**A second wrong claim, caught by CI.** I wrote "no age key, no sops binary,
+no network" on the new job. `test_pseudonymize.py` needs both — run
+32319051952 went red. Backed that one suite out with the reasoning in a
+comment rather than papering over it. Root cause is boarded: `resolve()`
+calls every runner strict, but "strict" is read elsewhere as "can open
+secrets", and these workflows are keyless by design.
+
+**Then found the duplication.** `scripts/run_secret_tooling_tests.sh` already
+owned the canonical suite list, under the same name as my new job. My CI job
+is a second copy of it. It cannot be collapsed until the strict/keyless fix
+lands, so both are now one boarded task with numbered steps — written up
+because an extraction of the secret tooling into its own repo is being
+scoped, and a keyless standalone CI makes that defect load-bearing.
+
+**Shared checkout, mid-session.** Another session switched
+`~/symphony` onto `fix/sops-path-resolution` while I was working. My commits
+were already on origin/main; the last edit I moved out — restored the file
+untouched, cloned to scratch, committed and pushed from there. Worktrees are
+erroring on this box, so a throwaway clone in the scratchpad is the working
+substitute. `origin/main` moved four times during the session; fetch-rebase
+handled each.
+
+**For whoever scopes the extraction:** the boundary is cleaner than it looks.
+In sops_paths, sops_filter, sops_recipients, hostvars_filter and pseudonymize
+every symphony-specific string is a comment or doc example — no code knows
+about SignalK. `lint_repo_hygiene.py` is the exception and stays: its rules
+are boat-specific, and PR #12's still-open `rule_frozen_secrets_untouched`
+thread belongs to it, not to the extracted tooling. The real coupling is
+configuration — `.sops.yaml`, `.gitattributes`, `.pre-commit-config.yaml`,
+the RUNBOOK sections — which a dedicated repo must take as inputs it is
+handed rather than files it owns. Do not start on top of the unlanded
+`fix/sops-path-resolution` work.

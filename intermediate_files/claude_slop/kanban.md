@@ -259,26 +259,56 @@ now carries only the high-level list.)
 - 3D-print IMU case
 
 ### Infrastructure
-- **CI is strict-mode but has no age key, and the two claims contradict
-  each other.** Moderately high priority — Mark's call 2026-08-20. Surfaced
-  when `secret-tooling-tests` was added to `secret-scan.yml`:
-  `secretguard.resolve()` returns `("strict", "CI")` unconditionally for any
-  runner, first and deliberately, so no workflow can downgrade it. But
-  strict means "this machine holds secrets, so a failure to decrypt is a
-  real failure", and this repo's workflows deliberately hold no age key —
-  both `validate.yml` and `secret-scan.yml` say so in their headers. On a
-  runner the two beliefs collide: `test_pseudonymize.py`'s `TestStore`
-  refuses to skip (strict) and then cannot decrypt (no key), so it errors.
-  That one test is parked out of the CI job with the reasoning in a comment.
-  The item here is the general question, not the test: every guard that
-  reads `mode() == "strict"` as "I can open secrets" is wrong in CI, so the
-  same trap may be waiting in others. Two ways out — teach the resolver that
-  "strict because CI" is a claim about rigor, not about key possession
-  (probably a third state, or a separate `can_decrypt()` predicate); or give
-  CI an age key, which contradicts the headers and puts a real decryption
-  key in Actions. Recommend the first. Whoever takes it should first grep
-  for every `mode()`/`resolve()` caller and say which ones actually meant
-  "holds a key".
+- **TASK: make CI able to run the secret-tooling suite, then collapse the CI
+  job onto the existing runner.** Moderately high. Boarded 2026-08-20 (PR #12
+  follow-up session), Mark's explicit ask. Do this BEFORE any extraction of
+  the secret tooling into its own repo — a standalone repo's CI is keyless on
+  every job, so this defect is load-bearing there, not incidental.
+
+  *The defect.* `scripts/secretguard.py` `resolve()` returns `("strict",
+  "CI")` for any runner, first in the chain and unconditionally, so no
+  workflow can downgrade it. That part is deliberate and should stay. The bug
+  is that other code reads `mode() == "strict"` as "this machine can open
+  secrets", while both workflows deliberately carry no age key and say so in
+  their headers. On a runner the two beliefs collide.
+
+  *Where it shows.* `scripts/test_pseudonymize.py` `TestStore` skips its
+  real-store decryption only outside strict mode, so in CI it refuses to skip
+  and then cannot decrypt: `FileNotFoundError: 'sops'`. Run 32319051952 is
+  the red build. It is currently held out of the CI job, with the reasoning
+  in a comment in `.github/workflows/secret-scan.yml`.
+
+  *Steps, in order:*
+  1. `grep -rn "mode()\|resolve()\|SECRETGUARD_MODE" scripts/` and classify
+     every caller: which ones mean "be rigorous" and which mean "I hold a
+     key". Both `secretguard.py` and `secretguard.sh` — they are twins and
+     `test_secretguard.py` asserts they agree, so any change lands in both.
+  2. Add a separate predicate for the second meaning — `can_decrypt()`, built
+     from `shutil.which("sops")` and `have_age_key()` — rather than
+     weakening strict. Do NOT give CI an age key: that contradicts both
+     workflow headers and puts a live decryption key in Actions.
+  3. Point `TestStore` at the new predicate: strict still means a failure to
+     decrypt is a real failure *on a machine that holds keys*; a keyless
+     runner skips.
+  4. Replace the four `- run: python3 scripts/test_*.py` lines in the
+     `secret-tooling-tests` job of `.github/workflows/secret-scan.yml` with a
+     single `- run: bash scripts/run_secret_tooling_tests.sh`, and delete the
+     comment block explaining why test_pseudonymize is excluded.
+  5. Delete the now-stale suite list from `claude_args --allowedTools` in
+     `.github/workflows/claude-review.yml`, replacing it with
+     `Bash(bash scripts/run_secret_tooling_tests.sh)`.
+
+  *Why step 4 matters on its own.* `scripts/run_secret_tooling_tests.sh`
+  already owns the canonical list of suites, and the pre-commit hook that
+  calls it is also named `secret-tooling-tests`. The CI job I added on
+  2026-08-20 duplicates that list, so a suite added to one will silently not
+  run in the other — the exact failure `.sops.yaml`'s header bans ("Do not
+  keep a second copy of this list anywhere"). It cannot be collapsed until
+  steps 1-3 are done, because the runner includes test_pseudonymize.py.
+
+  *Done when:* `secret-scan.yml` names no individual test file, a green run
+  exists on main, and `bash scripts/run_secret_tooling_tests.sh` still passes
+  locally on a machine that does hold the age key (strict path unchanged).
 - Deploy the openweather-signalk humidity-fix Node-RED flow (needs boat
   access). `environment.outside.relativeHumidity` publishes OpenWeatherMap's
   raw percent instead of SignalK's 0-1 ratio, so every dashboard panel on
