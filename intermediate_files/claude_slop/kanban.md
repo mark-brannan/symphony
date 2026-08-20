@@ -55,14 +55,6 @@ response. Each names the session that raised it.
   once #13 made every hook `repo: local`. That last one was #13's staleness,
   not the split's, and was the one that would actually have misled someone.
 
-- **`SKIP=gitleaks-docker` in CLAUDE.md is stale** (2026-08-19, same
-  session). PR #13 renamed the hook id `gitleaks-docker` → `gitleaks`, so
-  the sanctioned incantation for the WSL "docker could not be found"
-  failure — written into `symphony/CLAUDE.md` § Git hygiene — no longer
-  skips anything and the commit still fails. Correct name is now
-  `SKIP=gitleaks`. Needs a one-line CLAUDE.md edit; flagged to Mark rather
-  than made silently, since that file is his.
-
 - **Node 20 deprecation on both workflows** (2026-08-19, same session).
   Every run warns that `actions/checkout@v4` and `actions/setup-python@v5`
   target Node 20 and are being forced onto Node 24. Pre-existing, affects
@@ -141,9 +133,12 @@ response. Each names the session that raised it.
   Drive only): owner deferred 2026-08-19 — "plumbing we'll figure out
   later." Not blocking anything; revisit when plumbing diagrams start.
 - ~~gitleaks-docker hook vs Docker Desktop~~ decided 2026-08-19:
-  `SKIP=gitleaks-docker` is the sanctioned path when WSL integration is
-  off; rule added to CLAUDE.md § Git hygiene. Native-binary hook swap not
-  wanted — closed.
+  skipping the gitleaks hook is the sanctioned path when docker is
+  missing from PATH or the daemon isn't reachable (Docker Desktop not
+  running / WSL integration off); rule added to CLAUDE.md § Git
+  hygiene. Incantation
+  updated to `SKIP=gitleaks` on 2026-08-20 after PR #13 renamed the hook
+  id. Native-binary hook swap not wanted — closed.
 - **Stale branch `claude/git-hygiene-redesign` (7be6e6a) — delete it?**
   (2026-08-19). The pre-worktree take on the git-hygiene redesign,
   superseded by `0a76db4` / `a861190`; no PR was ever opened because that
