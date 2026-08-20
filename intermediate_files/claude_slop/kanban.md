@@ -39,7 +39,14 @@ to the plugin dir. Remaining:
   has it. Wants a shared shell resolver (a `secretguard_find_sops` in
   `secretguard.sh`) rather than the fallback directory list copy-pasted into
   two scripts. Raised 2026-08-19 while fixing the worktree-checkout failure;
-  deliberately left out of PR #18 to keep that diff to the failing path.
+  deliberately left out of PR #18 (merged 2026-08-19 as `49adbf7`) to keep
+  that diff to the failing path.
+
+- **Symphony has 15 stale `claude/*` remote branches.** Noticed while
+  cleaning up after PR #18; the same sprawl dotfiles swept on 2026-08-19.
+  Not looked at, not triaged — each needs the content-safety check that
+  sweep used (merged in *content*, not ancestry alone) before anything is
+  deleted. Captured, not started.
 
 ## Blocked
 

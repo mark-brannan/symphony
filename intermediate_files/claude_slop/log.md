@@ -484,3 +484,40 @@ authoritative scan.
 **Left open:** shell-side lookups in `precommit_secret_guard.sh` and
 `check_clone_setup.sh` are still PATH-only, same bug. Boarded in kanban.md
 § Secret tooling.
+
+**Outcome (same session).** PR #18 merged to main 2026-08-19 as `49adbf7`
+(squash), branch deleted both sides. Final check ran the `env -i` worktree
+add against merged main: exit 0, `host/boat-heartbeat.json` plaintext, all
+five test files pass.
+
+Review raised two points, both fair, both taken in `6a86384`:
+
+- *Diagnostics had drifted from the resolver.* `can_encrypt()` listed three
+  of the five fallback directories and `lint_repo_hygiene` still said only
+  "sops on PATH" — a message could send someone to install sops somewhere
+  the resolver does not look. `secretguard.sops_locations()` is now the
+  single source for that text, and a test asserts it covers every entry in
+  `_SOPS_DIRS` so the two cannot drift again. `_SOPS_DIRS` also moved to
+  unexpanded paths expanded at lookup, which keeps `~/.local/bin` legible in
+  the message and honours a HOME that changes after import.
+- *`find_sops` had no tests*, despite deciding whether secrets reach disk as
+  plaintext. Seven cases, each building its own fake sops in a tmpdir with
+  both PATH and `_SOPS_DIRS` overridden, so none depend on whether the host
+  running the suite has the real binary.
+
+**Worth repeating: the new tests were checked by mutation, not by counting
+assertions.** Dropping the `X_OK` check failed 2, letting the fallbacks beat
+PATH failed 1, truncating the location list failed 1, returning `"sops"`
+instead of `""` failed 3. Writing tests and seeing them green proves nothing
+about whether they *can* fail; four one-line mutations do.
+
+**Process note.** Two review comments looked like two findings; the second
+was the first re-anchored after the fix (`line: null` = outdated). Checked
+the current code before answering, rather than trusting either the comment
+or my own memory of having fixed it.
+
+**Local hook caveat, again.** Docker still down, so gitleaks ran natively
+for both commits and CI's gitleaks + trufflehog were the authoritative
+scans. If Docker stays down on nucbox this will recur every commit — worth
+either starting Docker Desktop's WSL integration or teaching
+`gitleaks_precommit.sh` to fall back to a native binary when one is on PATH.
