@@ -13,6 +13,11 @@ services:
     mem_limit: 768m
     environment:
       - TZ=UTC
+      # QuestDB's default fsyncs nothing on the ingest path -- a power cut
+      # costs recent writes. This Pi has no UPS and is powered straight off
+      # the N2K bus, so sync is worth the write-latency cost here (per the
+      # signalk-questdb-history-provider README's own tuning notes).
+      - QDB_CAIRO_COMMIT_MODE=sync
     # Bound to loopback: native clients on the Pi (SignalK, Telegraf, native
     # Grafana) reach these at localhost; compose services reach the same
     # ports at questdb:9000/:9009/:8812 over symphony-net without needing a
