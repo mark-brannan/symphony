@@ -35,7 +35,7 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -80,9 +80,12 @@ jobs:
             `docker compose config --quiet`, and
             `python3 scripts/validate_configs.py` (pip install pyyaml
             first). You can also RUN the test suites --
-            `python3 scripts/test_secretguard.py` and the same for
-            test_sops_recipients, test_pseudonymize, test_hostvars_filter
-            and test_dashboards. Run the ones your review touches and say
+            `bash scripts/run_secret_tooling_tests.sh` runs every
+            secret-tooling suite (it is the same entry point CI and the
+            pre-commit hook use; invoke it exactly like that, with no extra
+            arguments, or the permission rule will not match), and
+            `python3 scripts/test_dashboards.py` covers the dashboards.
+            Run what your review touches and say
             so; "verified" must mean executed, not hand-traced. The services themselves run on the boat and are not
             reachable from here -- for anything that can only be proven on
             board, say exactly that instead of guessing. Challenge service
@@ -98,4 +101,4 @@ jobs:
             fixes.
 
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cp .env.example .env),Bash(docker compose config:*),Bash(pip install pyyaml),Bash(python3 scripts/validate_configs.py),Bash(python3 scripts/test_secretguard.py),Bash(python3 scripts/test_sops_recipients.py),Bash(python3 scripts/test_pseudonymize.py),Bash(python3 scripts/test_hostvars_filter.py),Bash(python3 scripts/test_dashboards.py)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cp .env.example .env),Bash(docker compose config:*),Bash(pip install pyyaml),Bash(python3 scripts/validate_configs.py),Bash(bash scripts/run_secret_tooling_tests.sh),Bash(python3 scripts/test_dashboards.py)"

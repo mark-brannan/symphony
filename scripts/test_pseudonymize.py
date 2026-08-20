@@ -201,20 +201,24 @@ class TestStore(unittest.TestCase):
 
     def test_real_store_decrypts_and_has_a_salt(self):
         # The only test here that touches the real encrypted store, so the
-        # only one that needs sops and a key. On a clone that has neither
-        # it used to error on import of the sops binary and fail the whole
-        # secret-tooling-tests hook -- i.e. block a contributor's commit
-        # over a capability they are not expected to have. Strict mode
-        # still runs it: a machine that holds secrets must be able to open
-        # them.
+        # only one that needs sops and a key. Gated on can_decrypt(), not on
+        # mode(): strict answers "how rigorously to enforce", not "does this
+        # machine hold keys", and CI is strict unconditionally while
+        # deliberately holding no key -- the old mode() gate made this test
+        # refuse to skip on a runner and then demand a sops it could never
+        # have. A machine that CAN decrypt runs it in every mode, and the
+        # StoreUnavailable path below stays strict-fatal: there, decryption
+        # should have worked and did not.
         import secretguard
 
-        if secretguard.mode() != "strict" and (
-            not secretguard.find_sops() or not secretguard.have_age_key()
-        ):
+        if not secretguard.can_decrypt():
+            missing = (
+                "no runnable sops"
+                if not secretguard.find_sops()
+                else "no age key"
+            )
             self.skipTest(
-                "no sops on PATH or no age key, and this clone is in "
-                "contributor mode"
+                "this machine cannot decrypt the store (%s)" % missing
             )
         try:
             salt, mapping = p.load_store()

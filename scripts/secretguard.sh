@@ -74,6 +74,54 @@ _secretguard_have_age_key() {
 	[ -f "$HOME/.config/sops/age/keys.txt" ]
 }
 
+# Mirror of secretguard.py's _SOPS_DIRS. git runs hooks from whatever
+# spawned git -- an IDE, a GUI client, an agent harness -- and those inherit
+# a bare PATH without ~/.local/bin, so `command -v sops` alone misses on a
+# machine that has sops installed and working. A function rather than a
+# variable so the parity suite can swap it out the way it monkeypatches the
+# python list. The parity suite also pins secretguard_sops_locations below
+# byte-identical to the python text, which is what keeps the two lists from
+# drifting.
+_secretguard_sops_dirs() {
+	printf '%s\n' "$HOME/.local/bin" /usr/local/bin /opt/homebrew/bin /usr/bin /bin
+}
+
+# secretguard_find_sops -- absolute path to a runnable sops on stdout, or
+# nothing and exit 1. The shell twin of secretguard.find_sops().
+secretguard_find_sops() {
+	local found dir candidate
+	found="$(command -v sops 2>/dev/null || true)"
+	if [ -n "$found" ]; then
+		printf '%s\n' "$found"
+		return 0
+	fi
+	while IFS= read -r dir; do
+		candidate="$dir/sops"
+		if [ -f "$candidate" ] && [ -x "$candidate" ]; then
+			printf '%s\n' "$candidate"
+			return 0
+		fi
+	done < <(_secretguard_sops_dirs)
+	return 1
+}
+
+# Everywhere secretguard_find_sops looks, phrased for a `needs:` line.
+# Must stay byte-identical to secretguard.py's sops_locations(); the parity
+# suite asserts it.
+secretguard_sops_locations() {
+	printf 'sops on PATH or in ~/.local/bin, /usr/local/bin, /opt/homebrew/bin, /usr/bin, /bin\n'
+}
+
+# secretguard_can_decrypt -- this machine can open the encrypted store:
+# runnable sops AND an age key. Deliberately a separate question from
+# secretguard_mode. Strict answers "how rigorously to enforce"; it does not
+# answer "does this machine hold keys" -- CI is strict unconditionally while
+# carrying no key at all, by design. The python twin is
+# secretguard.can_decrypt(); the long form lives on its docstring.
+secretguard_can_decrypt() {
+	[ -n "$(secretguard_find_sops || true)" ] && _secretguard_have_age_key
+}
+
 _secretguard_filters_configured() {
 	[ -n "$(git config --get filter.sops.clean 2>/dev/null)" ] &&
 		[ -n "$(git config --get filter.hostvars.clean 2>/dev/null)" ]
