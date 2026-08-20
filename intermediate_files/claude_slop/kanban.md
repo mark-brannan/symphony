@@ -998,11 +998,26 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
   *downgrades* v2.46.0 → v2.45.1, bouncing the OIDC front door. Dex uses
   `storage_type=memory`, so any recreate drops all sessions and refresh
   tokens and everyone re-logs-in. That is fine dockside and bad offshore.
-  **Mark's call:** either re-pin forward to the digest actually running and
-  accept v2.46.0, or deliberately recreate onto v2.45.1 at a time of his
-  choosing. Doing nothing leaves an unscheduled downgrade armed behind the
-  next unrelated `compose up`. Not touched — recreating Dex is exactly the
-  "breaking it costs the remote access you'd fix it with" case.
+  **Resolved which way to go, 2026-08-20.** Mark asked to "re-pin dex to
+  whatever the latest version is." Checked the registry before doing it, and
+  the request inverts: **v2.45.1 is already the newest release**, and the pin
+  already names it. Probed `ghcr.io/dexidp/dex` directly — `v2.42.0`,
+  `v2.43.0`, `v2.43.1`, `v2.44.0`, `v2.45.0`, `v2.45.1` exist; `v2.45.2`,
+  `v2.46.0`, `v2.46.1`, `v2.47.0` do **not**. `:latest` is a rolling nightly
+  off main (digest `af946950…`, self-reporting
+  `v2.46.0-20260806171424-ab64ed77`, built 2026-08-06 — a version that has
+  never been released). So there is nothing to re-pin *to*; pinning "latest"
+  would pin the boat's OIDC front door to an untagged dev build, which is
+  what the pin's own comment exists to prevent.
+  **So the repo is right and the boat is wrong.** The remaining work is to
+  reconcile the running container onto the pinned v2.45.1 — nominally a
+  "downgrade" only because a nightly is running. That means
+  `docker compose --profile tls up -d dex`, which recreates the container and,
+  with `storage_type=memory`, drops every session and refresh token. Fine
+  dockside, bad offshore. **Not done: needs Mark to pick the moment**, and
+  recreating Dex is exactly the "breaking it costs the remote access you'd fix
+  it with" case. Worth also finding out what started Dex from `:latest`, or it
+  comes back.
 
 - **RESOLVED 2026-08-20 — frozen-secrets enforcement stays exactly where
   it is; no expansion.** Fixed the one real bug (CI's index is empty, so
