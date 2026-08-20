@@ -1685,11 +1685,15 @@ service mid-install brings it up against a half-written plugin directory.
    setting; it cannot be set from inside the container.
 
    ```bash
-   cat /proc/sys/vm/max_map_count      # if well below 1048576:
-   echo 'vm.max_map_count=1048576' | sudo tee /etc/sysctl.d/99-questdb.conf
-   sudo sysctl --system
-   cat /proc/sys/vm/max_map_count      # must now read 1048576
+   if [ "$(cat /proc/sys/vm/max_map_count)" -lt 1048576 ]; then
+     echo 'vm.max_map_count=1048576' | sudo tee /etc/sysctl.d/99-questdb.conf
+     sudo sysctl --system
+   fi
+   test "$(cat /proc/sys/vm/max_map_count)" -ge 1048576 && echo ok
    ```
+
+   1048576 is a floor, not a target — the conditional is there so a host that
+   already sets it higher for something else keeps its value.
 
    Still the old value → another file sets it later in load order:
    `grep -r max_map_count /etc/sysctl.d/ /etc/sysctl.conf`, remove the loser,
@@ -1699,7 +1703,8 @@ service mid-install brings it up against a half-written plugin directory.
 
    ```bash
    docker compose -f docker-compose.yml up -d questdb
-   curl -sf -G --data-urlencode 'query=SELECT 1;' \
+   curl -fsS --max-time 5 --retry 30 --retry-delay 2 --retry-connrefused \
+     -G --data-urlencode 'query=SELECT 1;' \
      http://127.0.0.1:9000/exec                     # answers = ready
    docker inspect questdb --format '{{range .Config.Env}}{{println .}}{{end}}' \
      | grep '^QDB_CAIRO_' | sort                    # compare against the list below
@@ -1716,8 +1721,10 @@ service mid-install brings it up against a half-written plugin directory.
    QDB_CAIRO_WRITER_DATA_INDEX_VALUE_APPEND_PAGE_SIZE=256k
    ```
 
-   `http://127.0.0.1:9000/` is not a readiness check — it answers 301 as soon
-   as the listener binds, before the database can serve anything. And check
+   `docker compose up -d` returns before QuestDB can serve, hence the retries;
+   on this Pi it takes a few seconds. And `http://127.0.0.1:9000/` is not a
+   readiness check at all — it answers 301 as soon as the listener binds,
+   before the database can serve anything. And check
    the caps with `docker inspect`, not `docker logs`: QuestDB does log each
    one as `server-main env config [key=QDB_CAIRO_...]` at startup, but this
    container caps its json-file log at 10 MB x 2, and QuestDB is verbose
@@ -1725,8 +1732,8 @@ service mid-install brings it up against a half-written plugin directory.
    on a correctly configured container.
 
    Any missing or different → the container came up without the page-size caps. Recreate
-   it (`docker compose ... up -d --force-recreate questdb`) and re-check
-   before going on; they are read only at start. Without them QuestDB
+   it with `docker compose -f docker-compose.yml up -d --force-recreate
+   questdb`, then repeat the two checks above before going on; they are read only at start. Without them QuestDB
    preallocates 16 MB per column file, and one Telegraf flush creating a table
    per measurement takes gigabytes for a few hundred rows. That filled this
    Pi's root filesystem on 2026-08-20, and InfluxDB's WAL writer then stuck in
@@ -1736,7 +1743,9 @@ service mid-install brings it up against a half-written plugin directory.
 
    ```bash
    sudo systemctl restart telegraf
-   sleep 90 && scripts/questdb_table_hygiene.sh   # TTL + dedup
+   until curl -sf -G --data-urlencode 'query=SELECT 1 FROM cpu LIMIT 1' \
+     http://127.0.0.1:9000/exec | grep -q '"count":1'; do sleep 5; done
+   scripts/questdb_table_hygiene.sh              # TTL + dedup
    sudo du -sm "$(docker inspect questdb \
      --format '{{range .Mounts}}{{if eq .Destination "/var/lib/questdb"}}{{.Source}}{{end}}{{end}}')"
    ```
@@ -1745,8 +1754,13 @@ service mid-install brings it up against a half-written plugin directory.
    rather than typing it: it is derived from the compose project name, so it
    differs on any checkout not in a directory called `symphony`.
 
-   Line protocol creates tables with no TTL and no dedup keys, so re-run the
-   hygiene script after adding a Telegraf input or recreating a table. Without
+   Telegraf's first flush is a minute or so out, so wait for its tables rather
+   than guessing: `cpu` is the sentinel, and the hygiene script's own output
+   lists every table it changed and every one it did not recognise — read it,
+   because an unrecognised table with no TTL is usually a new Telegraf
+   measurement that needs adding to the script's list. Line protocol creates
+   tables with no TTL and no dedup keys, so re-run the script after adding an
+   input or recreating a table. Without
    dedup, a batch whose HTTP response timed out is retried into rows QuestDB
    already committed — duplicate data, and a skewed row-count parity check.
 
@@ -1755,8 +1769,14 @@ service mid-install brings it up against a half-written plugin directory.
 4. Check whether the memory cap is real.
 
    ```bash
-   docker inspect questdb --format '{{.HostConfig.Memory}}'   # 0 = not enforced
+   docker inspect questdb --format '{{.HostConfig.Memory}}'
    ```
+
+   Expect `805306368` (the compose file's `mem_limit: 768m`) once cgroups are
+   enabled, and `0` while they are not. Any other number means the running
+   container predates a change to `mem_limit` — recreate it. This is a value
+   to read, not a gate: it lives in `compose-questdb.yml` and changing it
+   there should not fail this step.
 
    0 on this Pi: Raspberry Pi OS ships without `cgroup_enable=memory`, and
    `docker compose up` logs "Your kernel does not support memory limit
