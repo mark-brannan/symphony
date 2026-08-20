@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Give QuestDB's line-protocol tables a finite retention and idempotent writes.
+# Give QuestDB's Telegraf tables a finite retention and idempotent writes.
 #
 #   scripts/questdb_table_hygiene.sh            # 30 days, http://127.0.0.1:9000
 #   scripts/questdb_table_hygiene.sh 90         # 90 days
+#   scripts/questdb_table_hygiene.sh 30 cpu mem # only these tables
 #   QUESTDB_URL=http://questdb:9000 scripts/questdb_table_hygiene.sh
 #
 # Telegraf's tables are created by the line-protocol writer, not by us, so they
@@ -19,13 +20,34 @@
 # without both again, silently — which is why this is a script to re-run rather
 # than a one-time ALTER. It only touches what is missing, so re-running is free.
 #
-# The history plugin's own tables (signalk, signalk_str, signalk_position) are
-# skipped: the plugin creates them with dedup already on and drops aged
-# partitions itself from its retentionDays setting. A second mechanism on the
-# same data would make it unclear which one did the deleting.
+# **It only ever alters tables it is told to own.** Setting a TTL deletes data
+# at the far end, so "every table that looks unmanaged" is the wrong default:
+# a table someone created by hand, deliberately without a TTL, would be quietly
+# put on a 30-day deletion clock. So the managed set is the explicit list below
+# (Telegraf's measurements on this boat, as at 2026-08-20) plus any table named
+# on the command line. Anything else is reported and left alone — including the
+# history plugin's own signalk tables, which arrive with dedup already on and
+# whose retention the plugin manages from its own retentionDays setting.
+#
+# Adding a Telegraf input means adding its measurement here. The report at the
+# end is what tells you that: an unmanaged table with no TTL is either a new
+# Telegraf measurement that belongs in this list, or someone else's table that
+# does not.
 set -euo pipefail
 
+# Known to be owned by someone else, so not managed here and not worth
+# reporting as unowned: the history plugin creates these with dedup on and
+# ages their partitions out from its own retentionDays setting.
+PLUGIN_TABLES="signalk signalk_str signalk_position"
+
+TELEGRAF_TABLES="
+chrony cpu disk diskio kernel mem net processes procstat procstat_lookup
+rpi_health swap system systemd_units temp
+internal_agent internal_gather internal_memstats internal_parser internal_write
+"
+
 DAYS=${1:-30}
+shift || true
 QUESTDB_URL=${QUESTDB_URL:-http://127.0.0.1:9000}
 
 case "$DAYS" in
@@ -33,16 +55,21 @@ case "$DAYS" in
 esac
 [ "$DAYS" -gt 0 ] || { echo "retention must be greater than 0 days" >&2; exit 2; }
 
+# Named tables replace the built-in list rather than adding to it: naming a
+# table is how you say "this one, nothing else."
+managed=${*:-$TELEGRAF_TABLES}
+
 query() {
-  curl -sf -G "$QUESTDB_URL/exec" --data-urlencode "query=$1"
+  curl -sf --connect-timeout 5 --max-time 30 \
+    -G "$QUESTDB_URL/exec" --data-urlencode "query=$1"
 }
 
-# Rows: table_name, ttlValue, dedup. Skipping the plugin's tables and QuestDB's
-# own bookkeeping here rather than in the loop keeps the reported counts honest.
-rows=$(query "select table_name, ttlValue, dedup from tables()
-              where table_name not in ('signalk', 'signalk_str', 'signalk_position')
-                and not table_name like 'sys.%'
-                and not table_name like 'telemetry%'" |
+is_managed() {
+  for t in $managed; do [ "$t" = "$1" ] && return 0; done
+  return 1
+}
+
+rows=$(query "select table_name, ttlValue, dedup from tables()" |
   python3 -c 'import json,sys
 for name, ttl, dedup in json.load(sys.stdin)["dataset"]:
     print(name, ttl, dedup)')
@@ -57,9 +84,15 @@ keys = [c for c, t in cols if t == "SYMBOL"]
 print(",".join(f'"'"'"{k}"'"'"' for k in ["timestamp", *keys]))'
 }
 
-ttl_set=0 dedup_set=0 failed=0
+ttl_set=0 dedup_set=0 failed=0 unmanaged=""
 while read -r name ttl dedup; do
   [ -n "$name" ] || continue
+  if ! is_managed "$name"; then
+    case " $PLUGIN_TABLES " in *" $name "*) continue ;; esac
+    case "$name" in sys.*|telemetry*) continue ;; esac
+    [ "$ttl" = "0" ] && unmanaged="$unmanaged $name"
+    continue
+  fi
   if [ "$ttl" = "0" ]; then
     if query "ALTER TABLE \"$name\" SET TTL $DAYS DAYS" >/dev/null; then
       echo "  $name -> TTL $DAYS days"
@@ -84,4 +117,9 @@ $rows
 EOF
 
 echo "$ttl_set table(s) given a $DAYS-day TTL, $dedup_set given dedup keys, $failed failure(s)"
+if [ -n "$unmanaged" ]; then
+  echo "unrecognised, left alone, no TTL:${unmanaged}"
+  echo "  (a new Telegraf measurement belongs in TELEGRAF_TABLES; anything else"
+  echo "   is someone's own table and its retention is their call)"
+fi
 [ "$failed" -eq 0 ]

@@ -1702,7 +1702,18 @@ service mid-install brings it up against a half-written plugin directory.
    curl -sf -G --data-urlencode 'query=SELECT 1;' \
      http://127.0.0.1:9000/exec                     # answers = ready
    docker inspect questdb --format '{{range .Config.Env}}{{println .}}{{end}}' \
-     | grep -c '^QDB_CAIRO_'                        # must be 5
+     | grep '^QDB_CAIRO_' | sort                    # compare against the list below
+   ```
+
+   All five must be present, with these values — a count alone would pass a
+   container carrying the wrong ones:
+
+   ```
+   QDB_CAIRO_COMMIT_MODE=sync
+   QDB_CAIRO_O3_COLUMN_MEMORY_SIZE=256k
+   QDB_CAIRO_WAL_WRITER_DATA_APPEND_PAGE_SIZE=128k
+   QDB_CAIRO_WRITER_DATA_APPEND_PAGE_SIZE=256k
+   QDB_CAIRO_WRITER_DATA_INDEX_VALUE_APPEND_PAGE_SIZE=256k
    ```
 
    `http://127.0.0.1:9000/` is not a readiness check — it answers 301 as soon
@@ -1713,7 +1724,7 @@ service mid-install brings it up against a half-written plugin directory.
    enough that those lines rotate out within hours — a log grep then reads 0
    on a correctly configured container.
 
-   Count below 5 → the container came up without the page-size caps. Recreate
+   Any missing or different → the container came up without the page-size caps. Recreate
    it (`docker compose ... up -d --force-recreate questdb`) and re-check
    before going on; they are read only at start. Without them QuestDB
    preallocates 16 MB per column file, and one Telegraf flush creating a table
@@ -1725,16 +1736,21 @@ service mid-install brings it up against a half-written plugin directory.
 
    ```bash
    sudo systemctl restart telegraf
-   sleep 90 && scripts/questdb_table_hygiene.sh                # TTL + dedup
-   du -sm /var/lib/docker/volumes/symphony_questdb-data/_data  # tens of MB, not GB
+   sleep 90 && scripts/questdb_table_hygiene.sh   # TTL + dedup
+   sudo du -sm "$(docker inspect questdb \
+     --format '{{range .Mounts}}{{if eq .Destination "/var/lib/questdb"}}{{.Source}}{{end}}{{end}}')"
    ```
+
+   That `du` should read tens of MB, not GB. Ask docker for the volume path
+   rather than typing it: it is derived from the compose project name, so it
+   differs on any checkout not in a directory called `symphony`.
 
    Line protocol creates tables with no TTL and no dedup keys, so re-run the
    hygiene script after adding a Telegraf input or recreating a table. Without
    dedup, a batch whose HTTP response timed out is retried into rows QuestDB
    already committed — duplicate data, and a skewed row-count parity check.
 
-   `du` in gigabytes → stop the writers and go back to step 2's count.
+   `du` in gigabytes → stop the writers and go back to step 2's env check.
 
 4. Check whether the memory cap is real.
 
