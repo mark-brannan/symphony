@@ -88,9 +88,12 @@ _secretguard_sops_dirs() {
 
 # secretguard_find_sops -- absolute path to a runnable sops on stdout, or
 # nothing and exit 1. The shell twin of secretguard.find_sops().
+# `type -P`, not `command -v`: the latter would report a shell function or
+# alias named sops as available, as a name rather than a path -- the python
+# twin's shutil.which only ever returns executables, and the two must agree.
 secretguard_find_sops() {
 	local found dir candidate
-	found="$(command -v sops 2>/dev/null || true)"
+	found="$(type -P sops 2>/dev/null || true)"
 	if [ -n "$found" ]; then
 		printf '%s\n' "$found"
 		return 0

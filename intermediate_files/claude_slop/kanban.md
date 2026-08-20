@@ -288,12 +288,14 @@ now carries only the high-level list.)
   `secret-scan.yml`'s job runs `bash scripts/run_secret_tooling_tests.sh`
   and names no individual suite; `claude-review.yml`'s allowedTools names
   the runner. Verified keyless: `CI=1` run of the full runner green — the
-  previously-red path (run 32319051952). Residual, one leg of the done-when:
-  a `bash scripts/run_secret_tooling_tests.sh` on a machine that holds the
-  age key, confirming `TestStore` still exercises the real store on the
-  strict path — the gate change is keyless-only by construction, but run it
-  once. This unblocks extraction of the secret tooling into its own repo,
-  where every CI job is keyless.
+  previously-red path (run 32319051952). This unblocks extraction of the
+  secret tooling into its own repo, where every CI job is keyless.
+- **Confirm the strict path on a keyed machine** — the one leg of the TASK
+  above that a keyless session cannot run: one
+  `bash scripts/run_secret_tooling_tests.sh` on a machine holding the age
+  key, confirming `TestStore` still opens the real store. The gate change is
+  keyless-only by construction, so this is confirmation, not open design —
+  but it stays listed until someone has actually run it.
 
 - Deploy the openweather-signalk humidity-fix Node-RED flow (needs boat
   access). `environment.outside.relativeHumidity` publishes OpenWeatherMap's
