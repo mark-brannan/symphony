@@ -154,9 +154,11 @@ Detailed state, evidence and micro-tasks for every item below live in
 `intermediate_files/claude_slop/kanban.md`.
 
 - Finish dockerizing the boat computer (Track B of
-  `reference/containerization_strategy.md`; Dex and ntfy done)
-- Migrate the history store from InfluxDB to QuestDB (decided 2026-08-18;
-  backup + verify first)
+  `reference/containerization_strategy.md`)
+- Migrate the history store from InfluxDB to QuestDB (decided 2026-08-18).
+  Open: the multi-day soak and its parity checks, measuring how fast the
+  QuestDB volume actually grows, porting the dashboards, and getting a copy
+  of the InfluxDB backup off the boat — then retire InfluxDB.
 - Phone and audible delivery for vessel alarms (ntfy live both places;
   Pushover relay and speaker still open)
 - Ansible for host provisioning (clock and watchdog roles first)
