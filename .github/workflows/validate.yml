@@ -14,9 +14,15 @@ name: Validate
 # Nothing here needs the age key: no sops decryption happens in this
 # workflow.
 #
-# These jobs are the enforcement boundary for everything they cover. Local
-# pre-commit hooks give faster feedback but can be skipped with --no-verify
-# or never installed; these cannot be bypassed from a laptop.
+# These jobs always run: local pre-commit hooks give faster feedback but can
+# be skipped with --no-verify or never installed, and these cannot be
+# bypassed from a laptop. They are NOT a merge gate. The ruleset on main
+# ("main branch protection", 2026-08-19) enforces linear history, no
+# force-push and no deletion -- it lists no required status checks, so a red
+# run here is visible but does not block a merge or a direct push. Read the
+# live state with `gh api repos/mark-brannan/symphony/rulesets` (the legacy
+# `/branches/main/protection` endpoint 404s on a ruleset-protected branch
+# and will tell you main is unprotected).
 
 on:
   push:

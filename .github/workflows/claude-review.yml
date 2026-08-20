@@ -79,7 +79,11 @@ jobs:
             does: `cp .env.example .env` then
             `docker compose config --quiet`, and
             `python3 scripts/validate_configs.py` (pip install pyyaml
-            first). The services themselves run on the boat and are not
+            first). You can also RUN the test suites --
+            `python3 scripts/test_secretguard.py` and the same for
+            test_sops_recipients, test_pseudonymize, test_hostvars_filter
+            and test_dashboards. Run the ones your review touches and say
+            so; "verified" must mean executed, not hand-traced. The services themselves run on the boat and are not
             reachable from here -- for anything that can only be proven on
             board, say exactly that instead of guessing. Challenge service
             or port changes that don't update RUNBOOK.md, and PRs mixing
@@ -94,4 +98,4 @@ jobs:
             fixes.
 
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cp .env.example .env),Bash(docker compose config:*),Bash(pip install pyyaml),Bash(python3 scripts/validate_configs.py)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cp .env.example .env),Bash(docker compose config:*),Bash(pip install pyyaml),Bash(python3 scripts/validate_configs.py),Bash(python3 scripts/test_secretguard.py),Bash(python3 scripts/test_sops_recipients.py),Bash(python3 scripts/test_pseudonymize.py),Bash(python3 scripts/test_hostvars_filter.py),Bash(python3 scripts/test_dashboards.py)"
