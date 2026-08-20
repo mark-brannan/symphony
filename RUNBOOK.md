@@ -617,16 +617,24 @@ someone is actually at a screen.
 
 ## Upgrading the scanners
 
+`pre-commit autoupdate` does nothing here — every hook is `repo: local`, so
+there are no upstream revisions to bump. The versions live in three places
+and all three must move together, or a commit gets cleared by one scanner
+version and a push by another:
+
 ```bash
-pre-commit autoupdate      # bumps pinned hook revisions
+grep -n GITLEAKS_VERSION   scripts/gitleaks_precommit.sh    # commit-time
+grep -n TRUFFLEHOG_VERSION scripts/scan_verified_secrets.sh # CI + local
+grep -n zricethezav        .github/workflows/secret-scan.yml # CI
 ```
 
-This fetches from GitHub, so do it **dockside, not underway** — a failed
-fetch mid-passage will block commits until you revert the config. Commit the
-resulting rev change so every machine and CI agree on which scanner version
-cleared a given commit. Bump the pinned image tags in
-`.github/workflows/secret-scan.yml` and `scripts/scan_verified_secrets.sh`
-to match — the scanners live in that workflow, not in `validate.yml`.
+Edit all three to the same tag, then pull the new images **dockside, not
+underway** — the first run after a bump fetches from Docker Hub, and a
+failed fetch mid-passage leaves the commit-time hook degrading to a warning
+just when you can least check it by hand.
+
+The scanners live in `secret-scan.yml`, not `validate.yml`. Nothing in
+`validate.yml` is version-pinned this way.
 
 ---
 
