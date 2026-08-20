@@ -269,6 +269,17 @@ covered here.
 - Keep worktrees short-lived — same session, same task. A worktree revisited
   days later has quietly reacquired the "how far behind main am I" problem
   this whole model exists to avoid.
+- **Never run `docker compose up` (directly, or via `scripts/dev_stack.sh`)
+  from a worktree/scratch checkout before it's fully populated.**
+  `compose-grafana.yml` bind-mounts `./grafana/provisioning`, a relative,
+  git-tracked path. If that directory doesn't exist yet when Docker starts
+  the container, dockerd — which runs as root even under WSL — silently
+  creates it as `root:root` before the container ever runs. That root-owned
+  stub then survives the worktree being torn down and, because Claude Code's
+  local tmpdir is shared per-uid across all projects, breaks every later
+  Claude Code session on the machine with an unrelated-looking
+  `/tmp/claude-<uid>` ownership error. `dev_stack.sh` now refuses to run if
+  `grafana/provisioning` is missing or empty — don't remove that guard.
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
