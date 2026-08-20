@@ -427,3 +427,58 @@ Flagged to Mark on the PR, not fixed: the secret-tooling suites don't run
 in CI at all. `validate.yml` compiles every script and runs
 `test_dashboards.py`; `run_secret_tooling_tests.sh` is a pre-commit hook
 only. Predates both PRs, so it belongs in its own change.
+
+### 2026-08-20 — PR #12 review rounds: one bug shape, five times
+
+Five review rounds with two agentic reviewers after the rebase. Everything
+raised was verified against the code before acting; two findings were real
+bugs in code this branch had just written, and one was a fail-open nobody
+had asked about.
+
+**The thing worth carrying forward.** Every substantive finding this
+session was the same shape: *a check that never looked, reporting ok.*
+
+1. `hostvars_filter.py check` without `--all` in CI — nothing is staged
+   there, so it passed vacuously and repo-wide enforcement vanished.
+2. The scoping tests asserted against the real clone, where the filters
+   ARE configured, so the rule returned early and six assertions passed
+   while testing nothing. Fixed with the `filter_is_configured()` seam.
+3. My staged-blob test stubbed `staged_blob` but not `git ls-files`, so an
+   absent fixture would yield nothing and pass without calling anything.
+4. `git diff --cached --name-only` quotes any non-ASCII path
+   (`core.quotePath` defaults on), so `café.json` matched no covered
+   pattern and left the guard's scope silently.
+5. **My own reasoning.** I read one page of `list_branches`, saw
+   `protected: false` on every row, and concluded `main` was unprotected —
+   `main` was not on that page. I wrote that into
+   `reference/precommit_guards.md` and told two reviewers it was verified.
+   `main` is `protected: true`.
+
+Four in the guards, one in me, and the last one shipped furthest. The
+lesson is not "be careful" — it is that *absence of a signal is not a
+negative result*, and the fix in each case was to make the check unable to
+run without looking: stub every input a test reads, pin the seam, ask for
+NUL-delimited output, and read the row you are drawing a conclusion from.
+
+**Also fixed, all reproduced first:** the staged encoding scan read the
+working tree rather than the index (wrong in both directions after
+`git add -p`); `--fix` returned 0 on a file that still blocked, so its own
+advice looped; a C locale turned a non-ASCII path into a
+`UnicodeDecodeError` and took the hook down with a traceback — the exact
+failure mode this branch exists to remove.
+
+**Practice that paid for itself:** for the C-locale regression test I
+reverted the fix, watched the test fail, restored it, watched it pass. A
+regression test nobody has seen fail is finding #3 again.
+
+**Declined, with reasoning on the PR:** `rule_frozen_secrets_untouched`
+reads `git diff --cached` and CI's index is empty, so it is vacuous under
+`--all` — finding #1 in a rule this branch never touched. Pre-existing;
+the fix needs a change-range interface plus workflow wiring, which is a
+design change to how CI expresses "what changed". In kanban for Mark.
+
+**Open for Mark, both in kanban:** which status checks (if any) are
+*required* on `main` — `protected: true` does not say, and it decides
+whether "CI is the enforcement boundary" is true at all; and the fact that
+nothing automated runs the secret-tooling suites today (not `validate.yml`,
+and both reviewers were denied permission to execute them).
