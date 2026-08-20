@@ -151,6 +151,19 @@ blocked questions, and detailed working state live in
 Detailed state, evidence and micro-tasks for every item below live in
 `intermediate_files/claude_slop/kanban.md`.
 
+- **[high priority]** Move dev-environment provisioning off hand-rolled bash
+  wrapper scripts (`scripts/dev_stack.sh` and friends) onto declarative
+  config management — Ansible, or Hat Labs' halos, or whatever the
+  evaluation turns up. Prompted by 2026-08-19/20: a bind-mount ownership bug
+  in `compose-grafana.yml` got "fixed" the first time by bolting a required
+  guard onto one wrapper script — a bandaid that did nothing for anyone who
+  ran `docker compose up` directly, which is the normal, expected command.
+  The real fix (baking provisioning into the image, see `grafana/Dockerfile`)
+  removed that specific guard, but the pattern — Claude generating a
+  fragile, ad hoc script instead of designing how the dev environment is
+  actually meant to be used — is the root cause and it's still open. Scope:
+  evaluate Ansible vs halos for this repo's dev/boat provisioning, decide,
+  then retire the bash scripts it replaces.
 - Finish dockerizing the boat computer (Track B of
   `reference/containerization_strategy.md`)
 - Migrate the history store from InfluxDB to QuestDB (decided 2026-08-18).

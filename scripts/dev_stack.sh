@@ -89,26 +89,8 @@ password_from_env() {
 	grep -E '^GF_SECURITY_ADMIN_PASSWORD=' .env | head -1 | cut -d= -f2-
 }
 
-require_grafana_provisioning() {
-	# compose-grafana.yml bind-mounts ./grafana/provisioning. If that path is
-	# missing -- e.g. this script is running from a worktree or scratch
-	# checkout that hasn't populated tracked files yet -- dockerd (root)
-	# silently creates it as root:root before the container starts. That
-	# root-owned stub then survives the worktree being torn down and blocks
-	# every later Claude Code session sharing this uid's tmpdir. Fail loudly
-	# here instead.
-	if [ ! -d grafana/provisioning ] || [ -z "$(find grafana/provisioning -type f -print -quit)" ]; then
-		echo "error: grafana/provisioning is missing or empty at $(pwd)/grafana/provisioning" >&2
-		echo "refusing to run 'docker compose up' -- the bind mount source must" >&2
-		echo "already exist and be populated (git checkout), or dockerd will" >&2
-		echo "auto-create it as root and break local Claude Code sessions." >&2
-		exit 1
-	fi
-}
-
 cmd_up() {
 	write_env_if_absent
-	require_grafana_provisioning
 	python3 scripts/build_dashboards.py
 	docker compose up -d influxdb grafana
 	wait_for InfluxDB "${INFLUX_URL_LOCAL}/health"

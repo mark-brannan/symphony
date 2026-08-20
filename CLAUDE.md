@@ -273,17 +273,23 @@ cheap. Symphony-specific instances of those:
 - Keep worktrees short-lived — same session, same task. A worktree revisited
   days later has quietly reacquired the "how far behind main am I" problem
   this whole model exists to avoid.
-- **Never run `docker compose up` (directly, or via `scripts/dev_stack.sh`)
-  from a worktree/scratch checkout before it's fully populated.**
-  `compose-grafana.yml` bind-mounts `./grafana/provisioning`, a relative,
-  git-tracked path. If that directory doesn't exist yet when Docker starts
-  the container, dockerd — which runs as root even under WSL — silently
-  creates it as `root:root` before the container ever runs. That root-owned
-  stub then survives the worktree being torn down and, because Claude Code's
-  local tmpdir is shared per-uid across all projects, breaks every later
-  Claude Code session on the machine with an unrelated-looking
-  `/tmp/claude-<uid>` ownership error. `dev_stack.sh` now refuses to run if
-  `grafana/provisioning` is missing or empty — don't remove that guard.
+- **`docker compose up` must never depend on a host bind mount whose source
+  can be absent** — a directory that doesn't exist yet when Docker starts a
+  container gets silently created by dockerd (root, even under WSL) as
+  `root:root` before the container runs. `compose-grafana.yml` used to
+  bind-mount `./grafana/provisioning`; a session running it from an
+  incompletely-populated worktree left a root-owned stub behind that, because
+  Claude Code's local tmpdir is shared per-uid across all projects, broke
+  every later Claude Code session on the machine with an unrelated-looking
+  `/tmp/claude-<uid>` ownership error (2026-08-19). The fix was structural,
+  not a guard: `grafana/Dockerfile` now `COPY`s `grafana/provisioning` into
+  the image at build time and `compose-grafana.yml` uses `build: ./grafana`
+  instead of `image:` — there is no host bind mount left to auto-vivify, so
+  `docker compose up` is safe to run directly, from anywhere, without a
+  wrapper script or special knowledge. If a future service needs a host
+  bind mount for something git-tracked, prefer this bake-into-image pattern
+  over a raw bind mount, or a launcher-side existence check as a fallback —
+  never a bare bind mount to a path that might not exist yet.
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
