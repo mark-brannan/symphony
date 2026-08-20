@@ -1701,11 +1701,17 @@ service mid-install brings it up against a half-written plugin directory.
    docker compose -f docker-compose.yml up -d questdb
    curl -sf -G --data-urlencode 'query=SELECT 1;' \
      http://127.0.0.1:9000/exec                     # answers = ready
-   docker logs questdb 2>&1 | grep -c QDB_CAIRO_    # must be 5
+   docker inspect questdb --format '{{range .Config.Env}}{{println .}}{{end}}' \
+     | grep -c '^QDB_CAIRO_'                        # must be 5
    ```
 
    `http://127.0.0.1:9000/` is not a readiness check — it answers 301 as soon
-   as the listener binds, before the database can serve anything.
+   as the listener binds, before the database can serve anything. And check
+   the caps with `docker inspect`, not `docker logs`: QuestDB does log each
+   one as `server-main env config [key=QDB_CAIRO_...]` at startup, but this
+   container caps its json-file log at 10 MB x 2, and QuestDB is verbose
+   enough that those lines rotate out within hours — a log grep then reads 0
+   on a correctly configured container.
 
    Count below 5 → the container came up without the page-size caps. Recreate
    it (`docker compose ... up -d --force-recreate questdb`) and re-check
