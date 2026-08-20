@@ -86,7 +86,13 @@ def staged_paths() -> set[str] | None:
         # it is never a finding -- and naming a deleted file in a "fix it
         # like this" message is just wrong.
         ["git", "diff", "--cached", "--name-only", "-z", "--diff-filter=d"],
-        cwd=ROOT, capture_output=True, text=True,
+        # Explicit UTF-8, not the locale's guess: git emits paths as UTF-8
+        # bytes, and under LC_ALL=C with PEP 538 coercion off, text=True
+        # decodes as ASCII and raises UnicodeDecodeError on `caf\u00e9.md`.
+        # That crashed the guard with a traceback -- the exact failure this
+        # whole change exists to stop. surrogateescape so a path that is
+        # not valid UTF-8 either round-trips instead of exploding.
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="surrogateescape",
     )
     if result.returncode != 0:
         return None
@@ -383,7 +389,7 @@ def rule_frozen_secrets_untouched() -> None:
     """
     staged = subprocess.run(
         ["git", "diff", "--cached", "-U0", "--", "secrets/"],
-        cwd=ROOT, capture_output=True, text=True,
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="surrogateescape",
     ).stdout
     if not staged:
         return

@@ -182,7 +182,10 @@ def staged_paths():
         # it is never a finding -- and naming a deleted file in a "fix it
         # like this" message is just wrong.
         ["git", "diff", "--cached", "--name-only", "-z", "--diff-filter=d"],
-        capture_output=True, text=True, cwd=REPO,
+        # Explicit UTF-8 -- see the same note in lint_repo_hygiene.py.
+        # Under a C locale, text=True decodes git's UTF-8 paths as ASCII
+        # and raises rather than returning them.
+        capture_output=True, text=True, cwd=REPO, encoding="utf-8", errors="surrogateescape",
     )
     if result.returncode != 0:
         return None

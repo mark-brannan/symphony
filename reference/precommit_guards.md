@@ -75,13 +75,14 @@ about a clone that is unsafe, rather than a commit that is:
 - **Real secrets sitting readable on this machine, with no way to scramble
   them again.** That is a standing condition, not something you did in this
   commit, and it does not fix itself. Waiting for you to stage one of those
-  files means you might find out via `git add .`. A fresh laptop with no
-  key never trips this: there the files are still scrambled, so nothing is
-  in the clear.
-- **A clone that holds secrets but has no scrambling set up.** On a machine
-  in strict mode that is the August 2026 incident waiting to happen, so it
-  blocks even with nothing risky staged. A contributor clone gets a warning
-  instead and can still commit.
+  files means you might find out via `git add .`. This needs both halves —
+  readable secrets *and* no way to re-scramble them — so it does not fire
+  on a fresh clone without the key: there the covered files are still
+  ciphertext, and there is nothing in the clear to protect.
+- **A clone that holds secrets but has no scrambling set up.** In strict
+  mode this blocks even when the commit stages no covered file, because the
+  missing setup is what let readable secrets reach a public repo in August
+  2026. A contributor clone gets a warning instead and can still commit.
 
 **The one thing that is genuinely weaker,** stated plainly rather than
 buried: if something bad is *already* in the repo and nobody stages it
@@ -241,11 +242,12 @@ is by design and always was. GitHub is where the repo-wide checking
 actually happens, and unlike the local hooks it can't be switched off from
 a laptop — but one limit is worth knowing rather than assuming:
 
-- **The repo-wide checks only run on pull requests and on `main`.** A
-  `--no-verify` commit sitting on a topic branch with no PR open has been
-  seen only by `prepush-secret-scan`, which runs locally and is itself
-  bypassable with `git push --no-verify`. Secret scanning is the exception
-  and covers every branch push.
+- **A topic branch with no pull request open gets no repo-wide checks.**
+  `validate.yml` triggers on pushes to `main` and on pull requests
+  targeting `main`, so until you open one, a `--no-verify` commit has been
+  seen only by `prepush-secret-scan` — which runs locally and is itself
+  bypassable with `git push --no-verify`. Secret scanning is separate and
+  does run on every branch push: `secret-scan.yml` triggers on `'**'`.
 
 **GitHub could drift out of step.** The checks are now scoped on your laptop
 and unscoped on GitHub. If someone edits one side only, the two disagree and

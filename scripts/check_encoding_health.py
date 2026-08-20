@@ -116,7 +116,9 @@ def staged_paths():
     # matched. Dropping a file from the guard's own scope fails open.
     r = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "-z", "--diff-filter=d"],
-        cwd=ROOT, capture_output=True, text=True)
+        # Explicit UTF-8 -- see the note in lint_repo_hygiene.py. A C
+        # locale otherwise turns a non-ASCII path into a traceback.
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="surrogateescape")
     if r.returncode != 0:
         return None
     return {name for name in r.stdout.split("\0") if name}
@@ -144,7 +146,8 @@ def tracked_text_files(only=None):
     statement about the files on disk, so it reads them.
     """
     out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
-                         capture_output=True, text=True).stdout
+                         capture_output=True, text=True,
+                         encoding="utf-8", errors="surrogateescape").stdout
     for name in out.split("\0"):
         if not name:
             continue

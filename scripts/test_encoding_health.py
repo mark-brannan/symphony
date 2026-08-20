@@ -14,7 +14,9 @@ none.
 # under test.
 import io
 import contextlib
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -201,6 +203,49 @@ class StagedScopeReadsTheIndexTest(unittest.TestCase):
             list(eh.tracked_text_files(only=None))
         finally:
             eh.subprocess.run, eh.staged_blob = real_run, real_blob
+
+
+class CLocaleDoesNotBreakPathsTest(unittest.TestCase):
+    """A C locale must not turn a non-ASCII path into a traceback.
+
+    git emits paths as UTF-8 bytes. `text=True` alone decodes with whatever
+    the locale says, and under LC_ALL=C with PEP 538 coercion disabled that
+    is ASCII -- so `caf\u00e9.md` raised UnicodeDecodeError and took the hook
+    down with it. Pinned by running a real subprocess under that exact
+    environment, because the thing under test is how python and git agree
+    on bytes, which no stub can tell us.
+    """
+
+    def test_staged_paths_survives_an_ascii_locale(self):
+        name = "caf\u00e9.sops.yaml"
+        with tempfile.TemporaryDirectory() as tmp:
+            run = lambda *c: subprocess.run(c, cwd=tmp, capture_output=True)
+            run("git", "init", "-q", ".")
+            run("git", "config", "user.email", "t@example.com")
+            run("git", "config", "user.name", "t")
+            (Path(tmp) / name).write_text("x\n", encoding="utf-8")
+            run("git", "add", name)
+
+            script = (
+                "import sys; sys.path.insert(0, %r)\n"
+                "import check_encoding_health as eh\n"
+                "from pathlib import Path\n"
+                "eh.ROOT = Path(%r)\n"
+                "print(sorted(eh.staged_paths()))\n"
+                % (str(Path(__file__).resolve().parent), tmp)
+            )
+            hostile = {
+                **os.environ,
+                "LC_ALL": "C", "LANG": "C",
+                "PYTHONCOERCECLOCALE": "0", "PYTHONUTF8": "0",
+            }
+            done = subprocess.run([sys.executable, "-c", script],
+                                  capture_output=True, text=True, env=hostile)
+
+        self.assertEqual(done.returncode, 0,
+                         f"staged_paths died under a C locale:\n{done.stderr}")
+        self.assertIn(name, done.stdout,
+                      "the non-ASCII path must survive an ASCII locale")
 
 
 class NonAsciiPathsStayInScopeTest(unittest.TestCase):
