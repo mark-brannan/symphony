@@ -477,8 +477,16 @@ reads `git diff --cached` and CI's index is empty, so it is vacuous under
 the fix needs a change-range interface plus workflow wiring, which is a
 design change to how CI expresses "what changed". In kanban for Mark.
 
-**Open for Mark, both in kanban:** which status checks (if any) are
-*required* on `main` — `protected: true` does not say, and it decides
+**Open for Mark, both in kanban Blocked:** which status checks (if any)
+are *required* on `main` — `protected: true` does not say, and it decides
 whether "CI is the enforcement boundary" is true at all; and the fact that
 nothing automated runs the secret-tooling suites today (not `validate.yml`,
 and both reviewers were denied permission to execute them).
+
+Correction, same day: when first written that sentence said "both in
+kanban" and only the first one was — the suites question existed solely in
+this PR's comment thread, which is precisely the "session scrollback" that
+CLAUDE.md's park-it rule exists to keep questions out of. A reviewer
+caught it. Worth noting that *stating* a question is open is not the same
+as parking it where the next session will look, and I had done the former
+while claiming the latter.

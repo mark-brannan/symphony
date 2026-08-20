@@ -57,6 +57,20 @@ response. Each names the session that raised it.
   config file makes the freeze editable and gives the rule a way to check
   nothing if the file goes missing, where a tuple in the source cannot fail
   open. Revisit only if a fork becomes real; it is not urgent.
+- **Nothing automated runs the secret-tooling test suites** (2026-08-20,
+  pr12-rebase session). `run_secret_tooling_tests.sh` is a pre-commit hook
+  only; `validate.yml` compiles every script and runs `test_dashboards.py`,
+  but never `test_repo_hygiene.py`, `test_hostvars_filter.py`,
+  `test_encoding_health.py`, `test_pseudonymize.py` or
+  `test_secretguard.py`. So the suites that guard the secret tooling run
+  only when someone commits locally with hooks installed — which the
+  contributor path explicitly does not require.
+  Confirmed from the other side too: both agentic reviewers on PR #12 were
+  denied permission to execute them in all five rounds, and said so. Nobody
+  is running these but a maintainer at commit time.
+  Predates PR #12; raised there but not fixed, because adding a CI job is a
+  cost call. For Mark: add a job to `validate.yml`?
+
 - **`rule_frozen_secrets_untouched` does not run in CI** (2026-08-19,
   pr12-rebase session). It reads `git diff --cached`, and CI's index is
   empty after checkout, so `lint_repo_hygiene.py --all` evaluates it
