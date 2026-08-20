@@ -296,3 +296,5 @@
   it preallocates megabytes per column regardless of rows written. Dropped
   the new tables and trimmed the journal to recover, restarted InfluxDB,
   which had stuck on the full disk, and capped QuestDB's preallocation.
+- Fixed the frozen-secrets guard passing vacuously in CI (PR #22); it now
+  checks the actual commit range on a push or PR instead of an empty index.
