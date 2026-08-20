@@ -99,6 +99,19 @@ def staged_paths() -> set[str] | None:
     return {name for name in result.stdout.split("\0") if name}
 
 
+def staged_blob(path: str) -> str | None:
+    """Git's recorded text for `path`, or None if it can't be read.
+
+    None means "fall back to the working tree" -- for an unstaged or
+    untracked file there is nothing in the index to judge.
+    """
+    r = subprocess.run(
+        ["git", "show", f":{path}"], cwd=ROOT, capture_output=True,
+        text=True, encoding="utf-8", errors="surrogateescape",
+    )
+    return r.stdout if r.returncode == 0 else None
+
+
 def gitattributes_filters() -> dict[str, list[str]]:
     """{filter name: [paths it covers]}, straight out of .gitattributes.
 
@@ -331,10 +344,30 @@ def rule_audible_alarms_are_scoped() -> None:
         return
     scope = in_scope()
     for cfg in sorted(cfg_dir.glob("*.json")):
-        if scope is not None and str(cfg.relative_to(ROOT)) not in scope:
+        rel = str(cfg.relative_to(ROOT))
+        if scope is not None and rel not in scope:
             continue  # warn about configs THIS commit touches, not all of them
+        # Scoped runs read the INDEX, unscoped runs read disk -- the same
+        # split as check_encoding_health, and for the same reason: if this
+        # is a statement about your commit, it has to be about the bytes
+        # your commit records, not whatever the working tree holds after
+        # `git add -p`. Left inconsistent, the scope came from the index
+        # and the content from disk.
+        #
+        # Safe for sops-covered configs: .sops.yaml's encrypted_regex
+        # covers secret-shaped keys only (secretKey/password/token/...),
+        # so the boolean flags this rule reads are cleartext in the index
+        # too. If that regex ever widens to cover them, this rule would
+        # stop seeing them -- silently, since an ENC[...] string is not
+        # `is True`. Then it should move back to disk, deliberately.
+        raw = staged_blob(rel) if scope is not None else None
+        if raw is None:
+            try:
+                raw = cfg.read_text(encoding="utf-8")
+            except OSError:
+                continue
         try:
-            doc = json.loads(cfg.read_text(encoding="utf-8"))
+            doc = json.loads(raw)
         except (json.JSONDecodeError, UnicodeDecodeError):
             continue
         conf = doc.get("configuration")
