@@ -276,8 +276,10 @@ commits.
   wedged in a retry loop on ENOSPC that outlived the recovery and needed
   `systemctl restart influxdb` to clear. `compose-questdb.yml` now sets
   `cairo.writer.data.append.page.size`,
-  `cairo.writer.data.index.value.append.page.size` and
-  `cairo.o3.column.memory.size` to 256 KB via `QDB_*` env vars. Anything
+  `cairo.writer.data.index.value.append.page.size`,
+  `cairo.o3.column.memory.size` and `cairo.wal.writer.data.append.page.size`
+  down to 256 KB / 128 KB via `QDB_*` env vars — each is read at container
+  start, so changing one means recreating the container. Anything
   that adds tables here — new Telegraf inputs, a second writer — should be
   watched with `du -sm` on the volume for the first few flushes, not
   assumed to be proportional to the rows written.
@@ -289,9 +291,10 @@ commits.
   still uses for the REST mount path, so its config file is
   `~/.signalk/plugin-config-data/signalk-questdb-history-provider.json`.
   Set a finite retention — `retentionDays` defaults to 0, which is the same
-  infinite-retention trap the old InfluxDB plugin config carried. Run it alongside `signalk-to-influxdb2` for a short
-  soak (days); Telegraf dual-writes via a second `influxdb_v2` output to
-  `:9000`. Mind the npm-prune hazard in the checklist.
+  infinite-retention trap the old InfluxDB plugin config carried. Run it
+  alongside `signalk-to-influxdb2` for a short soak (days); Telegraf
+  dual-writes via a second `influxdb_v2` output to `:9000`. Mind the
+  npm-prune hazard in the checklist.
 - **B4. Port the dashboards.** Stand the compose Grafana up against
   QuestDB (PGWire datasource; QuestDB datasource plugin already
   preinstalled per `compose-grafana.yml`, reached at `questdb:8812` from

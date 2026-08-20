@@ -156,9 +156,9 @@ Detailed state, evidence and micro-tasks for every item below live in
 - Finish dockerizing the boat computer (Track B of
   `reference/containerization_strategy.md`; Dex, ntfy and QuestDB done)
 - Migrate the history store from InfluxDB to QuestDB (decided 2026-08-18).
-  InfluxDB backed up and verified, QuestDB running on the boat, history
-  plugin installed; next step is configuring and enabling that plugin,
-  then soaking it alongside InfluxDB before retiring the latter.
+  InfluxDB backed up and verified, QuestDB running on the boat, and both the
+  history plugin and Telegraf now recording into it alongside InfluxDB.
+  Next is the multi-day soak and its parity checks, then retiring InfluxDB.
 - Phone and audible delivery for vessel alarms (ntfy live both places;
   Pushover relay and speaker still open)
 - Ansible for host provisioning (clock and watchdog roles first)

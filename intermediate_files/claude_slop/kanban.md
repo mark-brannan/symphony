@@ -531,6 +531,19 @@ now carries only the high-level list.)
   data point yet — take one before trusting a growth estimate, and treat
   ~6 GB free as the budget.
 
+  **Two things about the boat's own checkout,** noticed while deploying:
+  `/home/pi/symphony/telegraf/telegraf.conf` is a symlink target for
+  `/etc/telegraf/telegraf.conf`, so deploying the Telegraf change meant
+  editing that tracked file in place — the boat's checkout now shows
+  ` M telegraf/telegraf.conf` and will until PR #15 merges and it pulls.
+  Bigger: the boat's `main` is at `68e4e04`, which is **not an ancestor of
+  today's `origin/main`** — main was force-updated upstream at some point,
+  so the boat cannot fast-forward and a plain `git pull` there will merge
+  two lineages against a dirty file. Worth sorting deliberately rather than
+  discovering it mid-deploy. (The content looks preserved — PR #15's diff
+  against the rewritten main is exactly its own seven files — so this is a
+  history-shape problem, not lost work.)
+
   **What's left:** the multi-day soak itself, then B5's parity checks
   (`reference/containerization_strategy.md`). Don't uninstall
   `signalk-to-influxdb2`. B4 (dashboards) is still blocked on the
