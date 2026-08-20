@@ -468,6 +468,11 @@ now carries only the high-level list.)
     `scripts/questdb_table_hygiene.sh` rather than by hand: line protocol
     auto-creates tables with neither, and a dropped-and-recreated table or a
     new input comes back bare and silent, so the script is written to re-run.
+    **It owns an explicit table list, not "everything that looks unmanaged"**
+    — a TTL deletes data at the far end, so auto-adopting an unfamiliar table
+    would put someone else's data on a deletion clock. Unrecognised tables are
+    reported instead, which is also how a newly added Telegraf input announces
+    that it needs listing.
     **Dedup turned out to matter more than retention.** Telegraf retries a
     batch whose HTTP response timed out, and QuestDB may already have
     committed it — measured on the boat: writing the same line twice landed
