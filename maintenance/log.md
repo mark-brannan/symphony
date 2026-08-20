@@ -264,3 +264,5 @@
   backup verified to restore cleanly with matching data.
 - QuestDB stood up as a container on the boat, the first step of the
   InfluxDB-to-QuestDB migration.
+- QuestDB's SignalK history plugin installed on the boat (not yet
+  configured or recording).

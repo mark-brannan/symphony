@@ -333,29 +333,48 @@ now carries only the high-level list.)
   `main`. The boat's checkout will pick up `compose-questdb.yml` itself
   once PR #15 merges; nothing further needed there.
 
-  **B3 (plugin swap) blocked on a permission classifier, not a decision.**
-  `signalk-questdb-history-provider` (Hat Labs' external-only fork,
-  confirmed on npm at 1.10.0 — the plan's preferred option over dirkwa's
-  managed one) is the right plugin, and Node 22.17 on the boat already
-  satisfies its `>=22` requirement. Installing it needs either the
-  SignalK admin API (blocked here — no SignalK auth token to hand, only
-  the InfluxDB one) or a direct `npm install` in `~/.signalk`, which
-  RUNBOOK.md's own procedure says needs `signalk.socket` +
-  `signalk.service` stopped first (live nav data for anyone aboard right
-  now, not just history) — that `systemctl stop` was denied by this
-  session's permission classifier, correctly: it's a materially bigger
-  ask than the InfluxDB risk Mark pre-authorized this session
-  (2026-08-19 chat: "not overly worried if we take the influxdb on
-  symphony offline"), which said nothing about the live SignalK service.
-  **Owner call needed**: OK to briefly stop `signalk.service` (seconds to
-  low tens of seconds — comparable to any plugin install) to install this
-  plugin now, or wait for a session where Mark is aboard/watching?
-  Everything else in B3 (config: point at `127.0.0.1:9000`/`:9009`,
-  finite retention — the plan already flags `retentionDays: 0` as a trap
-  on the old dirkwa config, don't repeat it on the new plugin's config —
-  dual-write soak alongside `signalk-to-influxdb2`, Telegraf's second
-  `influxdb_v2` output block) is unblocked and ready to go once that's
-  answered.
+  **B3 (plugin swap) half done, 2026-08-20 — package installed, not yet
+  configured.** `signalk-questdb-history-provider` 1.10.0 (Hat Labs'
+  external-only fork, the plan's preferred option over dirkwa's managed
+  one) is now in `~/.signalk/package.json` and `node_modules` on the boat.
+  Stopping SignalK to install it was initially denied by this session's
+  permission classifier (a materially bigger ask than the InfluxDB risk
+  pre-authorized earlier); **Mark explicitly authorized it in-chat**
+  ("Take the risk... we're not concerned with nav, just power
+  monitoring... if it goes dark I can drive down and check on it"), so
+  the install went ahead. Sequence used, matching RUNBOOK.md's own
+  procedure: `systemctl stop signalk.socket` then `signalk.service`
+  (the latter went to `failed (Result: timeout)` and needed
+  `reset-failed` before restart — expected, RUNBOOK already documents
+  this), snapshotted `node_modules` before and after
+  (`find node_modules -maxdepth 2 -mindepth 1 | sort`) and diffed —
+  **zero packages pruned**, so the package-lock=false pruning risk the
+  plan warned about did not bite here. Restarted `signalk.socket` +
+  `signalk.service`; confirmed back up within ~10s (HTTP 200 on
+  `/signalk`, fresh live data on `/signalk/v1/api/vessels/self/electrical`
+  with current timestamps). Total live-nav downtime was a few minutes,
+  not "seconds to low tens of seconds" as estimated beforehand — the npm
+  install itself (resolving into an 11.6k-entry flat tree) took longer
+  than expected. Worth knowing for next time, not a problem this time.
+
+  **What's left, next session**: the plugin is installed but disabled and
+  unconfigured — nothing reads from or writes to QuestDB yet. Needed:
+  enable it via the admin UI or `PUT /plugins/signalk-questdb-history-provider/config`
+  (need a real SignalK auth token — this session only ever had the
+  InfluxDB one to hand, never got a SignalK login token, that blocker is
+  still open), configure host `127.0.0.1` / HTTP `9000` / ILP `9009`
+  (QuestDB is already up and answering on those, see B2), set a **finite
+  retention** (the plan already flags `retentionDays: 0` as a trap on the
+  old dirkwa plugin's tracked config — don't repeat it here), confirm the
+  admin UI card settles on "Recording to QuestDB at 127.0.0.1:9009", then
+  run `SELECT count(), max(ts) FROM signalk` in QuestDB's own web console
+  to see rows landing. Run it alongside `signalk-to-influxdb2` (don't
+  uninstall that plugin) for a multi-day soak. Telegraf's second
+  `influxdb_v2` output block (dual-write host metrics to `:9000`) is a
+  separate, independent step, not yet started. B4 (dashboard porting) is
+  still blocked on the two-dashboard-set question above; B5 (retire
+  InfluxDB) needs the soak's parity checks to pass first, per
+  `reference/containerization_strategy.md`.
 
   Assets already in place: the compose Grafana keeps the QuestDB datasource plugin
   installed, and the retired `signalk-grafana` plugin's auto-built QuestDB
