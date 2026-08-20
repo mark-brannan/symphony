@@ -44,8 +44,9 @@ covered here.
 - **A human file.** High-level items only, one to a few lines each. Claude
   edits it when real feature-level work completes or the owner asks — never
   to park session state, evidence dumps, "done" annotations, or rules for
-  other sessions. All of that lives in
-  `intermediate_files/claude_slop/kanban.md`.
+  other sessions. All of that lives under
+  `intermediate_files/claude_slop/` (`kanban.md` for cards, `kanban-detail.md`
+  for their detail, `log.md` for history).
 - Kanban-flavored, not GTD: **In Progress** (keep this small — WIP limit of
   roughly 2-3 items, matching the owner's stated preference for steady
   completion over a sprawling backlog) / **Backlog** (ordered —
@@ -54,8 +55,9 @@ covered here.
   from this file, so it always reflects only what's still open.
 - The **SignalK / IoT — high level** section is the human summary; the
   detailed working state for each item is in
-  `intermediate_files/claude_slop/kanban.md`. Update both when an item
-  opens or closes; update only the kanban for anything smaller.
+  `intermediate_files/claude_slop/kanban-detail.md`, linked from a card in
+  `kanban.md`. Update both when an item opens or closes; update only the
+  board for anything smaller.
 
 ## Claude session state — `intermediate_files/claude_slop/`
 - **All Claude working state is segregated here**, away from the "good"

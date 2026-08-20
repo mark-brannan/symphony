@@ -41,6 +41,13 @@ Tailscale SSH fix, so it should be rotated at
 https://login.tailscale.com/admin/settings/oauth whenever convenient. Not
 urgent — read-only scope, no write access was ever granted.
 
+Two adjacent items closed during that same fix, recorded for continuity:
+`ssh solace@nucbox-k12` times out because that Windows node has no SSH
+server — a Tailscale platform limit, not a policy gap, nothing to fix.
+Tracking the tailnet policy file in git was considered and rejected: this
+repo is public, and the policy names the tailnet's tags and topology;
+`~/claude_prompts_scratch` would be the right home if that's ever wanted.
+
 ## Symphony Plumbing Library.xml
 
 Mark's own draw.io shape library for plumbing diagrams, Google Drive only —
@@ -189,10 +196,11 @@ a deliberate major bump, not routine drift.
 - **Large webapps/flows:** `@mxtommy/kip` 3.12.0 → 4.8.5,
   `@signalk/freeboard-sk` 2.24.2 → 3.1.0, `@signalk/signalk-node-red` 3.2.1
   → 4.4.0, `signalk-tides` 1.5.0 → 2.1.2.
-- **Small:** `signalk-postgsail` 0.5.1 → 0.6.0 (broken anyway, see the
-  better-sqlite3 item), `signalk-noaa-space-weather` 0.19.0 → 0.20.0
-  (Mark's own repo — coordinate with that dev work), `vhfinfo` 0.0.34 →
-  0.0.37.
+- **Small:** `signalk-postgsail` 0.5.1 → 0.6.0 (not blocked on
+  better-sqlite3 — that only affects `signalk-polar`; postgsail declares no
+  dependencies and is enabled, loaded and working), `signalk-noaa-space-weather`
+  0.19.0 → 0.20.0 (Mark's own repo — coordinate with that dev work),
+  `vhfinfo` 0.0.34 → 0.0.37.
 
 `signalk/package.json` already targets the newer major for kip, freeboard,
 autopilot, node-red, tides and postgsail, which reads as intent — but that
@@ -473,9 +481,13 @@ that belongs in `reference/` under the file's own actions-only rule.
 PGN 126992 (System Time) and 129029 (GNSS Position Data) both carry it, and
 chrony's current `GPS` refclock has never received a sample because it's
 fed from `gpsd`, which has no device. Something has to write a SHM segment
-from the N2K time, or feed chrony over the network. Doesn't remove the case
-for an RTC — a GNSS clock needs a fix and the bus powered, so it doesn't
-cover a cold offline boot.
+from the N2K time, or feed chrony over the network — same fix either way it
+gets scoped: read PGN 126992 once SignalK is on `can0`, or the wider GNSS
+position fix. Until then the clock is internet-only and free-runs offline,
+on a box with no RTC — which is also what makes the DS3231 fit worth doing
+regardless; doesn't remove the case for the RTC either way, since a GNSS
+clock needs a fix and the bus powered, so it doesn't cover a cold offline
+boot.
 
 ## Set source priorities for position once AIS is powered
 
@@ -532,16 +544,6 @@ barometer stacks), but nothing currently turns a fast drop into a
 notification — no zone is configured on either path. A `meta.zones` entry
 (server-native, no plugin) or a small Node-RED flow would both work.
 Flagged in `reference/node_red_signalk_use_cases.md` (List 3, section M).
-
-## Bridge NMEA 2000 System Time to chrony
-
-Same underlying data as the "GPS time off the N2K bus" card above but
-scoped narrower: once SignalK is reading `can0`, PGN 126992 is on the bus
-and the standard `refclock SHM` recipe (reading gpsd's shared memory) fails
-because gpsd has no serial device here. Something has to write a SHM
-segment from the N2K time, or feed chrony over the network. Until then the
-clock is internet-only and free-runs offline, on a box with no RTC — which
-is also what makes the DS3231 fit worth doing regardless.
 
 ## Verify Grafana SSO end to end
 
@@ -720,6 +722,115 @@ Installed at 1.2.0, enabled, never registered. Zones are server-core via
 `meta.zones` now — the plugin is only a broken editor UI. Remove it on the
 boat, and mirror the airquality zone meta from `signalk/baseDeltas.json`
 into the boat's own baseDeltas. Fits the next maintenance window.
+
+## Fit a DS3231 RTC to the boat Pi
+
+The Pi has no real-time clock, so it boots with a wrong clock and stays
+wrong whenever it's offline — which breaks TLS validity, OIDC token
+windows, and every timestamp written to InfluxDB/QuestDB. The PiCAN-M
+exposes a Qwiic (I2C) connector; `dtoverlay=i2c-rtc,ds3231` plus a udev
+rule is the whole software side (`tkurki/marinepi-provisioning` role `rtc`
+already has it). Cheap, independent of the N2K/GPS time question above,
+and it's what makes the offline case survivable rather than merely
+detectable.
+
+## Generic single-path-arithmetic plugin idea
+
+Came up chasing the openweather humidity bug (see the humidity-fix flow
+card): neither `signalk-path-mapper` (rename/duplicate only),
+`signalk-derived-data` (fixed built-in calculators, no custom formula),
+nor `signalk-value-combiner` (needs two live input paths, no constant) can
+scale/offset a single path by a constant, and nothing in the plugin store
+fills the gap. Verdict: two data points (this and the BME680
+path-naming mismatch) don't yet justify building and maintaining a new
+plugin when Node-RED, already running, covers it generically — revisit if
+a third case shows up.
+
+## Doc-cleanup follow-ups still open
+
+From the 2026-08-19 doc-bloat audit; the bulk of it closed same-session
+(claude_slop structure, CLAUDE.md rules, log.md/priorities.md trims,
+dotfiles boards descoped, all the reference/ trims). Two small items
+remain:
+
+- Extend `scripts/lint_repo_hygiene.py` with a soft warn on
+  `maintenance/log.md` bullets over ~5 lines — optional enforcement, not
+  acted on.
+- Dotfiles: `boards/claude.md` still lists "Reconcile standing-orders
+  lines with the Standing orders additions session" and a board-rework
+  handoff note that should be deleted — dotfiles-side, not symphony's; a
+  note here rather than a symphony card because no symphony session can
+  action it.
+
+Separately, and settled rather than open: the fork boundary inside
+`lint_repo_hygiene.py` (2026-08-19) — the file mixes one generic secret-
+management rule with two site-specific ones (audible alarms,
+`FROZEN_SECRET_KEYS`), and a review bot flagged the hardcoding on PR #12.
+Recorded recommendation: leave it hardcoded. Moving the list to a config
+file makes the freeze editable and gives the rule a way to fail closed if
+the file goes missing, where a tuple in the source cannot fail open.
+Revisit only if a fork becomes real.
+
+## Stale branch `claude/git-hygiene-redesign`
+
+Pushed ref `7be6e6a`, the pre-worktree take on the git-hygiene redesign,
+superseded by `0a76db4`/`a861190`. No PR was ever opened (that session's
+GitHub API was 403-blocked; push still worked). Nothing in it is worth
+salvaging, and per § Git hygiene it can't end "merged via PR," so deleting
+it needs Mark's explicit go-ahead rather than a session doing it
+unilaterally.
+
+## Undelivered coordination note to the "hooks-continuity-cleanup" session
+
+Mark asked this repo's session and a dotfiles + claude_prompts_scratch
+cloud session (`session_014zxMuv2RQ3p4Z7PRA1eTm7`, branch
+`claude/hooks-continuity-cleanup-sq7dnm`) to coordinate, but no channel
+exists between two cloud sessions — `ListAgents` returns nothing without a
+Remote Control connection, `SendMessage` fails, and Claude Code Remote's
+MCP surface has no `send_message`. Last known state, 2026-08-19 ~17:53Z:
+that session was idle, not blocked — it had opened **PR #3 on dotfiles**
+("Automate session continuity: SessionStart brief, Stop checkpoint, typed
+decisions") and was waiting on two manual steps only Mark can do in the
+dotfiles web UI. Worth checking whether those steps still need doing
+before treating this as live — a session-and-a-half has passed since.
+
+## QuestDB migration execution notes not in the reference doc
+
+`reference/containerization_strategy.md` carries the B1-B7 plan and some
+retroactively-added plan-level facts, but three execution findings from
+the actual 2026-08-20 B1-B3 run aren't in it, and the still-open B5 parity
+work depends on the first one:
+
+- **Telegraf's retry can double-write.** A timed-out HTTP response can
+  still have been committed by QuestDB, so a retried batch lands twice —
+  measured on the boat: writing the same line twice landed two rows before
+  dedup and was absorbed after. That's a hole in B5's row-count parity
+  check specifically, since the QuestDB-side count would be inflated by
+  exactly the retries. The history plugin's own tables ship with dedup on;
+  only Telegraf's were exposed, and are handled by
+  `scripts/questdb_table_hygiene.sh`.
+- **`retentionDays` is not a real QuestDB TTL.** All three history-plugin
+  tables read `ttlValue 0` in QuestDB's own metadata — the plugin drops
+  aged partitions itself. There's nothing in QuestDB to check the setting
+  against; verifying it means watching partitions age out at day 30 (set
+  by Mark against a boat root filesystem at 82% full, with InfluxDB still
+  running) or reading the plugin's config back.
+- **The off-boat backup copy is still outstanding.** B1's two InfluxDB
+  backup artifacts (`influxdb-data-<ts>.tar.gz`, `symphony-<ts>.lp.gz`,
+  sha256-summed) proved they restore correctly via an on-boat restore
+  test, but they still only exist on the boat's own SD card, at
+  `/home/pi/influx-export/`. This session's tailnet path off-boat ran at
+  ~30-50KB/s (DERP relay, not a direct P2P path), so the copy was left for
+  Mark to `scp` from one of his own devices whenever convenient — not
+  urgent, since the on-boat restore test is solid evidence the backup
+  itself is good, but B1 isn't fully done until it happens.
+
+Also worth knowing before touching QuestDB's compose config again: the
+disk-fill incident (root hit 100% within 15 minutes of the Telegraf output
+going live, from QuestDB's per-column-file preallocation on 20 new SYMBOL-
+heavy tables) is already documented in `containerization_strategy.md`,
+along with its fix (`QDB_*` append-page env vars cut to 256k/128k). That
+part didn't need repeating here.
 
 ## Sensor hardware design backlog
 
