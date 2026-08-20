@@ -118,8 +118,11 @@ def have_age_key():
 # installed and working. In strict mode a missing sops is fatal, and a fatal
 # smudge takes the whole checkout down with it, so resolving by PATH alone
 # turns "your shell config differs" into "git worktree add fails".
+# Kept unexpanded: this doubles as the text of the `needs:` line, where
+# "~/.local/bin" is what a reader recognises, and expanding at lookup time
+# means a changed HOME is honoured rather than frozen at import.
 _SOPS_DIRS = (
-    os.path.expanduser("~/.local/bin"),
+    "~/.local/bin",
     "/usr/local/bin",
     "/opt/homebrew/bin",
     "/usr/bin",
@@ -133,10 +136,19 @@ def find_sops():
     if found:
         return found
     for directory in _SOPS_DIRS:
-        candidate = os.path.join(directory, "sops")
+        candidate = os.path.join(os.path.expanduser(directory), "sops")
         if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
             return candidate
     return ""
+
+
+def sops_locations():
+    """Everywhere find_sops looks, phrased for a `needs:` line.
+
+    One source for the text so a diagnostic cannot tell you to put sops
+    somewhere the resolver does not actually look, or omit somewhere it does.
+    """
+    return "sops on PATH or in " + ", ".join(_SOPS_DIRS)
 
 
 def _filters_configured():

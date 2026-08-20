@@ -169,7 +169,7 @@ def rule_plaintext_secrets_are_protectable() -> None:
 
     missing = []
     if not secretguard.find_sops():
-        missing.append("sops on PATH")
+        missing.append(secretguard.sops_locations())
     if not secretguard.have_age_key():
         missing.append("an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)")
     if not missing:

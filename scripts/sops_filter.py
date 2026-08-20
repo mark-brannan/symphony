@@ -66,7 +66,7 @@ def can_encrypt():
     """Everything the encrypt path needs, in one question."""
     missing = []
     if not _SOPS_PATH:
-        missing.append("sops on PATH, in ~/.local/bin, or in /usr/local/bin")
+        missing.append(secretguard.sops_locations())
     if not secretguard.have_age_key():
         missing.append("an age key (~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE)")
     if yaml is None or pseudonymize is None:
