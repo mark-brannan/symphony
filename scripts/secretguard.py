@@ -297,6 +297,16 @@ def _dest():
     stderr isn't a terminal but one is attached, write straight to it. One
     destination, never both.
     """
+    # An in-process redirect of sys.stderr (contextlib.redirect_stderr, a
+    # test harness, a caller collecting output) is a deliberate instruction
+    # about where this text goes. Honour it before considering /dev/tty:
+    # otherwise the message escapes the capture, lands on whatever terminal
+    # happens to be attached, and the caller sees nothing. That is not
+    # hypothetical -- it made this module's own tests pass on a machine with
+    # no controlling terminal (CI) and fail on a developer's laptop, with the
+    # guard blocks printed into an unrelated commit's hook output.
+    if sys.stderr is not sys.__stderr__:
+        return sys.stderr
     try:
         if sys.stderr.isatty():
             return sys.stderr
