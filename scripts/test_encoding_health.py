@@ -20,6 +20,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import check_encoding_health as eh
 
@@ -280,8 +281,18 @@ class NonAsciiPathsStayInScopeTest(unittest.TestCase):
 
 class MessageContractTest(unittest.TestCase):
     def test_blocking_message_names_hook_file_fix_and_exit(self):
+        # secretguard._dest() writes to /dev/tty instead of stderr whenever
+        # sys.stderr isn't itself a terminal -- so a hook's message still
+        # reaches the user even though pre-commit captured stdout/stderr
+        # into pipes. That check re-fires here: redirect_stderr swaps in a
+        # StringIO, which also isn't a tty, so an unpatched call escapes to
+        # the real /dev/tty and `err` stays empty -- passing on a headless
+        # runner and failing on a real terminal. test_secretguard.py hits
+        # the same thing for its subprocess calls and works around it with
+        # start_new_session; there's no subprocess here, so force stderr.
         err = io.StringIO()
-        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()), \
+                mock.patch.object(eh.secretguard, "_dest", lambda: sys.stderr):
             eh._report("some/file.md", "not valid UTF-8")
         text = err.getvalue()
         for element in ("some/file.md", "--fix", "git restore --staged",
