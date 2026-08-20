@@ -33,6 +33,23 @@ to the plugin dir. Remaining:
 Open questions parked here so they don't live only in a session's last
 response. Each names the session that raised it.
 
+- **`.pre-commit-config.yaml` line 6 is now slightly wrong — fix it after
+  PR #13 merges** (2026-08-19, CI-trigger-split session). It reads *"The
+  real gate is `.github/workflows/validate.yml`, which runs the same checks
+  plus a verified-secret scan on every push."* The scan moved to
+  `secret-scan.yml`. Deliberately not fixed in-session: #13's diff hunk
+  starts at line 7 and carries line 6 as context, so editing it was the one
+  change guaranteed to conflict with a PR that is otherwise entirely
+  disjoint from this work. One-line edit once #13 lands.
+
+- **Node 20 deprecation on both workflows** (2026-08-19, same session).
+  Every run warns that `actions/checkout@v4` and `actions/setup-python@v5`
+  target Node 20 and are being forced onto Node 24. Pre-existing, affects
+  `validate.yml` and `secret-scan.yml` equally, nothing failing yet. The fix
+  is bumping to `checkout@v5` / `setup-python@v6`, which is a real (if
+  small) change to every job in both files — worth doing as its own pass,
+  not smuggled into unrelated work.
+
 - **Branch protection / required status checks on `main` — not enabled**
   (2026-08-19, CI-design session). Confirmed via `list_branches`: `main` is
   unprotected today, so `.github/workflows/validate.yml` and

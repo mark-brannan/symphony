@@ -333,3 +333,62 @@ Updated `reference/signalk_paths.md` to stop claiming `headingTrue` is
 absent (it documented the exact "calculators set to false" state that no
 longer holds) and closed the item out of `priorities.md` and this file's
 kanban.
+## 2026-08-19 (later still) — CI: close the unscanned-branch-push window
+
+**Problem.** `validate.yml` fired on `push: branches: [main]` and
+`pull_request: branches: [main]`. A `claude/*` branch pushed without a PR
+matched neither, so gitleaks and trufflehog never saw it. PR #13's
+`scripts/prepush_secret_scan.sh` covers the same window locally, but
+`git push --no-verify` skips it; CI can't be skipped from a laptop.
+
+**The fact that resized the question.** `mark-brannan/symphony` is public,
+so Actions on standard runners is unmetered — every option on the table
+cost $0. The real currencies were wall-clock, check-row noise, and what the
+bill would be if the repo ever goes private. Measured baseline from run
+`32307681599`: 9 jobs, ~30s wall, 9 billed job-minutes (each job rounds up
+to a minute); the four secret jobs are 46s of compute, 4 job-minutes.
+Branch-push volume from the last 200 runs: ~22 on the busiest day
+(2026-08-19), 0 on quiet ones.
+
+**Options Mark asked about, and the answers.**
+- *Split the secret jobs onto a wider trigger* — sound, and taken. Note the
+  mechanical constraint: `on:` is per-workflow, not per-job, so splitting
+  means a second file or `if:` guards. Second file was cleaner.
+- *`paths:` filter* — rejected, and Mark's suspicion was right for a reason
+  he hadn't named. Two independent failures: (1) gitleaks exists to catch
+  strings in files sops was never told about, so a path allowlist is a
+  second list-of-files-we-thought-about gating the tool whose job is the
+  gaps in the first; (2) scope mismatch — both scanners run `fetch-depth: 0`
+  over full history, so gating a whole-history scan on one push's changed
+  files skips it whenever the newest commit only touched a README.
+- *Size/heuristic gate* — same allowlist flaw plus custom logic to maintain,
+  to save 46s of free compute.
+
+**Landed** (three commits, straight to main, each verified before the next):
+`9ec5095` adds `secret-scan.yml` with the four jobs *while they were still
+in validate.yml* — deliberate duplication so no window had reduced coverage;
+`e952e33` removes them there; `4fd5fc7` fixes the stale required-checks note
+in this kanban.
+
+`concurrency` uses `cancel-in-progress: ${{ github.event_name == 'push' }}`
+rather than a bare `true`, so a rapid push series can't cancel the weekly
+sweep of unchanged history — the one run whose entire purpose is firing when
+nothing changed.
+
+**Interaction with PR #13: none, checked rather than assumed.** #13 touches
+21 files, none under `.github/workflows/`. Two near-misses steered around:
+its `.pre-commit-config.yaml` hunk starts at line 7 and carries line 6 as
+context, so editing line 6 was the one guaranteed conflict — left alone (see
+Blocked); its RUNBOOK hunk is at ~2261, mine at 628. #13's body claims
+"CI's gitleaks and trufflehog passes are what make `--no-verify`
+affordable" — that was false for branch pushes until this change, so #13
+lands more safely in either order.
+
+**Verified against the real thing,** not just reasoned about: pushed a
+throwaway `tmp/verify-secret-scan-trigger` ref with no PR — exactly the
+unscanned case — and `Secret scan` fired, four jobs green, 18s, while
+`Validate` correctly did not. Ref deleted.
+
+**Not touched, pre-existing:** every run emits a Node 20 deprecation warning
+for `actions/checkout@v4` and `actions/setup-python@v5`. Predates this work,
+affects both workflows.
