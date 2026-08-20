@@ -1,0 +1,35 @@
+services:
+  questdb:
+    # Pinned by digest, same reasoning as dex in compose-idp.yml: `latest`
+    # moving under the boat is not a surprise worth having offshore. This is
+    # the multi-arch index (linux/amd64 for the dev box, linux/arm64 for the
+    # Pi), resolved from the `latest` tag on 2026-08-19.
+    image: questdb/questdb@sha256:76b642b035b2366eaf8ca56d0d00b111efe981f5d25e024bf6b3b234e108b4f3
+    container_name: questdb
+    restart: unless-stopped
+    # 768m is the marine plugin's own Pi default (dirkwa/signalk-questdb
+    # README) -- keeps QuestDB from growing unbounded on a 4GB box that also
+    # carries SignalK (~1.1GB), Grafana and Telegraf.
+    mem_limit: 768m
+    environment:
+      - TZ=UTC
+    # Bound to loopback: native clients on the Pi (SignalK, Telegraf, native
+    # Grafana) reach these at localhost; compose services reach the same
+    # ports at questdb:9000/:9009/:8812 over symphony-net without needing a
+    # published port at all. Publishing is only for the native-process side.
+    ports:
+      - "127.0.0.1:9000:9000"   # HTTP / REST / web console
+      - "127.0.0.1:9009:9009"   # ILP (line protocol, used by Telegraf's influxdb_v2 output)
+      - "127.0.0.1:8812:8812"   # PGWire (Grafana's QuestDB datasource)
+    volumes:
+      - questdb-data:/var/lib/questdb
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    networks:
+      - symphony-net
+
+volumes:
+  questdb-data:
