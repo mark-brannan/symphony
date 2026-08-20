@@ -303,3 +303,7 @@
 - Triaged the stale claude/* branches: seven verified content-merged and
   deleted, plus an eighth (PR #15's) that went the same way via merge;
   three kept for unlanded work, one carries an open PR (#10).
+- Fixed a flaky pre-commit test (PR #21): the encoding-health hook's
+  blocking message was escaping to /dev/tty instead of the test's captured
+  stderr on any machine with a real terminal attached, passing on headless
+  CI and failing everywhere else.
