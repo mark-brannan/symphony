@@ -383,8 +383,9 @@ entries below are for when you're not.
   you were on (`git log --oneline -1`), then `git switch main` (name only, not
   a reset) to get back onto the branch.
 - If the gitleaks pre-commit hook errors with "gitleaks did not run: no
-  docker on PATH" or "docker daemon not reachable", Docker Desktop (or its
-  WSL integration) is off. Commit with
+  docker on PATH" (docker isn't installed in this distro, or Docker
+  Desktop's WSL integration is off) or "docker daemon not reachable"
+  (Docker Desktop isn't running), commit with
   `SKIP=gitleaks` and move on — decided 2026-08-19; the local
   staged-secrets guard still runs and covers the commit. This sanctions
   skipping that one hook for that one failure, nothing else.

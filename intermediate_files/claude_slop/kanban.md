@@ -120,8 +120,10 @@ response. Each names the session that raised it.
   Drive only): owner deferred 2026-08-19 — "plumbing we'll figure out
   later." Not blocking anything; revisit when plumbing diagrams start.
 - ~~gitleaks-docker hook vs Docker Desktop~~ decided 2026-08-19:
-  skipping the gitleaks hook is the sanctioned path when Docker/WSL
-  integration is off; rule added to CLAUDE.md § Git hygiene. Incantation
+  skipping the gitleaks hook is the sanctioned path when docker is
+  missing from PATH or the daemon isn't reachable (Docker Desktop not
+  running / WSL integration off); rule added to CLAUDE.md § Git
+  hygiene. Incantation
   updated to `SKIP=gitleaks` on 2026-08-20 after PR #13 renamed the hook
   id. Native-binary hook swap not wanted — closed.
 - **Stale branch `claude/git-hygiene-redesign` (7be6e6a) — delete it?**
