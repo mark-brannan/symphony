@@ -313,3 +313,7 @@
   timeout before the handshake could run. Raised the limit on the boat;
   both banks are reporting again. Corrected the RUNBOOK section, which
   had pointed at the radio and at boot ordering.
+- Considered and rejected forking `signalk-fixed-position` to debounce its
+  writes (~86,000/day, 3-9% of the box's total I/O). The behavior is
+  wanted and the write rate doesn't justify maintaining a fork; revisit
+  upstream if it ever gets fixed.
