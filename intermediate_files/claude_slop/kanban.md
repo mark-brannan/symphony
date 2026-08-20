@@ -261,8 +261,9 @@ now carries only the high-level list.)
   plan amends the plan rather than being worked around silently; delete the
   checklist from the file once it has been executed. **Dex and ntfy are done** — containers,
   native units disabled, verified through Caddy. SignalK, Grafana and Caddy
-  are still native systemd services. Next up is B1: back up InfluxDB offline
-  and prove the backup restores off-boat. Migrate one service at a time, not
+  are still native systemd services. **QuestDB is now also a container**
+  (2026-08-20, see the QuestDB entry below) — Dex, ntfy and QuestDB.
+  Migrate one service at a time, not
   in one move — anything mid-migration runs native and containerized at once.
   Caddy is last and is the one to do carefully: it is the front door, so a bad
   move takes the SignalK UI, Grafana and the OIDC callback with it, including
@@ -271,16 +272,92 @@ now carries only the high-level list.)
   by service name on `symphony-net` instead.
 - Migrate the history store from InfluxDB to QuestDB. **The evaluation is
   closed** — decided 2026-08-18 with Mark, reasoning and evidence in
-  `reference/containerization_strategy.md`. What is open is the execution,
-  steps B1-B5 there, in order: back up InfluxDB offline and prove the backup
-  restores; stand QuestDB up as a compose service; swap the SignalK history
-  plugin to the external-mode QuestDB one and soak it alongside
-  `signalk-to-influxdb2` with Telegraf dual-writing; port the dashboards
-  (scope blocked, see Blocked); retire InfluxDB once measured parity passes.
-  Retiring InfluxDB also clears the dead sops tokens, the `symphony` vs
-  `darkstarllc` org disagreement, the retention mismatch between `.env.j2`
-  and `provision_influxdb.sh`, and Telegraf's captain-token stopgap. Assets
-  already in place: the compose Grafana keeps the QuestDB datasource plugin
+  `reference/containerization_strategy.md`. Steps B1-B5, in order: back up
+  InfluxDB offline and prove the backup restores; stand QuestDB up as a
+  compose service; swap the SignalK history plugin to the external-mode
+  QuestDB one and soak it alongside `signalk-to-influxdb2` with Telegraf
+  dual-writing; port the dashboards (scope blocked, see Blocked); retire
+  InfluxDB once measured parity passes.
+
+  **B1 done, 2026-08-20.** Stopped `influxdb.service` (down ~19 min: tar +
+  export-lp took most of that on the Pi's SD card, not the stop itself),
+  took two artifacts — `influxdb-data-<ts>.tar.gz` (478MB raw data dir) and
+  `symphony-<ts>.lp.gz` (952MB `influxd inspect export-lp`, needs no
+  token — sidesteps the boat's dead InfluxDB tokens) — both sha256-summed,
+  both at `/home/pi/influx-export/` on the boat, restarted InfluxDB
+  (confirmed healthy, all three buckets intact). **Verified on-boat, not
+  off-boat**: this session's tailnet path to any off-boat host (this cloud
+  sandbox, and relayed on to `nucboxk12`) ran at ~30-50KB/s — a 1.4GB
+  transfer would have taken 7+ hours, so instead of waiting, restored the
+  tarball into a second, disposable native `influxd` process on the boat
+  (different bolt/engine paths, port 8087, torn down after) since no
+  Docker daemon was available in this session and pulling a fresh
+  `influxdb` image over the same slow link was similarly impractical
+  (aborted after ~10 min, no image landed). All 3 buckets and every
+  measurement present; a spot-check of `navigation.position` lat/lon
+  matched the live instance exactly at matching timestamps; full-history
+  row counts differed by exactly the ~19 minutes of live writes that
+  happened during and after the backup window (451441 vs 449375 on the
+  main GPS source) — expected, not a discrepancy. The `.lp.gz` cross-
+  checked separately: decompresses clean (127.2M lines), and the first
+  2000 lines wrote into a scratch QuestDB-instance bucket and queried back
+  correctly. **This proves the backup mechanism restores correctly; it
+  does not prove survival of a boat-level disk failure**, since the
+  restore target was the same SD card. A true off-boat copy is still
+  worth getting — the artifacts are sitting at `/home/pi/influx-export/`
+  ready for Mark to `scp` directly from one of his own devices (which
+  should hold a direct tailnet P2P connection rather than this session's
+  apparent DERP relay, and therefore be much faster) whenever convenient;
+  not urgent, since the on-boat restore test is solid evidence the backup
+  itself is good.
+
+  **B2 done, 2026-08-20.** `compose-questdb.yml` added and running on the
+  boat as the `questdb` container (pinned by digest, ports 9000/9009/8812
+  on localhost, `QDB_CAIRO_COMMIT_MODE=sync` for durability — this Pi has
+  no UPS). Two prerequisites from the history-plugin's own tuning notes,
+  also done: `vm.max_map_count` raised to 1048576 via
+  `/etc/sysctl.d/99-questdb.conf` (was 65530, no reboot needed); **the
+  `mem_limit: 768m` in the compose file is NOT actually enforced** — this
+  Pi's kernel lacks `cgroup_enable=memory` on the boot cmdline, so `docker
+  compose up` logs "kernel does not support memory limit capabilities...
+  Limitation discarded." Fixing that needs a `cmdline.txt` edit and a
+  reboot; deferred rather than done blind. QuestDB is being watched
+  instead (`free -m` / `pswp`) — measured healthy at deploy time: ~486MB
+  RSS, boat available memory 872-912MB throughout, swap stable, well
+  inside the ~400MB pressure threshold. Deployed by merging
+  `compose-questdb.yml` with the boat's on-`main` `docker-compose.yml` via
+  `docker compose -f docker-compose.yml -f <tmp-copy> up -d questdb`,
+  deliberately without checking the boat's shared `/home/pi/symphony`
+  checkout onto this session's feature branch — that checkout is shared
+  across sessions and other people may be relying on it staying on
+  `main`. The boat's checkout will pick up `compose-questdb.yml` itself
+  once PR #15 merges; nothing further needed there.
+
+  **B3 (plugin swap) blocked on a permission classifier, not a decision.**
+  `signalk-questdb-history-provider` (Hat Labs' external-only fork,
+  confirmed on npm at 1.10.0 — the plan's preferred option over dirkwa's
+  managed one) is the right plugin, and Node 22.17 on the boat already
+  satisfies its `>=22` requirement. Installing it needs either the
+  SignalK admin API (blocked here — no SignalK auth token to hand, only
+  the InfluxDB one) or a direct `npm install` in `~/.signalk`, which
+  RUNBOOK.md's own procedure says needs `signalk.socket` +
+  `signalk.service` stopped first (live nav data for anyone aboard right
+  now, not just history) — that `systemctl stop` was denied by this
+  session's permission classifier, correctly: it's a materially bigger
+  ask than the InfluxDB risk Mark pre-authorized this session
+  (2026-08-19 chat: "not overly worried if we take the influxdb on
+  symphony offline"), which said nothing about the live SignalK service.
+  **Owner call needed**: OK to briefly stop `signalk.service` (seconds to
+  low tens of seconds — comparable to any plugin install) to install this
+  plugin now, or wait for a session where Mark is aboard/watching?
+  Everything else in B3 (config: point at `127.0.0.1:9000`/`:9009`,
+  finite retention — the plan already flags `retentionDays: 0` as a trap
+  on the old dirkwa config, don't repeat it on the new plugin's config —
+  dual-write soak alongside `signalk-to-influxdb2`, Telegraf's second
+  `influxdb_v2` output block) is unblocked and ready to go once that's
+  answered.
+
+  Assets already in place: the compose Grafana keeps the QuestDB datasource plugin
   installed, and the retired `signalk-grafana` plugin's auto-built QuestDB
   dashboards are preserved in
   `signalk/plugin-config-data/signalk-grafana/grafana-data/`.

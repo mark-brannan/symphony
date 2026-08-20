@@ -258,3 +258,9 @@
 - Stored a read-only Tailscale OAuth client and added
   `scripts/tailscale_policy.sh` to read and validate the policy from the
   command line.
+
+## 2026-08-20
+- InfluxDB backed up (raw data directory + line-protocol export) and the
+  backup verified to restore cleanly with matching data.
+- QuestDB stood up as a container on the boat, the first step of the
+  InfluxDB-to-QuestDB migration.

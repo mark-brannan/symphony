@@ -1667,6 +1667,35 @@ Do this before any `npm install` in `~/.signalk`. Otherwise the running server
 is reading the tree while npm rewrites it, and anything that restarts the
 service mid-install brings it up against a half-written plugin directory.
 
+## Bringing up QuestDB on the boat
+
+`compose-questdb.yml` is included from `docker-compose.yml`. Before starting
+it, raise the kernel's memory-mapping limit — QuestDB memory-maps every
+partition column file and a grown database exhausts the default on this
+Pi's kernel, after which queries fail with out-of-memory errors while RAM is
+free:
+
+```bash
+cat /proc/sys/vm/max_map_count      # if well below 1048576:
+echo 'vm.max_map_count=1048576' | sudo tee /etc/sysctl.d/99-questdb.conf
+sudo sysctl --system
+```
+
+This is a host-level kernel setting — it cannot be set from inside the
+QuestDB container. Takes effect immediately, no reboot.
+
+```bash
+docker compose -f docker-compose.yml up -d questdb
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9000/   # 301 = up
+```
+
+`mem_limit: 768m` in the compose file is not actually enforced on this Pi —
+`docker compose up` logs "Your kernel does not support memory limit
+capabilities or the cgroup is not mounted." Raspberry Pi OS ships without
+`cgroup_enable=memory` on the kernel command line by default. Fixing that
+needs a `cmdline.txt` edit and a reboot, so for now QuestDB's memory is
+watched (`free -m`, `grep ^pswp /proc/vmstat`), not capped.
+
 ---
 
 ## SignalK's NMEA 2000 input
