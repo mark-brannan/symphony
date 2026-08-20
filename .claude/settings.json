@@ -19,6 +19,15 @@
             "command": "bash .claude/hooks/no-persistent-polling.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-secret-printing-compose-config.sh"
+          }
+        ]
       }
     ]
   },
