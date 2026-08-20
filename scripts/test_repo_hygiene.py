@@ -38,14 +38,19 @@ class RuleTestCase(unittest.TestCase):
     Notably `filter_is_configured`: on a maintainer's clone the filters ARE
     configured, the rule would return early, and every assertion below would
     pass while testing nothing.
+
+    Every seam a test here patches is saved and restored from this one
+    place, `staged_blob` included -- a test that patches a module attribute
+    the base class does not restore leaks it into whatever runs next, and
+    the symptom is a failure in an unrelated test.
     """
 
     MODE = "contributor"
 
     def setUp(self):
         self._saved = (lint.staged_paths, lint.filter_is_configured,
-                       lint.gitattributes_filters, lint.SCOPE_ALL, lint.CI,
-                       secretguard._resolved)
+                       lint.gitattributes_filters, lint.staged_blob,
+                       lint.SCOPE_ALL, lint.CI, secretguard._resolved)
         lint.failures.clear()
         lint.warnings.clear()
         lint.SCOPE_ALL = False
@@ -61,8 +66,8 @@ class RuleTestCase(unittest.TestCase):
 
     def tearDown(self):
         (lint.staged_paths, lint.filter_is_configured,
-         lint.gitattributes_filters, lint.SCOPE_ALL, lint.CI,
-         secretguard._resolved) = self._saved
+         lint.gitattributes_filters, lint.staged_blob, lint.SCOPE_ALL,
+         lint.CI, secretguard._resolved) = self._saved
         lint.failures.clear()
         lint.warnings.clear()
 
