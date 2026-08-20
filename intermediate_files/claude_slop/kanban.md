@@ -464,11 +464,18 @@ now carries only the high-level list.)
     plugin's config back.
   - **Telegraf dual-write done** — second `[[outputs.influxdb_v2]]` at
     `http://127.0.0.1:9000` in `telegraf/telegraf.conf`, 20 host-metric
-    tables landing, no output errors. Each was given
-    `ALTER TABLE <t> SET TTL 30 DAYS` by hand, since ILP auto-creates
-    tables with no TTL. **That is not durable**: a dropped-and-recreated
-    table, or a new Telegraf input, comes back with no TTL and nobody is
-    told. Worth a check in the parity pass, or a small script.
+    tables landing, no output errors. Retention and dedup are applied by
+    `scripts/questdb_table_hygiene.sh` rather than by hand: line protocol
+    auto-creates tables with neither, and a dropped-and-recreated table or a
+    new input comes back bare and silent, so the script is written to re-run.
+    **Dedup turned out to matter more than retention.** Telegraf retries a
+    batch whose HTTP response timed out, and QuestDB may already have
+    committed it — measured on the boat: writing the same line twice landed
+    two rows before dedup and was absorbed after. That is a duplicate-data
+    bug *and* a hole in B5's row-count parity check, since the count on the
+    QuestDB side would have been inflated by exactly the retries. The
+    history plugin's own tables already ship with dedup on; only Telegraf's
+    were exposed.
 
   **The disk incident, 2026-08-20 — read this before adding any writer.**
   Deploying the Telegraf output filled the boat's root filesystem within
@@ -509,6 +516,15 @@ now carries only the high-level list.)
   discovering it mid-deploy. (The content looks preserved — PR #15's diff
   against the rewritten main is exactly its own seven files — so this is a
   history-shape problem, not lost work.)
+
+  **The tracked container-side configs were a trap too.**
+  `signalk/plugin-config-data/signalk-questdb.json` (dirkwa's plugin) was
+  still `enabled: true` with `managedContainer: true`, `retentionDays: 0`
+  and ports 9000/9009/8812 — so B6 bringing the containerized SignalK up
+  would have started a second, managed QuestDB fighting our compose one for
+  the same ports. Disabled, and the fork's config added beside it with
+  `questdbHost: questdb` (the container-side endpoint; `127.0.0.1` inside a
+  container is that container, which is the same trap B2 documents).
 
   **What's left:** the multi-day soak itself, then B5's parity checks
   (`reference/containerization_strategy.md`). Don't uninstall
