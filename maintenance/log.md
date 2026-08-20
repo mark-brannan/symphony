@@ -298,3 +298,8 @@
   which had stuck on the full disk, and capped QuestDB's preallocation.
 - Fixed the frozen-secrets guard passing vacuously in CI (PR #22); it now
   checks the actual commit range on a push or PR instead of an empty index.
+- Widened validate.yml to run on every branch push, with superseded runs
+  cancelled; CI stays advisory, direct pushes to main unaffected.
+- Triaged the stale claude/* branches: seven verified content-merged and
+  deleted, plus an eighth (PR #15's) that went the same way via merge;
+  three kept for unlanded work, one carries an open PR (#10).
