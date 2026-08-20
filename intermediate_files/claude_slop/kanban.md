@@ -259,6 +259,26 @@ now carries only the high-level list.)
 - 3D-print IMU case
 
 ### Infrastructure
+- **CI is strict-mode but has no age key, and the two claims contradict
+  each other.** Moderately high priority — Mark's call 2026-08-20. Surfaced
+  when `secret-tooling-tests` was added to `secret-scan.yml`:
+  `secretguard.resolve()` returns `("strict", "CI")` unconditionally for any
+  runner, first and deliberately, so no workflow can downgrade it. But
+  strict means "this machine holds secrets, so a failure to decrypt is a
+  real failure", and this repo's workflows deliberately hold no age key —
+  both `validate.yml` and `secret-scan.yml` say so in their headers. On a
+  runner the two beliefs collide: `test_pseudonymize.py`'s `TestStore`
+  refuses to skip (strict) and then cannot decrypt (no key), so it errors.
+  That one test is parked out of the CI job with the reasoning in a comment.
+  The item here is the general question, not the test: every guard that
+  reads `mode() == "strict"` as "I can open secrets" is wrong in CI, so the
+  same trap may be waiting in others. Two ways out — teach the resolver that
+  "strict because CI" is a claim about rigor, not about key possession
+  (probably a third state, or a separate `can_decrypt()` predicate); or give
+  CI an age key, which contradicts the headers and puts a real decryption
+  key in Actions. Recommend the first. Whoever takes it should first grep
+  for every `mode()`/`resolve()` caller and say which ones actually meant
+  "holds a key".
 - Deploy the openweather-signalk humidity-fix Node-RED flow (needs boat
   access). `environment.outside.relativeHumidity` publishes OpenWeatherMap's
   raw percent instead of SignalK's 0-1 ratio, so every dashboard panel on
@@ -652,6 +672,16 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Install exterior Tapo cam
 
 ## Blocked — needs Mark's call
+
+- **RESOLVED 2026-08-20 — no required status checks on main, deliberately.**
+  Asked whether the ruleset should require CI to pass. Mark: no, not at this
+  point; requiring checks also blocks direct pushes to main, and
+  commit-straight-to-main is the working model. Ruleset 21060338 stays as it
+  is — linear history, no force-push, no deletion. So CI is advisory by
+  choice, not by oversight; don't re-raise it as a finding. Read the live
+  state with `gh api repos/mark-brannan/symphony/rulesets`; the legacy
+  `/branches/main/protection` endpoint 404s on a ruleset-protected branch and
+  reports main as unprotected, which cost this session a wrong claim.
 
 - **`validate.yml` triggers on branch pushes?** Today it runs on push to
   `main` and PRs to `main` only, so a `claude/*` branch pushed without a PR
