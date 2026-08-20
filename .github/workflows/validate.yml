@@ -55,6 +55,9 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+          # Full history, not the default shallow clone: rule_frozen_secrets_untouched
+          # (below) needs the pre-push/PR-base commit present locally to diff against.
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
@@ -73,7 +76,21 @@ jobs:
 
       # Same trade, same reason: both of these scope to the staged set at
       # commit time and must run unscoped here.
-      - run: python3 scripts/lint_repo_hygiene.py --all
+      #
+      # HYGIENE_COMMIT_RANGE gives rule_frozen_secrets_untouched something to
+      # diff -- CI's index is empty after checkout, so without a range it
+      # would pass on every run regardless of what changed. Falls back to no
+      # range (that rule's existing, harmless-here vacuous read) on
+      # workflow_dispatch or a first push with no prior commit to diff.
+      - name: repo hygiene
+        run: python3 scripts/lint_repo_hygiene.py --all
+        env:
+          HYGIENE_COMMIT_RANGE: >-
+            ${{
+              github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.sha) ||
+              (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000') && format('{0}..{1}', github.event.before, github.sha) ||
+              ''
+            }}
       - run: python3 scripts/check_encoding_health.py --repo
 
   shellcheck:

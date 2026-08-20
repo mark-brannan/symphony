@@ -230,10 +230,30 @@ class AudibleAlarmScopeTest(RuleTestCase):
 class FrozenSecretsStillBlockTest(unittest.TestCase):
     """This rule was already correctly scoped; make sure nothing broke it."""
 
+    def setUp(self):
+        self._range = os.environ.pop("HYGIENE_COMMIT_RANGE", None)
+        lint.failures.clear()
+        lint.warnings.clear()
+
+    def tearDown(self):
+        if self._range is not None:
+            os.environ["HYGIENE_COMMIT_RANGE"] = self._range
+        else:
+            os.environ.pop("HYGIENE_COMMIT_RANGE", None)
+
     def test_rule_is_still_registered(self):
         import inspect
         self.assertIn("rule_frozen_secrets_untouched",
                       inspect.getsource(lint.main))
+
+    def test_unusable_range_warns_instead_of_crashing_or_passing_silent(self):
+        """CI's whole reason for this env var is a range that can't diff --
+        a shallow clone, a first push. That must be visible, not a crash and
+        not the same silence the bug this fixes already produced."""
+        os.environ["HYGIENE_COMMIT_RANGE"] = "not-a-real-range..also-not-one"
+        lint.rule_frozen_secrets_untouched()
+        self.assertEqual(lint.failures, [])
+        self.assertTrue(any("frozen-secret-range" in w for w in lint.warnings))
 
 
 if __name__ == "__main__":

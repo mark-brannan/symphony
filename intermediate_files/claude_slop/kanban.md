@@ -87,12 +87,13 @@ response. Each names the session that raised it.
   keyless-runner fix. The rest of the story is the Infrastructure TASK
   below ("make CI able to run the secret-tooling suite, then collapse the
   CI job onto the existing runner").
-- **`rule_frozen_secrets_untouched` does not run in CI** (2026-08-19,
-  pr12-rebase session). It reads `git diff --cached`, and CI's index is
-  empty after checkout, so `lint_repo_hygiene.py --all` evaluates it
-  vacuously. Predates #12 — the `--all` flag did not create it — and the
-  fix needs a change-range interface plus workflow wiring, so it was raised
-  on the PR rather than folded in. For Mark: worth its own change?
+- ~~`rule_frozen_secrets_untouched` does not run in CI~~ — **closed
+  2026-08-20**: `HYGIENE_COMMIT_RANGE` env var switches the rule to
+  diffing a commit range instead of the (empty-in-CI) index; `validate.yml`
+  fetches full history and sets the range from the push/PR event. Mark
+  pushed back on going further than this one technical gap (no config
+  file, no more rules) — see his call under "Blocked — needs Mark's call"
+  below.
 - ~~Branch protection on `main` — is it, and which checks are required?~~ —
   **answered 2026-08-20**, see "RESOLVED — no required status checks on
   main, deliberately" under "Blocked — needs Mark's call" below: `main` is
@@ -867,6 +868,16 @@ What to do instead, in order: **(1) reduce the writes**, which helps on any medi
 - Install exterior Tapo cam
 
 ## Blocked — needs Mark's call
+
+- **RESOLVED 2026-08-20 — frozen-secrets enforcement stays exactly where
+  it is; no expansion.** Fixed the one real bug (CI's index is empty, so
+  the rule ran vacuously there — see above), nothing more. Mark: he's fine
+  leaving the captain credentials as-is for now and doesn't want Claude
+  touching them, but doesn't want a standing rule policing what he does to
+  his own password either — called the existing depth (a lint rule, a CI
+  gate, a test class) AI slop for something this narrow. Don't add a config
+  file for `FROZEN_SECRET_KEYS`, more test coverage, or additional guard
+  rules here without him asking first.
 
 - **RESOLVED 2026-08-20 — no required status checks on main, deliberately.**
   Asked whether the ruleset should require CI to pass. Mark: no, not at this
