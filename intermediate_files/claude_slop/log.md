@@ -967,3 +967,86 @@ All other resolved kanban items had a matching entry already in
 without further logging. Full accounting of what moved where, what was
 dropped outright, and what's still ambiguous is in this session's wrap-up
 message to Mark.
+## 2026-08-20 (bt-sensors D-Bus EPIPE session)
+
+Boarded with the handoff note saying SignalK was publishing no
+`electrical.batteries.*` at all, that it was not the port or QuestDB, and
+that the previous session had deliberately not diagnosed it.
+
+Root-caused it to `bt-sensors-plugin-sk` calling `createBluetooth()` at
+module scope in its `index.js`. That opens the org.bluez socket at
+`require()` time, during SignalK's plugin-load sweep; dbus-next runs the
+auth handshake from that socket's `connect` callback, which the event loop
+cannot dispatch until the ~45s synchronous plugin load finishes.
+dbus-daemon closes the unauthenticated socket at its 30s `auth_timeout` and
+the handshake's first `stream.write('\0')` lands on a dead socket -- the
+`write EPIPE at handshake.js:67` that had been in the log for weeks. The
+stack was the tell: line 67 col 10 is the *first* byte of the handshake, so
+the socket was already dead before auth began.
+
+Evidence, in the order it landed: `dbus-daemon: Connection has not
+authenticated soon enough, closing it (auth_timeout=30000ms)` at 02:57:05
+with the EPIPE at 02:57:07, one such pair per SignalK start; `busctl` as
+`pi` introspecting org.bluez fine, ruling out bus policy; and a direct
+repro on the Pi using the plugin's own dbus-next -- a bus opened and then
+held behind a 35s synchronous block failed identically, while the same call
+on a free loop connected in 66ms. `hci0` was UP RUNNING with zero errors
+throughout.
+
+`host/signalk-ble-check` had been firing every boot and logging "still
+publishing nothing after 3 restarts this boot; leaving it alone" for hours.
+That is what made this look intermittent: a restart cannot fix a fault that
+is deterministic on every start. Corrected its comment to say so.
+
+Fixed by raising `auth_timeout` to 120s via `host/dbus-auth-timeout.conf` ->
+`/etc/dbus-1/system-local.conf` (included last by the shipped system.conf).
+First attempt was rejected: XML forbids a double hyphen inside a comment and
+the file used them. dbus rejected the whole file and kept its previous
+config, so the failure was loud and nothing broke. Rewrote without them.
+After reload and a SignalK restart both banks appeared within 85s and have
+stayed live since -- zero EPIPEs, zero healer restarts.
+
+Landed on main rather than the assigned branch, on Mark's explicit
+"go to main if you can justify that". Justification recorded at the time:
+the config was verified live on the boat before committing, and the repo
+files are inert until `install.sh` runs, so there is no half-applied state.
+Noted openly that this does brush the CLAUDE.md infra trigger.
+
+Added a `RELOAD` array to `host/install.sh` rather than putting dbus in
+`RESTART` -- bouncing the system bus would take every D-Bus client on the
+box down with it. Tested the new loop in a stub harness (both the
+installed and not-installed branches); did not run the full installer on
+the boat, since it also does a systemd daemon-reexec and rewrites the root
+crontab. The file's effect was applied by hand with the same path and mode.
+
+Second half of the session was a sync/branch question from Mark. The
+"stale remote branch" I had mentioned turned out not to exist: my assigned
+branch was never pushed, and `origin/claude/bt-sensors-dbus-epipe-flc6u2`
+was a local remote-tracking ref inside this container pointing at the old
+main tip. Pruned. My earlier wording implied a live problem and did not
+say clearly that I had chosen not to push -- Mark reasonably read it as a
+regression.
+
+But the underlying claim in CLAUDE.md was wrong, and that is what caused
+the confusion. Every closed PR in this repo, #1 through #23, reports
+`merged: false`. Nothing has ever been merged through GitHub's button, so
+delete-on-merge has never had an event to fire on. The bullet had cited
+#15's and #22's branches vanishing "within moments of merge" as proof the
+setting works; neither was merged. Corrected in e2d1307, and explicitly
+recorded that the repo setting itself was not readable from this session,
+so the note says only that no merge has ever occurred -- not that the
+setting is off. Checked PR #26 first, which also edits CLAUDE.md, and
+confirmed its hunk is ~280 lines away from this one.
+
+Sync at wrap-up: GitHub main, this session, and the boat's
+`/home/pi/symphony` all at e2d1307. The boat was 5 behind, then 1 behind,
+clean tree and zero ahead both times, so both were pure fast-forwards.
+Mark's desktop was never visible from this cloud container and is the one
+unknown.
+
+Not done, deliberately: the plugin-side fix (lazy bus + reconnect on
+error), deploying `signalk-plugin-watchdog`, the Cerbo GX empty `paths`
+block, and trimming SignalK's startup. All four boarded in kanban.md. Also
+did not reboot-test the dbus config -- dbus reads that file at start the
+same way it did on reload, but it has not been watched come up cold. Did
+not touch the five orphan `claude/*` branches; that needs Mark's call.
