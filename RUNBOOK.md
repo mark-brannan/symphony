@@ -41,6 +41,7 @@ logged in `maintenance/log.md`.
 - [SSO login (GitHub / Google)](#sso-login-github--google)
 
 **Running SignalK**
+- [Upgrading Signalk on the boat Pi](#upgrading-signalk-on-the-boat-pi)
 - [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi)
 - [SignalK's NMEA 2000 input](#signalks-nmea-2000-input)
 - [Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
@@ -1661,6 +1662,27 @@ and delete the test users in SignalK Security → Users (they land in
 git-tracked `signalk/security.json` otherwise).
 
 ---
+
+## Upgrading SignalK on the boat Pi
+Since we are currently running signalk under openplotter on the boat (not containers),
+it is neccessary to use the `openplotter-signalk-installer` for both signalk
+updates and npm/Node.js version changes.
+
+> 📌 **Gotcha:** Do not try to resolve npm and Node.js version bumps by
+> simply trying to do `sudo npm install -g npm@latest` like a normal upgrade.
+> Use the openplotter installer only.
+
+Normally one could do this via the GUI but since we mostly operatre remote/headless, do this instead:
+```bash
+sudo apt update
+sudo apt install --only-upgrade openplotter-signalk-installer
+sudo openplotter-signalk-installer
+```
+
+Then restart signalk as normal
+```bash
+sudo systemctl restart signalk.service
+```
 
 ## Stopping SignalK on the boat Pi
 
