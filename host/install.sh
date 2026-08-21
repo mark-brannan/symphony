@@ -23,7 +23,6 @@ INSTALL=(
 	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755:root:root"
 	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
 	"signalk-after-bluetooth.conf:/etc/systemd/system/signalk.service.d/after-bluetooth.conf:0644:root:root"
-	"dbus-auth-timeout.conf:/etc/dbus-1/system-local.conf:0644:root:root"
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
 	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
@@ -52,7 +51,6 @@ RESTART=(
 # system bus takes every dbus client on the box down with it. Skipped when the
 # unit isn't present.
 RELOAD=(
-	"dbus"
 )
 
 # System units this installer enables and starts. Timers belong here; a unit

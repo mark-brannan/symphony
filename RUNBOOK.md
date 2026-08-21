@@ -2310,21 +2310,18 @@ A `Connection has not authenticated soon enough, closing it
 Without that line, you are looking at something else — go to "A BLE sensor
 connects but never delivers data".
 
-Fix: give the bus longer to wait, then restart the server.
+The plugin carries the fix (upstream PR #1, merged 2026-08-21): it opens the
+bus lazily from `start()` instead of at `require()` time, listens for the
+bus's `error` event, and reconnects with backoff. Check the deployed copy has
+it before anything else:
 
 ```bash
-grep auth_timeout /etc/dbus-1/system-local.conf   # expect 120000
+grep -c getBluetoothSession /home/pi/bt-sensors-plugin-sk/index.js   # expect >0
 ```
 
-If that file is missing or `auth_timeout` is not `120000`, install it —
-`host/install.sh` places it and reloads dbus:
-
-```bash
-sudo host/install.sh
-```
-
-Then restart SignalK, socket first or the socket unit relaunches the service
-mid-stop:
+If it is 0, the boat is on an older copy — `git -C /home/pi/bt-sensors-plugin-sk
+pull --ff-only` and restart SignalK, socket first or the socket unit relaunches
+the service mid-stop:
 
 ```bash
 sudo systemctl stop signalk.socket
@@ -2337,17 +2334,21 @@ Verify with the `$source` census under "Setting up a BLE sensor" — each sensor
 publishes under its own configured `name`. Give it a few minutes: BLE connect
 plus a first poll is slower than the rest of startup.
 
-Why the timeout, and why a restart alone never fixed it: the plugin opens its
-`org.bluez` connection at `require()` time (`createBluetooth()` runs at module
-scope in its `index.js`), so the socket opens during SignalK's plugin-load
-sweep. dbus-next runs the auth handshake from that socket's `connect` callback,
-and the callback cannot be dispatched until the event loop drains — which takes
-longer than 30s here, because loading the remaining plugins is synchronous. The
-bus closes the unauthenticated socket at its 30s `auth_timeout`; the handshake's
-first byte then lands on a dead socket. The plugin never retries, so the bus
-stays dead for that whole process. Every start blocks the same way, which is why
-this is not intermittent and why `signalk-ble-check` burns its entire restart
-budget each boot and gives up.
+Why it happened, and why a restart alone never fixed it: the plugin used to
+open its `org.bluez` connection at `require()` time, so the socket opened
+during SignalK's plugin-load sweep. dbus-next runs the auth handshake from that
+socket's `connect` callback, and the callback cannot be dispatched until the
+event loop drains — which takes longer than 30s here, because loading the
+remaining plugins is synchronous. The bus closed the unauthenticated socket at
+its 30s `auth_timeout`; the handshake's first byte then landed on a dead
+socket, and the plugin never retried, so the bus stayed dead for that whole
+process. Every start blocked the same way, which is why it was not intermittent
+and why `signalk-ble-check` burned its entire restart budget each boot.
+
+A raised `auth_timeout` in `/etc/dbus-1/system-local.conf` was the stopgap for
+this between 2026-08-20 and 2026-08-21. It is gone from the boat and from
+`host/install.sh`. Don't reinstate it — if BLE is silent again, the fault is
+somewhere else, and a longer timeout will only hide it.
 
 Two dead ends — check them, but don't expect to find anything:
 
@@ -2357,13 +2358,6 @@ Two dead ends — check them, but don't expect to find anything:
 - **Boot ordering.** bluetoothd owns the bus long before SignalK loads.
   `host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
   hygiene, not because it fixes this.
-
-The real fix belongs in the plugin — open the bus lazily in `start()` and
-reconnect on error. `/etc/dbus-1/system-local.conf` is a workaround at the wrong
-layer; once the plugin carries the fix, remove both the deployed file and its
-installer — `sudo rm /etc/dbus-1/system-local.conf` and reload dbus, then drop
-`host/dbus-auth-timeout.conf` and its install step from `host/install.sh`, or a
-later run of that script reinstalls the workaround.
 
 ---
 
