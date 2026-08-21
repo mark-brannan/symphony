@@ -1050,3 +1050,22 @@ block, and trimming SignalK's startup. All four boarded in kanban.md. Also
 did not reboot-test the dbus config -- dbus reads that file at start the
 same way it did on reload, but it has not been watched come up cold. Did
 not touch the five orphan `claude/*` branches; that needs Mark's call.
+
+**Correction, same session.** The CLAUDE.md rewrite described above was
+wrong and has been reverted to the substance of what it replaced.
+`merged: false` came from GitHub's *list* pull-requests endpoint, which does
+not return the `merged` boolean at all -- only the single-PR GET does -- so
+every row reads false regardless. `merged_at` is the field that carries the
+truth, and it is populated on 22 of the 26 closed PRs, #15 and #22 among
+them. The original bullet was right: delete-on-merge is on and works, now
+independently confirmed by PR #24 and PR #26 merging later the same day and
+both head branches disappearing immediately.
+
+The failure mode worth remembering is not the API quirk, it is that a
+missing field was read as a positive finding. The count was checked twice
+and both checks used the same bad source, which felt like verification and
+was not. The leftover branches are branches whose PR was closed unmerged or
+that never had one, plus branches merged before the setting was enabled --
+which was the original bullet's claim all along. Recorded the `merged_at`
+trap in CLAUDE.md next to the branch rule so the next session doesn't
+repeat it.
