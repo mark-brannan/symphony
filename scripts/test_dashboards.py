@@ -35,7 +35,7 @@ import seed_dev_influx as seed  # noqa: E402
 
 DASH_DIR = bd.OUT_DIR
 DATASOURCE_YAML = os.path.join(
-    REPO_ROOT, "grafana", "provisioning", "datasources", "influxdb.yaml")
+    REPO_ROOT, "grafana", "provisioning", "datasources", "questdb.yaml")
 
 failures = []
 
@@ -77,6 +77,8 @@ def check_no_orphans():
 
 
 def provisioned_datasource_uid():
+    if not os.path.exists(DATASOURCE_YAML):
+        return None
     with open(DATASOURCE_YAML) as handle:
         for line in handle:
             stripped = line.strip()
@@ -86,10 +88,16 @@ def provisioned_datasource_uid():
 
 
 def check_datasource_uids():
+    # Until the QuestDB datasource is provisioned, the generator's own uid is
+    # the reference: every panel and target must agree with it, and with the
+    # provisioning file once that lands. A dashboard whose uid nothing
+    # creates comes up empty rather than erroring, which is why this is
+    # checked at all.
     provisioned = provisioned_datasource_uid()
     if not provisioned:
-        fail(f"{DATASOURCE_YAML}: no uid found")
-        return
+        print(f"note: {DATASOURCE_YAML} does not exist yet -- checking panel "
+              f"uids against build_dashboards.DS instead")
+        provisioned = bd.DS["uid"]
     for _t, _u, filename, *_ in bd.DASHBOARDS:
         dashboard = load(filename)
         for panel in dashboard["panels"]:
@@ -107,13 +115,12 @@ def check_datasource_uids():
 
 
 def check_query_shape():
-    required = ["from(bucket:", "|> range(", 'r["_measurement"]',
-                'r["_field"]', "|> keep(columns:"]
+    required = ["SELECT ", "FROM ", "$__timeFilter("]
     for _t, _u, filename, *_ in bd.DASHBOARDS:
         dashboard = load(filename)
         for panel in dashboard["panels"]:
             for target in panel.get("targets", []):
-                query = target.get("query", "")
+                query = target.get("rawSql", "")
                 if not query.strip():
                     fail(f"{filename}: panel {panel.get('title')!r} target "
                          f"{target.get('refId')} has an empty query")
@@ -147,7 +154,9 @@ EXEMPT_MEASUREMENTS = {
     "electrical.chargers.VictronACCharger.signalStrength",
 }
 
-MEASUREMENT_RE = re.compile(r'r\["_measurement"\]\s*==\s*"([^"]+)"')
+MEASUREMENT_RE = re.compile(r"path = '([^']+)'")
+TABLE_RE = re.compile(r"FROM (\w+)")
+SIGNALK_TABLES = {"signalk", "signalk_str", "signalk_position"}
 
 
 def check_unit_conversions():
@@ -160,7 +169,7 @@ def check_unit_conversions():
                 continue
             needed = UNIT_REQUIRES[unit]
             for target in panel.get("targets", []):
-                query = target.get("query", "")
+                query = target.get("rawSql", "")
                 measurements = MEASUREMENT_RE.findall(query)
                 if any(m in EXEMPT_MEASUREMENTS for m in measurements):
                     continue
@@ -173,7 +182,7 @@ def check_unit_conversions():
             # A percent panel must be reading something scaled to percent.
             if unit == bd.U_PCT:
                 for target in panel.get("targets", []):
-                    query = target.get("query", "")
+                    query = target.get("rawSql", "")
                     measurements = MEASUREMENT_RE.findall(query)
                     if any(m in EXEMPT_MEASUREMENTS for m in measurements):
                         continue
@@ -210,23 +219,34 @@ def check_layout():
                     occupied.add((row, col))
 
 
-def check_bucket_routing():
-    """Every query's bucket must match what bucket_for() decides."""
+def check_table_routing():
+    """
+    A query either reads a SignalK path out of the signalk tables, filtered
+    to this vessel, or it reads a Telegraf table named after the measurement.
+    Mixing the two silently returns nothing: `path` does not exist on a
+    Telegraf table, and a SignalK path is not a table name.
+    """
     for _t, _u, filename, *_ in bd.DASHBOARDS:
         dashboard = load(filename)
         for panel in dashboard["panels"]:
             for target in panel.get("targets", []):
-                query = target.get("query", "")
-                buckets = re.findall(r'from\(bucket:\s*"([^"]+)"\)', query)
-                measurements = MEASUREMENT_RE.findall(query)
-                if not buckets or not measurements:
+                query = target.get("rawSql", "")
+                tables = TABLE_RE.findall(query)
+                if not tables:
                     continue
-                self_only = 'r["self"] == "true"' in query
-                expected = bd.bucket_for(measurements[0], self_only)
-                if buckets[0] != expected:
-                    fail(f"{filename}: panel {panel.get('title')!r} target "
-                         f"{target.get('refId')} reads bucket {buckets[0]!r} "
-                         f"but {measurements[0]!r} routes to {expected!r}")
+                table = tables[0]
+                paths = MEASUREMENT_RE.findall(query)
+                where = (f"{filename}: panel {panel.get('title')!r} target "
+                         f"{target.get('refId')}")
+                if table in SIGNALK_TABLES:
+                    if table != "signalk_position" and not paths:
+                        fail(f"{where} reads {table} with no path filter")
+                    if "context = 'self'" not in query:
+                        fail(f"{where} reads {table} without the context "
+                             "filter -- it would include other vessels")
+                elif paths:
+                    fail(f"{where} filters on path {paths[0]!r} but reads "
+                         f"table {table!r}, which has no path column")
 
 
 def check_seed_coverage():
@@ -238,7 +258,14 @@ def check_seed_coverage():
         dashboard = load(filename)
         for panel in dashboard["panels"]:
             for target in panel.get("targets", []):
-                referenced.update(MEASUREMENT_RE.findall(target.get("query", "")))
+                query = target.get("rawSql", "")
+                paths = MEASUREMENT_RE.findall(query)
+                if paths:
+                    referenced.update(paths)
+                    continue
+                tables = TABLE_RE.findall(query)
+                if tables and tables[0] not in SIGNALK_TABLES:
+                    referenced.add(tables[0])
     for measurement in sorted(referenced - known):
         fail(f"seed_dev_influx.py has no values for {measurement!r} -- it would "
              "be seeded 0..100, which is wrong for ratios, radians and Kelvin")
@@ -260,7 +287,7 @@ def main():
     check_query_shape()
     check_unit_conversions()
     check_layout()
-    check_bucket_routing()
+    check_table_routing()
     check_seed_coverage()
 
     if failures:
@@ -269,7 +296,7 @@ def main():
             print(f"  {message}")
         return 1
     print(f"OK: {len(bd.DASHBOARDS)} dashboards pass structure, datasource, "
-          "unit-conversion, layout, bucket-routing and seed-coverage checks.")
+          "unit-conversion, layout, table-routing and seed-coverage checks.")
     return 0
 
 

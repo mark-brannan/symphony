@@ -36,7 +36,7 @@ DASH_DIR = os.path.join(REPO_ROOT, "grafana", "provisioning", "dashboards", "jso
 
 
 def panels_with_targets():
-    """Yield (dashboard file, panel title, refId, datasource uid, query)."""
+    """Yield (dashboard file, panel title, refId, target) per non-empty target."""
     for path in sorted(glob.glob(os.path.join(DASH_DIR, "*.json"))):
         with open(path) as handle:
             dashboard = json.load(handle)
@@ -44,11 +44,9 @@ def panels_with_targets():
         for panel in dashboard.get("panels", []):
             title = panel.get("title") or panel["type"]
             for target in panel.get("targets", []):
-                query = target.get("query", "")
-                if not query.strip():
+                if not target.get("rawSql", "").strip():
                     continue
-                uid = (target.get("datasource") or {}).get("uid")
-                yield label, title, target.get("refId", "A"), uid, query
+                yield label, title, target.get("refId", "A"), target
 
 
 def make_caller(base_url, user, password, token):
@@ -110,8 +108,9 @@ def main():
               f"queryLanguage={version}")
 
     failures, empty, passed = [], [], 0
-    for label, title, ref, uid, query in panels_with_targets():
+    for label, title, ref, target in panels_with_targets():
         where = f"{label}: {title} [{ref}]"
+        uid = (target.get("datasource") or {}).get("uid")
         if uid not in datasources:
             failures.append((where, f"datasource uid {uid!r} is not provisioned"))
             continue
@@ -120,10 +119,14 @@ def main():
             "to": args.time_to,
             "queries": [{
                 "refId": ref,
-                "datasource": {"type": "influxdb", "uid": uid},
-                "query": query,
-                "rawQuery": True,
-                "resultFormat": "time_series",
+                "datasource": target["datasource"],
+                # The QuestDB datasource's own query model: raw SQL, plus the
+                # frame format the panel expects (0 time series, 1 table).
+                # The macros in the SQL are expanded by the plugin's backend
+                # from the from/to and intervalMs sent alongside.
+                "queryType": "sql",
+                "rawSql": target["rawSql"],
+                "format": target.get("format", 0),
                 "intervalMs": 60000,
                 "maxDataPoints": 500,
             }],

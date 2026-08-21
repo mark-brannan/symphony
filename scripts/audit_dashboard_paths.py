@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Checks every InfluxDB measurement referenced by the provisioned Grafana
-dashboards against what the boat's InfluxDB has actually seen.
+Checks every measurement referenced by the provisioned Grafana dashboards
+against what the boat's history store has actually seen.
+
+NOT RUNNABLE AS OF THE QuestDB DASHBOARD PORT: the reference extraction
+understands the new QuestDB SQL, but the liveness check below still speaks
+InfluxDB and main() refuses until that half is ported.
 
 Run this ON THE BOAT -- it reads the InfluxDB token out of the live
 signalk-to-influxdb2 plugin config and talks to localhost:8086.
@@ -31,23 +35,28 @@ import urllib.request
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DASH_DIR = os.path.join(REPO_ROOT, "grafana", "provisioning", "dashboards", "json")
 
-MEASUREMENT_RE = re.compile(r'r\["_measurement"\]\s*==\s*"([^"]+)"')
-BUCKET_RE = re.compile(r'from\(bucket:\s*"([^"]+)"\)')
+# The dashboards are QuestDB SQL: a SignalK path appears as a `path = '...'`
+# filter against the signalk/signalk_str tables, and a Telegraf metric as the
+# table name itself. `navigation.position` has neither -- it is the whole of
+# the signalk_position table -- so it is named from the table.
+PATH_RE = re.compile(r"path = '([^']+)'")
+TABLE_RE = re.compile(r"FROM (\w+)")
+SIGNALK_TABLES = {"signalk", "signalk_str"}
 
 
 def referenced_measurements():
     """measurement -> sorted list of "dashboard: panel" that reference it."""
     found = {}
-    for _bucket, measurement, where in _references():
+    for _table, measurement, where in _references():
         found.setdefault(measurement, set()).add(where)
     return {m: sorted(v) for m, v in found.items()}
 
 
-def referenced_by_bucket():
-    """bucket -> {measurement -> sorted list of "dashboard: panel"}."""
+def referenced_by_table():
+    """table -> {measurement -> sorted list of "dashboard: panel"}."""
     found = {}
-    for bucket, measurement, where in _references():
-        found.setdefault(bucket, {}).setdefault(measurement, set()).add(where)
+    for table, measurement, where in _references():
+        found.setdefault(table, {}).setdefault(measurement, set()).add(where)
     return {b: {m: sorted(v) for m, v in ms.items()} for b, ms in found.items()}
 
 
@@ -58,12 +67,18 @@ def _references():
         label = os.path.basename(path)
         for panel in dash.get("panels", []):
             for target in panel.get("targets", []):
-                query = target.get("query", "")
-                buckets = BUCKET_RE.findall(query)
-                bucket = buckets[0] if buckets else "?"
+                query = target.get("rawSql", "")
+                tables = TABLE_RE.findall(query)
+                table = tables[0] if tables else "?"
                 where = f"{label}: {panel.get('title') or panel['type']}"
-                for measurement in MEASUREMENT_RE.findall(query):
-                    yield bucket, measurement, where
+                paths = PATH_RE.findall(query)
+                if paths:
+                    for measurement in paths:
+                        yield table, measurement, where
+                elif table == "signalk_position":
+                    yield table, "navigation.position", where
+                elif table != "?":
+                    yield table, table, where
 
 
 def influx_client():
@@ -107,6 +122,17 @@ def measurements_since(call, org, bucket, window):
 
 
 def main():
+    # The dashboards no longer name InfluxDB buckets -- referenced_by_table()
+    # returns QuestDB tables now -- so the InfluxDB half of this script below
+    # would be querying buckets that never existed and calling every path
+    # missing. Porting the liveness check to QuestDB is its own step; until
+    # then this refuses rather than reporting a confident falsehood. The
+    # extraction half (referenced_measurements) is current and is what the
+    # dev seeder and scripts/test_dashboards.py use.
+    sys.exit("audit_dashboard_paths.py still queries InfluxDB, but the "
+             "dashboards are QuestDB SQL -- the liveness half needs porting "
+             "to QuestDB's HTTP API before this can be trusted.")
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--window", default="-24h",
                         help="freshness window, Flux duration (default -24h)")

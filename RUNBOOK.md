@@ -1968,8 +1968,9 @@ python3 scripts/test_dashboards.py
 
 The second one is not optional. It asserts the committed JSON still matches
 the spec, that every unit label is backed by the matching conversion in its
-query, that panels do not overlap, and that each query reads the bucket its
-measurement is actually written to. A dashboard is wrong silently -- nothing
+query, that panels do not overlap, and that each query reads the QuestDB
+table its measurement is actually written to -- a SignalK path filtered out
+of `signalk`/`signalk_str`, or a Telegraf table named after the measurement. A dashboard is wrong silently -- nothing
 about a blank or mis-scaled panel raises an error at runtime -- so this check
 is the only thing standing between a typo and a gauge that confidently reads
 3.6 knots when the boat is doing 7.
@@ -1994,6 +1995,10 @@ The seed values are invented but the *shape* is real: same measurement names,
 same `_field`, same tags, same SI units. Seeding in display units would make a
 broken conversion look correct, which is the one thing this has to not do.
 
+The panels themselves will not draw here yet: they query QuestDB, and this
+stack still seeds a development InfluxDB. Use it to look at layout and units;
+for data, read the boat.
+
 ### Checking the real thing
 
 Two checks, and they answer different questions:
@@ -2004,13 +2009,20 @@ python3 scripts/verify_dashboards_live.py --grafana https://grafana.<DOMAIN> \
     --user <admin> --password <password>
 ```
 
-`audit_dashboard_paths.py` asks InfluxDB directly whether each referenced
-measurement exists and is fresh, per bucket. It has to run on the boat -- it
-reads the token out of the live plugin config.
+`audit_dashboard_paths.py` asks whether each referenced measurement exists
+and is fresh. Its liveness half still speaks InfluxDB and refuses to run
+against the QuestDB dashboards, so until it is ported, answer that question
+directly against QuestDB:
 
-`verify_dashboards_live.py` runs every panel's query through Grafana's own
-`/api/ds/query`. That is the end-to-end one: datasource uid, token, Flux mode,
-org, bucket and a publishing path all have to be right for a panel to pass.
+```bash
+curl -sG http://localhost:9000/exec --data-urlencode \
+    "query=SELECT path, max(ts) FROM signalk GROUP BY path"
+```
+
+`verify_dashboards_live.py` runs every panel's SQL through Grafana's own
+`/api/ds/query`. That is the end-to-end one: datasource uid, credentials, the
+QuestDB datasource plugin and a publishing path all have to be right for a
+panel to pass.
 The audit can pass while this fails, and that gap is exactly the datasource
 wiring.
 

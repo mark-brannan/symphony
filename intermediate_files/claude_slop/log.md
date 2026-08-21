@@ -1069,3 +1069,64 @@ that never had one, plus branches merged before the setting was enabled --
 which was the original bullet's claim all along. Recorded the `merged_at`
 trap in CLAUDE.md next to the branch rule so the next session doesn't
 repeat it.
+
+## 2026-08-20 — QuestDB migration: closing the four loose ends
+
+Orchestration session. Took the four items the previous migration session
+left open and either finished them or handed them off deliberately.
+
+**cgroup / memory limit — done.** `cgroup_enable=memory cgroup_memory=1`
+appended to `/boot/firmware/cmdline.txt`, backup at
+`cmdline.txt.bak-precgroup`, rebooted with Mark's in-chat authorization.
+Verified after: `memory` in `/sys/fs/cgroup/cgroup.controllers`,
+`docker stats` 443 MiB / 768 MiB. The running container was updated in place
+(`docker update --memory 768m --memory-swap 1536m`) rather than recreated,
+to avoid touching the boat's shared checkout while another session is
+reconciling its git state. All six services and all three containers came
+back unattended; SignalK→QuestDB writes resumed ~4 min after boot, so the
+soak continued rather than restarting. Worth remembering: the firmware still
+injects `cgroup_disable=memory` ahead of our flag and `cgroup_enable=`
+overrides it, so both show in `/proc/cmdline` — that looks like a failed
+edit and is not one.
+
+**The BLE commits — already done by someone else.** Checked with
+`git ls-remote` before touching anything: both tips
+(`claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122,
+`claude/symphony-pushover-setup-ce12i0` @3f08bd3) were already on origin at
+the boat's exact SHAs. The reconciliation session got there first. Verifying
+before acting cost one command and saved a redundant push.
+
+Attempted to message that session as Mark asked. **Confirmed again that no
+channel exists between two cloud sessions**: `ListAgents` returns "No
+reachable agents" and `SendMessage` to a session id fails outright. The
+kanban already recorded this on 2026-08-19; this is a second measurement of
+the same limit, so treat it as settled rather than re-testing it a third
+time. `list_sessions` on the Claude Code Remote MCP surface *does* show
+other sessions and their pending questions, which is how the session was
+identified — read-only visibility exists, delivery does not.
+
+**Off-boat backup — handed to Mark, which is the honest resolution.**
+Nothing a session can finish: this sandbox's tailnet path is the slow DERP
+relay and the sandbox is ephemeral. Generated `SHA256SUMS` next to the
+artifacts on the boat so the copy can be *checked* rather than assumed, and
+wrote the `scp` + `sha256sum -c` pair into the kanban.
+
+**B4 — unblocked by reframing it.** It had been sitting on "open both
+dashboard sets in Grafana side by side," which needs a dedicated session.
+A programmatic diff of what every panel actually queries answered it instead,
+and answered it decisively: 4 of the boat's 76 imported panels render today.
+Mark's instruction was "1 and 2 — I'll maybe look at the diff but probably
+not. Don't wait for me," so the analysis ran and the port followed
+immediately without waiting on him to read it. Lesson worth keeping: a
+question parked as "needs a human in front of a GUI" is worth re-examining
+for a measurable proxy before it gets deferred again.
+
+**Scope discipline.** Chased one finding beyond the four items and stopped:
+79 of the 171 ported queries return empty, and the cause is that SignalK
+publishes no `electrical.batteries.*` at all —
+`bt-sensors-plugin-sk` dies on a D-Bus `write EPIPE` at every start, and it
+survived the reboot, so it is not the wedged-controller fault in the
+RUNBOOK. Boarded it, did not diagnose it. That is the next session's work
+and it matters, since power monitoring is the stated point of this stack.
+
+Left as a draft PR (#25), CI green, per the repo's own convention.
