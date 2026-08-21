@@ -12,7 +12,9 @@ already carries enough context.
 
 ### Repo & tooling
 - [ ] [Purchase itemizations in maintenance/log.md](kanban-detail.md#purchase-itemizations-in-maintenancelogmd) — trim to one-line totals with detail moved to a purchases file, or keep as-is.
-- [ ] [Land or discard three held claude/* branches](kanban-detail.md#land-or-discard-three-held-claude-branches) — signalk-oidc-identity-permissions-4kk8gl, symphony-docs-corrections-aeuorm, laughing-hamilton-7f7pbg each need their own call.
+- [ ] Delete the two orphan branches confirmed fully merged into main — `git push origin --delete claude/ecoworthy-signalk-telemetry-vy82ta claude/symphony-git-divergence-followups-q2yynq` (session push access doesn't cover branch deletion).
+- [ ] Merge or close draft PRs #28 (laughing-hamilton-7f7pbg, clean), #29 (signalk-oidc-identity-permissions-4kk8gl, conflicts), #30 (symphony-docs-corrections-aeuorm, conflicts), #31 (symphony-pushover-setup-ce12i0, conflicts) — opened 2026-08-21 recovering orphaned branches; each needs your relevance call before a session resolves conflicts.
+- [ ] PR #25 (influxdb→questdb migration, B4 port) is open, 17 commits behind main with 3 real merge conflicts — needs a session to rebase and resolve, not auto-mergeable.
 - [ ] [Rotate the Tailscale OAuth client credential](kanban-detail.md#rotate-the-tailscale-oauth-client-credential) — it was pasted into a session transcript; read-only scope, not urgent.
 - [ ] [Decide dotfiles Google-connector parity](kanban-detail.md#dotfiles-google-connector-parity) — symphony denies three more connectors than dotfiles does; dotfiles-repo edit if wanted.
 - [ ] [Approve deleting stale branch `claude/git-hygiene-redesign`](kanban-detail.md#stale-branch-claudegit-hygiene-redesign) — superseded, nothing to salvage, but deleting a pushed ref needs your go-ahead.
@@ -39,6 +41,7 @@ already carries enough context.
 - [ ] [Decide whether to pursue a read-only root filesystem](kanban-detail.md#read-only-root-filesystem-for-the-boat-pi) — real workflow change, not a config toggle.
 - [ ] [Decide whether InfluxDB/Grafana's stop-under-pressure should become a permanent disable](kanban-detail.md#influxdbgrafana-permanent-disable-or-stay-stop-on-pressure).
 - [ ] [Decide whether to cap journald and pick a SystemMaxUse size](kanban-detail.md#journald-cap-on-the-boat-pi).
+- [ ] Confirm no other session is actively using the boat Pi, then greenlight a reboot to verify the dbus config survives cold boot (never tested) — you said safe to proceed pending a just-in-time double-check.
 
 ## Claude's
 
@@ -63,8 +66,7 @@ already carries enough context.
 - [ ] [Trim RUNBOOK's remaining prose-heavy sections](kanban-detail.md#trim-runbooks-remaining-prose-heavy-sections) — "Installing host files" is the best target.
 - [ ] [Bridge NMEA 2000 System Time (PGN 126992) to chrony](kanban-detail.md#gps-time-off-the-n2k-bus-into-chrony) — SHM bridge or network feed; gpsd has no device, so the boat has a GPS clock it can't use yet.
 - [ ] [Set source priorities for position once the AIS is powered](kanban-detail.md#set-source-priorities-for-position-once-ais-is-powered) — blocked: AIS not yet powered (physical task, tracked in Evernote).
-- [ ] [Fix bt-sensors-plugin-sk's bus lifecycle and retire the dbus workaround](kanban-detail.md#fix-bt-sensors-plugin-sks-bus-lifecycle) — upstream to Mark's fork.
-- [ ] [Add bt-sensors-plugin-sk to the watchdog's expectPlugins](kanban-detail.md#add-bt-sensors-plugin-sk-to-the-watchdogs-expectplugins) — watchdog is already deployed, just not watching this plugin.
+- [ ] Verify [bt-sensors-plugin-sk PR #1](https://github.com/mark-brannan/bt-sensors-plugin-sk/pull/1) (lazy bus + reconnect-on-error) on the boat, then merge and remove `/etc/dbus-1/system-local.conf`'s raised `auth_timeout` and its `host/` entry — code is written and sanity-checked with no D-Bus present, but the real reconnect cycle needs live BLE hardware.
 - [ ] [Trim SignalK's ~45s startup time](kanban-detail.md#trim-signalks-45s-startup-time) — dead internet-speed/healthcheck/duplicate-plugin noise.
 - [ ] [Add a fast barometric-pressure-drop notification](kanban-detail.md#fast-barometric-pressure-drop-notification) — trend data exists, no zone configured yet.
 - [ ] [Verify Grafana SSO end to end](kanban-detail.md#verify-grafana-sso-end-to-end) — config is live, browser login never exercised.

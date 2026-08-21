@@ -322,3 +322,13 @@
   been re-run there. Re-rendered and recreated the `dex` container (the only
   one on that host consuming a rotated secret); native SignalK and the
   desktop's grafana/influxdb were unaffected.
+
+## 2026-08-21
+- Redeployed signalk-plugin-watchdog to the boat; the code had been silently
+  pruned by an npm install some time after its 2026-08-15 install because it
+  had no `file:` entry pinning it. Added that entry so it survives future
+  installs.
+- Wrote the lazy-bus/reconnect-on-error fix for bt-sensors-plugin-sk's D-Bus
+  handshake (the actual fix behind the 2026-08-20 auth_timeout workaround)
+  and opened it as a draft PR against Mark's fork; not yet verified on real
+  BLE hardware.
