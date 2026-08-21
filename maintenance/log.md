@@ -332,3 +332,7 @@
   handshake (the actual fix behind the 2026-08-20 auth_timeout workaround)
   and opened it as a draft PR against Mark's fork; not yet verified on real
   BLE hardware.
+- Verified that fix on the boat and merged it. Removed the `auth_timeout`
+  workaround from the Pi and from `host/install.sh`, then cold-booted:
+  both BLE battery banks were publishing 80 seconds later, with no D-Bus
+  auth failures in the boot journal.

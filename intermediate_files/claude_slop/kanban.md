@@ -12,9 +12,8 @@ already carries enough context.
 
 ### Repo & tooling
 - [ ] [Purchase itemizations in maintenance/log.md](kanban-detail.md#purchase-itemizations-in-maintenancelogmd) — trim to one-line totals with detail moved to a purchases file, or keep as-is.
-- [ ] Delete the two orphan branches confirmed fully merged into main — `git push origin --delete claude/ecoworthy-signalk-telemetry-vy82ta claude/symphony-git-divergence-followups-q2yynq` (session push access doesn't cover branch deletion).
 - [ ] Merge or close draft PRs #28 (laughing-hamilton-7f7pbg, clean), #29 (signalk-oidc-identity-permissions-4kk8gl, conflicts), #30 (symphony-docs-corrections-aeuorm, conflicts), #31 (symphony-pushover-setup-ce12i0, conflicts) — opened 2026-08-21 recovering orphaned branches; each needs your relevance call before a session resolves conflicts.
-- [ ] PR #25 (influxdb→questdb migration, B4 port) is open, 17 commits behind main with 3 real merge conflicts — needs a session to rebase and resolve, not auto-mergeable.
+- [ ] Merge or close PR #25 (influxdb→questdb migration, B4 port) — rebased onto main 2026-08-21, conflicts resolved, CI green and mergeable; it repoints Grafana's provisioned dashboards at QuestDB, so landing it changes what the boat's dashboards query.
 - [ ] [Rotate the Tailscale OAuth client credential](kanban-detail.md#rotate-the-tailscale-oauth-client-credential) — it was pasted into a session transcript; read-only scope, not urgent.
 - [ ] [Decide dotfiles Google-connector parity](kanban-detail.md#dotfiles-google-connector-parity) — symphony denies three more connectors than dotfiles does; dotfiles-repo edit if wanted.
 - [ ] [Approve deleting stale branch `claude/git-hygiene-redesign`](kanban-detail.md#stale-branch-claudegit-hygiene-redesign) — superseded, nothing to salvage, but deleting a pushed ref needs your go-ahead.
@@ -41,7 +40,6 @@ already carries enough context.
 - [ ] [Decide whether to pursue a read-only root filesystem](kanban-detail.md#read-only-root-filesystem-for-the-boat-pi) — real workflow change, not a config toggle.
 - [ ] [Decide whether InfluxDB/Grafana's stop-under-pressure should become a permanent disable](kanban-detail.md#influxdbgrafana-permanent-disable-or-stay-stop-on-pressure).
 - [ ] [Decide whether to cap journald and pick a SystemMaxUse size](kanban-detail.md#journald-cap-on-the-boat-pi).
-- [ ] Confirm no other session is actively using the boat Pi, then greenlight a reboot to verify the dbus config survives cold boot (never tested) — you said safe to proceed pending a just-in-time double-check.
 
 ## Claude's
 

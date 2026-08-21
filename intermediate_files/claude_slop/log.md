@@ -1069,3 +1069,48 @@ that never had one, plus branches merged before the setting was enabled --
 which was the original bullet's claim all along. Recorded the `merged_at`
 trap in CLAUDE.md next to the branch rule so the next session doesn't
 repeat it.
+
+## 2026-08-21 (bt-sensors verification, branch/PR cleanup)
+
+Continuation session. Four of the five open items closed.
+
+**bt-sensors-plugin-sk PR #1 — verified and merged.** Deployed the branch
+into the boat's checkout at `/home/pi/bt-sensors-plugin-sk` (it's a git
+clone symlinked into `.signalk/node_modules`, so deploying is a checkout,
+not an npm install). Then removed `/etc/dbus-1/system-local.conf` and
+restarted SignalK: battery data was back within 15s. Cold-booted the Pi to
+test the real case — the workaround-free path through a full plugin-load
+sweep — and both banks (`0146`, `5C90`) published 80s post-boot with zero
+`auth_timeout`/`EPIPE` lines in the boot journal. Squash-merged as 2d58949,
+put the boat checkout back on `main` at that commit (identical content, so
+no further restart), and dropped `host/dbus-auth-timeout.conf`, its INSTALL
+entry and the now-empty `dbus` RELOAD entry from `host/install.sh`.
+Rewrote the RUNBOOK's "BLE sensors go silent after a reboot" section around
+the fix, with an explicit don't-reinstate-the-timeout note.
+
+Ordering note for the record: the "does the dbus config survive a cold
+boot" card became moot rather than passing. Removing the workaround made
+the reboot a stronger test — it verified the plugin fix cold, which is what
+the dbus file existed to substitute for.
+
+Pre-reboot check for other sessions: the Pi's resident
+`claude --remote-control` session had last written its transcript 16h
+earlier, and nothing else (npm/apt/git) was running. Safe.
+
+**Orphan branch deletion — the previous session's claim was wrong.**
+The card said "session push access doesn't cover branch deletion." It does:
+`git push origin --delete` removed both
+`claude/ecoworthy-signalk-telemetry-vy82ta` and
+`claude/symphony-git-divergence-followups-q2yynq` first try. Worth
+remembering the next time a card asserts a permission limit without a
+recorded error.
+
+**PR #25 rebased.** 7 commits onto a main that had moved 22 ahead; four
+conflicts, not three. `intermediate_files/claude_slop/kanban.md` conflicted
+three separate times and each time the branch carried the whole
+pre-restructure board — took main's side outright rather than merging a
+superseded structure. `maintenance/log.md` and the slop log were genuine
+union merges. `test_dashboards.py` passes and `build_dashboards.py`
+regenerates byte-identical output; CI green. Left open — it repoints the
+boat's provisioned Grafana dashboards at QuestDB, which is Mark's call to
+land.

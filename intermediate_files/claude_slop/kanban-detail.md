@@ -538,22 +538,6 @@ SignalK will pick between them in arrival order.
 advance because N2K addresses are claimed dynamically and have to be read
 off the running bus.
 
-## Fix bt-sensors-plugin-sk's bus lifecycle
-
-The D-Bus EPIPE incident (fixed 2026-08-20 with a raised `auth_timeout`,
-see maintenance/log.md) was a workaround, not a fix. Root cause:
-`bt-sensors-plugin-sk` calls `createBluetooth()` at module scope, so its
-D-Bus socket opens during SignalK's plugin-load sweep and the handshake can
-die if the event loop is starved past dbus-daemon's 30s `auth_timeout`.
-Two changes needed in Mark's fork (`mark-brannan/bt-sensors-plugin-sk`):
-move `createBluetooth()` out of module scope into `plugin.start()` behind a
-memoizing getter, and attach an `error` handler that reconnects with
-backoff instead of leaving the bus dead for the life of the process.
-Laziness narrows the window; the retry is what actually closes it, and also
-covers a mid-life bus drop. Worth upstreaming — this bites anyone running
-the plugin on a loaded Pi. Once it lands, remove
-`/etc/dbus-1/system-local.conf` and its `host/` entry.
-
 ## Add bt-sensors-plugin-sk to the watchdog's expectPlugins
 
 `plugins/signalk-plugin-watchdog` was deployed to the boat back on
