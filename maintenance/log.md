@@ -317,3 +317,8 @@
   BLE capture and the Pushover escalation — and brought that checkout up to
   current main. No history had been rewritten; the apparent divergence was an
   artifact of a shallow clone on the dev machine.
+- Found the boat's `.env` still held pre-rotation credentials from the
+  2026-08-20 `docker compose config` leak — `scripts/render.py` had never
+  been re-run there. Re-rendered and recreated the `dex` container (the only
+  one on that host consuming a rotated secret); native SignalK and the
+  desktop's grafana/influxdb were unaffected.
