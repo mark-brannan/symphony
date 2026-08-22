@@ -1,0 +1,10 @@
+{
+  "cherry_picks": [],
+  "notes": "Tracking workflow health metrics. See stats.md for definitions.",
+  "example_cherry_pick_entry": {
+    "timestamp": "2026-08-19T14:22:00Z",
+    "commit": "abc123def456",
+    "branch": "main",
+    "message": "partial message containing cherry-pick reference"
+  }
+}
