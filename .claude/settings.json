@@ -12,15 +12,6 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "mcp__.*__(send_later|create_trigger)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/no-persistent-polling.sh"
-          }
-        ]
-      },
-      {
         "matcher": "Bash|PowerShell",
         "hooks": [
           {
