@@ -6,6 +6,22 @@ one without updating the card that points at it. This file dies with its
 cards: when a card is checked off and removed from `kanban.md`, delete the
 matching section here too.
 
+## halos-pi4 SignalK admin access is OIDC, not a token
+
+RUNBOOK.md's "The HALOS trial Pi" section (added 4dee11c) links to a
+"Setting up plugins on the HALOS trial Pi" anchor that was never written —
+dead link. Confirmed live on 2026-08-26: `pi` has no `docker` group,
+`sudo` needs a password. `/etc/halos/oidc-clients.d/signalk.yml` shows
+SignalK's admin UI is federated to Authelia via OIDC (implicit consent,
+`client_secret_file` under a container data dir `pi` can't read) — so
+plugin config there is a browser SSO login through Traefik at
+`https://<HALOS_DOMAIN>/signalk-server/...`, not a bearer token you curl.
+That login flow itself is unverified — no `HALOS_DOMAIN` value confirmed,
+no login attempted. Once verified, replace the dead anchor with a real
+section (or point at wherever the actual steps land) and remove the
+"needs a token" phrasing from the SSH-access note, which is misleading as
+written.
+
 ## Purchase itemizations in maintenance/log.md
 
 From the 2026-08-19 doc-bloat audit. Open call: trim maintenance/log.md's
