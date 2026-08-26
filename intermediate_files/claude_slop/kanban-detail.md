@@ -1048,30 +1048,20 @@ build` in that directory regenerates them.
 removed once the plugin fix landed. Don't restore that workaround — the fix
 replaces it.
 
-## SignalK's /usr/local/bin symlinks went missing
-
-Observed 2026-08-25 ~18:00 PDT from a read-only session: `signalk.service`
-failing with exit 127 since 17:58. `~/.signalk/signalk-server` is a two-line
-wrapper hardcoding `/usr/local/bin/signalk-server`, and all three of
-`signalk-server`, `signalk-server-setup`, `signalk-generate-token` were absent
-from `/usr/local/bin`, while the package itself was intact at
-`/usr/lib/node_modules/signalk-server` (2.14.4) with `bin/signalk-server`
-present and executable.
-
-Suspected mechanism: npm's global prefix is now `/home/pi/.npm-global` (set
-when bt-sensors was linked globally), so npm no longer manages
-`/usr/local/bin` and a later global operation didn't maintain those links.
-
-**Caveat: a concurrent session was reinstalling SignalK at the time.** This may
-be a snapshot of their in-flight work rather than a standalone regression.
-Confirm against what that session actually did before treating it as a bug.
-Disk was 84% (4.6 G free) and 2.1 G memory available — neither was a factor.
-
-The restore, if it turns out to be needed:
-
-    for b in signalk-server signalk-server-setup signalk-generate-token; do
-      sudo ln -sf /usr/lib/node_modules/signalk-server/bin/$b /usr/local/bin/$b
-    done
+**2026-08-26 update: it didn't survive.** After the 2026-08-25 SignalK
+reinstall, `~/bt-sensors-plugin-sk/node_modules` was gone entirely (no
+lockfile either) and the plugin failed to load with `Cannot find module
+'@naugehyde/node-ble'`. Both symlinks above were intact, and so was the
+untracked `public/` webpack output — only `node_modules` needs restoring.
+`npm install --no-audit --no-fund --prefer-offline` in that directory ran
+29m28s and died on `ECONNRESET` (8 direct deps, but no lockfile pulls in
+their full dev tree — material-ui, recharts, eslint, etc). npm rolled back
+cleanly; no partial `node_modules` left behind. Matches the documented
+cellular-WAN pattern (see the "binding constraint" card) — didn't retry a
+second time per standing instruction. SignalK's core (NMEA 2000 via
+canboatjs, confirmed live) is unaffected; this only blocks BLE sensor data.
+Next attempt: either retry over a quieter link, or pre-populate `~/.npm/_cacache`
+from a machine with faster internet the way the signalk-server reinstall did.
 
 ## postgsail SQLite bind fix, blocked on remote write
 

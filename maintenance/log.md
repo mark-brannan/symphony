@@ -354,3 +354,9 @@
   workaround from the Pi and from `host/install.sh`, then cold-booted:
   both BLE battery banks were publishing 80 seconds later, with no D-Bus
   auth failures in the boot journal.
+
+## 2026-08-25/26
+- SignalK went down 2026-08-25 when a `signalk-server` reinstall failed
+  over the boat's cellular link and npm rolled back the package entirely.
+  Reinstalled it 2026-08-26 with a warmed npm cache and raised timeouts;
+  the boat is collecting data again, including NMEA 2000 over the CAN bus.

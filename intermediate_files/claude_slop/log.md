@@ -1323,3 +1323,61 @@ were fine), and independently `npm uninstall --dry-run` over ssh hung
 — a hung npm operation on this boat's `package-lock=false` tree is the
 exact shape of the 2026-08-25 outage. Detail and exact resume commands in
 kanban-detail.md under both cards.
+
+## 2026-08-26 — SignalK restored
+Ran the retry per RUNBOOK.md § Upgrading SignalK on the boat Pi with what
+the prior session staged (warm 167 MB `~/.npm/_cacache`, raised
+`~/.npmrc` timeouts). `npm install -g signalk-server --no-audit --no-fund
+--prefer-offline` as `pi`, no `sudo`: 756 packages in 10m, no network
+error this time.
+
+One thing the runbook didn't anticipate: npm's install-scripts allowlist
+gate (new in this npm 11.19.0) skipped `@canboat/canboatjs`'s native
+`canSocket.node` build along with 5 other packages' scripts. That's the
+CAN-bus addon for `n2k-can0`/`canbus-canboatjs` — Symphony's actual NMEA
+2000 source, and exactly the thing "boat collecting nothing" meant.
+Re-ran with `npm install -g --allow-scripts=@canboat/canboatjs,es5-ext,
+storage-engine,@serialport/bindings-cpp,@scarf/scarf,core-js` (2m,
+incremental) and confirmed the `.node` build landed.
+
+Launcher (`~/.signalk/signalk-server`) was still pointing at
+`/usr/local/bin/signalk-server` — stale from the pre-outage 2.14.4
+install. Rewrote it per the runbook, started `signalk.socket` before
+`signalk.service`. Verified: `Successfully connected to can0` in the
+journal, no `Cannot find module` anywhere in the signalk-server tree, and
+live n2k deltas over the HTTP API (`signalk-n2k-displays`, fresh
+timestamps).
+
+Reconciled two open cards against this:
+- **`/usr/local/bin` symlinks card** — closed. Confirmed cause: npm's
+  prefix has been `~/.npm-global` since bt-sensors was linked globally;
+  nothing manages `/usr/local/bin` anymore, and nothing needs to now that
+  the launcher points straight at `~/.npm-global`. The old
+  `/usr/lib/node_modules/signalk-server` (2.14.4) tree is still on disk,
+  inert.
+- **RUNBOOK's `openplotter-signalk-installer` warning** — already landed
+  by an earlier session; card removed, nothing to do.
+
+Then found `bt-sensors-plugin-sk` failing to load
+(`Cannot find module '@naugehyde/node-ble'`) — first read as unrelated
+history (last commit 2026-08-21), but its `node_modules` was gone
+entirely and its `.git` dir had been touched the same day as the outage.
+This is exactly what the existing "must survive the reinstall" card
+anticipated. Both symlinks and the plugin's untracked webpack `public/`
+output were intact — only `node_modules` was gone. Tried `npm install`
+there (8 direct deps, no lockfile): 29m28s, died on `ECONNRESET`. Matches
+the "cellular WAN is the binding constraint" card exactly. Didn't retry a
+second time per standing instruction — updated the card with these
+findings instead of re-running into the same wall. Core SignalK is
+unaffected; this only blocks BLE sensor data.
+
+`maintenance/log.md` got one factual line for the outage+restore.
+`kanban.md`/`kanban-detail.md` updated: removed the SignalK-retry card,
+the now-done RUNBOOK-correction card, and the resolved symlinks card;
+updated the bt-sensors card in place.
+
+Not done, not carded further — the RUNBOOK card asking to document the
+boat's non-standard Node/npm state (nsolid at `/usr/bin/node`, standalone
+node parked at `/usr/local/bin/node.disabled-20260825`, npm prefix at
+`~/.npm-global`) is still open and accurate; left it as-is rather than
+expand this session further.
