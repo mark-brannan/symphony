@@ -4,7 +4,6 @@
     "watchScheme": "simple-cycle",
     "utcOffsetEnabled": false,
     "utcOffsetMinutes": 0,
-    "playbackMethod": "both",
     "muteWhenAnchoredOrMoored": false,
     "quietHoursEnabled": true,
     "quietHoursStart": "24:00",
@@ -12,7 +11,23 @@
     "nightVolumeEnabled": false,
     "nightVolumeStart": "22:00",
     "nightVolumeEnd": "06:00",
-    "nightVolumeLevel": 80
+    "nightVolumeLevel": 80,
+    "playbackOutputs": {
+      "playbackWebapp": true,
+      "playbackServerSpeaker": true,
+      "playbackMopidy": false,
+      "playbackAlerts": false
+    },
+    "mopidySettings": {
+      "mopidyHost": "localhost",
+      "mopidyPort": 6680,
+      "mopidyAudioBaseUrl": "",
+      "snapcastControlPort": 1705
+    },
+    "alertsSettings": {
+      "alertsPort": 4953,
+      "alertsStreamName": "Alerts"
+    }
   },
   "enabled": true
 }
