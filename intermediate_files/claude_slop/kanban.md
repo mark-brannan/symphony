@@ -12,7 +12,7 @@ already carries enough context.
 
 ### Repo & tooling
 - [ ] [Purchase itemizations in maintenance/log.md](kanban-detail.md#purchase-itemizations-in-maintenancelogmd) — trim to one-line totals with detail moved to a purchases file, or keep as-is.
-- [ ] Merge or close draft PRs #28 (laughing-hamilton-7f7pbg, clean), #29 (signalk-oidc-identity-permissions-4kk8gl, conflicts), #30 (symphony-docs-corrections-aeuorm, conflicts), #31 (symphony-pushover-setup-ce12i0, conflicts) — opened 2026-08-21 recovering orphaned branches; each needs your relevance call before a session resolves conflicts.
+- [ ] Merge or close [PR #31](https://github.com/mark-brannan/symphony/pull/31) — superseded: `host/boat-heartbeat` on main already carries the same fails-silent Pushover escalation, better implemented and live-tested 2026-08-14, and the branch's `pushover_token`/`pushover_user` field names would break the deployed `pushover_api_token`/`pushover_user_key` contract. Recommend close.
 - [ ] Merge or close PR #25 (influxdb→questdb migration, B4 port) — rebased onto main 2026-08-21, conflicts resolved, CI green and mergeable; it repoints Grafana's provisioned dashboards at QuestDB, so landing it changes what the boat's dashboards query.
 - [ ] [Rotate the Tailscale OAuth client credential](kanban-detail.md#rotate-the-tailscale-oauth-client-credential) — it was pasted into a session transcript; read-only scope, not urgent.
 - [ ] [Decide dotfiles Google-connector parity](kanban-detail.md#dotfiles-google-connector-parity) — symphony denies three more connectors than dotfiles does; dotfiles-repo edit if wanted.
@@ -60,6 +60,9 @@ already carries enough context.
 - [ ] [Set up a private repo for Vaultwarden before building off-machine hosting](kanban-detail.md#set-up-a-private-repo-for-vaultwarden-hosting).
 
 ### SignalK data & plugins
+- [ ] [Assess PR #28's project-specific half](https://github.com/mark-brannan/symphony/pull/28) — the global part landed in dotfiles already; decide whether symphony needs its own `maintenance/stats.md`, `stats-data.json`, `.claude/hooks/measure-cherry-pick.sh` and the CLAUDE.md no-cherry-pick rule, or whether the dotfiles copy covers it. Keep the PR open either way — do not delete.
+- [ ] Carry [PR #29](https://github.com/mark-brannan/symphony/pull/29)'s OIDC identity-permissions work upstream — implementation is on [the fork branch](https://github.com/mark-brannan/signalk-server/tree/oidc-identity-permissions) behind [fork PR #1](https://github.com/mark-brannan/signalk-server/pull/1); next step is opening the conversation with Matti Airas (Hat Labs) on the SignalK Discord before an upstream PR. Mark intends to pursue this; not top priority.
+- [ ] Review [PR #30](https://github.com/mark-brannan/symphony/pull/30) properly and do a redaction/simplification pass — it carries the verified DSC/AIS distress-chain findings, `reference/distress_monitoring.md` and the RUNBOOK test procedure, none of which are on main. **Keep it in draft** until the delicate details are redacted; resolve its conflicts as part of that pass.
 - [ ] [Deploy the openweather-signalk humidity-fix Node-RED flow](kanban-detail.md#deploy-the-openweather-signalk-humidity-fix-flow) — needs boat access; flow is built but unverified in the live editor.
 - [ ] [Add signalk-lint batch 2 (host-level rules)](kanban-detail.md#signalk-lint-batch-2-host-level-rules) — can0/gpsd/systemd/cron/journald faults this boat actually hit.
 - [ ] [Make "no rule may throw on malformed input" a stated signalk-lint convention](kanban-detail.md#signalk-lint-no-rule-may-throw-on-malformed-input) — give every rule a garbage-input fixture.
