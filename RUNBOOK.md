@@ -336,8 +336,9 @@ offline copy, another host you already trust. Never through this repo, never
 over a channel you wouldn't send the secrets themselves over.
 
 ```bash
+
 mkdir -p ~/.config/sops/age
-cp <the key> ~/.config/sops/age/keys.txt
+cp $super_secret_key_file ~/.config/sops/age/keys.txt
 chmod 600 ~/.config/sops/age/keys.txt
 ```
 
@@ -2879,3 +2880,9 @@ nothing is backed up.
 
 If you need that branch to run — say, to regenerate the launcher after moving
 Node — back up `~/.signalk` first and put the config files back afterward.
+
+
+## List of packages that might need to be installed (based on HALOS investigation)
+sudo apt-get install yadm pre-commit 
+
+For yadm, my git key or a new one
