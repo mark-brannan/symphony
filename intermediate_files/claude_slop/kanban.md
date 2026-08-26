@@ -34,24 +34,26 @@ already carries enough context.
 - [ ] [Hand over Symphony Plumbing Library.xml](kanban-detail.md#symphony-plumbing-libraryxml) when plumbing diagramming starts (Google Drive only, not fetchable).
 
 ### Boat Pi / hardware
+- [ ] **Decide the rebuild fork: HALOS on a fresh 64 GB card, or keep hardening the current OpenPlotter install.** Grafana's return, the dockerization track and the SD-card strategy are all downstream of this one call. Evidence on 2026-08-25: a Node runtime swap silently removed `signalk-server`, the boat ran dark for 2 days, and OpenPlotter's own installer is what did it (`signalkPostInstall.py:45` runs `apt autoremove -y nodejs npm`). Against: HALOS undoes real work already done.
+- [ ] **Decide whether the current 32 GB card comes home after the swap.** It holds the only copies of `~/influx-export` (1.4 GB) and `~/keep-before-purge/grafana.db` — neither can cross the WAN without throttling risk, so a physical card swap is the only way to recover them.
 - [ ] [Confirm the HALPI2 purchase](kanban-detail.md#halpi2-purchase-sd-card-boot-media-strategy) — already in cart; ends the SD-card/boot-media decision outright.
-- [ ] [Decide what to do about Chromium on the boat Pi](kanban-detail.md#chromium-on-the-boat-pi) — leave it, clear its 1.9 GB profile, or remove it.
 - [ ] [Decide whether to track openplotter.conf in git](kanban-detail.md#track-openplotteropenplotterconf-in-git-or-not) — its `soundignore` key is load-bearing and lives only on the boat.
 - [ ] [Decide whether to pursue a read-only root filesystem](kanban-detail.md#read-only-root-filesystem-for-the-boat-pi) — real workflow change, not a config toggle.
-- [ ] [Decide whether InfluxDB/Grafana's stop-under-pressure should become a permanent disable](kanban-detail.md#influxdbgrafana-permanent-disable-or-stay-stop-on-pressure).
-- [ ] [Decide whether to cap journald and pick a SystemMaxUse size](kanban-detail.md#journald-cap-on-the-boat-pi).
+- [ ] [Pick a journald SystemMaxUse size](kanban-detail.md#journald-cap-on-the-boat-pi) — no longer hypothetical: the journal had grown to 1.3 GB and was a top-5 disk consumer on 2026-08-25. Vacuumed to 200 MB as a one-time fix; without a cap it just regrows.
 
 ## Claude's
 
 ### Infrastructure
+- [ ] Deploy the `telegraf.conf` InfluxDB-output removal to the boat — the repo change is committed, but `/etc/telegraf/telegraf.conf` is a symlink into the boat's own checkout, so it needs a pull there. Until then Telegraf fails every flush against the purged InfluxDB and drops host metrics on buffer overflow.
+- [ ] Document the boat Pi's non-standard Node/npm state in `RUNBOOK.md` — `/usr/bin/node` is nsolid 22.23.2 (apt), the shadowing standalone 22.17.0 is parked at `/usr/local/bin/node.disabled-20260825`, `signalk-server` now lives in `/home/pi/.npm-global`, and `~/.signalk/signalk-server` was rewritten to match. None of this matches what the runbook currently describes.
+- [ ] Correct `RUNBOOK.md` § "Upgrading SignalK on the boat Pi" — it currently directs the reader to `sudo openplotter-signalk-installer` as the only safe path. That tool caused the 2026-08-23 outage, and its `npm config get prefix` step (`signalkPostInstall.py:91`) is cwd-dependent under sudo, so it can write a launcher pointing into `/root` that the `User=pi` service cannot read.
 - [ ] [Re-run the secret-tooling suite on a keyed machine (NucBoxK12) after pulling latest main](kanban-detail.md#confirm-secret-tooling-suite-on-a-keyed-machine) — closes the last leg of PR #19's TASK.
 - [ ] [Sweep the stale claude/* branches, excluding the two rescued from the boat](kanban-detail.md#land-or-discard-three-held-claude-branches) — `ecoworthy-signalk-telemetry-vy82ta` @48f3122 and `symphony-pushover-setup-ce12i0` @3f08bd3 are unmerged and exist nowhere else; don't touch them.
 - [ ] [Finish dockerizing the boat computer](../../reference/containerization_strategy.md) — Track B; SignalK, Grafana and Caddy are still native. Caddy last, done carefully — it's the front door.
-- [ ] [Run the QuestDB multi-day soak, then B5 parity checks, then retire InfluxDB](kanban-detail.md#questdb-migration-execution-notes-not-in-the-reference-doc) — B1-B3 are mostly done; B1's off-boat backup copy is still outstanding. Don't uninstall signalk-to-influxdb2 yet. Read the linked notes before touching B5 parity — the reference doc alone is missing a load-bearing gotcha.
+- [ ] [Close out the QuestDB migration now that InfluxDB is gone](kanban-detail.md#questdb-migration-execution-notes-not-in-the-reference-doc) — InfluxDB was stopped, disabled and purged on 2026-08-25 under disk pressure, so the soak and B5 parity checks can never run against it. Remaining: confirm QuestDB is actually capturing what InfluxDB did, re-run `scripts/questdb_table_hygiene.sh`, and uninstall signalk-to-influxdb2.
 - [ ] [Resolve which Grafana dashboard set is the QuestDB port target](kanban-detail.md#which-grafana-dashboard-set-is-the-questdb-port-target) — blocks open PR #10.
-- [ ] [Deploy the repo's Grafana provisioning to the boat](kanban-detail.md#deploy-the-repos-grafana-provisioning-to-the-boat) — the native install is still hand-configured.
-- [ ] [Build a host-health Grafana dashboard from Telegraf's existing metrics](kanban-detail.md#build-a-host-health-grafana-dashboard) — four queries already verified live; it's panels, not discovery.
-- [ ] [Replace Telegraf's stopgap InfluxDB credential with a scoped token](kanban-detail.md#replace-telegrafs-stopgap-influxdb-credential) — currently uses captain's all-access token.
+- [ ] [Deploy the repo's Grafana provisioning to the boat](kanban-detail.md#deploy-the-repos-grafana-provisioning-to-the-boat) — blocked: Grafana was disabled and `/var/lib/grafana` purged on 2026-08-25; the hand-made dashboards survive only as `~/keep-before-purge/grafana.db` on the Pi. Whether Grafana returns natively or only in the dockerized/HALOS build is the fork below.
+- [ ] [Build a host-health Grafana dashboard from Telegraf's existing metrics](kanban-detail.md#build-a-host-health-grafana-dashboard) — blocked: no Grafana on the boat since 2026-08-25. Queries were verified live and still apply; this is panels, not discovery, whenever Grafana comes back.
 - [ ] [Put fail2ban (or equivalent) in front of sshd on the boat Pi](kanban-detail.md#rate-limit-sshd-on-the-boat-pi) — precautionary, not a response to anything measured.
 - [ ] [Build the Ansible clock and watchdog roles](../../reference/host_provisioning.md) — smallest honest slice per the 2026-08-13 plan.
 - [ ] [Extend `lint_repo_hygiene.py` with a soft warn on long log.md bullets](kanban-detail.md#doc-cleanup-follow-ups-still-open) — optional enforcement, from the 2026-08-19 bloat audit.
