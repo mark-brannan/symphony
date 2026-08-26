@@ -360,3 +360,9 @@
   over the boat's cellular link and npm rolled back the package entirely.
   Reinstalled it 2026-08-26 with a warmed npm cache and raised timeouts;
   the boat is collecting data again, including NMEA 2000 over the CAN bus.
+
+## 2026-08-26
+- Confirmed QuestDB on the boat has been receiving and retaining SignalK
+  and Telegraf data all along; the earlier "QuestDB holds zero tables"
+  finding was about a different plugin on the dev container, not the boat.
+- Applied and verified the postgsail SQLite-bind fix on the boat.

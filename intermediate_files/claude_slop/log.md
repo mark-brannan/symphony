@@ -1381,3 +1381,60 @@ boat's non-standard Node/npm state (nsolid at `/usr/bin/node`, standalone
 node parked at `/usr/local/bin/node.disabled-20260825`, npm prefix at
 `~/.npm-global`) is still open and accurate; left it as-is rather than
 expand this session further.
+
+## 2026-08-26 — Track B: QuestDB "connectivity bug" didn't exist; postgsail fixed; influxdb2 uninstall hit a new npm quirk; found a live concurrent session mid-session
+
+Read `reference/containerization_strategy.md` in full, then investigated
+the reported B3 bug ("signalk-questdb enabled, QuestDB holds zero tables,
+questdbHost 127.0.0.1 misconfigured"). That finding, in kanban-detail.md
+under "Evaluate parked/unused SignalK plugins on the dev container", was
+always about the **dev container's** older `signalk-questdb` plugin
+(dirkwa's original, container-to-container networking), not the boat's
+`signalk-questdb-history-provider` (the Hat Labs B3 fork). On the boat,
+SignalK runs natively, so `questdbHost: 127.0.0.1` correctly reaches
+QuestDB's Docker-published port. Verified directly: 23 tables present,
+`signalk`/`signalk_position` row counts climbing minute to minute
+(confirmed with two counts a minute apart), sampled rows non-null and
+sane (dock GPS coords, live battery/environment/nav paths). Re-ran
+`scripts/questdb_table_hygiene.sh` against the boat — 0 changes needed,
+already fully applied. No fix was needed or made; this was a stale/
+misattributed finding, now corrected in kanban-detail.md.
+
+Cleared the two boat-write-permission-blocked cards, since this session
+had that permission — checked `who`/`ps aux` first, saw no active
+npm/apt/docker process, and confirmed WAN health
+(curl to registry.npmjs.org: 1.4s; ping to 8.8.8.8: 30-45ms, 0% loss)
+before either:
+
+- **postgsail SQLite-bind fix**: applied the two-line default (`= 0` on
+  `maxSpeedOverGround`/`courseOverGroundTrue`), restarted `signalk`,
+  confirmed the bind error is gone from the log.
+- **signalk-to-influxdb2 uninstall**: dry-run succeeded cleanly (56s,
+  14-package removal plan). The real uninstall then failed, exit 254, on
+  an unrelated tree quirk — `signalk-plugin-watchdog`'s dependency entry
+  is a *self-referencing* `file:` path
+  (`file:./node_modules/signalk-plugin-watchdog`), and npm's reify step
+  errored trying to read a package.json from a derived top-level path
+  that doesn't exist, aborting the whole transaction before touching
+  signalk-to-influxdb2. Confirmed no functional damage: signalk-to-
+  influxdb2 is unchanged, and the one thing that *did* get deleted mid-run
+  (`~/.signalk/signalk-plugin-watchdog/`, a stray top-level directory) was
+  provably unreferenced by anything — not the working
+  `node_modules/signalk-plugin-watchdog/` copy, not this repo's tracked
+  `plugins/signalk-plugin-watchdog/` source, not any deploy script or
+  cron job. Watchdog has logged no errors since. Filed both the uninstall
+  retry and the underlying `file:` fix as separate cards in kanban.md —
+  the fix (repointing at `file:../symphony/plugins/signalk-plugin-watchdog`
+  on the boat) is untested and belongs in its own session.
+
+**Stopped there rather than starting B4/B6.** Right after the postgsail
+restart, boat logs showed the box's standing `claude --continue
+--remote-control symphony-pi` session actively installing
+`signalk-noaa-space-weather@0.29.1` via the SignalK app store — direct
+evidence it was doing real work at that moment, not sitting idle the way
+the earlier `who`/`ps aux` check (which only catches an in-progress
+process, not a session about to start one) suggested. Nothing looked
+broken on either side, but B4 (dashboards) and B6 (containerize SignalK,
+drop the docker.sock mount) are exactly the higher-blast-radius changes
+that shouldn't run next to someone else's live session on the same box.
+Left both for a session that confirms the box is clear first.

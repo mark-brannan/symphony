@@ -962,10 +962,23 @@ before treating this as live — a session-and-a-half has passed since.
 
 ## QuestDB migration execution notes not in the reference doc
 
+**Closed out 2026-08-26**: QuestDB is confirmed capturing what it should.
+23 tables present (3 history-plugin, 20 Telegraf/internal); `signalk` and
+`signalk_position` row counts climb minute to minute; sampled rows carry
+real, non-null values (dock GPS coords, battery/environment paths). This
+also resolves the "QuestDB holds zero tables" line under "Evaluate
+parked/unused SignalK plugins on the dev container" below, for the
+avoidance of doubt — that finding was always about the **dev container's**
+different, older `signalk-questdb` plugin, not the boat's
+`signalk-questdb-history-provider` (B3). The boat's `questdbHost:
+127.0.0.1` is correct: SignalK runs natively there, not in a container, so
+`127.0.0.1` reaches QuestDB's published Docker port. Re-ran
+`scripts/questdb_table_hygiene.sh` against the boat — 0 changes needed,
+every managed table already had TTL and dedup keys set.
+
 `reference/containerization_strategy.md` carries the B1-B7 plan and some
 retroactively-added plan-level facts, but three execution findings from
-the actual 2026-08-20 B1-B3 run aren't in it, and the still-open B5 parity
-work depends on the first one:
+the actual 2026-08-20 B1-B3 run aren't in it:
 
 - **Telegraf's retry can double-write.** A timed-out HTTP response can
   still have been committed by QuestDB, so a retried batch lands twice —
@@ -1063,60 +1076,93 @@ canboatjs, confirmed live) is unaffected; this only blocks BLE sensor data.
 Next attempt: either retry over a quieter link, or pre-populate `~/.npm/_cacache`
 from a machine with faster internet the way the signalk-server reinstall did.
 
-## postgsail SQLite bind fix, blocked on remote write
+## postgsail SQLite bind fix — done 2026-08-26
 
-`signalk-postgsail` 0.6.0's `updateDatabase()` (`~/.signalk/node_modules/
-signalk-postgsail/index.js:476`) throws on every processed delta right now:
-`TypeError: Provided value cannot be bound to SQLite parameter 5`.
+Applied and verified on the boat: `maxSpeedOverGround`/`courseOverGroundTrue`
+in `~/.signalk/node_modules/signalk-postgsail/index.js` (lines 51-52) now
+default to `0`, matching `windSpeedApparent`/`angleSpeedApparent` two lines
+below. Restarted `signalk`; the `TypeError: Provided value cannot be bound
+to SQLite parameter 5` is gone from the log, only unrelated
+`api.openplotter.cloud` connect-timeout errors remain (a WAN/upstream
+issue, not this bug). Root cause and upstream fix:
+[issue #68](https://github.com/xbgmsharp/signalk-postgsail/issues/68).
+Reminder for whoever next reinstalls this plugin: the patch lives in
+`node_modules` and is silently lost on the next `npm install`/upgrade —
+reapply until upstream merges.
 
-Root cause: `maxSpeedOverGround` and `courseOverGroundTrue` are declared
-with bare `var` (index.js:51-52) and never defaulted, unlike
-`windSpeedApparent`/`angleSpeedApparent` two lines below which are
-initialized to `0`. Until a `navigation.speedOverGround` delta arrives —
-this boat's dockside, AIS not powered — both stay `undefined`, and
-`better-sqlite3` rejects binding `undefined`. Fires roughly every 90s,
-matching the plugin's buffer-write cycle; caught internally, so it doesn't
-crash SignalK, just spams the log.
-
-Filed upstream: https://github.com/xbgmsharp/signalk-postgsail/issues/68,
-with the one-line fix (`= 0` on both declarations, matching the existing
-pattern).
-
-**Why it's not applied yet:** this session's remote-write to the boat was
-blocked by the harness's permission classifier on `scp`/`sed -i` over ssh
-(reads were fine). Separately, `npm uninstall --dry-run` in the same
-session hung >200s on the boat's cellular WAN before completing — the
-same binding constraint documented in `containerization_strategy.md` and
-the cellular-WAN board card. Whoever picks this up needs either explicit
-write permission for a boat-touching session, or Mark applying the two-line
-patch directly (`ssh pi@symphony-pi`, then edit
-`~/.signalk/node_modules/signalk-postgsail/index.js` lines 51-52,
-`sudo systemctl restart signalk`). Note this patch lives in `node_modules`
-and will be silently lost on the next `npm install`/plugin upgrade in
-`~/.signalk` — reapply until upstream merges, or track it the way
-`bt-sensors-plugin-sk` tracks its own fix (a source checkout) if it
-recurs often enough to be worth that.
-
-## uninstall signalk-to-influxdb2, blocked on boat WAN
+## Uninstall signalk-to-influxdb2, blocked on an npm-tree quirk
 
 Confirmed dead: InfluxDB was purged 2026-08-25 (disk pressure), and
 `signalk-to-influxdb2`'s `HistoryAPI` throws an unhandled rejection
 (`Cannot read properties of undefined (reading 'filter')`) trying to reach
-it, live-confirmed 2026-08-26 00:30. This is the plugin the "close out the
-QuestDB migration" card already calls out for removal.
+it, live-confirmed 2026-08-26 00:30.
 
-Attempted tonight: `cd ~/.signalk && npm uninstall signalk-to-influxdb2
---dry-run` over ssh — hung past 200s with no output before being killed.
-Matches the documented cellular-WAN binding constraint (`ETIMEDOUT`/
-`EIDLETIMEOUT` failures already logged against this boat's link on
-2026-08-23 and 2026-08-25). Didn't attempt the real uninstall live given
-that — a hung `npm uninstall` on a `package-lock=false` tree is exactly
-the shape of the 2026-08-25 outage (partial tree, npm rollback).
+**2026-08-26: WAN is no longer the blocker** — checked first
+(`curl` to registry.npmjs.org, 1.4s; `ping` to 8.8.8.8, 30-45ms, 0% loss)
+and `cd ~/.signalk && npm uninstall signalk-to-influxdb2 --dry-run`
+completed cleanly in 56s, showing a sane 14-package removal plan with
+`signalk-plugin-watchdog` merely re-resolved (version unchanged), not
+pruned.
 
-To finish: retry when the boat's on wifi or the cellular link is behaving
-(check with a plain `ping`/small `curl` to npmjs.org first), then:
-`cd ~/.signalk && npm uninstall signalk-to-influxdb2`, remove
+The **real** `npm uninstall signalk-to-influxdb2` (no `--dry-run`) then
+failed, exit 254:
+```
+npm warn tarball tarball data for signalk-plugin-watchdog@file:signalk-plugin-watchdog (null) seems to be corrupted. Trying again.
+npm error enoent Could not read package.json: ENOENT: /home/pi/.signalk/signalk-plugin-watchdog/package.json
+```
+Root cause and what it did and didn't damage:
+[signalk-plugin-watchdog's self-referencing `file:` dependency](#signalk-plugin-watchdogs-self-referencing-file-dependency)
+below — read that card before retrying. Net effect of the failed attempt:
+**`signalk-to-influxdb2` is untouched** (still in `~/.signalk/package.json`
+and `node_modules`, confirmed after) — the transaction aborted before
+reaching it. A harmless stray top-level directory,
+`~/.signalk/signalk-plugin-watchdog/` (not the working
+`node_modules/signalk-plugin-watchdog/` copy, not the git-tracked
+`plugins/signalk-plugin-watchdog/` source — nothing on the boat or in this
+repo referenced that top-level path), got pruned as extraneous mid-run;
+confirmed no operational effect (no watchdog errors in the log since,
+plugin dependency in `~/.signalk/node_modules/signalk-plugin-watchdog/` is
+intact).
+
+**Also found while investigating this**: a live concurrent session
+(`claude --continue --remote-control symphony-pi`, running since 2026-08-25,
+several tailnet ssh sessions attached) was actively using the SignalK
+app store — installing `signalk-noaa-space-weather@0.29.1` — within two
+minutes of this session's `systemctl restart signalk` for the postgsail
+fix above. No sign either session broke the other, but it's real evidence
+the "check for a live session first" rule in this repo's CLAUDE.md isn't
+theoretical here; a `who`/`ps aux` check that shows no process mid-install
+at the instant you look can still be running one 90 seconds later. Retry
+the uninstall only after fixing the `file:` dependency below, and re-check
+for concurrent activity immediately before, not just at session start.
+
+To finish once the `file:` dependency card is resolved: `cd ~/.signalk &&
+npm uninstall signalk-to-influxdb2`, remove
 `~/.signalk/plugin-config-data/signalk-to-influxdb2.json`, restart
 signalk, confirm the `HistoryAPI` errors stop in the log, and drop
 `signalk-to-influxdb2` from the repo's `signalk/package.json` (the
 tracked manifest a clean reinstall is built against) in the same commit.
+
+## signalk-plugin-watchdog's self-referencing `file:` dependency
+
+`~/.signalk/package.json` on the boat declares
+`"signalk-plugin-watchdog": "file:./node_modules/signalk-plugin-watchdog"`
+— the dependency's `file:` source points at its own resolved location
+inside `node_modules`, rather than at an external directory. This is what
+made the influxdb2-uninstall attempt above fail: npm's reify step for a
+self-referencing `file:` dependency errored trying to read a package.json
+from a derived top-level path (`~/.signalk/signalk-plugin-watchdog/`, no
+`node_modules/`) that doesn't correspond to anything real, and aborted the
+whole transaction. This will recur on **any** future `npm install` or
+`npm uninstall` in `~/.signalk` that touches dependency resolution, not
+just this one.
+
+Likely fix: repoint the entry at the boat's actual git checkout,
+`file:../symphony/plugins/signalk-plugin-watchdog` (confirmed present and
+matching `node_modules/signalk-plugin-watchdog`'s contents on the boat,
+2026-08-26), so it's a real external source rather than a self-reference.
+Untested — didn't attempt it this session given a live concurrent session
+was using the box (see above); this is exactly the kind of npm-tree
+mutation that shouldn't run next to someone else's app-store install.
+Confirm afterward with a `npm install --dry-run` in `~/.signalk` that it
+resolves cleanly.
