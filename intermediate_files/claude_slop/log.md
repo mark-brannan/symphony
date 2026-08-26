@@ -1254,3 +1254,34 @@ shared checkout restored the one file touched there, untouched the other
 sessions' unrelated uncommitted work sitting in that checkout, and both
 edits were redone correctly in the worktree. No trace of the slip reached
 the shared checkout or the commit.
+
+## 2026-08-26 — SignalK health check, outside + inside
+
+**Recovered, both ways.** `signalk.symphony.dark-star-llc.com` is 200 via
+Caddy from outside; `auth.symphony...` (Dex) is 200. `grafana.symphony...`
+is 502 — expected, Grafana's been off since the 2026-08-25 disk-pressure
+purge (already on the board).
+
+Inside via ssh: `signalk` systemd unit active, started 00:09:51 today,
+`NRestarts=0`, no errors in its unit history, admin UI serving fine. This
+retires the "SignalK reinstall — still down" card: the 2026-08-25 outage
+is over, the install landed. Removed that card, replaced with a new
+finding below.
+
+Host state: `influxdb`/`grafana-server` systemd units are `inactive` +
+`disabled` (matches the known 2026-08-25 purge, not new). Dex, QuestDB
+and ntfy run as docker containers, all `Up 4 days` — expected per
+`reference/software_stack.md`. `signalk-to-influxdb2`'s `HistoryAPI`
+unhandled rejection is present in the log too — already covered by the
+open "uninstall signalk-to-influxdb2" card, this is just live confirmation
+it's still misbehaving.
+
+New: `signalk-postgsail` is throwing `TypeError: Provided value cannot be
+bound to SQLite parameter 5` in `updateDatabase` on every delta right now
+— its own local SQLite queue, not the InfluxDB/QuestDB path. Carded.
+
+Memory: 59 MB free, swap 199/199 MB full, `pswpout` climbing — real
+pressure, right now, even with InfluxDB and Grafana already off. Didn't
+act on it: a live session (tmux + several ssh pts, one active
+`claude --remote-control symphony-pi`) is already on the box, so stopping
+anything risked stepping on concurrent work. Flagging rather than acting.
