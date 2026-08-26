@@ -6,21 +6,148 @@ one without updating the card that points at it. This file dies with its
 cards: when a card is checked off and removed from `kanban.md`, delete the
 matching section here too.
 
-## halos-pi4 SignalK admin access is OIDC, not a token
+## Sync halos-pi4's SignalK config with this repo (Track A trial)
 
-RUNBOOK.md's "The HALOS trial Pi" section (added 4dee11c) links to a
-"Setting up plugins on the HALOS trial Pi" anchor that was never written —
-dead link. Confirmed live on 2026-08-26: `pi` has no `docker` group,
-`sudo` needs a password. `/etc/halos/oidc-clients.d/signalk.yml` shows
-SignalK's admin UI is federated to Authelia via OIDC (implicit consent,
-`client_secret_file` under a container data dir `pi` can't read) — so
-plugin config there is a browser SSO login through Traefik at
-`https://<HALOS_DOMAIN>/signalk-server/...`, not a bearer token you curl.
-That login flow itself is unverified — no `HALOS_DOMAIN` value confirmed,
-no login attempted. Once verified, replace the dead anchor with a real
-section (or point at wherever the actual steps land) and remove the
-"needs a token" phrasing from the SSH-access note, which is misleading as
-written.
+Started as "fix the dead RUNBOOK anchor," expanded 2026-08-26 into the
+real goal: bring halos-pi4's SignalK config in line with this repo's, and
+as much else of the stack as reasonable. Progress and findings below —
+this is a bigger job than one session should finish inline; see the
+ready-to-run prompt at the bottom.
+
+### The OIDC front door is not actually in the way
+
+`/etc/halos/oidc-clients.d/signalk.yml` federates SignalK's Traefik-fronted
+admin UI to Authelia (port 4430). But **SignalK also listens directly on
+`:3000` on all interfaces, bypassing Traefik/Authelia entirely** —
+confirmed reachable as `curl http://halos-pi4:3000/signalk` from a dev
+box over the tailnet. This is a real gap in HALOS's front door (every
+container app likely has the same bypass — not verified for the others)
+worth flagging to Mark once, not re-litigating: it means anyone on the
+tailnet can already reach SignalK's public read API unauthenticated, no
+Authelia session needed.
+
+SignalK still runs its own separate security layer on top
+(`"security": {"strategy": "./tokensecurity"}` in `settings.json`) —
+`:3000/admin/` demands SignalK's own login, and plugin-config endpoints
+return 401 without a token. A device-access-token request was already
+pending from the earlier setup session (`halos-setup-script`,
+`2d350bb4-...`, 2026-08-26T06:08 UTC) — never approved. A second one was
+opened this session (`b975da82-fad8-4de4-8293-fe32113f3822`, poll
+`http://halos-pi4:3000/signalk/v1/requests/b975da82-...`). Both need
+someone to hit **Approve** in the SignalK admin UI (`:3000/admin/#/`,
+Security → Access Requests) — that's a browser action, and there's no
+known SignalK admin password for this box (`admin-password` file exists
+at `/var/lib/container-apps/marine-signalk-server-container/data/admin-password`
+but is root:root 600 — `pi` can't read it).
+
+### The actual fast path: direct filesystem access, no token needed
+
+The bind-mounted config dir is **owned by `pi`, not root**:
+`/var/lib/container-apps/marine-signalk-server-container/data/data/` holds
+`plugin-config-data/`, `package.json`, `settings.json`, `baseDeltas.json`,
+etc., all `pi:pi` and writable over plain SSH — no API, no token, no
+Authelia. `security.json` is `pi`-owned but `0600` (readable/writable by
+`pi`, not world). This is the same shape as boat-Pi config management,
+just a different mount point.
+
+**Restarting the container to pick up file changes needs a decision,
+not just a command** — `systemctl restart marine-signalk-server-container`
+is blocked by this session's own auto-mode classifier as a state-changing
+action on live infra, correctly. `pi` has no passwordless sudo either, so
+this box's own polkit rules may require asking Mark regardless of the
+harness.
+
+### What's already there vs. the repo
+
+Encouraging: an earlier session (`halos-box-setup-plugins-4e5990`,
+2026-08-26 AM) already `npm install`ed ~60+ `signalk-*` packages into
+`node_modules` on halos-pi4 — a large fraction of this repo's
+`signalk/package.json` dependency list is already present as installed
+node modules (confirmed via directory listing, not tested running).
+`package.json`'s own `dependencies` block wasn't updated to match (still
+lists only `signalk-noaa-space-weather`), and `plugin-config-data/` has
+only ~12 files — HALOS's own bundled defaults (`course-provider`,
+`freeboard-sk`, `signalk-autostate`, `signalk-flags`, `signalk-node-red`,
+`signalk-questdb-history-provider`, `signalk-to-influxdb2`,
+`sk-ais-status`, `resources-provider`, `skip-plotter-panel`) — so
+plugins are installed but **not configured/enabled** with this repo's
+settings yet. Architecturally this box already matches where the repo
+is heading: QuestDB as history store is HALOS's default, same as our
+Track B migration target.
+
+### Left open — this is the real scope of the card now
+
+1. Approve (or get Mark to approve) one of the two pending access
+   requests, or find another way to auth for real admin-API-driven config
+   pushes (vs. raw file writes + a restart).
+2. Decide the restart story: get explicit go-ahead per file-sync round,
+   since there's no dry-run for a container restart and no docker/sudo
+   access to inspect it beforehand.
+3. Actually diff `signalk/plugin-config-data/*.json` and
+   `signalk/package.json` against halos-pi4's copies, file by file —
+   only the top-level listing was compared so far, not contents. Expect
+   real conflicts: this repo already carries per-plugin config (paths,
+   credentials, tuned settings) that HALOS's defaults don't have, and
+   some plugins (BLE/bt-sensors, GPIO, hardware-specific ones) may not
+   even make sense on this box.
+4. `security.json` diverges by design (different users, different auth
+   mode) — union config data, never security/users config, same as the
+   project's existing merge convention for peripheral configs.
+5. Decide what "as much else as possible" includes beyond SignalK:
+   Grafana dashboards, Telegraf, Caddy have no equivalent on HALOS
+   (Traefik replaces Caddy, HALOS's own Grafana container replaces
+   ours) — this overlaps directly with the open Track A verdict in
+   `reference/containerization_strategy.md` (adopt/reject/adopt-with-exceptions),
+   which nothing has settled yet. Don't let file-syncing plugins get
+   ahead of that call.
+6. Fix the dead RUNBOOK anchor once the real access story (API token vs.
+   file+restart) is settled — the current text ("needs a token") is now
+   known to undersell what's actually possible (direct file writes) and
+   oversell the OIDC path (bypassable, not the actual gate).
+
+### Ready-to-paste prompt for a fresh session (Opus, high effort)
+
+```
+Continue the halos-pi4 SignalK sync card in
+intermediate_files/claude_slop/kanban-detail.md (heading: "Sync
+halos-pi4's SignalK config with this repo (Track A trial)"). Read that
+section in full first — it has the access-path findings, the two
+pending SignalK access-request IDs, and why a container restart needs
+Mark's explicit go-ahead per attempt, not once.
+
+Work in an isolated worktree per this repo's CLAUDE.md.
+
+1. Diff signalk/plugin-config-data/*.json and signalk/package.json
+   against halos-pi4:/var/lib/container-apps/marine-signalk-server-container/data/data/
+   (reachable read/write over plain SSH as pi, no sudo). Report the
+   actual delta — which plugins are installed but unconfigured, which
+   configs would need credentials/paths that don't apply on this box,
+   which don't make sense there at all (BLE/GPIO/hardware-specific).
+2. Ask Mark before writing anything: which plugins from that delta he
+   actually wants configured on the HALOS trial box, given it's a
+   Track A evaluation, not a second production install.
+3. For each approved plugin, write its config JSON directly via SSH
+   (pi owns plugin-config-data/), then ask Mark for go-ahead before
+   restarting marine-signalk-server-container.service — no
+   passwordless sudo on that box, and the harness blocks unprompted
+   service restarts on live infra. Verify after restart: the plugin
+   shows enabled and initialized in the SignalK log
+   (journalctl -u marine-signalk-server-container -n 50) and its data
+   appears in the API (curl the relevant path).
+4. Once SignalK is settled, ask Mark explicitly whether "as much else
+   as possible" should extend to Grafana/dashboards or stop there —
+   that decision is entangled with the still-open Track A
+   adopt/reject verdict in reference/containerization_strategy.md, and
+   isn't yours to make by momentum.
+5. Update this kanban-detail.md section (or close the card) with what
+   landed, and fix RUNBOOK.md's dead "Setting up plugins on the HALOS
+   trial Pi" anchor to describe the real access path once you've used
+   it end to end.
+
+Difficulty: high — expect several judgment-heavy back-and-forths with
+Mark (which plugins matter on a trial box, restart go-aheads), not a
+mechanical copy job. Budget for it, don't try to one-shot it.
+```
 
 ## Purchase itemizations in maintenance/log.md
 
