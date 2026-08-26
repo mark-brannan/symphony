@@ -241,6 +241,24 @@
 - Electrical refit diagramming started: git-native SVG + draw.io XML as the
   system of record; first DC system overview drawn to the intended
   architecture; ABYC E-11 sizing tooling (`ampacity`, `wire-wright`) built.
+- Corresponded with the author of `signalk-dsc` and `signalk-ais-distress`,
+  who confirmed the DSC/AIS receive chain is testable by synthetic UDP
+  injection, nothing on the air.
+- Rebuilt the dev SignalK stack in a cloud sandbox from this repo's own
+  config and validated that chain end to end with synthetic distress calls
+  and AIS survival beacons: parse, store, per-call emergency alarms, SaR
+  chart target, marker layers, restart re-announce, token-authed clearing
+  all work. Confirmed `signalk-mob-notifier` consumes AIS MOB beacons and
+  raises `notifications.mob` at emergency — the question §H had open.
+- Found while doing it: signalk-server 2.31.1 never delivers the first
+  values delta of a newly-created path to wildcard `notifications.*`
+  subscribers, so per-call distress alarms reach the model but never
+  `signalk-ntfy` (0 of 6 in repeated runs). Written up with mitigations in
+  `reference/distress_monitoring.md`; the boat's server still unverified.
+- Docs corrected on the back of all this: census `ACTOR_HINTS` extended
+  (`dsc`, `distress`), the already-done weather-hint backlog item retired,
+  MOB entries updated in priorities and use-cases, distress test procedure
+  added to the RUNBOOK.
 - Cleaned fuel filter.
 - Cleaned oil filter.
 - Prop shaft coupler (muff coupler) replaced with a temporary solution — permanent fix still needed, see backlog.

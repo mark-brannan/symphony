@@ -45,6 +45,7 @@ logged in `maintenance/log.md`.
 - [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi)
 - [SignalK's NMEA 2000 input](#signalks-nmea-2000-input)
 - [Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
+- [Testing the DSC / AIS distress receive chain](#testing-the-dsc--ais-distress-receive-chain)
 
 **Troubleshooting**
 - [Hostnames stop resolving](#when-the-boats-hostnames-stop-resolving)
@@ -2717,6 +2718,95 @@ a stopgap running past the reason it exists.
 ```
 
 </details>
+
+---
+
+## Testing the DSC / AIS distress receive chain
+
+**Never press a radio's DSC distress button or activate a SART/MOB/EPIRB to
+test anything** — that transmits a real distress alert; standing rule, see
+`maintenance/priorities.md`. Everything below injects synthetic traffic over
+UDP instead. Nothing goes on the air.
+
+Prerequisites: `@sailingnaturali/signalk-dsc` and
+`@sailingnaturali/signalk-ais-distress` installed and enabled
+(`signalk-mob-notifier` optionally, for the `notifications.mob` alarm).
+
+1. **Turn DSCWatch reporting off before injecting anything.** signalk-dsc
+   ships every received call — synthetic ones included — to dscwatch.com,
+   and undelivered reports queue on disk and send when connectivity returns,
+   so an offline test still pollutes the network later. Plugin Config →
+   signalk-dsc → untick "Report received calls to DSCWatch.com", or set
+   `dscwatchEnabled: false` in
+   `plugin-config-data/signalk-dsc.json` and restart. Restore afterwards.
+
+2. Add a UDP NMEA 0183 input if the server has none — Settings →
+   Connections → Add, or in `settings.json` `pipedProviders`:
+
+   ```json
+   { "id": "dsc-test-udp", "enabled": true,
+     "pipeElements": [{ "type": "providers/simple",
+       "options": { "type": "NMEA0183", "subOptions": { "type": "udp", "port": "7777" } } }] }
+   ```
+
+   Restart SignalK after adding it.
+
+3. Clone the plugin repos for the test scripts. Don't look for them in the
+   installed packages — the npm tarballs omit `scripts/`, so
+   `npm run send-test-dsc` fails with module-not-found on any app-store
+   install (reported upstream 2026-08):
+
+   ```
+   git clone https://github.com/sailingnaturali/signalk-dsc
+   git clone https://github.com/sailingnaturali/signalk-ais-distress
+   ```
+
+4. Fire test traffic. Always pass `--host` — the default is the author's
+   own boat hostname, not localhost:
+
+   ```
+   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777
+   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777 --nature mob --category urgency
+   node signalk-ais-distress/scripts/send-test-ais.js --host localhost --port 7777 --beacon mob
+   ```
+
+5. Verify each stage (`$TOK` = any access token; anonymous works where
+   read-only access is allowed):
+
+   ```
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/dsc-calls
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/ais-distress
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v1/api/vessels/self/notifications
+   ```
+
+   Expect: the stored call with parsed fields, a
+   `notifications.received.<category>.<id>` per call (distress → `emergency`,
+   urgency → `alarm`), and for a `--beacon mob` injection additionally
+   `notifications.mob` at `emergency` from signalk-mob-notifier. A distress
+   caller also appears as a SaR target (`sar.urn:mrn:imo:mmsi:<caller>`) in
+   Freeboard.
+
+6. **Don't judge the test by the phone buzzing.** Per-call distress alarms
+   currently never reach `signalk-ntfy` or any other wildcard
+   `notifications.*` subscriber — a signalk-server delivery bug, verified
+   0-for-6 on 2.31.1; details in `reference/distress_monitoring.md`. Verify
+   via the REST endpoints above. If ntfy stays silent, that is the known
+   bug, not a broken test.
+
+7. Clear the alarms when done — clearing is a write, so it needs a
+   readwrite token, and run it from the cloned repos:
+
+   ```
+   cd signalk-dsc          && SIGNALK_TOKEN=$TOK node scripts/clear-dsc-alarm.js --host localhost --category all
+   cd ../signalk-ais-distress && SIGNALK_TOKEN=$TOK node scripts/clear-ais-alarm.js --host localhost --beacon all
+   ```
+
+   Cleared alarms drop to `normal` and stop re-raising across restarts. An
+   uncleared distress alarm re-raises for up to an hour after a server
+   restart — deliberate plugin behavior, not a stuck test.
+
+8. Afterwards: restore the DSCWatch setting to whatever the standing config
+   says, and disable the test UDP input if it was added only for this.
 
 ---
 

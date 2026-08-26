@@ -114,7 +114,8 @@ recorded one.
 
 ### H. Safety & security
 - Man-overboard detection via a BLE beacon going out of range (buzzer +
-  position log)
+  position log). What the aboard DSC/AIS hardware feeds is now settled —
+  see `reference/distress_monitoring.md`.
 - Door/hatch/motion sensors used as an intruder alarm while unattended at
   anchor or dock
 
