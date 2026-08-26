@@ -1664,25 +1664,54 @@ git-tracked `signalk/security.json` otherwise).
 ---
 
 ## Upgrading SignalK on the boat Pi
-Since we are currently running signalk under openplotter on the boat (not containers),
-it is neccessary to use the `openplotter-signalk-installer` for both signalk
-updates and npm/Node.js version changes.
 
-> 📌 **Gotcha:** Do not try to resolve npm and Node.js version bumps by
-> simply trying to do `sudo npm install -g npm@latest` like a normal upgrade.
-> Use the openplotter installer only.
+> 🔴 **Do not run `sudo openplotter-signalk-installer`.** It took the boat
+> offline for two days on 2026-08-23. This section used to recommend it as the
+> only safe path; that advice was wrong.
 
-Normally one could do this via the GUI but since we mostly operatre remote/headless, do this instead:
+Read `/usr/lib/python3/dist-packages/openplotterSignalkInstaller/signalkPostInstall.py`
+before trusting the tool. Two lines make it unsafe to run unattended:
+
+- **Line 45: `apt autoremove -y nodejs npm`.** It removes the Node runtime
+  before reinstalling from NodeSource. On this Pi that resolved to the
+  `nsolid` package, which conflicts with `nodejs`; the run never completed and
+  left no `signalk-server` at all.
+- **Line 91: `node_path = npm config get prefix`,** whose answer it writes into
+  the `~/.signalk/signalk-server` launcher at line 95. Under `sudo` that value
+  is **working-directory dependent** — invoked from `/home/pi`, npm reads
+  `/home/pi/.npmrc` as *project* config, refuses its `prefix=~/.npm-global`,
+  and re-expands `~` against root's HOME, yielding `/root/.npm-global`. The
+  service runs as `User=pi` and cannot read `/root`, so the launcher points at
+  a path the service can never execute. Nothing warns you.
+
+To install or reinstall the server, do the npm half by hand as user `pi` —
+never via `sudo`, so the prefix resolves deterministically to
+`/home/pi/.npm-global`:
+
 ```bash
-sudo apt update
-sudo apt install --only-upgrade openplotter-signalk-installer
-sudo openplotter-signalk-installer
+sudo systemctl stop signalk.socket signalk.service
+```
+```bash
+npm install -g signalk-server --no-audit --no-fund
 ```
 
-Then restart signalk as normal
+Expect this to take 30-60 minutes on the Pi and to log nothing during its
+extract/link phase. Confirm progress with the growing tree, not the log:
+`du -sh ~/.npm-global/lib/node_modules/signalk-server`.
+
+Then point the launcher at wherever it landed, and start socket before service:
+
 ```bash
-sudo systemctl restart signalk.service
+printf '#!/bin/sh\n%s/lib/node_modules/signalk-server/bin/signalk-server -c %s $*\n' "$(npm config get prefix)" "$HOME/.signalk" > ~/.signalk/signalk-server && chmod 775 ~/.signalk/signalk-server
 ```
+```bash
+sudo systemctl reset-failed signalk.service && sudo systemctl start signalk.socket signalk.service
+```
+
+`/etc/systemd/system/signalk.service` needs no edit — its `ExecStart` is that
+launcher script, so repointing the script is the whole change. Verify with
+`systemctl is-active signalk` and a `journalctl -u signalk -f` that reaches
+plugin loading without `Cannot find module`.
 
 ## Stopping SignalK on the boat Pi
 
