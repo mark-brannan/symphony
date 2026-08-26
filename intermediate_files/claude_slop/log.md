@@ -1216,3 +1216,10 @@ available, so HALOS implies committing to the HALPI2.
 ### Left open
 
 SignalK is still down. The retry is carded with everything staged for it.
+
+## 2026-08-26 — halos-pi4 SSH re-verified
+`ssh pi@halos-pi4` re-confirmed working from this host (key-auth, no
+prompt, tailnet). No open card existed for this — RUNBOOK.md § "The HALOS
+trial Pi (home, not the boat)" already documents it (committed 4dee11c,
+same session as the original verification). Nothing to update there;
+re-verification just confirms it still holds.
