@@ -51,6 +51,7 @@ logged in `maintenance/log.md`.
 - [Hostnames stop resolving](#when-the-boats-hostnames-stop-resolving)
 - [A plugin isn't in the config UI](#when-a-plugin-isnt-in-the-config-ui)
 - [SignalK errors about missing packages](#when-signalk-errors-about-missing-packages-on-the-boat-pi)
+- [Every plugin install fails on a `file:` dependency](#when-every-plugin-install-fails-on-a-file-dependency)
 - [BLE sensors silent after a reboot](#ble-sensors-go-silent-after-a-reboot)
 - [A BLE sensor connects but delivers nothing](#a-ble-sensor-connects-but-never-delivers-data)
 - [A plugin fork keeps reverting](#a-local-plugin-fork-keeps-reverting-to-the-registry-build)
@@ -2288,7 +2289,64 @@ pruned without ever appearing in that list.
 
 On 2026-08-15 this caught `signalk-plugin-watchdog` and `flaky-plugin`,
 both hand-installed. The permanent fix for any plugin meant to stay is a
-`file:` entry in `package.json`, which takes it out of the prune path.
+`file:` entry in `package.json`, which takes it out of the prune path — but
+it must point **outside** `node_modules`, or it breaks every later install:
+see [When every plugin install fails on a `file:` dependency](#when-every-plugin-install-fails-on-a-file-dependency).
+
+---
+
+## When every plugin install fails on a `file:` dependency
+
+Symptom: every App Store install fails, whichever plugin you picked, and so
+does a plain `npm install` in `~/.signalk`. The named package is not the one
+you were installing:
+
+```
+npm warn tarball tarball data for <plugin>@file:<plugin> (null) seems to be corrupted. Trying again.
+npm error code ENOENT
+npm error path /home/pi/.signalk/<plugin>/package.json
+npm error enoent Could not read package.json
+```
+
+Cause: a `file:` entry in `~/.signalk/package.json` pointing at a directory
+*inside* `node_modules`. npm packs that directory, then clears the
+destination — the same directory — before unpacking it, so the source is gone
+by the time it is needed. The whole install aborts before anything is written.
+
+`npm install <pkg> --dry-run` succeeds anyway; it resolves the tree without
+reifying it, so it will not reproduce this. Confirm from `package.json`
+instead:
+
+```bash
+grep -o '"[^"]*": *"file:[^"]*"' ~/.signalk/package.json
+```
+
+Any result containing `node_modules` is the fault. Point the entry at the
+real source instead — for the watchdog that is its git-tracked copy in this
+repo, already on the boat:
+
+```bash
+cd ~/.signalk
+cp -a package.json package.json.bak-$(date +%Y%m%d)
+npm pkg set dependencies.<plugin>=file:../symphony/plugins/<plugin>
+npm --save --ignore-scripts install
+```
+
+`--ignore-scripts` matches what the server itself passes, so the App Store
+and the command line behave the same way.
+
+*Verify* — the link resolves, the source survived, and the install actually
+reified:
+
+```bash
+ls -l ~/.signalk/node_modules/<plugin>   # symlink -> ../../symphony/plugins/<plugin>
+ls ~/symphony/plugins/<plugin>           # files still there
+```
+
+Run a real install, never `--dry-run`, as the check. npm links `file:` deps
+rather than copying them, so edits to the git-tracked source reach the server
+with no reinstall, and the plugin stays out of the prune path described above.
+Restart SignalK to load whatever the install actually brought in.
 
 ---
 
