@@ -122,6 +122,27 @@ sudo tailscale up --ssh --hostname=symphony-pi
 Follow the printed login URL. *Verify:* `tailscale status` lists it, and
 `ssh pi@symphony-pi` connects from another device on the tailnet.
 
+### The HALOS trial Pi (home, not the boat)
+
+A separate box — the spare Pi 4 running HaLOS at home, per the Track A trial
+in [containerization_strategy.md](reference/containerization_strategy.md).
+Same tailnet, same `pi` account, same Tailscale SSH — no key setup needed:
+
+```bash
+ssh pi@halos-pi4
+```
+
+*Verify:* `tailscale status` lists `halos-pi4`, and the command above
+connects.
+
+Its apps sit behind HaLOS's own Traefik reverse proxy rather than bare ports
+— check `/etc/halos/port-registry` on the box for the current map (SignalK
+was `4430` as of 2026-08-26). The `pi` user is **not** in the `docker` group
+and has no passwordless `sudo` here — reaching the SignalK container's
+admin API needs a token (see
+[Setting up plugins on the HALOS trial Pi](#setting-up-plugins-on-the-halos-trial-pi)),
+not `docker exec` or a service restart.
+
 ---
 
 ## Reaching the boat over Tailscale
