@@ -1114,3 +1114,105 @@ union merges. `test_dashboards.py` passes and `build_dashboards.py`
 regenerates byte-identical output; CI green. Left open — it repoints the
 boat's provisioned Grafana dashboards at QuestDB, which is Mark's call to
 land.
+
+## 2026-08-25 — Disk recovery on the boat, and the SignalK outage's real cause
+
+**Started as** a disk-pressure and kanban-triage session. Turned into an
+outage post-mortem: SignalK had been down since 2026-08-23 and nobody knew.
+
+### What was actually wrong
+
+`/usr/local/lib/node_modules/signalk-server` had been deleted. Config was
+intact — `security.json`, `plugin-config-data`, the whole `~/.signalk` tree —
+only the executable was gone, so `signalk.service` failed with
+`status=127, /usr/local/bin/signalk-server: not found` and had been failing
+for two days.
+
+Reconstructed from `/var/log/apt/term.log` and the tmux scrollback of the
+login shell that did it:
+
+- 02:33 — `nodejs` 18.20.4 removed, `nsolid` 22.23.2 installed in its place
+- 04:01 — `/usr/local/lib/node_modules` rewritten; `signalk-server` gone
+- 04:10 — `rpi-eeprom` upgraded
+- 06:07 — `apt upgrade -y rpi-eeprom --fix-missing` started, then suspended
+  (state `T`, `do_signal_stop`) and left holding the package lock for 2d12h
+
+The tmux session showed what was being attempted: `docker pull
+signalk/signalk-server` (TLS handshake timeout), `apt install grafana`
+(343 MB, connection timed out), `npm install` (ETIMEDOUT), `sudo apt`
+(broken pipe). All network failures.
+
+### The finding that matters most
+
+**The cellular WAN is the binding constraint on this boat, and it has now
+caused two separate outages.** `symphony-pi` reaches the tailnet from
+`172.56.x`, a T-Mobile range. The 2026-08-23 attempt died on it; so did this
+session's recovery attempt, 27 minutes in, with `EIDLETIMEOUT` from
+registry.npmjs.org and single tarballs taking 54 seconds.
+
+This reframes the fresh-card plan from convenience to necessity: the boat
+cannot be rebuilt in place over its own link. A card staged and fully
+populated at home and carried down is the only reliable path.
+
+### Why the "official" install route is not the safe one
+
+`RUNBOOK.md` directed the reader to `sudo openplotter-signalk-installer` as
+the only safe path. Reading
+`/usr/lib/python3/dist-packages/openplotterSignalkInstaller/signalkPostInstall.py`
+showed it is the opposite:
+
+- line 45 runs `apt autoremove -y nodejs npm` before reinstalling from
+  NodeSource — on this Pi that resolved to the conflicting `nsolid` package
+- line 91 derives the install prefix from `npm config get prefix` and line 95
+  writes it into the `~/.signalk/signalk-server` launcher. Under `sudo` that
+  value is **working-directory dependent**: from `/home/pi`, npm reads
+  `/home/pi/.npmrc` as *project* config, refuses its `prefix=~/.npm-global`,
+  and re-expands `~` against root's HOME to `/root/.npm-global` — a path the
+  `User=pi` service cannot read, silently.
+
+Mark had flagged this instinct before I read the source; the source confirmed
+it and went further than expected. RUNBOOK section rewritten in `d040724`.
+
+### Work completed
+
+Disk 91% → 64% (2.6 GB → 9.9 GB free), all with Mark's per-item approval:
+
+| action | reclaimed |
+|---|---|
+| journald vacuum to 200 MB | 1.1 GB |
+| `~/.config/chromium` | 1.9 GB |
+| `/var/lib/influxdb` + `/var/lib/grafana` (stopped, disabled, purged) | 1.5 GB |
+| `~/.claude/remote`, bt-sensors `node_modules` | 1.2 GB |
+| apt cache (after clearing the lock) | 745 MB |
+| npm cache, docker dangling images | ~1 GB |
+
+`grafana.db` (2.2 MB, the hand-made dashboards) copied to
+`~/keep-before-purge/` before the purge. `~/influx-export` (1.4 GB) left
+untouched at Mark's instruction — it must not cross the WAN.
+
+Also: cleared the wedged apt and its orphaned `sudo` wrapper (`dpkg --audit`
+clean throughout, `apt-get check` passes); removed Telegraf's dead InfluxDB
+output, which was failing every flush and dropping metrics on buffer overflow
+(`0ac6266`); raised npm's timeouts in `~/.npmrc` for the retry.
+
+### HALOS survey
+
+`halos-pi4` is reachable as `ssh pi@halos-pi4` over the tailnet — worth
+recording, since Mark had been using the IP. It runs Traefik + Authelia +
+Homarr as core, with containerised SignalK, QuestDB, Grafana, OpenCPN and
+AvNav, each its own systemd unit, config declarative under `/etc/halos/`
+(`hostnames.conf`, `oidc-clients.d/`, `port-registry`, `routing.d/`,
+`traefik-dynamic.d/`) and per-app compose plus prestart hooks under
+`/var/lib/container-apps/`. Direct `docker compose` is deliberately blocked by
+a sentinel env var.
+
+It is architecturally where this repo was already heading — QuestDB as history
+store, containers, reverse proxy plus SSO — and adopting it would retire
+`priorities.md`'s top SignalK/IoT item (move off hand-rolled bash wrappers onto
+declarative config management) outright. What it discards is plumbing; what it
+preserves is the judgments. Caveat: that box is a 2 GB Pi 4 running at ~358 MB
+available, so HALOS implies committing to the HALPI2.
+
+### Left open
+
+SignalK is still down. The retry is carded with everything staged for it.
