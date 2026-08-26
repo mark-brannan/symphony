@@ -2576,6 +2576,33 @@ loaded at startup, so swapping the directory changes nothing until it
 restarts — the fork you just linked is not yet the code that's running, and a
 plugin you think you're testing may be the one you replaced.
 
+A symlinked fork also needs its own `node_modules`. npm never installs
+dependencies *through* the symlink — the pinned registry version in
+`~/.signalk/package.json` is a version string, not an install — so the fork's
+declared deps are only ever present by accident, hoisted by some earlier
+registry install of the same package. Any rebuild of `~/.signalk/node_modules`
+drops them and the plugin fails to start:
+
+```text
+bt-sensors-plugin-sk failed to start: Cannot find module '@naugehyde/node-ble'
+```
+
+Install them inside the fork instead of anywhere near `~/.signalk` — that
+keeps it to a few dozen packages rather than the 1.7 GB tree that OOMs the Pi:
+
+```bash
+cd ~/bt-sensors-plugin-sk
+npm install --omit=dev --ignore-scripts --no-audit --no-fund
+```
+
+`--ignore-scripts` is safe here only because these deps are all pure JS.
+*Verify* — if this finds anything, run `npm rebuild` in the same directory:
+
+```bash
+find ~/bt-sensors-plugin-sk/node_modules -name '*.node'   # expect no output
+```
+
+
 ---
 
 ## When a hook blocks your commit
