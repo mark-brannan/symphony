@@ -1438,3 +1438,45 @@ broken on either side, but B4 (dashboards) and B6 (containerize SignalK,
 drop the docker.sock mount) are exactly the higher-blast-radius changes
 that shouldn't run next to someone else's live session on the same box.
 Left both for a session that confirms the box is clear first.
+
+## 2026-08-26 — symphony-pi npm install failure, and a shared-checkout near-miss
+
+Boat symptom: every SignalK App Store install failed with ENOENT on
+`/home/pi/.signalk/signalk-plugin-watchdog/package.json` — a package nobody
+was installing. Cause: `~/.signalk/package.json` carried
+`"signalk-plugin-watchdog": "file:./node_modules/signalk-plugin-watchdog"`,
+a self-reference. npm packs the file: source, then clears the destination
+before unpacking; source and destination were the same directory, so reify
+aborted and nothing installed. Repointed at the git-tracked source,
+`file:../symphony/plugins/signalk-plugin-watchdog`, and ran a real install:
+clean, `signalk-noaa-space-weather` now 0.21.1 on disk. Server still runs
+0.21.0 in memory; restart deliberately left to Mark.
+
+`npm install --dry-run` exits 0 against the broken entry — it resolves
+without reifying, and the bug is entirely in reify. It is not a valid check.
+Documented in RUNBOOK.md, along with an amendment to the 2026-08-15
+"use a `file:` entry" advice, which is what produced this: the target has to
+be outside `node_modules`.
+
+The larger finding is not about npm. The shared checkout `/home/solace/symphony`
+had ten files of uncommitted work that nobody could account for. Unpicking it:
+
+- Commit `351fdb0` (08:34) was orphaned a minute later by `dc36c63` — same
+  commit message, different content, two sessions committing into one
+  checkout. Its log content had already reached main by another path, so
+  nothing was lost there, but only by luck.
+- The working tree was never brought forward onto `dc36c63`, so most of what
+  looked like edits was stale content. Committing it as-is would have
+  reverted eight commits — 854 deletions, including deleting
+  `reference/distress_monitoring.md` outright and restoring the 08-21 advice
+  to "use the openplotter installer only", which `d040724` reversed on 08-25
+  after that tool took the boat offline for two days.
+- Genuinely uncommitted work was in there too, and is now on main: two
+  hand-written RUNBOOK notes, a round of dev-container plugin upgrades, and
+  two bt-sensors-plugin-sk board cards.
+
+Also: this session and `questdb-connectivity-track-b` independently
+diagnosed the same npm bug and were both about to write to `~/.signalk`.
+Two earlier messages from that session never arrived here; Mark relayed the
+diagnosis by hand. Collision was avoided because that session checked, not
+because anything prevented it.
