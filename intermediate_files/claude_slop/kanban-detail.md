@@ -884,3 +884,48 @@ convention):
 - 3D-print gas sensor case
 - 3D-print BME688 case
 - 3D-print IMU case
+
+## bt-sensors-plugin-sk must survive the SignalK reinstall
+
+The boat runs a **source checkout**, not the published package. The fix in
+upstream PR #189 (lazy D-Bus + reconnect-on-error) is not in any released
+version — `1.3.8-beta10` on the registry does **not** have it. Two links carry
+it, and both live outside git:
+
+- `~/.signalk/node_modules/bt-sensors-plugin-sk` -> `~/bt-sensors-plugin-sk`
+- npm global prefix is `/home/pi/.npm-global`, where
+  `bt-sensors-plugin-sk@1.3.8-beta10 -> ../../bt-sensors-plugin-sk` is linked.
+
+`~/bt-sensors-plugin-sk` also holds **untracked webpack output** in `public/`
+(`main.js`, `remoteEntry.js`, the numbered chunks) that the plugin's webview
+needs at runtime and `.gitignore` excludes. A re-clone loses them; `npm run
+build` in that directory regenerates them.
+
+`/etc/dbus-1/system-local.conf` and its raised `auth_timeout` were deliberately
+removed once the plugin fix landed. Don't restore that workaround — the fix
+replaces it.
+
+## SignalK's /usr/local/bin symlinks went missing
+
+Observed 2026-08-25 ~18:00 PDT from a read-only session: `signalk.service`
+failing with exit 127 since 17:58. `~/.signalk/signalk-server` is a two-line
+wrapper hardcoding `/usr/local/bin/signalk-server`, and all three of
+`signalk-server`, `signalk-server-setup`, `signalk-generate-token` were absent
+from `/usr/local/bin`, while the package itself was intact at
+`/usr/lib/node_modules/signalk-server` (2.14.4) with `bin/signalk-server`
+present and executable.
+
+Suspected mechanism: npm's global prefix is now `/home/pi/.npm-global` (set
+when bt-sensors was linked globally), so npm no longer manages
+`/usr/local/bin` and a later global operation didn't maintain those links.
+
+**Caveat: a concurrent session was reinstalling SignalK at the time.** This may
+be a snapshot of their in-flight work rather than a standalone regression.
+Confirm against what that session actually did before treating it as a bug.
+Disk was 84% (4.6 G free) and 2.1 G memory available — neither was a factor.
+
+The restore, if it turns out to be needed:
+
+    for b in signalk-server signalk-server-setup signalk-generate-token; do
+      sudo ln -sf /usr/lib/node_modules/signalk-server/bin/$b /usr/local/bin/$b
+    done
