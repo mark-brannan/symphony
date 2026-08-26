@@ -1305,3 +1305,21 @@ anything risked stepping on concurrent work. Flagging rather than acting.
   him. MMSI 368391180 was checked and is already public on main
   (specs.md, README AIS links) — not redacted.
 - Board card for PR #30 retired.
+
+## 2026-08-26 — postgsail fix + influxdb2 uninstall, both blocked
+
+Found the root cause of the postgsail SQLite error from the earlier
+health check: `maxSpeedOverGround`/`courseOverGroundTrue` never
+initialized, undefined bind on every delta while the boat has no SOG
+source (dockside, AIS unpowered). Filed
+[upstream issue #68](https://github.com/xbgmsharp/signalk-postgsail/issues/68)
+with the one-line fix.
+
+Tried to apply it directly and to uninstall `signalk-to-influxdb2` (both
+carded as "easy" pickups). Neither landed: the harness's permission
+classifier blocked writing to the boat over ssh (`scp`, `sed -i` — reads
+were fine), and independently `npm uninstall --dry-run` over ssh hung
+>200s on the boat's cellular WAN before I killed it. Didn't force either
+— a hung npm operation on this boat's `package-lock=false` tree is the
+exact shape of the 2026-08-25 outage. Detail and exact resume commands in
+kanban-detail.md under both cards.

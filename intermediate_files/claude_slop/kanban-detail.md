@@ -1072,3 +1072,61 @@ The restore, if it turns out to be needed:
     for b in signalk-server signalk-server-setup signalk-generate-token; do
       sudo ln -sf /usr/lib/node_modules/signalk-server/bin/$b /usr/local/bin/$b
     done
+
+## postgsail SQLite bind fix, blocked on remote write
+
+`signalk-postgsail` 0.6.0's `updateDatabase()` (`~/.signalk/node_modules/
+signalk-postgsail/index.js:476`) throws on every processed delta right now:
+`TypeError: Provided value cannot be bound to SQLite parameter 5`.
+
+Root cause: `maxSpeedOverGround` and `courseOverGroundTrue` are declared
+with bare `var` (index.js:51-52) and never defaulted, unlike
+`windSpeedApparent`/`angleSpeedApparent` two lines below which are
+initialized to `0`. Until a `navigation.speedOverGround` delta arrives —
+this boat's dockside, AIS not powered — both stay `undefined`, and
+`better-sqlite3` rejects binding `undefined`. Fires roughly every 90s,
+matching the plugin's buffer-write cycle; caught internally, so it doesn't
+crash SignalK, just spams the log.
+
+Filed upstream: https://github.com/xbgmsharp/signalk-postgsail/issues/68,
+with the one-line fix (`= 0` on both declarations, matching the existing
+pattern).
+
+**Why it's not applied yet:** this session's remote-write to the boat was
+blocked by the harness's permission classifier on `scp`/`sed -i` over ssh
+(reads were fine). Separately, `npm uninstall --dry-run` in the same
+session hung >200s on the boat's cellular WAN before completing — the
+same binding constraint documented in `containerization_strategy.md` and
+the cellular-WAN board card. Whoever picks this up needs either explicit
+write permission for a boat-touching session, or Mark applying the two-line
+patch directly (`ssh pi@symphony-pi`, then edit
+`~/.signalk/node_modules/signalk-postgsail/index.js` lines 51-52,
+`sudo systemctl restart signalk`). Note this patch lives in `node_modules`
+and will be silently lost on the next `npm install`/plugin upgrade in
+`~/.signalk` — reapply until upstream merges, or track it the way
+`bt-sensors-plugin-sk` tracks its own fix (a source checkout) if it
+recurs often enough to be worth that.
+
+## uninstall signalk-to-influxdb2, blocked on boat WAN
+
+Confirmed dead: InfluxDB was purged 2026-08-25 (disk pressure), and
+`signalk-to-influxdb2`'s `HistoryAPI` throws an unhandled rejection
+(`Cannot read properties of undefined (reading 'filter')`) trying to reach
+it, live-confirmed 2026-08-26 00:30. This is the plugin the "close out the
+QuestDB migration" card already calls out for removal.
+
+Attempted tonight: `cd ~/.signalk && npm uninstall signalk-to-influxdb2
+--dry-run` over ssh — hung past 200s with no output before being killed.
+Matches the documented cellular-WAN binding constraint (`ETIMEDOUT`/
+`EIDLETIMEOUT` failures already logged against this boat's link on
+2026-08-23 and 2026-08-25). Didn't attempt the real uninstall live given
+that — a hung `npm uninstall` on a `package-lock=false` tree is exactly
+the shape of the 2026-08-25 outage (partial tree, npm rollback).
+
+To finish: retry when the boat's on wifi or the cellular link is behaving
+(check with a plain `ping`/small `curl` to npmjs.org first), then:
+`cd ~/.signalk && npm uninstall signalk-to-influxdb2`, remove
+`~/.signalk/plugin-config-data/signalk-to-influxdb2.json`, restart
+signalk, confirm the `HistoryAPI` errors stop in the log, and drop
+`signalk-to-influxdb2` from the repo's `signalk/package.json` (the
+tracked manifest a clean reinstall is built against) in the same commit.
