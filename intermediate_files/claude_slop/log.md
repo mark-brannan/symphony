@@ -1223,3 +1223,34 @@ prompt, tailnet). No open card existed for this — RUNBOOK.md § "The HALOS
 trial Pi (home, not the boat)" already documents it (committed 4dee11c,
 same session as the original verification). Nothing to update there;
 re-verification just confirms it still holds.
+
+## 2026-08-26 — dropped symphony's redundant no-persistent-polling.sh
+Mark asked to "assess whether symphony needs its own copy [of a hook] or
+the dotfiles one covers it" — no literal card for this; matched it to
+dotfiles' CLAUDE.md note that `no-persistent-polling.sh` was hoisted to
+`~/.claude/hooks/` on 2026-08-19 "so it covers every repo." It's wired at
+user scope in `~/.claude/settings.json` on the same matcher
+(`mcp__.*__(send_later|create_trigger)`) symphony's own copy used, so both
+were firing on every call — same deny, doubled — and had already drifted
+(dotfiles' copy gained a fail-closed jq-missing branch and fixed the path
+in its deny messages; symphony's never got either).
+
+Deleted symphony's `.claude/hooks/no-persistent-polling.sh` and its
+settings.json wiring; left CLAUDE.md's mention of the guard in place but
+repointed it at the user-level hook, with one added sentence: without
+dotfiles installed, nothing here enforces the rule mechanically. Mark
+asked explicitly to keep that edit light — a contributor without his
+dotfiles shouldn't trip over an unexplained rewrite.
+
+Pushed straight to main (bf2344d) — under the branch-vs-main line, not a
+branch trigger.
+
+Self-correction, not left for Mark to catch: the first attempt at the
+settings.json edit and the `rm` of the hook file landed in the shared
+checkout (`/home/solace/symphony`) instead of this session's worktree —
+copy-pasted the wrong path. Caught before committing anything;
+`git checkout HEAD -- .claude/hooks/no-persistent-polling.sh` in the
+shared checkout restored the one file touched there, untouched the other
+sessions' unrelated uncommitted work sitting in that checkout, and both
+edits were redone correctly in the worktree. No trace of the slip reached
+the shared checkout or the commit.
