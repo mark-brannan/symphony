@@ -1285,3 +1285,23 @@ pressure, right now, even with InfluxDB and Grafana already off. Didn't
 act on it: a live session (tmux + several ssh pts, one active
 `claude --remote-control symphony-pi`) is already on the box, so stopping
 anything risked stepping on concurrent work. Flagging rather than acting.
+
+## 2026-08-26 — PR #30 landed and closed
+- The draft PR #30 (mislabeled "Docs corrections", actually carrying the
+  DSC/AIS distress-chain material) squash-landed on main as 9f90ebf, then
+  closed with a pointer comment; head branch deleted. Main's branch rules
+  reject merge commits, hence the squash.
+- Conflict resolution: main had rewritten `maintenance/priorities.md` and
+  `reference/node_red_signalk_use_cases.md` into compact form since the
+  branch diverged; kept main's structure and grafted short pointers into
+  `reference/distress_monitoring.md` (new file, landed intact) — the
+  distress-chain boat-install item, the delivery-gap note on the alarm
+  bullet, MOB pointers. `maintenance/log.md`'s 2026-08-19 section gained
+  the four distress bullets; the resurrected "Date unknown" header from
+  the stale branch was dropped to match main.
+- Redaction pass per Mark's call: the plugin author stays unnamed (log
+  entry now "corresponded with the author of…", no verified-his-claims
+  framing) and the census comment no longer attributes the misreading to
+  him. MMSI 368391180 was checked and is already public on main
+  (specs.md, README AIS links) — not redacted.
+- Board card for PR #30 retired.
