@@ -40,3 +40,16 @@ regexes = [
   '''ENC\[AES256_GCM,data:[A-Za-z0-9+/=,_-]+\]''',
   '''age1[0-9a-z]{58}''',
 ]
+
+# signalk-saillogger's key-mapping config names a SignalK data path
+# ("electrical.batteries.279.voltage") whose numeric battery instance ID
+# reads as high-entropy to the generic-api-key rule. Not a secret -- it's a
+# path into SignalK's data model, same shape as every other *Key field in
+# this file.
+[[allowlists]]
+description = "saillogger config: battery instance path, not a secret"
+condition = "AND"
+paths = [
+  '''signalk/plugin-config-data/signalk-saillogger/saillogger_config\.json''',
+]
+regexes = ['''electrical\.batteries\.279\.voltage''']
