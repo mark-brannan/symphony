@@ -1076,6 +1076,60 @@ canboatjs, confirmed live) is unaffected; this only blocks BLE sensor data.
 Next attempt: either retry over a quieter link, or pre-populate `~/.npm/_cacache`
 from a machine with faster internet the way the signalk-server reinstall did.
 
+## Evidence-gathering for upstream PR #189
+
+2026-08-27/28, on Symphony, working toward a merge case for
+[PR #189](https://github.com/naugehyde/bt-sensors-plugin-sk/pull/189) (lazy
+D-Bus + reconnect-on-error, replacing the `auth_timeout` workaround).
+
+**Confirmed:**
+- Deployed `~/bt-sensors-plugin-sk/index.js` matches the PR's diff exactly
+  (`getBluetoothSession`, backoff reconnect, the "Bluetooth D-Bus connection
+  lost, reconnecting…" status text are all present).
+- `/etc/dbus-1/system-local.conf` is gone, as the PR says it should be.
+- SignalK ran 10h+ crash-free under real BLE error load (800
+  `DBusError: Not connected` / 1130 `Unhandled rejection` log lines/24h from
+  `JBDBMS.js` — a separate, still-open BLE-level issue this PR doesn't
+  touch) before this session started poking at it.
+- Live battery data (House Battery 2) flows continuously with fresh
+  timestamps throughout — the plugin works end-to-end on real hardware.
+
+**Three attempts to directly trigger the PR's new reconnect branch, none
+succeeded, none caused lasting damage:**
+1. `systemctl restart bluetooth` — only bounces bluetoothd/BlueZ objects,
+   not the D-Bus system bus socket the plugin's connection lives on. No
+   effect on the plugin's bus connection.
+2. `systemctl restart dbus.service` — bounces the system bus itself.
+   Confirmed prediction: NetworkManager (D-Bus-activated) died with
+   `SIGTERM` and stayed down (`Restart=no`) until manually restarted;
+   SSH/Tailscale connectivity never dropped throughout. Restarted
+   NetworkManager afterward — reassociated eth0/wlan0/wlan9 within ~10s,
+   fully recovered. But the plugin's own bus connection apparently
+   survived this too — no reconnect log line fired.
+3. Identified the plugin's live system-bus fd directly (node pid's fd 39,
+   paired with dbus-daemon's fd 18 via matching adjacent socket inodes —
+   `ss -xp` / `lsof -p <pid> -a -U`) and closed it with
+   `gdb -p <pid> -batch -ex 'call (int)close(39)'`. Fd confirmed closed,
+   SignalK stayed up, battery data kept flowing — but still no reconnect
+   log line. Likely explanation: a raw `close()` syscall via gdb bypasses
+   libuv's own bookkeeping, so Node/dbus-next's event-driven error handling
+   (which expects an OS-level error like `ECONNRESET` from a live peer,
+   not a silently-vanished fd) may never actually observe it the way a
+   real network-level disconnect would.
+
+**Still missing for a fully closed case:** direct proof the PR's own
+error-handler + backoff branch has ever fired and recovered on real
+hardware. What's next to try (not yet attempted): trigger a genuine
+peer-side disconnect instead of a local fd close — e.g. `nft`/`iptables`
+DROP on the dbus socket briefly (won't work, it's AF_UNIX, not
+TCP/netfilter-visible), or send `SIGKILL`/restart directly to the
+`dbus-daemon` PID that's actually serving this connection (not
+`systemctl restart dbus.service`, which is a controlled `SIGTERM` the
+daemon handles gracefully) — a hard kill should generate a real socket
+error on the plugin's end without dragging NetworkManager through another
+death-and-recovery cycle. Handoff prompt for this: see `log.md`'s
+2026-08-28 entry.
+
 ## postgsail SQLite bind fix — done 2026-08-26
 
 Applied and verified on the boat: `maxSpeedOverGround`/`courseOverGroundTrue`

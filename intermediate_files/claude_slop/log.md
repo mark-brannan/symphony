@@ -1480,3 +1480,50 @@ diagnosed the same npm bug and were both about to write to `~/.signalk`.
 Two earlier messages from that session never arrived here; Mark relayed the
 diagnosis by hand. Collision was avoided because that session checked, not
 because anything prevented it.
+
+## 2026-08-28 — PR #189 evidence gathering, live experiments on Symphony
+
+Verified SSH access, confirmed the deployed plugin matches PR #189's diff,
+`auth_timeout` workaround already removed, 10h+ SignalK uptime under real
+BLE error load, live battery data flowing throughout. Detail and the
+attempt log (bluetooth.service restart, dbus.service restart + NetworkManager
+recovery, gdb fd-close) are in `kanban-detail.md` §"Evidence-gathering for
+upstream PR #189" — not duplicated here.
+
+Mark explicitly approved forcing a `dbus.service` restart after being told
+the specific risk (NetworkManager is D-Bus-activated and could die without
+auto-restarting) and the confidence level (moderate, reasoned from config,
+not measured precedent). It happened exactly as predicted; recovered in
+under a minute, fully remote, no lasting damage. Also got explicit
+go-ahead to try a gdb-based fd close after the harness's auto-mode
+classifier blocked the first attempt — that one worked mechanically (fd
+closed clean, no crash) but didn't hit the target code path either.
+
+Net: two service-level restarts and one syscall-level fd close, three
+attempts, zero damage, zero direct proof the PR's reconnect branch has
+ever fired. That's a real gap, not a formality — worth closing before
+leaning on this as the case for merge.
+
+**Handoff for next session** (recommend: Sonnet, low-medium effort — this
+is mechanical, not exploratory; the diagnosis and dead ends are already
+written down):
+
+> On Symphony (`ssh pi@symphony-pi`), read
+> `intermediate_files/claude_slop/kanban-detail.md` § "Evidence-gathering
+> for upstream PR #189" for what's been tried. Find the actual PID
+> currently running `dbus-daemon` (`systemctl show dbus -p MainPID
+> --value` or `pgrep dbus-daemon`) and send it a hard `SIGKILL` (not
+> `systemctl restart dbus.service`, which is a graceful SIGTERM the daemon
+> already handles fine and produces no reconnect signal) — systemd's
+> `dbus.socket` should respawn a fresh `dbus-daemon` on the next
+> connection attempt. Watch `journalctl -u signalk -f` for the plugin's
+> own "Bluetooth D-Bus connection lost, reconnecting in Ns..." line and
+> confirm battery data (`curl localhost:3000/signalk/v1/api/vessels/self/electrical/batteries/5C90/voltage`)
+> resumes after. Also re-check NetworkManager (`systemctl is-active
+> NetworkManager`) afterward and restart it if it died again, same as last
+> time. If this still doesn't trigger the reconnect branch, stop escalating
+> further live-fault-injection attempts and instead draft the PR #189
+> comment from the evidence already gathered (10h+ crash-free under real
+> error load, live data flowing) — that's solid regression evidence even
+> without a direct reconnect-branch trace. Post it only with Mark's
+> go-ahead, per standing orders on outward-facing actions.
