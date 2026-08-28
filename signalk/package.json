@@ -70,7 +70,7 @@
     "signalk-navico-embedder": "^1.6.0",
     "signalk-navico-routes": "^1.0.0",
     "signalk-noaa-sonar-charts": "^1.2.0",
-    "signalk-noaa-space-weather": "^0.29.1",
+    "signalk-noaa-space-weather": "^0.29.2",
     "signalk-notifcation-acker": "^1.0.0",
     "signalk-notification-player": "^2.7.0",
     "signalk-ntfy": "^0.0.7",
