@@ -22,6 +22,14 @@ signalk/plugin-config-data/signalk-postgsail/
 signalk/plugin-config-data/signalk-questdb/
 signalk/plugin-config-data/signalk-restricted-areas/
 signalk/plugin-config-data/tides/
+signalk/plugin-config-data/signalk-logbook/
+signalk/plugin-config-data/signalk-rules/
+signalk/plugin-config-data/signalk-saillogger/
+
+# Node-RED's own generated state: installed-node cache and per-instance id,
+# not configuration -- regenerates from signalk/red/package.json + flows.
+signalk/red/.config.nodes.json
+signalk/red/.config.runtime.json
 
 # per-machine values for the hostvars filter -- see scripts/hostvars_filter.py
 hostvars.local.yaml
