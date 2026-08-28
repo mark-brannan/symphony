@@ -22,9 +22,10 @@ signalk/plugin-config-data/signalk-postgsail/
 signalk/plugin-config-data/signalk-questdb/
 signalk/plugin-config-data/signalk-restricted-areas/
 signalk/plugin-config-data/tides/
-signalk/plugin-config-data/signalk-logbook/
 signalk/plugin-config-data/signalk-rules/
-signalk/plugin-config-data/signalk-saillogger/
+# saillogger_buffer.ndjson is a disposable send queue (has run to 9MB+);
+# saillogger_config.json is real key-mapping config and stays tracked.
+signalk/plugin-config-data/signalk-saillogger/saillogger_buffer.ndjson
 
 # Node-RED's own generated state: installed-node cache and per-instance id,
 # not configuration -- regenerates from signalk/red/package.json + flows.
