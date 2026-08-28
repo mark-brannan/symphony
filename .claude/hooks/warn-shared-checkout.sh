@@ -16,10 +16,17 @@
 # the warning has to be annoying enough not to scroll past, and the risk
 # gate below means it should be rare.
 #
-# PROVISIONAL, not settled (2026-08-27): the specific risk gate -- behind
-# origin/main, or dirty with files this session did not touch -- is a first
-# try. If it warns when it shouldn't, or stays quiet when it should have
-# spoken, change the gate. Do not treat these two conditions as the design.
+# Tuned 2026-08-28: the original "dirty with files this session did not
+# touch" gate actually checked total dirty-path count, full stop -- so it
+# fired on every single write in the shared checkout, including a session's
+# own prior edits from earlier in the same conversation. That is alert
+# fatigue, not signal: a warning that fires on every turn regardless of
+# content trains you to stop reading it, which is the one failure mode this
+# hook exists to prevent. Fix: remember which paths *this session* has
+# already written (a per-session marker file under .git/, cheap and
+# auto-cleaned since .git/ isn't tracked) and only count dirty paths outside
+# that set. A file dirty because of your own last three edits is not a
+# collision risk; a file dirty because someone else touched it is.
 set -euo pipefail
 
 input=$(cat)
@@ -49,10 +56,42 @@ if [ "${behind:-0}" -gt 0 ] 2>/dev/null; then
 "
 fi
 
-# Uncommitted work already sitting here, from whoever else.
-dirty=$(git -C "$toplevel" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-if [ "${dirty:-0}" -gt 0 ] 2>/dev/null; then
-  reasons="$reasons  - $dirty uncommitted path(s) already in the tree. If you did not put them there, another session (or Mark) did -- read them before committing anything.
+# Uncommitted work already sitting here, from whoever else -- but not work
+# this same session already put there itself. Track paths this session has
+# written across turns in a marker file under .git/ (never shared with
+# other checkouts or sessions), and only flag dirty paths outside that set.
+session_id=$(printf '%s' "$input" | jq -r '.session_id // ""')
+touched_file=""
+if [ -n "$session_id" ]; then
+  touched_file="$toplevel/.git/claude-shared-checkout-touched.$session_id"
+  new_path=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+  if [ -n "$new_path" ]; then
+    case "$new_path" in
+      "$toplevel"/*) rel_path="${new_path#"$toplevel"/}" ;;
+      *) rel_path="$new_path" ;;
+    esac
+    printf '%s\n' "$rel_path" >>"$touched_file"
+  fi
+fi
+
+foreign_dirty=0
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  path="${line#???}"
+  # Rename/copy lines read "old -> new"; the working-tree path is the new one.
+  case "$path" in
+    *' -> '*) path="${path#*' -> '}" ;;
+  esac
+  if [ -n "$touched_file" ] && [ -f "$touched_file" ] && grep -qxF "$path" "$touched_file"; then
+    continue
+  fi
+  foreign_dirty=$((foreign_dirty + 1))
+done <<EOF
+$(git -C "$toplevel" status --porcelain 2>/dev/null)
+EOF
+
+if [ "$foreign_dirty" -gt 0 ]; then
+  reasons="$reasons  - $foreign_dirty uncommitted path(s) in the tree that this session didn't put there. If you did not put them there, another session (or Mark) did -- read them before committing anything.
 "
 fi
 
