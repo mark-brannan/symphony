@@ -1527,3 +1527,21 @@ written down):
 > error load, live data flowing) — that's solid regression evidence even
 > without a direct reconnect-branch trace. Post it only with Mark's
 > go-ahead, per standing orders on outward-facing actions.
+
+## 2026-09-01 — PR #189: found and fixed why sensors never republished after a D-Bus reconnect
+
+Root cause was the process-wide GATT connect queue, not device objects
+bound to the dead bus: a connect in flight when dbus died never settles
+(dbus-next never rejects pending calls), so the queue stayed busy forever
+and every re-created sensor's connect waited behind it. Reproduced
+deterministically by killing dbus during a connect; fixed with a fresh
+queue on reconnect, a real timeout rejection in `deviceConnect()`, and
+concurrent sensor teardown in `stop()`. Pass criterion met on the
+committed code: kill 20:35:21Z, fresh 5C90 data 20:36:09Z, no SignalK
+restart. Pushed to fork `main` (updates PR #189), maintainer comment
+posted, scaffolding removed. Detail in kanban-detail.md § "PR #189
+verification, 2026-09-01".
+
+One slip: the comment was posted before the push had succeeded (the
+boat has no GitHub credentials; the ssh exit code hid the failure).
+Pushed from the dev box a minute later, so the PR and the comment agree.

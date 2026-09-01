@@ -1271,22 +1271,36 @@ Arm `systemd-run --on-active=8min` to restart dbus/NM/signalk as a net.
 - Also resets `plugin.stopped` if `start()` throws, so a failed attempt
   isn't silently the last one.
 
-**The blocker.** After the fix the log is exactly right — one error, one
-`reconnecting in 3s (attempt 1)`, one `reconnected after 1 attempt(s)` —
-and BlueZ is confirmed `Discovering: true`. But the battery timestamp stays
-frozen at its pre-kill value for 8+ minutes. The bus reconnects; the sensors
-never republish. Only a full `systemctl restart signalk` restores data.
+**Diagnosed and fixed 2026-09-01 (later session), commit `aaadc2a`.**
+The reconnect path came back with a clean log and BlueZ discovering, but
+no GATT sensor ever republished. Cause: every GATT connect goes through
+one process-wide serial queue (`connectQueue` in `BTSensor.js`), and
+dbus-next never settles a method call that was pending when the
+connection died. A connect action in flight at the moment of the kill
+stayed `pending=true` for the life of the process and every connect the
+re-created sensors queued sat behind it. Deterministic repro: tail the
+journal for the sensor's connect and `kill -9` dbus on it — the earlier
+"kill between polls" runs passed by luck (kill 20:13:03Z, data 20:14:59Z)
+and only the mid-connect kill wedged (kill 20:19:32Z, frozen at
+20:18:33Z until the healer). The fix: fresh queue before replaying
+`start()`; `deviceConnect()`'s timeout rejects instead of throwing from
+inside the timer callback (an uncaught exception, not a rejection — it
+stalled the queue the same way); `plugin.stop()` stops sensors
+concurrently so every sensor drops its timers even when an earlier one
+hangs disconnecting from a dead bus. Verified on the committed code with
+the mid-connect kill: kill 20:35:21Z, reconnect logged 20:35:35Z, first
+fresh 5C90 values 20:36:09Z, polling normally after, no SignalK restart.
 
-So the PR turns a crash into a **silent no-data state**. That is arguably
-worse than crashing, since nothing surfaces it. Not mergeable as-is, and the
-"10h+ crash-free" evidence does not speak to this at all.
+Pre-existing and untouched: `Response timed out (+30s)` / `DBusError: Not
+connected` from `JBDBMS.js` run 8–63/hour in steady state over the prior
+24 h (BMS link flakiness); the `preparePath ... reading 'substring'`
+TypeError (JBDBMS protectionStatus path) and the influxdb2 `HistoryAPI`
+`reading 'filter'` rejection both predate every kill. The two Victron
+advertisement devices time out in `waitDevice` on a plain restart too.
 
-**Not yet diagnosed:** why re-instantiated sensors don't reattach. Suspect
-the GATT/`BTSensor` lifecycle — `sensorMap.clear()` plus a fresh adapter
-may leave device objects bound to the old bus, or discovery may re-find
-devices without re-triggering `instantiateSensor`.
-
-**Boat state:** left on branch `verify-reconnect-logging` (strictly better
-than PR head — same behaviour, no error storm, visible logging). All test
-scaffolding removed: no `system-local.conf`, no dbus/signalk drop-ins, no
-timers. Services active, data flowing.
+**Landed:** fork `main` and `verify-reconnect-logging` both at `aaadc2a`
+(PR #189 now carries all four commits); maintainer comment posted with
+the repro, harness, diagnosis and timestamps. Boat left on
+`verify-reconnect-logging` at `aaadc2a`, all scaffolding removed (no dbus
+drop-in, `Restart=no`, no healer timer, no `/tmp` files), services
+active, data flowing.

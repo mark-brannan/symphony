@@ -366,3 +366,8 @@
   and Telegraf data all along; the earlier "QuestDB holds zero tables"
   finding was about a different plugin on the dev container, not the boat.
 - Applied and verified the postgsail SQLite-bind fix on the boat.
+
+## 2026-09-01
+- Fixed bt-sensors-plugin-sk so sensor data resumes after a D-Bus drop
+  without a SignalK restart; verified on the boat, pushed to the fork and
+  upstream PR #189.
