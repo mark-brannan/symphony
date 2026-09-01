@@ -664,12 +664,17 @@ ssh pi@symphony-halos 'nmcli -t -f NAME,TYPE con show | grep -E "^(Symphony|Wire
 Expect all three profiles and SSID `SignalK`.
 
 ```bash
-ssh pi@symphony-halos 'D=/var/lib/container-apps/marine-signalk-server-container/data/data; python3 -c "import json; print(len(json.load(open(\"$D/package.json\"))[\"dependencies\"]))"; ls $D/local-plugins; ls $D/plugin-config-data/*.json | wc -l; curl -s localhost:3000/skServer/plugins | python3 -c "import json,sys; p=json.load(sys.stdin); print(len(p), \"plugins loaded\")"'
+diff <(ssh pi@symphony-pi 'python3 -c "import json; print(*sorted(json.load(open(\"/home/pi/.signalk/package.json\"))[\"dependencies\"]), sep=\"\\n\")"') \
+     <(ssh pi@symphony-halos 'python3 -c "import json; print(*sorted(json.load(open(\"/var/lib/container-apps/marine-signalk-server-container/data/data/package.json\"))[\"dependencies\"]), sep=\"\\n\")"')
+diff <(ssh pi@symphony-pi 'ls /home/pi/.signalk/plugin-config-data/*.json | xargs -n1 basename') \
+     <(ssh pi@symphony-halos 'ls /var/lib/container-apps/marine-signalk-server-container/data/data/plugin-config-data/*.json | xargs -n1 basename')
+ssh pi@symphony-halos 'ls /var/lib/container-apps/marine-signalk-server-container/data/data/local-plugins; curl -s localhost:3000/skServer/plugins | python3 -c "import json,sys; print(len(json.load(sys.stdin)), \"plugins loaded\")"'
 ```
 
-Expect a dependency count near the boat's (124), `bt-sensors-plugin-sk` and
-`signalk-plugin-watchdog` under `local-plugins`, about 90 config files, and a
-loaded-plugin count in the same range.
+Expect both `diff`s empty (the boat card is the reference, whatever it holds
+today), `bt-sensors-plugin-sk` and `signalk-plugin-watchdog` under
+`local-plugins`, and a loaded-plugin count close to the number of config
+files.
 
 ```bash
 ssh pi@symphony-halos 'systemctl is-active telegraf chrony boat-heartbeat.timer signalk-ble-check.timer marine-signalk-server-container marine-questdb-container marine-grafana-container halos-core-containers; systemctl is-enabled marine-avnav-container marine-opencpn-container marine-influxdb-container; journalctl -t boat-heartbeat -n 1 --no-pager; curl -s "localhost:9000/exec?query=select%20count()%20from%20cpu" | head -c 80; curl -s -o /dev/null -w "%{http_code}\n" localhost:8090/v1/health'
