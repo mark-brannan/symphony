@@ -38,6 +38,31 @@ host-layer Ansible, monitoring plumbing) and **defer work that only pays
 in one** (more Dex/Caddy glue pays only in C/D; HALOS-specific config
 pays only in A/B).
 
+## Plan shift, 2026-09-01: the trial moves to the boat
+
+Track A no longer stays at home. The HALOS card built on the spare Pi 4
+goes into the boat Pi for a live trial; the boat card comes home as the
+rollback. What that changes here:
+
+- **A2–A4 happen aboard, on real buses and real batteries.** The home box
+  is a 2 GB Pi 4 and cannot answer the memory question; the boat Pi has
+  4 GB.
+- **B1 is done.** InfluxDB on the boat was exported on 2026-08-19 and its
+  store purged on 2026-08-25. The export lives only on the boat card and
+  comes home with it.
+- **B2, B3 and the Telegraf dual-write are done** — QuestDB is the boat's
+  only history store. B4 (dashboards) and B5's cleanup remain. B6 and B7
+  are skipped if HALOS is adopted: HALOS *is* the containerized SignalK
+  and the front door.
+- **The quadrant question gets answered by the trial**, not before it.
+
+The state of both cards, the decisions (QuestDB only; HALOS SSO and TLS as
+shipped; external-mode plugins only) and the diff table are in
+[system_map.md](system_map.md). The build plan is in
+`intermediate_files/claude_slop/halos-swap-plan.md`; the swap procedure is
+`RUNBOOK.md` → "Swapping the HALOS card onto the boat". Everything below
+this line predates the shift and is kept for its reasoning.
+
 ## Critical review: which prior conclusions survive
 
 Re-examined per Mark's request, taking nothing in

@@ -1553,3 +1553,30 @@ comment to one line (`9451fff`, on fork main and PR #189), and re-ran the
 repro in order on the boat: pre-PR code logs one uncaught EPIPE and 404s;
 PR code retries with backoff and reconnects by itself once the file is
 removed. Scaffolding removed, data flowing 21:08Z.
+
+## 2026-09-01 — HALOS boat-swap plan (Fable planning session)
+
+Planned the accelerated trial: the HALOS card built at home goes into the
+boat Pi; the boat card is the rollback. Measured both boxes live and read
+the halos-org sources through a subagent. Landed: `reference/system_map.md`
+(both cards, containers, SSH strings, diff table, three decisions),
+`RUNBOOK.md` → "Swapping the HALOS card onto the boat" (verification per
+step, rollback), `scripts/dns_cutover.sh` (read path tested against the live
+zone; `set` untested), `intermediate_files/claude_slop/halos-swap-plan.md`
+(ordered build plan B1–B6, parallel items P1–P7 with prompts), and a plan
+shift note at the top of `containerization_strategy.md`.
+
+Findings that changed the plan: the HALOS SignalK container is privileged,
+host-network, mounts `/dev` and `/run` (BlueZ D-Bus reachable) but its
+`nsswitch` has no mDNS (Victron's `venus.local` must become the Cerbo's IP,
+192.168.8.107); its `package.json` lists one plugin against ~80 loose
+installs (prune trap); the halos card lacks every PiCAN-M overlay, `can0`
+bring-up, the memory cgroup (container limits unenforced) and has regdom
+GB; the spare Pi is 2 GB and swapping 1.5 GB. InfluxDB is already gone from
+the boat (purged 08-25, export only on the boat card), so QuestDB-only is
+the decision, not a migration. healthchecks.io is pinged by
+`boat-heartbeat.timer`, not a plugin. Pushover = the heartbeat's escalation.
+
+Self-correction: a probe printed the Victron plugin's VRM credentials into
+this session's transcript (nested `VRM.password` slipped past a top-level
+filter). Told Mark; rotation is his call.
