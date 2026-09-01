@@ -1545,3 +1545,11 @@ verification, 2026-09-01".
 One slip: the comment was posted before the push had succeeded (the
 boat has no GitHub credentials; the ssh exit code hid the failure).
 Pushed from the dev box a minute later, so the PR and the comment agree.
+
+Correction, same day: Mark rejected the PR comment and the code comments as
+wordy and obviously AI. Replaced the comment with bare repro steps
+(auth_timeout 20 ms in `/etc/dbus-1/system-local.conf`), trimmed every
+comment to one line (`9451fff`, on fork main and PR #189), and re-ran the
+repro in order on the boat: pre-PR code logs one uncaught EPIPE and 404s;
+PR code retries with backoff and reconnects by itself once the file is
+removed. Scaffolding removed, data flowing 21:08Z.
