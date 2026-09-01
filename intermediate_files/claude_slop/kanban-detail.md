@@ -1220,3 +1220,73 @@ was using the box (see above); this is exactly the kind of npm-tree
 mutation that shouldn't run next to someone else's app-store install.
 Confirm afterward with a `npm install --dry-run` in `~/.signalk` that it
 resolves cleanly.
+
+## PR #189 verification, 2026-09-01 — the reconnect branch fires but does not recover
+
+Reproduced the bug, verified the fix's detection path, found two real
+defects in the PR, fixed both, and then established that **the PR still
+does not restore sensor data after a D-Bus drop.**
+
+**Working repro of the original bug** (answers the maintainer's question):
+`/etc/dbus-1/system-local.conf` with `<limit name="auth_timeout">20</limit>`,
+`systemctl reload dbus`, restart SignalK → `electrical/batteries/5C90`
+404s, plugin mute. At 1000ms and 100ms the handshake still wins; 20ms is
+reliable. Also reproduces off-boat against a private `dbus-daemon` with no
+BLE hardware — see the PR comment draft.
+
+Note the plugin uses **`@jellybrick/dbus-next`** (a fork, via
+`@naugehyde/node-ble`), not upstream `dbus-next`.
+
+**Why three earlier attempts read as "the branch never fired":** it logs
+nowhere observable. `index.js:233` used `plugin.debug` (dark without
+`DEBUG=bt-sensors-plugin-sk`) and the backoff used only `setStatusText`
+(admin UI, not the journal). Absence of a journal line was never evidence.
+Fixed on branch `verify-reconnect-logging`: connection loss, each retry and
+successful reconnect now log at error level.
+
+**The working fault-injection harness** (the thing three sessions failed to
+find). `systemctl restart bluetooth`, `systemctl restart dbus.service` and a
+gdb fd-close all fail to trigger it. What works:
+1. Drop-in `/etc/systemd/system/dbus.service.d/99-test-restart.conf` with
+   `Restart=always`, `RestartSec=1`, `daemon-reload`. **Required** — not
+   just for safety: with stock `Restart=no` the plugin retries against a bus
+   that never returns, so only detection can be observed, never recovery.
+2. `sudo kill -9 $(systemctl show dbus -p MainPID --value)`.
+3. dbus respawns in ~1s. NetworkManager dies (D-Bus-activated, `Restart=no`)
+   — `systemctl start NetworkManager` afterwards; recovers in ~10s.
+   SSH/Tailscale are unaffected throughout.
+Arm `systemd-run --on-active=8min` to restart dbus/NM/signalk as a net.
+
+**Two defects found and fixed** (branch `verify-reconnect-logging`, commit
+`7282ae3`):
+- A dying bus emits once *per queued write*, not once. Every error called
+  `scheduleBluetoothReconnect()` → restart loop, ~170 errors/min. Now only
+  the session still held in `btSession` may drive a reconnect; replaced
+  sessions are detached and ignored. Measured: 170 errors → 1.
+- `plugin.start()` clears `sensorMap` but **not** the discovery, progress
+  and device-health timers — only `plugin.stop()` does. Replaying `start()`
+  alone hits `!discoveryIntervalID`, finds the stale id set, and never
+  restarts discovery. Now tears down first, bounded at 10s since a dead bus
+  can hang `stop()`.
+- Also resets `plugin.stopped` if `start()` throws, so a failed attempt
+  isn't silently the last one.
+
+**The blocker.** After the fix the log is exactly right — one error, one
+`reconnecting in 3s (attempt 1)`, one `reconnected after 1 attempt(s)` —
+and BlueZ is confirmed `Discovering: true`. But the battery timestamp stays
+frozen at its pre-kill value for 8+ minutes. The bus reconnects; the sensors
+never republish. Only a full `systemctl restart signalk` restores data.
+
+So the PR turns a crash into a **silent no-data state**. That is arguably
+worse than crashing, since nothing surfaces it. Not mergeable as-is, and the
+"10h+ crash-free" evidence does not speak to this at all.
+
+**Not yet diagnosed:** why re-instantiated sensors don't reattach. Suspect
+the GATT/`BTSensor` lifecycle — `sensorMap.clear()` plus a fresh adapter
+may leave device objects bound to the old bus, or discovery may re-find
+devices without re-triggering `instantiateSensor`.
+
+**Boat state:** left on branch `verify-reconnect-logging` (strictly better
+than PR head — same behaviour, no error storm, visible logging). All test
+scaffolding removed: no `system-local.conf`, no dbus/signalk drop-ins, no
+timers. Services active, data flowing.
