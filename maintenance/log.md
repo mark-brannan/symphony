@@ -376,3 +376,8 @@
 - Fixed bt-sensors-plugin-sk so sensor data resumes after a D-Bus drop
   without a SignalK restart; verified on the boat, pushed to the fork and
   upstream PR #189.
+
+## 2026-09-02
+- Landed the HALOS card-swap procedure, its check scripts and the host
+  override files (PR #33). The bench card passed every preflight check
+  after a reboot with the full stack running.

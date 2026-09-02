@@ -1801,3 +1801,21 @@ stopped; one session on that box at a time from now on. The boat's heartbeat
 had been pinging `/fail` for a week on two dead units; cleared. Pre-existing
 boat issues found and left for Mark: Cerbo MQTT dead, position from a fixed
 plugin, QuestDB pegged with load ~12.
+
+## 2026-09-02 — PR #33 landed; bench card preflight green (session pr33-comments-merge-33902c)
+
+Answered and resolved all 13 review threads on PR #33 (shellcheck, the ble
+ok-line, the 60 s vs 150 s healthcheck numbers, the two verbatim-block
+threads), then squash-merged it as c8bbbb5. #35 landed into the branch
+mid-session; rebased onto it. First end-to-end preflight against the bench
+card found three card-side problems, none of them script bugs:
+`systemd-networkd-wait-online` enabled that morning by a session and failing
+every boot, the removed InfluxDB app's unit still starting and failing, and
+three plugin diffs that are image facts (allow-listed). Fixed on the card,
+recorded in `host/halos/README.md`. `pi` cannot run docker on HALOS, so the
+#35 runbook check now says `sudo`, and the preflight reads gid 988 from
+`/proc`. Soak with QuestDB and Grafana held on zram (load 1.1, paging
+~250 MB/min); rebooted once, every preflight line ok at 10:26Z. Dispatch
+prompt for swap day in `dispatch-halos-swap-day.md`; the handoff file is
+deleted, its results are in `halos-swap-execution-2026-09-02.md`. Left for
+Mark: pypilot, the Cerbo, the swap day itself (cards).
