@@ -1942,3 +1942,27 @@ utmp still makes `uptime` claim 13 users — both clear on reboot.
 
 QuestDB's wedge still has no root cause. No OOM, no throttle at the time; it
 stopped logging at 07:01:25Z and spun. It could recur on swap day.
+
+### Same session — where the remaining journal traffic comes from
+
+After disabling `pypilot_web`, a clean per-unit count over 80 s reads
+**146 lines/min**, down from 543k/day (≈377/min average, with pypilot_web
+peaking at 720/min on its own). A first attempt via `journalctl --no-pager |
+wc -l` gave 435/min and was wrong — tailscaled logs every ssh command
+verbatim, so that method counts the measuring session's own traffic. Use a
+`--since` window with a per-unit breakdown, not a whole-journal line count.
+
+88 % of what is left is one thing, and it is **by design, not a fault**:
+`openplotter-i2c-read.service` is `Restart=always` / `RestartSec=3` around a
+program that reads the sensors once and exits cleanly (`Result=success`,
+`ExecMainStatus=0`). OpenPlotter implements its i2c polling loop as a systemd
+restart loop — 240,833 restarts in 12 days uptime, ≈13.9/min, each cycle also
+opening a `sudo` session for root. That produces five `init.scope` lines plus
+its own output every three seconds forever. Do not "fix" it by disabling it:
+it is how the BME680 and the other i2c sensors get read.
+
+It does mean the journal will keep growing at a fixed floor no matter what
+else is tidied, which is an argument for Mark's open `SystemMaxUse` card
+rather than for touching the service. If the dedicated BME680 plugin ever
+takes over (the open "BME680 sensor ownership" card), this service and its
+traffic go with it.
