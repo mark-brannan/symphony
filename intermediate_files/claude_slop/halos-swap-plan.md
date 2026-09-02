@@ -1,5 +1,8 @@
 # HALOS card build plan and work breakdown — 2026-09-01
 
+> **Plan v1.** What was actually done on the card, as literal commands and one-line facts, is in [halos-build-v1-asbuilt.md](halos-build-v1-asbuilt.md). A rebuild (fresh card, HALPI2, Trixie, Ansible) is plan v2 and gets its own as-built, written step by step as it runs, not at wrap-up.
+
+
 Goal: get the HALOS card (bench Pi 4 at home, `ssh pi@192.168.0.193`,
 tailnet `halos-pi4`) ready to swap into the boat Pi. What runs where:
 `reference/system_map.md`. The at-boat procedure: `RUNBOOK.md` →
