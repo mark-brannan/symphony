@@ -6,6 +6,45 @@ tailnet `halos-pi4`) ready to swap into the boat Pi. What runs where:
 "Swapping the HALOS card onto the boat". Facts below were measured on both
 boxes on 2026-09-01.
 
+## Corrections from execution, 2026-09-02
+
+Measured while doing the items below; the item text is left as planned and
+these override it. Evidence: `halos-swap-execution-2026-09-02.md` and
+`halos-b3-findings-2026-09-02.md`.
+
+- **B1a** needs `i2c-dev` loaded too: `dtparam=i2c_arm=on` alone gives no
+  `/dev/i2c-1`. Persist it in `/etc/modules-load.d/`.
+- **B2a/B2b** the boat's client profile is the keyfile `Wi-Fi connection 1.nmconnection`
+  with `id=Symphony`; the hotspot keyfile is `OpenPlotter-Hotspot.nmconnection`
+  (`id=SignalK-Hotspot`). All three keyfiles are in sops as
+  `nm_symphony_nmconnection`, `nm_symphony_5g_nmconnection`,
+  `nm_signalk_hotspot_nmconnection` — install from there, no boat read needed.
+- **B2c** `boat_domain` in sops *is* the apex (`symphony.dark-star-llc.com`),
+  so the literal `symphony.<boat-domain>` line is wrong. HALOS's canonical
+  name is the *first* entry of `/etc/halos/hostnames.conf`; the order that
+  works is `${fqdn}`, `${hostname}.local`, `${domain}`.
+- **B3c** the HALOS image has no compiler and `docker exec` installs get
+  killed by the unit; the working recipe (throwaway `node:24-bookworm`
+  container writing into `$D`, named-package rebuilds, under `systemd-run`)
+  is in `halos-b3-findings-2026-09-02.md`. `signalk-notification-player` is
+  a fourth expected-disabled plugin (no audio in the image).
+- **B3e (new)** HALOS's container healthcheck (60 s start window, 10 s
+  timeout) loses to a 3–4 min cold start and autoheal restarts the server
+  every ~3 min. Fix: the override files in `host/halos/`, installed via a
+  systemd drop-in, never by editing the package-owned compose file.
+- **B4b** `/etc/boat-heartbeat.json` on the HALOS card points at a second
+  healthchecks.io check (`SignalK Symphony (halos card)`) so two cards never
+  ping one check. `host/install.sh` must come from PR #34's branch.
+- **B4c** needs a `.env` (copy of `.env.example`) in the checkout for
+  `docker compose` to accept the project file.
+- **B6** the 2 GB bench cannot run SignalK plus QuestDB and Grafana; a 1 GB
+  zram swap (`systemd-zram-generator`, on the card) makes a short soak
+  possible. The boat's 4 GB is the real test.
+- **B5a** verified: `/` → SignalK, `/ca/` → CA download; `/sso/` still to be
+  confirmed as Authelia.
+- **Precondition** the boat router now has a DHCP reservation for the Cerbo
+  (192.168.8.107).
+
 ## Decisions for the trial
 
 - **History: QuestDB only.** Both cards run QuestDB 10 on the same localhost

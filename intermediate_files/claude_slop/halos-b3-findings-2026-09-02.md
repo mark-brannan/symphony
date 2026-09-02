@@ -333,3 +333,289 @@ inevitable consequence of B3a copying the boat's state wholesale, and it is
 another instance of the "the boat is not golden" problem: the trial will
 exercise boat-pinned plugin versions rather than the set HALOS tests.
 Worth a deliberate decision later; not a swap blocker.
+
+---
+
+## Session `handoff-halos-b3-62a913-a6`, 2026-09-02 ~06:45–07:00 UTC
+
+Successor to the B3 session, working the handoff's items 2 and 3.
+
+### Change made: stopped the `homarr` container
+
+Found the staging Pi 12 min after Mark's ~07:40 BST power-cycle at **270 MB
+available, 1124 MB swap in use, actively paging** (`pswpin` 1174243 /
+`pswpout` 1955669).
+
+Cause: **the reboot undid the stops.** `homarr` was running again as part of
+`halos-core-containers.service` (Traefik, Authelia, Homarr), costing ~195 MB
+(`next-server` 166 MB + `tasks.cjs` 28 MB). This is exactly the trap the
+project CLAUDE.md records — a `stop` is deliberately not a `disable`, so it
+does not survive a reboot. **Any session power-cycling this box must re-stop
+the heavy units afterwards.**
+
+Action: `docker stop homarr` (not the systemd unit — that would also stop
+Traefik and Authelia). Result: **534 MB available, swap 1124 -> 651 MB and
+draining.** `opencpn`, `avnav`, `questdb` and `grafana` were already not
+running.
+
+### Confirmed: the watchdog's stray config file is gone
+
+`plugin-config-data/` holds `plugin-watchdog.json` (the live config, matching
+the real plugin id) and a `plugin-watchdog/` data dir. The inert
+`signalk-plugin-watchdog.json` is **deleted** — loose end 1 in the preflight
+is closed. Live config:
+
+    {"enabled": true, "configuration": {"checkIntervalSeconds": 60,
+     "graceSeconds": 600, "stallSeconds": 0,
+     "expectPlugins": ["bt-sensors-plugin-sk"]}}
+
+`plugin-watchdog/known-producers.json` is dated Aug 26 — **not** evidence
+either way: `saveState()` only writes when the producer set changes.
+
+### Confirmed: exactly one plugin fails to start
+
+From the container log, filtering the `can0` retry spam:
+
+- `signalk-instrument-light-plugin failed to start: Could not locate the
+  bindings file` — the one expected failure. Leave it.
+- Not failures, but noted: `i2c-reader: devices config is missing`;
+  `WARNING: found multiple copies of plugin with id signalk-to-noforeignland`;
+  `signalk-plugin-internet-speed` throws an unhandled rejection because the
+  `speedtest` binary is absent from the image.
+
+### Measured: plugin totals (handoff item 3)
+
+Authenticated `GET /skServer/plugins` as `captain` (unauthenticated gives
+401; `allow_readonly: true` covers the *data* API only, not `/skServer`):
+
+- **120 plugins present, 63 enabled.** The handoff expected ~118 / ~66; the
+  shortfall is the three plugins B3c deliberately disabled plus
+  `signalk-notification-player`. Nothing unaccounted for.
+- `plugin-watchdog` v0.1.0 (`packageName` `signalk-plugin-watchdog`) is
+  **present and enabled**, as is `bt-sensors-plugin-sk` v1.3.8-beta11.
+
+**`statusMessage` on this endpoint is not usable as evidence.** Only 2 of the
+63 enabled plugins carry the field at all, and both carry `''`. It is not the
+case that 61 plugins are dead; the list endpoint simply does not surface live
+plugin status on this server version. `/skServer/providerStatus` does not
+exist here either. Do not read an empty `statusMessage` as "did not start" —
+this session briefly did, and was wrong.
+
+### Corrected: the healthcheck restart loop is fixed, not ongoing
+
+A `docker ps` reading of "Up About a minute" at ~07:14 UTC looked like the
+~3-min loop continuing. It was not. Evidence:
+
+- `autoheal`'s last restart of the container was **06:45:26 UTC** and it has
+  not fired since.
+- `docker inspect`: `StartedAt 07:12:50Z`, `ExitCode 0`, `RestartCount 0`,
+  `Health.Status healthy`, `Health.FailingStreak 0`.
+- The live healthcheck is now
+  `curl -sf http://127.0.0.1:3000/signalk`, **interval 30 s, timeout 30 s,
+  start_period 900 s, retries 3**.
+
+So the 07:12:50 start is the `symphony.override.yml` drop-in from session
+`symphony-pr-33-review-601c06-0a` being applied, not another autoheal kill.
+That override supersedes the B3 handoff's "do not pre-edit the healthcheck"
+instruction: the handoff's objection was that an `apt upgrade` silently
+reverts a package-managed compose file, and a systemd drop-in plus override
+file is not subject to that. No objection from this session.
+
+### Still open at the time of writing
+
+- Watchdog **running** state (handoff item 2). Still unconfirmed, but now
+  testable: `graceSeconds` is 600 and SignalK started cleanly at 07:12:50Z,
+  so if the watchdog is ticking it must log
+  `ALERT: plugin bt-sensors-plugin-sk enabled but has published no deltas`
+  at about **07:22:50Z** (no BT sensors are in range at home). Absence of
+  that line after ~07:23 is real evidence the plugin is not running; before
+  it, absence proves nothing.
+- The i2c container-access test (handoff item 1) remains blocked on Mark
+  wiring the BME680.
+
+### Coordination
+
+Messaged `symphony-pr-33-review-601c06-0a` twice; the first did not arrive.
+Staging-box work parked pending their reply, to avoid two sessions bouncing
+SignalK and each misreading the other's restart as the healthcheck loop.
+
+### CONFIRMED DEFECT: the SignalK container cannot open `/dev/i2c-1`
+
+The handoff called this "the most likely failure" and expected it to need a
+sensor on the bus. It does not — the permission check fails before any
+hardware is touched, so this was provable at home, today.
+
+Measured on the card:
+
+    host:      i2c:x:988:pi          /dev/i2c-1 -> crw-rw---- 1 0 988
+    container: user=node uid=1000, privileged=true, group_add=["960","4"]
+               groups=node,4(adm),20(dialout),960,989(spi),990(i2c),991(docker)
+    result:    PermissionError: [Errno 13] Permission denied: '/dev/i2c-1'
+
+Root cause, and the reason it looks fine at a glance: **the container image
+has its own `i2c` group at gid 990, and the host's is gid 988.** The `node`
+user *is* in a group called `i2c` inside the container, which reads as
+correct in `id` output and is worthless — DAC on the bind-mounted host device
+node is checked against the host gid 988, which nothing grants. `group_add`
+supplies 960 and 4 (`adm`); neither is 988. `privileged: true` does not
+rescue it, because the process runs as non-root `node` and so holds no
+`CAP_DAC_OVERRIDE`.
+
+This is precisely the audio-gid bug again (host `audio` gid 29 ungranted),
+one device along.
+
+**Consequence if shipped as-is:** the BME680 plugin and `i2c-reader` will
+find nothing on the boat, and — as B1a already showed with the missing
+`i2c-dev` module — the failure is silent. `i2c-reader` currently logs only
+"devices config is missing", which would mask this.
+
+**Proposed fix** (not applied — see below): add the host i2c gid to the
+override the PR #33 session already established, listing all three gids
+explicitly because compose list-merge semantics are not worth betting on:
+
+    services:
+      signalk-server:
+        group_add: ["4", "960", "988"]
+
+in `/etc/container-apps/marine-signalk-server-container/symphony.override.yml`,
+whose source of truth is `host/halos/` on PR #33. The gid travels with the
+card, so 988 stays correct on the boat. Verify with the same one-liner:
+`docker exec signalk-server python3 -c "open('/dev/i2c-1')"` — silence is a
+pass.
+
+Not applied by this session because the override file and its PR are owned by
+`symphony-pr-33-review-601c06-0a`, and applying it needs a unit restart while
+that session is actively restarting the unit (see below).
+
+### Another session is actively restarting the SignalK unit
+
+`marine-signalk-server-container.service` restarted at 07:12:50Z and again at
+07:15:59Z. This is **not** the autoheal loop: autoheal has fired nothing since
+06:45:26Z, `RestartCount` is 0, and the journal shows a clean
+`Deactivated successfully` / `Stopped` / `Starting` cycle with exit code 0 —
+the signature of a deliberate `systemctl restart`, not a health kill.
+
+Two consequences:
+- The "correction" recorded above — that the loop was fixed — was itself
+  premature. The honest statement is narrower: **autoheal has not restarted
+  the container since the override went in at 07:12**, which is consistent
+  with the fix working but is not yet a clean observation, because a second
+  session keeps bouncing the unit.
+- **Handoff item 2 (is `plugin-watchdog` running?) cannot be answered while
+  this continues.** The test is that the watchdog must log
+  `ALERT: plugin bt-sensors-plugin-sk ...` 600 s after startup; every restart
+  resets that clock, and nothing has stayed up for 600 s.
+
+### i2c fix: staged, NOT installed, NOT restarted
+
+Mark's instruction, 2026-09-02: **do not restart the SignalK unit without the
+consent of `symphony-pr-33-review-601c06-0a`.** Standing until he or that
+session lifts it.
+
+The corrected override was written to `/tmp/symphony.override.yml` on the
+staging Pi and validated there (`yaml.safe_load` returns
+`group_add == ['4','960','988']`). **Do not rely on that file** — `/tmp` does
+not survive a reboot and the card is expected to reboot before this lands. The
+authoritative copy of its content is inline in
+[prompt-halos-i2c-fix.md](prompt-halos-i2c-fix.md); write it from there. It has
+deliberately **not** been copied to
+`/etc/container-apps/marine-signalk-server-container/`: installing it is inert
+until a restart, but it would silently change the behaviour of that session's
+*next* restart in the middle of their healthcheck verification, which is the
+same surprise arriving more slowly.
+
+To install it, once consent is given:
+
+    sudo cp /tmp/symphony.override.yml \
+       /etc/container-apps/marine-signalk-server-container/symphony.override.yml
+    sudo systemctl restart marine-signalk-server-container.service
+    docker exec signalk-server python3 -c "open('/dev/i2c-1')"   # silence = pass
+
+The staged file preserves the PR #33 session's healthcheck block verbatim and
+adds only `group_add`, with a comment recording why gid 988 is listed and why
+all three gids are spelled out. **`host/halos/` on PR #33 needs the same
+change** — that copy is the source of truth and this session cannot edit their
+branch.
+
+Three messages sent to that session (07:00, 07:10, 07:25 UTC approx); no reply
+to any of them as of this writing.
+
+### Severity of the i2c defect: it is a regression, not a gap
+
+Read alongside `halos-swap-execution-2026-09-02.md` (session
+`symphony-pr-33-review-601c06-0a`, commit 48d4b54), whose baseline
+`scripts/halos_swap_check.sh symphony-pi` at 07:16Z reports **`bme680 ok`** on
+the boat's *current* card.
+
+So the BME680 works today. It works because the boat's present install is
+OpenPlotter on bare metal, where SignalK runs as a host user in the host `i2c`
+group. Under HALOS the same plugin runs inside a container as `node`, and the
+gid mismatch recorded above breaks it.
+
+That reclassifies this. It is not "an untested path on the new card" — it is
+**a working boat function that the swap silently removes**, and the swap-check
+script would report it the same way B1a's missing `i2c-dev` module would have:
+`i2c-reader` logs only "devices config is missing", and the BME680 tree simply
+stays empty, which is also the normal appearance during the ~10 minute
+post-restart burn-in. There is no error to notice.
+
+Note that the same session's checkpoint records `/dev/i2c-1`: `i2c-dev`
+persisted in `/etc/modules-load.d/` as done — which it is. Loading the module
+creates the device node; it does not make the node reachable from inside the
+container. Both fixes are needed and only one is in.
+
+**Recommendation: this should block the swap until the `group_add` line is in,
+or be accepted explicitly as a known regression with the BME680 to be restored
+afterwards.** It is a one-line change with a one-line test, so blocking on it
+is cheap.
+
+### RESOLVED: i2c fix applied and verified, after breaking SignalK once
+
+Mark lifted the restart hold and authorised proceeding, 2026-09-02 ~09:55Z.
+
+**The fix works.** `group_add: ["988"]` in `symphony.override.yml`; merged
+result `["960","4","988"]`; and
+`docker exec signalk-server python3 -c "open('/dev/i2c-1')"` **passes**, where
+it raised `PermissionError` before. The BME680 / `i2c-reader` path is now open
+inside the container.
+
+**The first attempt took SignalK down for ~90 seconds, and the lesson is the
+opposite of what this file said earlier.** The staged version listed
+`group_add: ["4", "960", "988"]`, hedging that compose list-merge semantics
+"are not worth betting on". Compose **appends** `group_add` across `-f` files,
+it does not replace, so repeating HALOS's own gids produced a non-unique list
+and the unit refused to validate:
+
+    validating .../symphony.override.yml:
+      services.signalk-server.group_add array items[1,2] must be unique
+
+Container `Exited (137)`, systemd restart counter reached 5, "Start request
+repeated too quickly", unit `failed`. Recovered with `systemctl reset-failed`
+and the corrected one-element list.
+
+Two things worth keeping from that:
+
+- **The hedge caused the outage.** Spelling out all three gids was chosen to
+  avoid depending on merge semantics; it depended on them just as hard, in the
+  direction that fails. The cheap check — install it and read the error — was
+  available the whole time and was not taken until it broke.
+- Older copies of the fix carry the wrong three-gid line. Use `["988"]` alone.
+
+Backup of the PR #33 session's original override:
+`/root/symphony.override.yml.bak-<epoch>` on the bench card. Their healthcheck
+block was copied through verbatim and is unchanged.
+
+Tracked in **PR #35**, based on `claude/halos-boat-swap-trial-9e5d36`. It adds
+`host/halos/` — which did not exist in the repo at all, so that session's
+override and systemd drop-in were living only on the card and would have been
+lost to a reimage.
+
+### Still open
+
+- **`plugin-watchdog` running state.** Unproven. Needs 600 s of unbroken
+  uptime; the clock restarted at 09:57:18Z. Test: `ALERT: plugin
+  bt-sensors-plugin-sk ...` must appear in the container log ~10 min after a
+  start, since no BT sensors are in range at home.
+- **BME680 against real hardware.** The permission path is open, but nothing
+  has been tested against a sensor on the bus. Worth doing if Mark wires one
+  before the swap.

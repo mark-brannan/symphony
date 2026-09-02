@@ -1661,3 +1661,17 @@ Rebooted, ran the B1 verification block:
 - `can0` not present — plan says that verifies at the boat only.
 
 P2–P7 of the swap plan are unstarted.
+
+## 2026-09-02 — HALOS swap prep executed overnight (Fable, PR #33)
+
+Mark asked for PR #33 fixed, tested and executed unattended. Did B2, B4a–c,
+B5a and a healthcheck fix on the bench card, verified the DNS write path both
+ways, took the real boat baseline and rewrote the two check scripts from it;
+the runbook section now carries measured output. Facts and times in
+`halos-swap-execution-2026-09-02.md`; what is left in
+`handoff-pr33-swap-prep.md`. Two sessions shared the 2 GB bench box for a
+while and it hard-reset once under swap thrash after AvNav/OpenCPN were
+stopped; one session on that box at a time from now on. The boat's heartbeat
+had been pinging `/fail` for a week on two dead units; cleared. Pre-existing
+boat issues found and left for Mark: Cerbo MQTT dead, position from a fixed
+plugin, QuestDB pegged with load ~12.
