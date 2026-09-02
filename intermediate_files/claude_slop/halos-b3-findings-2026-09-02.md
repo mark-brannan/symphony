@@ -183,3 +183,45 @@ Consequences:
 What this does *not* excuse: the no-compiler finding is structural and
 travels with the image to any host, and the plan's `docker exec` and
 verification-command defects are real regardless of RAM.
+
+## Monitoring-posture findings from the repo/boat config diff — 2026-09-02
+
+Found while diffing the repo's `signalk/plugin-config-data` (64 configs)
+against the boat's (84). Checked against `reference/monitoring_decisions.md`
+and `monitoring_posture.md` before reporting, per Mark's instruction.
+
+**1. Both anchor-alarm plugins are installed on the boat but disabled.**
+`hoekens-anchor-alarm` and `signalk-anchoralarm-plugin` are in
+`~/.signalk/node_modules` and have **no `plugin-config-data` entry at all**.
+Verified this means disabled, from signalk-server source rather than
+assumption: `isEnabledByPackageEnableDefault` (`src/interfaces/plugins.ts`
+:1089) enables a config-less plugin only when its package.json carries
+`signalk-plugin-enabled-by-default`; `hoekens-anchor-alarm` has no such key
+and `signalk-anchoralarm-plugin` sets it `false`. When a plugin *is*
+default-enabled the server persists a config file (`:1005`) — and none
+exists. Corroborating: two days of `journalctl -u signalk` contain no anchor
+activity, only `/admin/assets/Anchor-*.js` fetches, and `baseDeltas.json`
+holds zero anchor zones.
+
+To be fair to the docs: `monitoring_decisions.md` Role 2 calls
+hoekens-anchor-alarm "alive", meaning actively published on npm **[verified —
+npm registry]**. It never claims the plugin is enabled aboard. So this is a
+**gap the monitoring docs do not currently record**, not a contradiction of
+them. It matters because Role 2 names "the dragging-anchor-at-night case" as
+the thing the notification bus exists for.
+
+**2. `signalk-mob-notifier` and `signalk-dsc` are enabled in the repo and
+absent from the boat.** Not installed, no config, nothing in `package.json`.
+Both are safety-of-navigation. `monitoring_decisions.md` mentions
+mob-notifier as part of the Role 2 bus; the board separately carries
+"Research MOB detection options" and the standing rule never to live-test the
+DSC emergency button.
+
+**Neither of these is a swap blocker** — they are pre-existing boat state that
+the swap copies faithfully. They are recorded here because the card carries
+them onto HALOS unchanged, so the trial will reproduce the same gap.
+
+**Decision needed from Mark** (not actionable by a session): whether the
+anchor alarm should be enabled and configured, and whether mob-notifier and
+dsc should be installed on the boat to match the repo. All three are his
+calls about what the boat should do, not config drift to silently reconcile.
