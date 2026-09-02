@@ -46,6 +46,7 @@ logged in `maintenance/log.md`.
 - [Upgrading Signalk on the boat Pi](#upgrading-signalk-on-the-boat-pi)
 - [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi)
 - [SignalK's NMEA 2000 input](#signalks-nmea-2000-input)
+- [A fake `can0` for testing off the boat](#a-fake-can0-for-testing-off-the-boat)
 - [Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
 - [Testing the DSC / AIS distress receive chain](#testing-the-dsc--ais-distress-receive-chain)
 
@@ -2124,6 +2125,18 @@ timeout 5 candump -n 20 can0           # want frames
 `subOptions`. It forms part of the NAME this box claims on the bus; left
 unset, SignalK generates a random one on save, and the Pi shows up as a
 brand-new device to every other instrument each time.
+
+### A fake `can0` for testing off the boat
+
+On any Linux host (bench Pi, WSL) — SignalK can't tell this from a real CAN hat:
+
+```bash
+sudo modprobe vcan && sudo ip link add dev can0 type vcan && sudo ip link set up can0
+```
+
+Verify with `ip -d link show can0` — it prints `vcan`. Gone on reboot; re-run it.
+Replay traffic with `canplayer -I <candump.log>` (`can-utils`). macOS has no
+SocketCAN: use a Linux VM or container, with `--cap-add=NET_ADMIN`.
 
 ### A fallback that has become the primary looks exactly like success
 
