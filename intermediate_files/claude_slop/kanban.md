@@ -47,6 +47,7 @@ already carries enough context.
 ## Claude's
 
 ### Infrastructure
+- [ ] **`host/install.sh` overwrites the HALOS card's `/etc/boat-heartbeat.json` with the boat card's check URL** — the card pings a second healthchecks.io check (`SignalK Symphony (halos card)`) whose UUID is recorded nowhere in the repo; add a per-host value (`.hostvars.yaml` / sops) or skip the file when one is already installed. Found in the repeatability audit 2026-09-02, alongside nine hand changes with no recorded command: native-module rebuild recipe, `node_modules` reinstall, zram config, the four `"enabled": false` edits, final `hostnames.conf` body, ntfy `.env` values, repo clone/filter path on the card ([halos-b3-findings-2026-09-02.md](halos-b3-findings-2026-09-02.md), [halos-swap-plan.md](halos-swap-plan.md)).
 - [ ] Calm the boat card before the baseline: load ~12 with 13 logins and QuestDB at 164 % CPU on 2026-09-02 ([halos-swap-execution-2026-09-02.md](halos-swap-execution-2026-09-02.md)) — find the logins and the QuestDB query, so swap-day's baseline is taken on a quiet box.
 - [ ] Get [PR #34](https://github.com/mark-brannan/symphony/pull/34) green and merged — the HALOS card runs that branch's `host/install.sh`; main's copy does not know the container unit.
 - [ ] Delete the stray file on main whose name is a mangled Python heredoc (`", d[enabled])\nw=os.path.join(...` — one tracked file at the repo root, from a session's broken `python3 - <<EOF`). Confirm with `git ls-files | grep 'd\[enabled\]'` before removing; nothing references it.
