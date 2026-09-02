@@ -672,23 +672,23 @@ scripts/halos_preflight.sh
 
 Every line must be `ok`. Nothing can be fetched at the boat. The `services`
 line needs QuestDB and Grafana running on the bench Pi; on the 2 GB bench they
-fit only with the zram swap in place and only for a soak, so start them for
-the run and stop them after.
+run only on the zram swap and page continuously, so run the preflight and stop
+them after (`sudo systemctl stop marine-questdb-container marine-grafana-container`).
 
 ```
 ok    host       signalk symphony.dark-star-llc.com signalk.symphony.dark-star-llc.com symphony-halos
 ok    boot       overlays cgroup regdom i2c-dev serial0 i2c-1
 ok    wifi       profile Symphony; hotspot Halos-AP ssid SignalK
-ok    plugins    118 loaded, 66 on; same set and states as the boat except the 4 expected; forks pinned, D-Bus fix present
-ok    signalk    active 2.31.1 override (healthcheck override installed)
+ok    plugins    120 loaded, 63 on; same set and states as the boat except the 4 expected-off and 3 image-only; forks pinned, D-Bus fix present
+ok    signalk    active 2.31.1 override gid988 (healthcheck override installed, i2c gid in the SignalK process)
 ok    services   8 active
 ok    staydown   avnav opencpn disabled+inactive; influxdb app absent
 ok    heartbeat  ping ok
-ok    questdb    telegraf cpu rows 4821; newest signalk row 3 s old
+ok    questdb    telegraf cpu rows 53; newest signalk row 1 s old
 ok    ntfy       health 200
 ok    front      Traefik :4430 -> SignalK 200; device cert has signalk.symphony.dark-star-llc.com
-ok    mem        612 MB available, 540 MB swap used (2 GB bench cannot hold the databases; the 4 GB boat can)
-ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x ... symphony-pi 100.x.x.x <- current symphony-halos 100.x.x.x
+ok    mem        401 MB available, 1118 MB swap used (2 GB bench cannot hold the databases; the 4 GB boat can)
+ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x   (zone dark-star-llc.com, public answer: 100.x.x.x)   symphony-pi      100.x.x.x   <- current   symphony-halos   100.x.x.x
 ```
 
 `dns_cutover.sh`'s read path (`status`) runs on every preflight. Exercise the
@@ -755,7 +755,7 @@ record's 300 s TTL. Off-boat access is on the bench card for that window.
    `host/halos/signalk-healthcheck-override.yml` being installed on the card.
 
    ```bash
-   ssh pi@symphony-halos "docker exec signalk-server python3 -c \"open('/dev/i2c-1')\""
+   ssh -t pi@symphony-halos "sudo docker exec signalk-server python3 -c \"open('/dev/i2c-1')\""
    ```
 
    Silence is a pass. `PermissionError` means the override is missing or was
