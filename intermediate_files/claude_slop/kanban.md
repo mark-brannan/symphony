@@ -12,8 +12,7 @@ already carries enough context.
 
 ### Repo & tooling
 - [ ] [Purchase itemizations in maintenance/log.md](kanban-detail.md#purchase-itemizations-in-maintenancelogmd) — trim to one-line totals with detail moved to a purchases file, or keep as-is.
-- [ ] Merge or close [PR #31](https://github.com/mark-brannan/symphony/pull/31) — superseded: `host/boat-heartbeat` on main already carries the same fails-silent Pushover escalation, better implemented and live-tested 2026-08-14, and the branch's `pushover_token`/`pushover_user` field names would break the deployed `pushover_api_token`/`pushover_user_key` contract. Recommend close.
-- [ ] Merge or close PR #25 (influxdb→questdb migration, B4 port) — rebased onto main 2026-08-21, conflicts resolved, CI green and mergeable; it repoints Grafana's provisioned dashboards at QuestDB, so landing it changes what the boat's dashboards query.
+- [ ] Review and land the five open PRs, in this order: [#34](https://github.com/mark-brannan/symphony/pull/34), [#28](https://github.com/mark-brannan/symphony/pull/28), [#29](https://github.com/mark-brannan/symphony/pull/29), [#33](https://github.com/mark-brannan/symphony/pull/33), [#25](https://github.com/mark-brannan/symphony/pull/25) — all green, all mergeable, bot threads answered and resolved as of 2026-09-01; each PR body names the sections worth reading. #31 closed as superseded.
 - [ ] [Rotate the Tailscale OAuth client credential](kanban-detail.md#rotate-the-tailscale-oauth-client-credential) — it was pasted into a session transcript; read-only scope, not urgent.
 - [ ] [Decide dotfiles Google-connector parity](kanban-detail.md#dotfiles-google-connector-parity) — symphony denies three more connectors than dotfiles does; dotfiles-repo edit if wanted.
 - [ ] [Approve deleting stale branch `claude/git-hygiene-redesign`](kanban-detail.md#stale-branch-claudegit-hygiene-redesign) — superseded, nothing to salvage, but deleting a pushed ref needs your go-ahead.
