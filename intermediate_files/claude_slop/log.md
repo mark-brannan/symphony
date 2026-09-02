@@ -1626,3 +1626,40 @@ reply-only = explain and resolve.
   ntfy curl `-f`; "Keep the runbook procedural" at RUNBOOK 708 (the
   pocket/only-copy sentence — move to system_map); system_map 48 and 89
   wording nits.
+## 2026-09-01 — B1a–c on halos (P1 of the swap plan), and a credential leak
+
+Executed `intermediate_files/claude_slop/halos-swap-plan.md` items B1a–c on
+`pi@192.168.0.193`: PiCAN-M overlays appended to `/boot/firmware/config.txt`,
+`cfg80211.ieee80211_regdom` GB→US plus `cgroup_enable=memory
+cgroup_memory=1` in `cmdline.txt`, `/etc/systemd/network/80-can.network`
+added and `systemd-networkd` enabled. The plan file itself only exists on
+the unmerged `claude/halos-boat-swap-trial-9e5d36` branch, not on main or
+this session's branch — read via `git show` rather than checked out.
+
+**Incident, self-caused.** First attempt used
+`run(){ printf "%s\n" "$PW" | sudo -S "$@"; }` called as
+`run tee -a file <<EOF ... EOF`. The pipe into `sudo -S` overrides the
+function's stdin, so the heredoc content never reached `tee` — instead the
+sops-decrypted `symphony_halos_pi_password` itself got written into
+`/boot/firmware/config.txt` and `/etc/systemd/network/80-can.network`, and
+printed once into this transcript. Caught it in the very next command,
+confirmed the exact scope (`cat -A` on both files — one leaked line each,
+nothing else touched), and rewrote both files correctly using a
+password-free sudo call against a temp file staged as `pi` (no sudo
+needed for `/tmp`). Verified clean afterward. Mark's call: not rotating
+the password, not raising it again. Memory saved
+(`sudo-password-heredoc-pipe-bug`) so no future session repeats the
+pattern of mixing a piped sudo password with heredoc content in the same
+invocation.
+
+Rebooted, ran the B1 verification block:
+- `/dev/serial0` present; `/dev/i2c-1` **absent** — `i2c_bcm2835` loaded,
+  `dtparam=i2c_arm=on` is in config.txt, but no `i2c-dev` device node.
+  Outside B1a–c scope (plan didn't call for it), flagged not fixed.
+- `cgroup.controllers` includes `memory` ✓.
+- regdom reports `US` ✓.
+- `dmesg | grep mcp251`: overlay probed, `Probe failed, err=110` —
+  expected, no PiCAN-M HAT attached at home.
+- `can0` not present — plan says that verifies at the boat only.
+
+P2–P7 of the swap plan are unstarted.
