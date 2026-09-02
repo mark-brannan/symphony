@@ -37,6 +37,17 @@ services:
       # SIGKILL, and cutting it short risks killing a *healthy* QuestDB
       # mid-commit on some future restart.
       - AUTOHEAL_DEFAULT_STOP_TIMEOUT=30
+      # Must exceed AUTOHEAL_DEFAULT_STOP_TIMEOUT. Autoheal restarts through
+      # the docker API with curl, and its own default timeout is also 30 s --
+      # so a genuinely wedged container, which by definition burns the full
+      # stop timeout before SIGKILL, always times out autoheal's curl. Docker
+      # completes the restart regardless, but autoheal logs "Restarting
+      # container <id> failed" for a restart that worked. Measured here on
+      # 2026-09-02: ntfy was frozen with SIGSTOP, autoheal logged the restart
+      # as failed at 22:38:14, and the container was killed at 22:38:44 and
+      # healthy again by 22:38:50. A watchdog whose log lies about the one
+      # event it exists to record is worse than no log.
+      - CURL_TIMEOUT=60
     volumes:
       # :ro applies to the bind mount, not to the socket -- autoheal still
       # issues restarts through it. This is a full grant of control over the
