@@ -37,6 +37,15 @@ starter/house split or the DC-DC charger topology.
 
 ## Victron symbol libraries
 
+Both `symphony-dc-overview` files embed product images from the community
+draw.io Victron library ("D S" on the [Victron Community stencils
+thread](https://community.victronenergy.com/questions/7837/visio-stencils-for-victron-products.html);
+surviving copy at
+[MERKAT0R/Victron-Shapes-Public](https://github.com/MERKAT0R/Victron-Shapes-Public)).
+The shapes actually used here are curated into
+`../libraries/symphony-shapes.xml` — load it in draw.io via File → Open
+Library. Victron doesn't release official stencils.
+
 - [romx/vectron](https://github.com/romx/vectron) — SVG stencils of Victron
   products (MultiPlus, Orion, Lynx, MPPTs, monitoring) plus Visio `.vssx`
   files. The SVGs can be imported into draw.io as a custom shape library.

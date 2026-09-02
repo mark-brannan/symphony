@@ -41,14 +41,17 @@ logged in `maintenance/log.md`.
 - [SSO login (GitHub / Google)](#sso-login-github--google)
 
 **Running SignalK**
+- [Upgrading Signalk on the boat Pi](#upgrading-signalk-on-the-boat-pi)
 - [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi)
 - [SignalK's NMEA 2000 input](#signalks-nmea-2000-input)
 - [Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
+- [Testing the DSC / AIS distress receive chain](#testing-the-dsc--ais-distress-receive-chain)
 
 **Troubleshooting**
 - [Hostnames stop resolving](#when-the-boats-hostnames-stop-resolving)
 - [A plugin isn't in the config UI](#when-a-plugin-isnt-in-the-config-ui)
 - [SignalK errors about missing packages](#when-signalk-errors-about-missing-packages-on-the-boat-pi)
+- [Every plugin install fails on a `file:` dependency](#when-every-plugin-install-fails-on-a-file-dependency)
 - [BLE sensors silent after a reboot](#ble-sensors-go-silent-after-a-reboot)
 - [A BLE sensor connects but delivers nothing](#a-ble-sensor-connects-but-never-delivers-data)
 - [A plugin fork keeps reverting](#a-local-plugin-fork-keeps-reverting-to-the-registry-build)
@@ -63,10 +66,12 @@ logged in `maintenance/log.md`.
 
 ## Two deployments, one runbook
 
-The compose files are the intended deployment. **The boat Pi does not match
-them** — SignalK, InfluxDB, Grafana, Caddy and Dex run there as systemd units
-(why, in [reference/software_stack.md](reference/software_stack.md)). Commands
-below are written for compose. On the boat, translate:
+The compose files are the intended deployment. **The boat Pi is a mix** —
+SignalK, InfluxDB, Grafana and Caddy run there as systemd units, while Dex,
+QuestDB and ntfy are containers (why, in
+[reference/software_stack.md](reference/software_stack.md)). Commands below are
+written for compose. For the three containers they work as written. For the
+systemd units, translate:
 
 | Compose | Boat Pi |
 |---|---|
@@ -119,6 +124,27 @@ sudo tailscale up --ssh --hostname=symphony-pi
 Follow the printed login URL. *Verify:* `tailscale status` lists it, and
 `ssh pi@symphony-pi` connects from another device on the tailnet.
 
+### The HALOS trial Pi (home, not the boat)
+
+A separate box — the spare Pi 4 running HaLOS at home, per the Track A trial
+in [containerization_strategy.md](reference/containerization_strategy.md).
+Same tailnet, same `pi` account, same Tailscale SSH — no key setup needed:
+
+```bash
+ssh pi@halos-pi4
+```
+
+*Verify:* `tailscale status` lists `halos-pi4`, and the command above
+connects.
+
+Its apps sit behind HaLOS's own Traefik reverse proxy rather than bare ports
+— check `/etc/halos/port-registry` on the box for the current map (SignalK
+was `4430` as of 2026-08-26). The `pi` user is **not** in the `docker` group
+and has no passwordless `sudo` here — reaching the SignalK container's
+admin API needs a token (see
+[Setting up plugins on the HALOS trial Pi](#setting-up-plugins-on-the-halos-trial-pi)),
+not `docker exec` or a service restart.
+
 ---
 
 ## Reaching the boat over Tailscale
@@ -156,24 +182,47 @@ reach `symphony-pi`:
    env var on the cloud environment — a reusable, ephemeral,
    `tag:cloud-ephemeral` key from the
    [tailnet admin console](https://login.tailscale.com/admin/machines).
+4. If the node joined but ssh is refused, it's the policy, not the join —
+   the tailnet needs an `ssh` rule with `tag:cloud-ephemeral` as `src`. See
+   § SSH users and the periodic check.
 
 Local/terminal sessions don't need this — they already have tailscale via
 the host machine.
 
 ### SSH users and the periodic check
 
-Tailscale SSH handles auth, so no key setup is needed, but the ACL names
-which local users you may become — `pi` works, other names are rejected with
-"tailnet policy does not permit you to SSH as user X". Change that in the
-[access controls](https://login.tailscale.com/admin/acls) if you need
-another.
+Tailscale SSH handles auth, so no key setup is needed, but the tailnet policy
+decides both which nodes may connect and which local users you may become.
+Two different refusals, two different causes:
 
-The ACL also sets a check period. When it lapses, ssh stops at
+- `does not permit you to SSH to this node` — no `ssh` rule matches at all.
+- `does not permit you to SSH as user X` — a rule matched, but its `users`
+  list doesn't include that account.
+
+Every node except the phone is tagged, and **`autogroup:self` does not apply
+to tags** — so a rule written against `autogroup:self` silently covers
+nothing here. Rules for tagged devices have to name the tags. This broke all
+SSH from the dev machines once already, on 2026-08-19.
+
+Read the live policy without opening the console:
+
+```bash
+scripts/tailscale_policy.sh            # prints the current policy file
+scripts/tailscale_policy.sh validate <file>   # dry-run a proposed one
+```
+
+The stored OAuth credential is read-only, so applying a change is a paste
+into the [policy file editor](https://login.tailscale.com/admin/acls/file).
+Validate first — a bad save is a lockout.
+
+A `check`-mode rule sets a re-auth period. When it lapses, ssh stops at
 `# Tailscale SSH requires an additional check.` and prints a
 `login.tailscale.com/a/...` URL — open it, approve, then re-run ssh. The URL
 is single-use, so don't bother saving it. Under `-o BatchMode=yes` or any
 non-interactive wrapper this just looks like a hang; that message is the
-tell.
+tell. This applies only to connections from untagged devices: **Tailscale
+forbids `check` from a tagged source**, so the dev machines and cloud
+sessions never see it.
 
 ### A page hangs but the host is reachable — MTU
 
@@ -287,8 +336,9 @@ offline copy, another host you already trust. Never through this repo, never
 over a channel you wouldn't send the secrets themselves over.
 
 ```bash
+
 mkdir -p ~/.config/sops/age
-cp <the key> ~/.config/sops/age/keys.txt
+cp $super_secret_key_file ~/.config/sops/age/keys.txt
 chmod 600 ~/.config/sops/age/keys.txt
 ```
 
@@ -337,13 +387,18 @@ it's gitignored and must never be committed).
 docker compose up -d
 ```
 
-On the boat, once SSO is configured ([SSO login](#sso-login-github--google)),
-use this instead so
-the TLS proxy and the identity provider come up too:
+Once SSO is configured ([SSO login](#sso-login-github--google)), on a host
+where everything is containerized use this instead so the TLS proxy and the
+identity provider come up too:
 
 ```bash
 docker compose --profile tls up -d --build
 ```
+
+**On the boat, don't use the command above** — Caddy there is still a native
+systemd service, and the Compose `caddy` container fails to bind `:443`
+against it. Bring up only `dex` and restart the native Caddy (see
+[Deploy (on the boat)](#4--deploy-on-the-boat) below).
 
 Compose starts InfluxDB first; SignalK and Grafana both declare
 `depends_on: influxdb`. Note that `depends_on` waits for the *container*,
@@ -594,16 +649,24 @@ someone is actually at a screen.
 
 ## Upgrading the scanners
 
+`pre-commit autoupdate` does nothing here — every hook is `repo: local`, so
+there are no upstream revisions to bump. The versions live in three places
+and all three must move together, or a commit gets cleared by one scanner
+version and a push by another:
+
 ```bash
-pre-commit autoupdate      # bumps pinned hook revisions
+grep -n GITLEAKS_VERSION   scripts/gitleaks_precommit.sh    # commit-time
+grep -n TRUFFLEHOG_VERSION scripts/scan_verified_secrets.sh # CI + local
+grep -n zricethezav        .github/workflows/secret-scan.yml # CI
 ```
 
-This fetches from GitHub, so do it **dockside, not underway** — a failed
-fetch mid-passage will block commits until you revert the config. Commit the
-resulting rev change so every machine and CI agree on which scanner version
-cleared a given commit. Bump the pinned image tags in
-`.github/workflows/validate.yml` and `scripts/scan_verified_secrets.sh` to
-match.
+Edit all three to the same tag, then pull the new images **dockside, not
+underway** — the first run after a bump fetches from Docker Hub, and a
+failed fetch mid-passage leaves the commit-time hook degrading to a warning
+just when you can least check it by hand.
+
+The scanners live in `secret-scan.yml`, not `validate.yml`. Nothing in
+`validate.yml` is version-pinned this way.
 
 ---
 
@@ -1318,6 +1381,11 @@ hardcoded key in a third-party device, say. It force-pushes, breaks every
 existing clone, and still does not remove the data from GitHub's servers
 without contacting GitHub Support.
 
+`main`'s [branch ruleset](https://github.com/mark-brannan/symphony/settings/rules/21060338)
+blocks force pushes with no standing bypass. To do this, temporarily disable
+the ruleset (or add yourself to its bypass list), push the rewritten history,
+then re-enable it. There is no faster path — this is by design.
+
 ---
 
 ## Recovering a lost age key
@@ -1619,6 +1687,56 @@ git-tracked `signalk/security.json` otherwise).
 
 ---
 
+## Upgrading SignalK on the boat Pi
+
+> 🔴 **Do not run `sudo openplotter-signalk-installer`.** It took the boat
+> offline for two days on 2026-08-23. This section used to recommend it as the
+> only safe path; that advice was wrong.
+
+Read `/usr/lib/python3/dist-packages/openplotterSignalkInstaller/signalkPostInstall.py`
+before trusting the tool. Two lines make it unsafe to run unattended:
+
+- **Line 45: `apt autoremove -y nodejs npm`.** It removes the Node runtime
+  before reinstalling from NodeSource. On this Pi that resolved to the
+  `nsolid` package, which conflicts with `nodejs`; the run never completed and
+  left no `signalk-server` at all.
+- **Line 91: `node_path = npm config get prefix`,** whose answer it writes into
+  the `~/.signalk/signalk-server` launcher at line 95. Under `sudo` that value
+  is **working-directory dependent** — invoked from `/home/pi`, npm reads
+  `/home/pi/.npmrc` as *project* config, refuses its `prefix=~/.npm-global`,
+  and re-expands `~` against root's HOME, yielding `/root/.npm-global`. The
+  service runs as `User=pi` and cannot read `/root`, so the launcher points at
+  a path the service can never execute. Nothing warns you.
+
+To install or reinstall the server, do the npm half by hand as user `pi` —
+never via `sudo`, so the prefix resolves deterministically to
+`/home/pi/.npm-global`:
+
+```bash
+sudo systemctl stop signalk.socket signalk.service
+```
+```bash
+npm install -g signalk-server --no-audit --no-fund
+```
+
+Expect this to take 30-60 minutes on the Pi and to log nothing during its
+extract/link phase. Confirm progress with the growing tree, not the log:
+`du -sh ~/.npm-global/lib/node_modules/signalk-server`.
+
+Then point the launcher at wherever it landed, and start socket before service:
+
+```bash
+printf '#!/bin/sh\n%s/lib/node_modules/signalk-server/bin/signalk-server -c %s $*\n' "$(npm config get prefix)" "$HOME/.signalk" > ~/.signalk/signalk-server && chmod 775 ~/.signalk/signalk-server
+```
+```bash
+sudo systemctl reset-failed signalk.service && sudo systemctl start signalk.socket signalk.service
+```
+
+`/etc/systemd/system/signalk.service` needs no edit — its `ExecStart` is that
+launcher script, so repointing the script is the whole change. Verify with
+`systemctl is-active signalk` and a `journalctl -u signalk -f` that reaches
+plugin loading without `Cannot find module`.
+
 ## Stopping SignalK on the boat Pi
 
 `systemctl stop signalk` does not keep it down. A `signalk.socket` unit
@@ -1638,6 +1756,117 @@ before starting.
 Do this before any `npm install` in `~/.signalk`. Otherwise the running server
 is reading the tree while npm rewrites it, and anything that restarts the
 service mid-install brings it up against a half-written plugin directory.
+
+## Bringing up QuestDB on the boat
+
+`compose-questdb.yml` is included from `docker-compose.yml`.
+
+1. Raise the kernel's memory-mapping limit. QuestDB memory-maps every
+   partition column file, and a grown database exhausts the default — queries
+   then fail with out-of-memory errors while RAM is free. It is a host
+   setting; it cannot be set from inside the container.
+
+   ```bash
+   if [ "$(cat /proc/sys/vm/max_map_count)" -lt 1048576 ]; then
+     echo 'vm.max_map_count=1048576' | sudo tee /etc/sysctl.d/99-questdb.conf
+     sudo sysctl --system
+   fi
+   test "$(cat /proc/sys/vm/max_map_count)" -ge 1048576 && echo ok
+   ```
+
+   1048576 is a floor, not a target — the conditional is there so a host that
+   already sets it higher for something else keeps its value.
+
+   Still the old value → another file sets it later in load order:
+   `grep -r max_map_count /etc/sysctl.d/ /etc/sysctl.conf`, remove the loser,
+   re-run `sudo sysctl --system`.
+
+2. Start it and check it is ready.
+
+   ```bash
+   docker compose -f docker-compose.yml up -d questdb
+   curl -fsS --max-time 5 --retry 30 --retry-delay 2 --retry-connrefused \
+     -G --data-urlencode 'query=SELECT 1;' \
+     http://127.0.0.1:9000/exec                     # answers = ready
+   docker inspect questdb --format '{{range .Config.Env}}{{println .}}{{end}}' \
+     | grep '^QDB_CAIRO_' | sort                    # compare against the list below
+   ```
+
+   All five must be present, with these values — a count alone would pass a
+   container carrying the wrong ones:
+
+   ```
+   QDB_CAIRO_COMMIT_MODE=sync
+   QDB_CAIRO_O3_COLUMN_MEMORY_SIZE=256k
+   QDB_CAIRO_WAL_WRITER_DATA_APPEND_PAGE_SIZE=128k
+   QDB_CAIRO_WRITER_DATA_APPEND_PAGE_SIZE=256k
+   QDB_CAIRO_WRITER_DATA_INDEX_VALUE_APPEND_PAGE_SIZE=256k
+   ```
+
+   `docker compose up -d` returns before QuestDB can serve, hence the retries;
+   on this Pi it takes a few seconds. And `http://127.0.0.1:9000/` is not a
+   readiness check at all — it answers 301 as soon as the listener binds,
+   before the database can serve anything. And check
+   the caps with `docker inspect`, not `docker logs`: QuestDB does log each
+   one as `server-main env config [key=QDB_CAIRO_...]` at startup, but this
+   container caps its json-file log at 10 MB x 2, and QuestDB is verbose
+   enough that those lines rotate out within hours — a log grep then reads 0
+   on a correctly configured container.
+
+   Any missing or different → the container came up without the page-size caps. Recreate
+   it with `docker compose -f docker-compose.yml up -d --force-recreate
+   questdb`, then repeat the two checks above before going on; they are read only at start. Without them QuestDB
+   preallocates 16 MB per column file, and one Telegraf flush creating a table
+   per measurement takes gigabytes for a few hundred rows. That filled this
+   Pi's root filesystem on 2026-08-20, and InfluxDB's WAL writer then stuck in
+   an ENOSPC retry loop that outlived the recovery.
+
+3. Start the writers and make their tables durable.
+
+   ```bash
+   sudo systemctl restart telegraf
+   until curl -sf -G --data-urlencode 'query=SELECT 1 FROM cpu LIMIT 1' \
+     http://127.0.0.1:9000/exec | grep -q '"count":1'; do sleep 5; done
+   scripts/questdb_table_hygiene.sh              # TTL + dedup
+   sudo du -sm "$(docker inspect questdb \
+     --format '{{range .Mounts}}{{if eq .Destination "/var/lib/questdb"}}{{.Source}}{{end}}{{end}}')"
+   ```
+
+   That `du` should read tens of MB, not GB. Ask docker for the volume path
+   rather than typing it: it is derived from the compose project name, so it
+   differs on any checkout not in a directory called `symphony`.
+
+   Telegraf's first flush is a minute or so out, so wait for its tables rather
+   than guessing: `cpu` is the sentinel, and the hygiene script's own output
+   lists every table it changed and every one it did not recognise — read it,
+   because an unrecognised table with no TTL is usually a new Telegraf
+   measurement that needs adding to the script's list. Line protocol creates
+   tables with no TTL and no dedup keys, so re-run the script after adding an
+   input or recreating a table. Without
+   dedup, a batch whose HTTP response timed out is retried into rows QuestDB
+   already committed — duplicate data, and a skewed row-count parity check.
+
+   `du` in gigabytes → stop the writers and go back to step 2's env check.
+
+4. Check whether the memory cap is real.
+
+   ```bash
+   docker inspect questdb --format '{{.HostConfig.Memory}}'
+   ```
+
+   Expect `805306368` (the compose file's `mem_limit: 768m`) once cgroups are
+   enabled, and `0` while they are not. Any other number means the running
+   container predates a change to `mem_limit` — recreate it. This is a value
+   to read, not a gate: it lives in `compose-questdb.yml` and changing it
+   there should not fail this step.
+
+   0 on this Pi: Raspberry Pi OS ships without `cgroup_enable=memory`, and
+   `docker compose up` logs "Your kernel does not support memory limit
+   capabilities or the cgroup is not mounted." To enforce it, append
+   `cgroup_enable=memory cgroup_memory=1` to the single line in
+   `/boot/firmware/cmdline.txt` and reboot. Until then watch instead of
+   capping — `free -m`, `grep ^pswp /proc/vmstat` — and stop QuestDB if
+   available memory goes under ~400 MB.
 
 ---
 
@@ -2061,7 +2290,64 @@ pruned without ever appearing in that list.
 
 On 2026-08-15 this caught `signalk-plugin-watchdog` and `flaky-plugin`,
 both hand-installed. The permanent fix for any plugin meant to stay is a
-`file:` entry in `package.json`, which takes it out of the prune path.
+`file:` entry in `package.json`, which takes it out of the prune path — but
+it must point **outside** `node_modules`, or it breaks every later install:
+see [When every plugin install fails on a `file:` dependency](#when-every-plugin-install-fails-on-a-file-dependency).
+
+---
+
+## When every plugin install fails on a `file:` dependency
+
+Symptom: every App Store install fails, whichever plugin you picked, and so
+does a plain `npm install` in `~/.signalk`. The named package is not the one
+you were installing:
+
+```
+npm warn tarball tarball data for <plugin>@file:<plugin> (null) seems to be corrupted. Trying again.
+npm error code ENOENT
+npm error path /home/pi/.signalk/<plugin>/package.json
+npm error enoent Could not read package.json
+```
+
+Cause: a `file:` entry in `~/.signalk/package.json` pointing at a directory
+*inside* `node_modules`. npm packs that directory, then clears the
+destination — the same directory — before unpacking it, so the source is gone
+by the time it is needed. The whole install aborts before anything is written.
+
+`npm install <pkg> --dry-run` succeeds anyway; it resolves the tree without
+reifying it, so it will not reproduce this. Confirm from `package.json`
+instead:
+
+```bash
+grep -o '"[^"]*": *"file:[^"]*"' ~/.signalk/package.json
+```
+
+Any result containing `node_modules` is the fault. Point the entry at the
+real source instead — for the watchdog that is its git-tracked copy in this
+repo, already on the boat:
+
+```bash
+cd ~/.signalk
+cp -a package.json package.json.bak-$(date +%Y%m%d)
+npm pkg set dependencies.<plugin>=file:../symphony/plugins/<plugin>
+npm --save --ignore-scripts install
+```
+
+`--ignore-scripts` matches what the server itself passes, so the App Store
+and the command line behave the same way.
+
+*Verify* — the link resolves, the source survived, and the install actually
+reified:
+
+```bash
+ls -l ~/.signalk/node_modules/<plugin>   # symlink -> ../../symphony/plugins/<plugin>
+ls ~/symphony/plugins/<plugin>           # files still there
+```
+
+Run a real install, never `--dry-run`, as the check. npm links `file:` deps
+rather than copying them, so edits to the git-tracked source reach the server
+with no reinstall, and the plugin stays out of the prune path described above.
+Restart SignalK to load whatever the install actually brought in.
 
 ---
 
@@ -2136,18 +2422,38 @@ first.
 
 ## BLE sensors go silent after a reboot
 
-Known, unfixed, and the thing most likely to confuse someone. On some boots
-`bt-sensors-plugin-sk` fails its D-Bus handshake to `org.bluez` as it loads:
+`bt-sensors-plugin-sk` publishes nothing at all — no `electrical.batteries.*`,
+no sensor of any kind — and the only clue is one uncaught exception as the
+server starts:
 
-```
+```text
 Uncaught exception: Error: write EPIPE
   at auth (.../@jellybrick/dbus-next/lib/handshake.js:67)
 ```
 
-It does not retry. Every BLE sensor stays silent for the life of that process,
-and nothing else in the log says anything is wrong.
+Confirm it is this fault and not something else. The bus logs the other half:
 
-Restart SignalK once the box has settled:
+```bash
+journalctl --since -1h | grep "not authenticated soon enough"
+```
+
+A `Connection has not authenticated soon enough, closing it
+(auth_timeout=30000ms)` line a second or two before the EPIPE is this fault.
+Without that line, you are looking at something else — go to "A BLE sensor
+connects but never delivers data".
+
+The plugin carries the fix (upstream PR #1, merged 2026-08-21): it opens the
+bus lazily from `start()` instead of at `require()` time, listens for the
+bus's `error` event, and reconnects with backoff. Check the deployed copy has
+it before anything else:
+
+```bash
+grep -c getBluetoothSession /home/pi/bt-sensors-plugin-sk/index.js   # expect >0
+```
+
+If it is 0, the boat is on an older copy — `git -C /home/pi/bt-sensors-plugin-sk
+pull --ff-only` and restart SignalK, socket first or the socket unit relaunches
+the service mid-stop:
 
 ```bash
 sudo systemctl stop signalk.socket
@@ -2156,16 +2462,34 @@ sudo systemctl start signalk.socket
 curl -s -o /dev/null http://localhost:3000/signalk/    # socket-activates it
 ```
 
-It is **not** a boot-ordering race, so don't spend time there. Measured
-2026-08-13 with `After=bluetooth.service` in place: bluetoothd owned the bus at
-18:35:15 and the handshake still failed at 18:37:15, a hundred seconds later.
-`host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
-hygiene, not because it fixes this.
+Verify with the `$source` census under "Setting up a BLE sensor" — each sensor
+publishes under its own configured `name`. Give it a few minutes: BLE connect
+plus a first poll is slower than the rest of startup.
 
-This matters more than it looks: the hardware watchdog exists to reboot the box
-when nobody is aboard, so an unattended reboot can come back with every BLE
-sensor dead until someone restarts SignalK by hand. If you depend on remote
-battery monitoring, either check after any reboot or add a self-healing check.
+Why it happened, and why a restart alone never fixed it: the plugin used to
+open its `org.bluez` connection at `require()` time, so the socket opened
+during SignalK's plugin-load sweep. dbus-next runs the auth handshake from that
+socket's `connect` callback, and the callback cannot be dispatched until the
+event loop drains — which takes longer than 30s here, because loading the
+remaining plugins is synchronous. The bus closed the unauthenticated socket at
+its 30s `auth_timeout`; the handshake's first byte then landed on a dead
+socket, and the plugin never retried, so the bus stayed dead for that whole
+process. Every start blocked the same way, which is why it was not intermittent
+and why `signalk-ble-check` burned its entire restart budget each boot.
+
+A raised `auth_timeout` in `/etc/dbus-1/system-local.conf` was the stopgap for
+this between 2026-08-20 and 2026-08-21. It is gone from the boat and from
+`host/install.sh`. Don't reinstate it — if BLE is silent again, the fault is
+somewhere else, and a longer timeout will only hide it.
+
+Two dead ends — check them, but don't expect to find anything:
+
+- **The radio.** `sudo hciconfig hci0` should show `UP RUNNING` with no error
+  counters climbing. If it doesn't, this fault isn't reaching the controller
+  at all — look elsewhere.
+- **Boot ordering.** bluetoothd owns the bus long before SignalK loads.
+  `host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
+  hygiene, not because it fixes this.
 
 ---
 
@@ -2252,11 +2576,110 @@ loaded at startup, so swapping the directory changes nothing until it
 restarts — the fork you just linked is not yet the code that's running, and a
 plugin you think you're testing may be the one you replaced.
 
+A symlinked fork also needs its own `node_modules`. npm never installs
+dependencies *through* the symlink — the pinned registry version in
+`~/.signalk/package.json` is a version string, not an install — so the fork's
+declared deps are only ever present by accident, hoisted by some earlier
+registry install of the same package. Any rebuild of `~/.signalk/node_modules`
+drops them and the plugin fails to start:
+
+```text
+bt-sensors-plugin-sk failed to start: Cannot find module '@naugehyde/node-ble'
+```
+
+Install them inside the fork instead of anywhere near `~/.signalk` — that
+keeps it to a few dozen packages rather than the 1.7 GB tree that OOMs the Pi:
+
+```bash
+cd ~/bt-sensors-plugin-sk
+npm install --omit=dev --ignore-scripts --no-audit --no-fund
+```
+
+`--ignore-scripts` is safe here only because these deps are all pure JS.
+*Verify* — if this finds anything, run `npm rebuild` in the same directory:
+
+```bash
+find ~/bt-sensors-plugin-sk/node_modules -name '*.node'   # expect no output
+```
+
+
 ---
 
 ## When a hook blocks your commit
 
-The message names which check failed. In rough order of likelihood:
+First, when anything here blocks you:
+
+```bash
+bash scripts/check_clone_setup.sh      # what this clone has wired, and what to do
+```
+
+It needs nothing installed and it names the fix for every gap it finds.
+
+### Mode
+
+Hook messages carry a `mode:` line.
+
+- **contributor** — no age key here. A guard that can't run says so and lets
+  the commit through; CI is the gate.
+- **strict** — there is a key. The same guard fails instead.
+
+Auto-detected from an age key being present *and* both git filters being
+configured. To override:
+
+```bash
+SECRETGUARD_MODE=strict git commit ...       # one command, force strict
+SECRETGUARD_MODE=contributor git commit ...  # one command, force contributor
+echo contributor > .secretguard-mode         # pin this clone (same two words)
+bash scripts/check_clone_setup.sh            # confirm: the "mode:" line at the top
+```
+
+Those two words are the whole vocabulary — `SECRETGUARD_MODE=1` is ignored,
+with a message, rather than guessed at.
+
+CI is always strict, and resolves before both of the above: a
+`SECRETGUARD_MODE` exported in a workflow cannot downgrade it.
+`.secretguard-mode` is gitignored — it never travels.
+
+Two things never relax, in either mode: staging a `filter=sops` file whose
+content isn't encrypted, and editing one you can't decrypt.
+
+### When a push is blocked
+
+`scripts/prepush_secret_scan.sh` reads every commit you are about to
+publish, not just the tip — so it catches one made earlier with
+`--no-verify`. Push is the irreversible moment: deleting a commit from
+GitHub does not un-publish it, and on a topic branch nothing else looks
+until a PR exists.
+
+The message names a commit and a file. Then:
+
+```bash
+git show <commit>:<file>               # 1. confirm what is in there
+bash scripts/setup-git-filters.sh      # 2. wire the filter, if that was the problem
+git rebase -i <commit>~1               # 3. fix the commit that carries it
+git push                               # 4. re-run the scan
+```
+
+Step 3 is a history rewrite, so it is only safe while the branch is
+unpushed. If it is already pushed, the secret is out — go to *A secret was
+committed in plaintext*, below, and rotate.
+
+### Break glass
+
+```bash
+SKIP=<hook-id> git commit ...          # skip one hook
+git commit --no-verify                 # skip all commit hooks
+git push --no-verify                   # skip the pre-push scan
+```
+
+All three are legitimate and every message names the one that applies. CI's
+gitleaks and trufflehog passes still run over full history on a PR. If you
+push a secret past these, treat it as a leak — *A secret was committed in
+plaintext*, below.
+
+### Which check failed
+
+In rough order of likelihood:
 
 - **"staged WITHOUT sops encryption markers"** — the clean filter didn't
   run. Almost always a clone that never ran `scripts/setup-git-filters.sh`.
@@ -2384,6 +2807,95 @@ a stopgap running past the reason it exists.
 
 ---
 
+## Testing the DSC / AIS distress receive chain
+
+**Never press a radio's DSC distress button or activate a SART/MOB/EPIRB to
+test anything** — that transmits a real distress alert; standing rule, see
+`maintenance/priorities.md`. Everything below injects synthetic traffic over
+UDP instead. Nothing goes on the air.
+
+Prerequisites: `@sailingnaturali/signalk-dsc` and
+`@sailingnaturali/signalk-ais-distress` installed and enabled
+(`signalk-mob-notifier` optionally, for the `notifications.mob` alarm).
+
+1. **Turn DSCWatch reporting off before injecting anything.** signalk-dsc
+   ships every received call — synthetic ones included — to dscwatch.com,
+   and undelivered reports queue on disk and send when connectivity returns,
+   so an offline test still pollutes the network later. Plugin Config →
+   signalk-dsc → untick "Report received calls to DSCWatch.com", or set
+   `dscwatchEnabled: false` in
+   `plugin-config-data/signalk-dsc.json` and restart. Restore afterwards.
+
+2. Add a UDP NMEA 0183 input if the server has none — Settings →
+   Connections → Add, or in `settings.json` `pipedProviders`:
+
+   ```json
+   { "id": "dsc-test-udp", "enabled": true,
+     "pipeElements": [{ "type": "providers/simple",
+       "options": { "type": "NMEA0183", "subOptions": { "type": "udp", "port": "7777" } } }] }
+   ```
+
+   Restart SignalK after adding it.
+
+3. Clone the plugin repos for the test scripts. Don't look for them in the
+   installed packages — the npm tarballs omit `scripts/`, so
+   `npm run send-test-dsc` fails with module-not-found on any app-store
+   install (reported upstream 2026-08):
+
+   ```
+   git clone https://github.com/sailingnaturali/signalk-dsc
+   git clone https://github.com/sailingnaturali/signalk-ais-distress
+   ```
+
+4. Fire test traffic. Always pass `--host` — the default is the author's
+   own boat hostname, not localhost:
+
+   ```
+   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777
+   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777 --nature mob --category urgency
+   node signalk-ais-distress/scripts/send-test-ais.js --host localhost --port 7777 --beacon mob
+   ```
+
+5. Verify each stage (`$TOK` = any access token; anonymous works where
+   read-only access is allowed):
+
+   ```
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/dsc-calls
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/ais-distress
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v1/api/vessels/self/notifications
+   ```
+
+   Expect: the stored call with parsed fields, a
+   `notifications.received.<category>.<id>` per call (distress → `emergency`,
+   urgency → `alarm`), and for a `--beacon mob` injection additionally
+   `notifications.mob` at `emergency` from signalk-mob-notifier. A distress
+   caller also appears as a SaR target (`sar.urn:mrn:imo:mmsi:<caller>`) in
+   Freeboard.
+
+6. **Don't judge the test by the phone buzzing.** Per-call distress alarms
+   currently never reach `signalk-ntfy` or any other wildcard
+   `notifications.*` subscriber — a signalk-server delivery bug, verified
+   0-for-6 on 2.31.1; details in `reference/distress_monitoring.md`. Verify
+   via the REST endpoints above. If ntfy stays silent, that is the known
+   bug, not a broken test.
+
+7. Clear the alarms when done — clearing is a write, so it needs a
+   readwrite token, and run it from the cloned repos:
+
+   ```
+   cd signalk-dsc          && SIGNALK_TOKEN=$TOK node scripts/clear-dsc-alarm.js --host localhost --category all
+   cd ../signalk-ais-distress && SIGNALK_TOKEN=$TOK node scripts/clear-ais-alarm.js --host localhost --beacon all
+   ```
+
+   Cleared alarms drop to `normal` and stop re-raising across restarts. An
+   uncleared distress alarm re-raises for up to an hour after a server
+   restart — deliberate plugin behavior, not a stuck test.
+
+8. Afterwards: restore the DSCWatch setting to whatever the standing config
+   says, and disable the test UDP input if it was added only for this.
+
+---
+
 ## Never use OpenPlotter's "Reinstall" for Signal K
 
 Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf` on
@@ -2395,3 +2907,9 @@ nothing is backed up.
 
 If you need that branch to run — say, to regenerate the launcher after moving
 Node — back up `~/.signalk` first and put the config files back afterward.
+
+
+## List of packages that might need to be installed (based on HALOS investigation)
+sudo apt-get install yadm pre-commit 
+
+For yadm, my git key or a new one

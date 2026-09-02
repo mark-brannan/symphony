@@ -22,6 +22,14 @@ signalk/plugin-config-data/signalk-postgsail/
 signalk/plugin-config-data/signalk-questdb/
 signalk/plugin-config-data/signalk-restricted-areas/
 signalk/plugin-config-data/tides/
+# saillogger_buffer.ndjson is a disposable send queue (has run to 9MB+);
+# saillogger_config.json is real key-mapping config and stays tracked.
+signalk/plugin-config-data/signalk-saillogger/saillogger_buffer.ndjson
+
+# Node-RED's own generated state: installed-node cache and per-instance id,
+# not configuration -- regenerates from signalk/red/package.json + flows.
+signalk/red/.config.nodes.json
+signalk/red/.config.runtime.json
 
 # per-machine values for the hostvars filter -- see scripts/hostvars_filter.py
 hostvars.local.yaml
@@ -36,3 +44,8 @@ rendered/
 raw_backups/
 __pycache__/
 dex/config.yaml
+
+# Local mode override for the pre-commit guards (scripts/secretguard.sh).
+# Per-machine, never shared: committed as "contributor" it would silently
+# degrade every maintainer that pulls it.
+.secretguard-mode

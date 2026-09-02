@@ -16,7 +16,7 @@ it includes:
 | `influxdb` | `influxdb:2.7` | 8086 | `influxdb-data`, `influxdb-config` volumes |
 | `grafana` | `grafana/grafana:latest` | 3001→3000 | `grafana-data` volume, `./grafana/provisioning` |
 | `caddy` | built from `./caddy` | 443 | `caddy-data` volume (certificates) |
-| `dex` | `ghcr.io/dexidp/dex:latest` | none (proxied by caddy) | none (memory only) |
+| `dex` | `ghcr.io/dexidp/dex:v2.45.1` (pinned by digest) | none (proxied by caddy) | none (memory only) |
 | `dex-dev` | `ghcr.io/dexidp/dex:latest` | 5556 | none (memory only) |
 
 The last three sit behind compose profiles and don't start with a plain
@@ -47,11 +47,13 @@ Outbound integrations that need credentials: PostgSail
 (`api.openplotter.cloud`), OpenWeather, Windy, and InfluxDB. Each token is
 encrypted in the relevant `signalk/plugin-config-data/*.json`.
 
-## The boat Pi runs none of this in Docker
+## The boat Pi runs only part of this in Docker
 
 The table above describes the intended deployment. The Pi aboard Symphony
-doesn't match it: Docker isn't installed there, and SignalK, InfluxDB,
-Grafana, Caddy, Dex, and Telegraf all run as systemd units instead.
+doesn't match it, and no longer matches it in one direction either: Docker
+*is* installed there now, and Dex, QuestDB and ntfy run as containers. Dex
+moved first, in `d3d690e`. SignalK, InfluxDB, Grafana, Caddy and Telegraf
+still run as systemd units.
 
 The constraint is the hardware. It's a Pi 4B with 4 GB of RAM on a 32 GB SD
 card, and the live data — SignalK's state directory, the InfluxDB store,
@@ -67,7 +69,6 @@ natively:
 | Service | Native form | Config source |
 |---|---|---|
 | `caddy` | `/usr/local/bin/caddy`, custom build with `caddy-dns/cloudflare` | `/etc/caddy/Caddyfile`, a copy of `caddy/Caddyfile` with the three upstreams repointed from container names to `localhost` |
-| `dex` | `/usr/local/bin/dex`, binary extracted from the OCI image | reads `dex/config.yaml` from the repo directly |
 | `telegraf` | Debian package | `/etc/telegraf/telegraf.conf`, a symlink to `telegraf/telegraf.conf` |
 | `signalk`, `grafana-server`, `influxdb` | Debian/npm installs predating the repo | their own config trees, not the repo's |
 
@@ -76,11 +77,16 @@ passed as `env_file`, delivered by an `EnvironmentFile=` drop-in under
 `/etc/systemd/system/<unit>.service.d/`. So `scripts/render.py` remains the
 single path from sops to running configuration, container or not.
 
-Two traps live here. Dex and Telegraf run as `pi` rather than their own
-service users, because `/home/pi` is mode 0700 and their config lives
-inside it — the same reason `compose-idp.yml` pins Dex to uid 1000. And
+Two traps live here. Telegraf runs as `pi` rather than its own service
+user, because `/home/pi` is mode 0700 and its config lives inside it — the
+same reason `compose-idp.yml` pins the Dex container to uid 1000. And
 Telegraf's packaged unit is `Type=notify`, which times out under this
 configuration; the drop-in overrides it.
+
+A disabled `dex.service` unit is still present on the boat, left from
+before `d3d690e`. It is superseded by the container and must stay disabled:
+`systemctl is-active dex` reporting `inactive` there is the correct state,
+not a fault. Check Dex with `docker ps` and its discovery endpoint instead.
 
 SignalK is installed twice on that host, 2.14.4 under `/usr/lib` and 2.30.0
 under `/usr/local`. The service ran the older one — which predates OIDC
@@ -197,11 +203,9 @@ SignalK pair: a listed address came out `admin`, an unlisted one
 second on their next login.
 
 Two things to know before touching it. `dist/oidc/user-info.js` gates
-groups behind `Array.isArray` and would reject a bare string — but
-`extractUserInfo` is exported and never called anywhere in `dist`. It's
-dead code, and an earlier version of this document cited it as proof
-that no email-based hook existed. The live path is the callback in
-`dist/oidc/oidc-auth.js`. Second, pointing `groupsAttribute` at a claim
+groups behind `Array.isArray` and would reject a bare string, but
+`extractUserInfo` is exported and never called anywhere in `dist` — it is
+dead code. The live path is the callback in `dist/oidc/oidc-auth.js`. Second, pointing `groupsAttribute` at a claim
 that isn't a group is off-label: both halves are supported (the option
 is documented, and the string-to-list normalization is deliberate and
 commented), but a future release could tighten it and quietly demote the
@@ -225,11 +229,9 @@ attached. SignalK's separate anonymous no-login readonly mode (`allow_readonly`)
 is on as well, so reads don't require a login at all; signing in is what puts
 a name against them.
 
-Neither of the two routes considered on 2026-08-11 is what shipped — the
-Dex-synthesized group was built and then dropped, since it only ever
-covered Google and the `GROUPS_ATTRIBUTE` route above covers both for
-less. The upstream one is still open, and is now a tidiness argument
-rather than a coverage one:
+A Dex-synthesized group was built and dropped: it only ever covered Google,
+and the `GROUPS_ATTRIBUTE` route above covers both providers for less. The
+upstream route stays open as a tidiness argument rather than a coverage one:
 
 - **Patch upstream.** An email list beside `adminGroups` in
   `dist/oidc/permission-mapping.js`, which today takes the groups array
@@ -292,11 +294,8 @@ plugin-managed one dies with
 A container that lost this race is not retried — it stays in `Created`, and
 freeing 3001 afterwards has not been seen to bring it back on its own.
 
-*Unverified, and worth correcting if you learn otherwise:* the fix has never
-been run. Pointing the plugin's `grafanaPort` at a free port is the obvious
-move, but nobody has tried it, and it isn't known whether `signalk-grafana`
-honours the change or whether its auto-provisioning assumes 3001 elsewhere.
-Don't treat "just change `grafanaPort`" as a tested procedure.
+Untested fix: pointing the plugin's `grafanaPort` at a free port. Nobody has
+run it, so don't treat it as a procedure.
 
 To run QuestDB from your own compose file instead, set
 `managedContainer: false` and point `questdbHost` at the service name. The
@@ -333,40 +332,6 @@ the `docker.sock` volume and `group_add` from `compose-signalk.yml`.
 A socket proxy is the usual middle path, but it buys little here —
 `signalk-container` has to create containers to do its job, and container
 creation is itself the escalation.
-
-### The mount can go stale and strand the container
-
-Seen once, on the WSL dev box, 2026-08-12: `signalk-server` exited 127 and
-did not come back, with
-
-```
-error mounting "/run/desktop/mnt/host/wsl/docker-desktop-bind-mounts/Ubuntu/docker.sock"
-to rootfs at "/var/run/docker.sock": not a directory
-```
-
-The host socket itself was healthy at the time — `srw-rw---- root docker`,
-with an mtime matching Docker Desktop's restart. What had gone stale was
-Docker Desktop's own bind-mount staging path, not `/var/run/docker.sock`.
-`docker compose up -d --force-recreate` cleared it.
-
-The cost is that the container sits dead with nothing retrying it, and
-nothing alarms on it — this instance was down about eight hours before
-anyone noticed.
-
-*Unverified, and worth correcting if you learn otherwise:*
-
-- Whether this recurs on every Docker Desktop restart or was a one-off. It
-  has been observed exactly once.
-- Why `restart: unless-stopped` didn't recover it. The container had been up
-  since 2026-08-09 and `RestartCount` was still 0 afterwards, which points to
-  the policy never retrying rather than retrying and giving up — but that is
-  read off the counter, not observed directly.
-- Whether anything short of a full recreate fixes it. Plain `docker start`
-  was never tried.
-
-This is a Docker Desktop / WSL failure mode. The boat Pi runs Docker, but
-only for Dex and ntfy, and not under Docker Desktop — so it cannot be hit
-there.
 
 ## How secrets are stored
 
@@ -523,5 +488,22 @@ The layers are not equally trustworthy:
 | GitHub Actions | all of the above, plus full-history and live-credential scans | **no** — runs on every push |
 
 CI is the enforcement boundary; the hooks are fast feedback, not a guarantee.
-That is why `.github/workflows/validate.yml` re-runs the same checks rather
-than trusting that a hook already ran.
+That is why CI re-runs the same checks rather than trusting that a hook
+already ran.
+
+There are two workflows, split by deadline rather than by subject.
+`validate.yml` (compose, JSON/YAML, shellcheck, python, dashboards) runs on
+pushes to `main` and on pull requests: nothing it covers can reach the boat
+without a merge, so PR time is soon enough. `secret-scan.yml` (sops config
+consistency, encryption check, gitleaks, trufflehog) runs on a push to *any*
+branch, because this repo is public and a credential is exposed the moment
+the branch is pushed, PR or no PR. Before that split (2026-08-19) a `claude/*`
+branch pushed without a PR matched neither trigger and went unscanned.
+
+Deliberately not used on `secret-scan.yml`: a `paths:` filter. It would cut
+the run count, but gitleaks is there precisely to catch credential-shaped
+strings in files sops was never told about, and a path allowlist is another
+list of the files someone remembered to think about. It is also incoherent
+with the scan's scope — both scanners read full history, so gating them on
+one push's changed files would skip a whole-history scan whenever the newest
+commit happened to touch only a README.

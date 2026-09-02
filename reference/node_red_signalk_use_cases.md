@@ -2,13 +2,12 @@
 
 Researched 2026-08-15. Breadth-first web survey (SignalK's own GitHub/forum
 ecosystem, OpenPlotter/Victron/DIY communities, and cruiser forums/blogs) of
-what boat owners actually build with Node-RED on top of SignalK. List 1 is
-the raw categorized inventory. List 2 stack-ranks it by cross-source
-popularity. List 3 checks it against Symphony's own plugin inventory and
-monitoring posture as documented in this repo — see the note at the top of
-that section before trusting it.
+what boat owners actually build with Node-RED on top of SignalK. The
+inventory below is the durable part: an idea list to pull from when a job
+comes up. What each idea would take on this boat is a live question, not a
+recorded one.
 
-## List 1 — categorized use cases
+## The inventory
 
 ### A. Anchor & ground tackle
 - Anchor watch dashboard: swing-radius calc from rode length + depth, live
@@ -115,7 +114,8 @@ that section before trusting it.
 
 ### H. Safety & security
 - Man-overboard detection via a BLE beacon going out of range (buzzer +
-  position log)
+  position log). What the aboard DSC/AIS hardware feeds is now settled —
+  see `reference/distress_monitoring.md`.
 - Door/hatch/motion sensors used as an intruder alarm while unattended at
   anchor or dock
 
@@ -165,256 +165,39 @@ that section before trusting it.
 - Generic water-utility SCADA/HMI template adapted for boat tank + pump
   automation
 
-## List 2 — stack rank
+## What the survey produced
 
-Ranking value is an approximate count of distinct sources/threads (forum
-posts, official docs, blog posts, GitHub discussions, repos) found across
-the research sweep that referenced this specific pattern. The three research
-passes overlapped on some sources (especially GitHub Discussions), so these
-counts likely have some double-counting and should be read as ordinal
-(relative ranking), not as a precise citation count.
+Two items were buildable immediately and are tracked in `priorities.md`:
+deriving true heading from magnetic heading plus variation
+(`signalk-derived-data` is already installed), and turning a barometric
+pressure drop into a notification (both barometer trend trees are already
+published).
 
-| Rank | Use case | Approx. source count |
-|---|---|---|
-| 1 | Anchor watch/drag alarm & dashboard | 5 |
-| 2 | LED/dashboard indicator for Victron charger state | 6 |
-| 3 | Low starter-battery voltage alarm with debounce | 4 |
-| 4 | Local audible beeper with severity-based cadence | 4 |
-| 5 | SignalK ↔ Home Assistant bridge | 4 |
-| 6 | GPIO digital switching/relay panels + KIP UI | 4 |
-| 7 | Venus OS/Cerbo GX ↔ SignalK bridge | 4 |
-| 8 | Pushover remote push notifications | 3 |
-| 9 | Switch-left-on alarm pattern | 3 |
-| 10 | Excess-solar diversion to water heater | 3 |
-| 11 | MPPT charge-controller relay switching | 3 |
-| 12 | Bilge pump monitoring (dry-run cutoff / cycling / high-water) | 3 |
-| 13 | Zigbee sensor network | 3 |
-| 14 | InfluxDB + Grafana + Node-RED logging stack | 3 |
-| 15 | Engine health alarms/dashboard | 3 |
-| 16 | Shore-power-loss / low AC alarm | 2 |
-| 17 | Generator auto-start/stop by SOC | 2 |
-| 18 | Water tank overfill alarm | 2 |
-| 19 | SNMP router/internet monitoring | 2 |
-| 20 | True heading derivation from magnetic + variation | 2 |
-| 21 | Man-overboard detection via BLE beacon | 2 |
-| 22 | AIS collision-risk alerting (CPA/TCPA) | 2 |
-| 23 | Semi-automatic electronic logbook | 1 |
-| 24 | Starlink monitoring dashboard | 1 |
-| 25 | Meshtastic off-grid boat-to-shore texting | 1 (one origin post, widely reshared) |
+Everything else in List 1 is either already covered aboard (below) or was an
+unverified desk comparison against this repo's own docs, which is not worth
+carrying as reference — re-check against the live boat if a category becomes
+interesting.
 
-Everything in List 1 below this cutoff is a single-source mention not
-reflected in this ranking.
+## Not applicable to Symphony
 
-## List 3 — gaps against Symphony's own setup
+Facts worth keeping so the same categories aren't re-evaluated. Owner-confirmed
+2026-08-15 unless noted:
 
-**This is a first, rough pass, not a thorough comparison.** Everything below
-is [recall] — read off this repo's own reference docs
-(`software_stack.md`, `monitoring_decisions.md`, `monitoring_posture.md`,
-`signalk_plugin_watchdog.md`, `signalk_paths.md`, `priorities.md`) and the
-`signalk/plugin-config-data/` file listing as of 2026-08-15, not measured
-live on the boat. A plugin file existing doesn't mean it's enabled and
-working; a path never having been published doesn't mean it never will be.
-Treat every tag below as a starting point to verify, not a verdict.
+- **No generator**, none planned — the charging plan is solar + alternator
+  with a DC-DC charger away from the dock. Revisit section D's solar-dependent
+  ideas once solar is actually installed.
+- **No Starlink.**
+- **No MOB button or crew-tag hardware** of any kind aboard.
+- No watermaker (it is on `priorities.md`'s Someday/Maybe list), no battery
+  heater, no Zigbee gateway, no Home Assistant or HomeSeer instance, no Shelly
+  sensors, no Sense HAT, no remote LED repeater display.
+- No tanks or pumps instrumented, and no engine/fuel data published — which
+  rules out tank-sender calibration, overfill automation and fuel-economy
+  tracking until sensors exist.
+- No solar/MPPT data (`electrical.solar.*` has never been published), which
+  blocks excess-solar diversion and MPPT relay switching.
 
-Tags used: **gap** — no existing plugin/flow does this and the needed data
-already exists, so it's buildable now; **gap, blocked** — not implemented,
-and the underlying sensor/equipment data doesn't exist in Symphony's
-SignalK tree yet; **gap, n/a** — not implemented, and the equipment doesn't
-exist on this vessel today.
-
-### A. Anchor & ground tackle
-- Anchor swing-radius dashboard + InfluxDB history + manual controls —
-  **gap**. The drag-alarm core is already covered (see excluded list
-  below); this dashboard/logging layer on top of it is not built.
-- Flip a relay/switch when the anchor alarm fires — **gap**. No delivery
-  or actuation is currently wired to the anchor alarm notification either.
-- DIY windlass chain counter — **gap, blocked**. No rode-position sensor
-  or path exists.
-- Reminder to switch on the anchor light — **gap**. Ties to the
-  not-yet-built COLREGs nav-lights plugin already in `priorities.md`.
-- Automated anchor light + ACR switching — **gap**. Same — no
-  nav-light/ACR automation exists yet.
-
-### B. Condition/equipment alarms
-- Switch-left-on alarm (generic pattern) — **gap**. Node-RED currently
-  runs only the openweather humidity-fix flow.
-- Water tank overfill alarm — **gap, blocked**. `tanks.*` has never been
-  published on Symphony — no tank senders installed.
-- Bilge pump dry-run cutoff / excessive-cycling / high-water alarms —
-  **gap, blocked**. No bilge pump current-draw or bilge-water-level path
-  found in the tree.
-- Shore-power-loss / low-AC alarm — **gap**, buildable now.
-  `electrical.chargers.VictronACCharger.state` is already published;
-  nothing currently watches it for a loss condition.
-- Low starter-battery voltage alarm — **gap, blocked**. No starter-battery
-  voltage path is published; only house/JBD-pack batteries are
-  instrumented, and "charger for starter battery" is still an unbuilt
-  electrical task.
-- Battery over-temperature warning — **gap, blocked**. No battery
-  temperature path is confirmed among the published battery values.
-- High wind speed alarm — **gap**, buildable now.
-  `wind.speedTrue`/`directionTrue` are already published; no alarm/zone is
-  configured on them.
-- CO2 / smoke / propane safety alerts — **gap, blocked**. No gas/smoke
-  sensor path exists; a CO detector and propane sensor are still on the
-  still-to-buy physical list.
-- Nav-light reminders — **gap**. Same as the anchor-light item above.
-- Engine health alarms — **gap, blocked**. `propulsion.*` is entirely
-  absent — no engine data reaches SignalK at all yet.
-- Engine-JSON→Grafana severity transform — **gap, blocked**. No engine
-  telemetry exists to transform.
-
-### C. Alert delivery / notification channels
-- Telegram bot alerts — **gap**. No Telegram integration found anywhere in
-  the stack.
-- Text-to-speech alarm announcements — **gap, blocked**. No speaker exists
-  yet at all (same hardware gap blocking the GPIO beeper below).
-- Alerts via the boat's stereo — **gap**. No such integration.
-- Email alert on any SignalK notification — **gap**. No working SMTP path;
-  `signalk-healthcheck`'s `sendEmail` is off and was never configured.
-- SMS alerts — **gap**. No SMS integration.
-- Boat-to-shore texting over Meshtastic — **gap, blocked**. No
-  Meshtastic/LoRa hardware aboard.
-- Discord/Slack bot alerts — **gap**. No such integration.
-
-### D. Battery, solar & power management
-- Physical LED indicator for charger state — **gap**. The data
-  (`VictronACCharger.state`) is already available; no GPIO LED output flow
-  is built.
-- SOC-based load shedding — **gap**. No relay-actuation flow tied to SOC
-  found.
-- Generator auto-start/stop by SOC — **gap, n/a**, confirmed. Owner
-  confirmed 2026-08-15: no generator, none planned — the future charging
-  plan is solar + alternator with a DC-DC charger when not at the dock.
-  Worth revisiting the other solar-dependent gaps in section D against
-  that plan once solar is actually installed.
-- Scheduled/off-peak battery charging — **gap**. No schedule-driven
-  charging flow found.
-- Excess-solar diversion to a water heater — **gap, blocked**.
-  `electrical.solar.*` has never been published — no solar/MPPT monitoring
-  exists yet.
-- MPPT relay switching / voltage reduction — **gap, blocked**. Same — no
-  solar/MPPT data.
-- Battery heater auto-enable — **gap, n/a**. No battery heater equipment
-  known.
-- SOC-triggered relay/light — **gap**. No such automation flow found.
-- Grid/shore-power draw automation — **gap**. Shore-power state is
-  readable (`VictronACCharger`) but nothing automates drawing from it.
-- Battery charge-limit slider dashboard — **gap**. No PUT-based
-  charge-limit control flow found.
-
-### E. Digital switching, relays & lighting
-- GPIO relay/switch panel automation via Node-RED — **gap**. `switches.*`
-  paths and KIP both exist, but no Node-RED-driven relay-control flow was
-  found — only the humidity-fix flow runs.
-- Dimmer switch flow — **gap**. No dimming path/plugin found; cabin
-  lighting circuits are still an unbuilt electrical design item.
-- Hella LED dimmer automation — **gap, blocked**. No Hella dimmer hardware
-  confirmed aboard.
-- Motion-activated night lighting — **gap, blocked**. No motion sensors or
-  Zigbee gateway aboard.
-- MQTT-controlled lighting — **gap**. No MQTT broker/lighting bridge found.
-- Zigbee stick-on buttons — **gap, blocked**. No Zigbee gateway; Symphony's
-  wireless sensors come in over BLE (`bt-sensors-plugin-sk`) instead.
-
-### F. Sensor integration
-- Zigbee sensor network generally — **gap, blocked**. No Zigbee gateway
-  aboard.
-- 1-Wire DS18B20 temperature sensors — **gap, blocked**. None deployed;
-  "additional temperature sensors" is still an open backlog item.
-- Sense HAT — **gap, n/a**. No such hardware, and would overlap
-  `signalk-rpi-monitor`/Telegraf for host metrics.
-- Shelly sensor → custom N2K PGN — **gap, n/a**. No Shelly sensors and no
-  proprietary chartplotter needing PGN translation identified.
-
-### G. Data logging, dashboards & analytics
-- Remote LED data-repeater display — **gap, n/a**. No such remote display
-  hardware.
-- Live SignalK values as Node-RED Dashboard widgets — **gap**, but low
-  value: KIP, freeboard-sk and Grafana already serve as the boat's
-  dashboards.
-
-### H. Safety & security
-- MOB detection — **gap, blocked**, confirmed. Owner confirmed 2026-08-15:
-  no MOB button or crew-tag hardware of any kind aboard — the BLE-tag
-  pattern specifically needs hardware that doesn't exist. What does exist:
-  a handheld VHF with DSC and an emergency button, and an AIS Class B
-  transceiver. `signalk-mob-notifier` is installed; whether it (or
-  anything else) consumes a DSC distress alert, an AIS MOB beacon message,
-  or neither is unconfirmed. **Verification has to come from documentation
-  or source, never from live-testing the DSC emergency button** — that
-  sends a real distress call to the Coast Guard on Ch 16, with possible
-  legal/regulatory consequences. Owner confirmed 2026-08-15 this is a
-  standing rule, not a one-off caution — see `maintenance/priorities.md`.
-  Owner wants MOB detection eventually (medium-low priority, open research
-  item as of 2026-08-15, not immediately planned) and is only willing to
-  adopt a solution already proven elsewhere to work reliably — not
-  something built and validated on this boat.
-- Door/hatch/motion intruder alarm — **gap, blocked**. No door/hatch/motion
-  sensors or Zigbee gateway aboard.
-
-### I. Home automation / platform bridging
-- SignalK ↔ Home Assistant bridge — **gap**. No Home Assistant instance
-  found anywhere in the stack.
-- HomeSeer HS4 integration — **gap, n/a**. No HomeSeer in use.
-
-### J. Navigation & instrument data processing
-- True heading derived from magnetic heading + variation — **gap**,
-  buildable immediately and the lowest-effort item on this whole list:
-  `signalk-derived-data` is already installed, but its
-  `heading`/`cog_true`/`magneticVariation` calculators are explicitly
-  disabled, and the inputs (`headingMagnetic`, `magneticVariation`) are
-  already published.
-- Set-and-drift calculation — **gap**. No set/drift path found among
-  published values.
-- Custom NMEA2000 PGN generation from SignalK — **gap**. No evidence of
-  any PGN-generation flow; the boat only receives N2K today.
-- AIS collision-risk alerting (CPA/TCPA) — **gap, blocked**. AIS doesn't
-  appear to be fully powered/operational yet — `priorities.md` notes
-  position-source-priority work is still waiting on "when the AIS is
-  powered."
-
-### K. Connectivity & remote access
-- SNMP router/internet polling to InfluxDB — **gap**, but partially
-  redundant: the heartbeat already probes uplink health a different way
-  (a raw-IP probe gating its Pushover escalation).
-- Virtual N2K switch/indicator (e.g. router status on a chartplotter
-  display) — **gap**. No such indicator exists.
-- Starlink monitoring dashboard — **gap, n/a**, confirmed. Owner confirmed
-  2026-08-15: no Starlink aboard.
-
-### L. Specialty equipment control
-- Spectra/Brineomatic watermaker control — **gap, n/a**. No watermaker
-  aboard — it's on `priorities.md`'s Someday/Maybe list.
-- Autopilot control via Node-RED PUT — **gap**. `@signalk/signalk-autopilot`
-  is installed and `steering.autopilot.*` is published, but nothing drives
-  it from Node-RED; note pypilot is a separate, unbuilt backlog project and
-  not confirmed to be the boat's current autopilot.
-- Fridge/compressor current-draw monitoring — **gap** (partial — fridge
-  *temperature* is already covered via BLE; compressor current draw
-  specifically is not monitored).
-
-### M. Weather
-- Barometric-pressure-trend alert — **gap**, buildable immediately: both
-  barometer trend/prediction trees are already published; nothing
-  currently turns a pressure drop into a notification.
-- NOAA/BBXX synoptic weather report generation — **gap**, questionable fit
-  — not installed, and unclear this adds anything beyond the NOAA plugins
-  already in use.
-- Auto-download GRIB weather files — **gap**. No Saildocs/GRIB integration
-  found.
-
-### N. Misc / utility
-- Countdown/sleep timer dashboard — **gap**, low value: trivial Node-RED
-  pattern, no clear need identified.
-- Geofence auto-tweet on arrival/departure — **gap**, low value: no
-  geofence flow and no social-posting integration anywhere in the stack.
-- Tank-sender calibration — **gap, n/a**. No tanks instrumented yet.
-- Fuel consumption/economy tracking — **gap, n/a**. No engine/fuel data
-  exists.
-- Water-utility SCADA template — **gap, n/a**. No tanks/pumps instrumented.
-
-### Excluded — already covered (not in the gap list above)
+## Already covered aboard
 
 - Dedicated anchor-drag alarm — `signalk-anchoralarm-plugin` (installed
   per `priorities.md`)

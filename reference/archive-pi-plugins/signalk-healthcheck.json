@@ -1,0 +1,32 @@
+{
+  "configuration": {
+    "host": {
+      "enabled": true,
+      "cpuWarning": 80,
+      "cpuAlarm": 90,
+      "memWarning": 20,
+      "memAlarm": 10,
+      "diskWarning": 20,
+      "diskAlarm": 10,
+      "checkFrequency": 60,
+      "checkMaxAttempts": 3,
+      "sendNotification": false,
+      "sendEmail": false
+    },
+    "providers": {
+      "OpenPlotter GPSD": {
+        "enabled": true,
+        "deltaWarning": 1,
+        "deltaAlarm": 1,
+        "checkFrequency": 60,
+        "checkMaxAttempts": 3,
+        "sendNotification": false,
+        "sendEmail": false
+      }
+    },
+    "mail": {
+      "secure": false
+    }
+  },
+  "enabled": true
+}

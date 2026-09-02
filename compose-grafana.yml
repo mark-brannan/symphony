@@ -1,6 +1,15 @@
 services:
   grafana:
-    image: grafana/grafana:latest
+    # Built, not pulled: grafana/Dockerfile COPYs ./grafana/provisioning into
+    # the image at build time instead of bind-mounting it from the host. A
+    # bind mount here used to let dockerd (root) silently create the host
+    # path as root:root whenever compose ran before that directory existed
+    # -- e.g. from an incomplete checkout -- which then broke every later
+    # Claude Code session sharing this uid's tmpdir. Baking it in means
+    # `docker compose up` is safe from any cwd or checkout state, no wrapper
+    # script required. Cost: editing provisioning now needs `docker compose
+    # up --build --no-deps grafana` to take effect, not a live host edit.
+    build: ./grafana
     container_name: grafana
     restart: unless-stopped
     env_file:
@@ -16,7 +25,6 @@ services:
       - "3001:3000" # 3001 externally; SignalK owns 3000
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
     networks:
       - symphony-net
     # Transitional, for as long as InfluxDB is still a native systemd service
