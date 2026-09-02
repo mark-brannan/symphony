@@ -10,6 +10,7 @@ include:
   - path: compose-influxdb.yml
   - path: compose-questdb.yml
   - path: compose-grafana.yml
+  - path: compose-autoheal.yml  # restarts anything labelled autoheal=true that goes unhealthy
   - path: compose-proxy.yml    # profile "tls" -- only runs with --profile tls (boat)
   - path: compose-idp.yml      # profile "tls" -- dex, the boat's OIDC issuer
   - path: compose-dev-idp.yml  # profile "dev-idp" -- local OIDC stand-in, never on the boat

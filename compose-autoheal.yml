@@ -1,0 +1,52 @@
+services:
+  autoheal:
+    # A healthcheck only sets a flag; something has to act on it. Docker's own
+    # `restart:` policies never do -- they fire on process *exit*, which is
+    # exactly the case QuestDB's 2026-09-02 wedge was not. This is the actor.
+    #
+    # Same image and settings HALOS runs on the `halos` card, so the two boxes
+    # behave identically across the card swap. Pinned by digest for the same
+    # reason as dex and questdb: `latest` moving under the boat is not a
+    # surprise worth having offshore.
+    image: willfarrell/autoheal:1.2.0@sha256:31f580ef0279eaced5b38d631b08c474d70d8403c1c2fdd6ddcf2e879d5f3f7c
+    container_name: autoheal
+    restart: unless-stopped
+    # No profile, on purpose. `profiles:` would mean a plain `docker compose
+    # up -d` silently leaves the watchdog out, and a watchdog that is absent
+    # looks exactly like one that is working.
+    #
+    # It talks to the docker socket and nothing else, so it joins no network.
+    network_mode: "none"
+    environment:
+      # Opt-in by label (`autoheal: "true"` on each service), not HALOS's
+      # `all`. HALOS owns its whole host; here a hand-run container -- a
+      # throwaway QuestDB on another port, a debug image -- shares the daemon,
+      # and should not be restarted by the compose stack's watchdog. The cost
+      # is that a new service needs the label as well as the healthcheck;
+      # both live in the same block so they are added together.
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=30
+      # Autoheal's own delay before it starts watching, after *it* boots --
+      # distinct from each container's `start_period`, which docker enforces
+      # by reporting `starting` rather than `unhealthy`. Both are needed:
+      # this one covers the boot where everything comes up at once.
+      - AUTOHEAL_START_PERIOD=120
+      # HALOS's default is 10 s. QuestDB gets 30 here because that is what the
+      # 2026-09-02 recovery needed by hand (`docker restart -t 30 questdb`):
+      # a wedged JVM will not answer SIGTERM, so this is the pause before
+      # SIGKILL, and cutting it short risks killing a *healthy* QuestDB
+      # mid-commit on some future restart.
+      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=30
+    volumes:
+      # :ro applies to the bind mount, not to the socket -- autoheal still
+      # issues restarts through it. This is a full grant of control over the
+      # docker daemon; it is the same grant HALOS makes, and the LAN trust
+      # boundary in reference/security_posture.md is what carries it.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # This log is the only record of what got restarted and when -- the thing
+    # nobody had on 2026-09-02. Capped like the rest of the stack's.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
