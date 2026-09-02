@@ -41,14 +41,17 @@ logged in `maintenance/log.md`.
 - [SSO login (GitHub / Google)](#sso-login-github--google)
 
 **Running SignalK**
+- [Upgrading Signalk on the boat Pi](#upgrading-signalk-on-the-boat-pi)
 - [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi)
 - [SignalK's NMEA 2000 input](#signalks-nmea-2000-input)
 - [Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
+- [Testing the DSC / AIS distress receive chain](#testing-the-dsc--ais-distress-receive-chain)
 
 **Troubleshooting**
 - [Hostnames stop resolving](#when-the-boats-hostnames-stop-resolving)
 - [A plugin isn't in the config UI](#when-a-plugin-isnt-in-the-config-ui)
 - [SignalK errors about missing packages](#when-signalk-errors-about-missing-packages-on-the-boat-pi)
+- [Every plugin install fails on a `file:` dependency](#when-every-plugin-install-fails-on-a-file-dependency)
 - [BLE sensors silent after a reboot](#ble-sensors-go-silent-after-a-reboot)
 - [A BLE sensor connects but delivers nothing](#a-ble-sensor-connects-but-never-delivers-data)
 - [A plugin fork keeps reverting](#a-local-plugin-fork-keeps-reverting-to-the-registry-build)
@@ -120,6 +123,27 @@ sudo tailscale up --ssh --hostname=symphony-pi
 
 Follow the printed login URL. *Verify:* `tailscale status` lists it, and
 `ssh pi@symphony-pi` connects from another device on the tailnet.
+
+### The HALOS trial Pi (home, not the boat)
+
+A separate box — the spare Pi 4 running HaLOS at home, per the Track A trial
+in [containerization_strategy.md](reference/containerization_strategy.md).
+Same tailnet, same `pi` account, same Tailscale SSH — no key setup needed:
+
+```bash
+ssh pi@halos-pi4
+```
+
+*Verify:* `tailscale status` lists `halos-pi4`, and the command above
+connects.
+
+Its apps sit behind HaLOS's own Traefik reverse proxy rather than bare ports
+— check `/etc/halos/port-registry` on the box for the current map (SignalK
+was `4430` as of 2026-08-26). The `pi` user is **not** in the `docker` group
+and has no passwordless `sudo` here — reaching the SignalK container's
+admin API needs a token (see
+[Setting up plugins on the HALOS trial Pi](#setting-up-plugins-on-the-halos-trial-pi)),
+not `docker exec` or a service restart.
 
 ---
 
@@ -312,8 +336,9 @@ offline copy, another host you already trust. Never through this repo, never
 over a channel you wouldn't send the secrets themselves over.
 
 ```bash
+
 mkdir -p ~/.config/sops/age
-cp <the key> ~/.config/sops/age/keys.txt
+cp $super_secret_key_file ~/.config/sops/age/keys.txt
 chmod 600 ~/.config/sops/age/keys.txt
 ```
 
@@ -1662,6 +1687,56 @@ git-tracked `signalk/security.json` otherwise).
 
 ---
 
+## Upgrading SignalK on the boat Pi
+
+> 🔴 **Do not run `sudo openplotter-signalk-installer`.** It took the boat
+> offline for two days on 2026-08-23. This section used to recommend it as the
+> only safe path; that advice was wrong.
+
+Read `/usr/lib/python3/dist-packages/openplotterSignalkInstaller/signalkPostInstall.py`
+before trusting the tool. Two lines make it unsafe to run unattended:
+
+- **Line 45: `apt autoremove -y nodejs npm`.** It removes the Node runtime
+  before reinstalling from NodeSource. On this Pi that resolved to the
+  `nsolid` package, which conflicts with `nodejs`; the run never completed and
+  left no `signalk-server` at all.
+- **Line 91: `node_path = npm config get prefix`,** whose answer it writes into
+  the `~/.signalk/signalk-server` launcher at line 95. Under `sudo` that value
+  is **working-directory dependent** — invoked from `/home/pi`, npm reads
+  `/home/pi/.npmrc` as *project* config, refuses its `prefix=~/.npm-global`,
+  and re-expands `~` against root's HOME, yielding `/root/.npm-global`. The
+  service runs as `User=pi` and cannot read `/root`, so the launcher points at
+  a path the service can never execute. Nothing warns you.
+
+To install or reinstall the server, do the npm half by hand as user `pi` —
+never via `sudo`, so the prefix resolves deterministically to
+`/home/pi/.npm-global`:
+
+```bash
+sudo systemctl stop signalk.socket signalk.service
+```
+```bash
+npm install -g signalk-server --no-audit --no-fund
+```
+
+Expect this to take 30-60 minutes on the Pi and to log nothing during its
+extract/link phase. Confirm progress with the growing tree, not the log:
+`du -sh ~/.npm-global/lib/node_modules/signalk-server`.
+
+Then point the launcher at wherever it landed, and start socket before service:
+
+```bash
+printf '#!/bin/sh\n%s/lib/node_modules/signalk-server/bin/signalk-server -c %s $*\n' "$(npm config get prefix)" "$HOME/.signalk" > ~/.signalk/signalk-server && chmod 775 ~/.signalk/signalk-server
+```
+```bash
+sudo systemctl reset-failed signalk.service && sudo systemctl start signalk.socket signalk.service
+```
+
+`/etc/systemd/system/signalk.service` needs no edit — its `ExecStart` is that
+launcher script, so repointing the script is the whole change. Verify with
+`systemctl is-active signalk` and a `journalctl -u signalk -f` that reaches
+plugin loading without `Cannot find module`.
+
 ## Stopping SignalK on the boat Pi
 
 `systemctl stop signalk` does not keep it down. A `signalk.socket` unit
@@ -2227,7 +2302,64 @@ pruned without ever appearing in that list.
 
 On 2026-08-15 this caught `signalk-plugin-watchdog` and `flaky-plugin`,
 both hand-installed. The permanent fix for any plugin meant to stay is a
-`file:` entry in `package.json`, which takes it out of the prune path.
+`file:` entry in `package.json`, which takes it out of the prune path — but
+it must point **outside** `node_modules`, or it breaks every later install:
+see [When every plugin install fails on a `file:` dependency](#when-every-plugin-install-fails-on-a-file-dependency).
+
+---
+
+## When every plugin install fails on a `file:` dependency
+
+Symptom: every App Store install fails, whichever plugin you picked, and so
+does a plain `npm install` in `~/.signalk`. The named package is not the one
+you were installing:
+
+```
+npm warn tarball tarball data for <plugin>@file:<plugin> (null) seems to be corrupted. Trying again.
+npm error code ENOENT
+npm error path /home/pi/.signalk/<plugin>/package.json
+npm error enoent Could not read package.json
+```
+
+Cause: a `file:` entry in `~/.signalk/package.json` pointing at a directory
+*inside* `node_modules`. npm packs that directory, then clears the
+destination — the same directory — before unpacking it, so the source is gone
+by the time it is needed. The whole install aborts before anything is written.
+
+`npm install <pkg> --dry-run` succeeds anyway; it resolves the tree without
+reifying it, so it will not reproduce this. Confirm from `package.json`
+instead:
+
+```bash
+grep -o '"[^"]*": *"file:[^"]*"' ~/.signalk/package.json
+```
+
+Any result containing `node_modules` is the fault. Point the entry at the
+real source instead — for the watchdog that is its git-tracked copy in this
+repo, already on the boat:
+
+```bash
+cd ~/.signalk
+cp -a package.json package.json.bak-$(date +%Y%m%d)
+npm pkg set dependencies.<plugin>=file:../symphony/plugins/<plugin>
+npm --save --ignore-scripts install
+```
+
+`--ignore-scripts` matches what the server itself passes, so the App Store
+and the command line behave the same way.
+
+*Verify* — the link resolves, the source survived, and the install actually
+reified:
+
+```bash
+ls -l ~/.signalk/node_modules/<plugin>   # symlink -> ../../symphony/plugins/<plugin>
+ls ~/symphony/plugins/<plugin>           # files still there
+```
+
+Run a real install, never `--dry-run`, as the check. npm links `file:` deps
+rather than copying them, so edits to the git-tracked source reach the server
+with no reinstall, and the plugin stays out of the prune path described above.
+Restart SignalK to load whatever the install actually brought in.
 
 ---
 
@@ -2456,6 +2588,33 @@ loaded at startup, so swapping the directory changes nothing until it
 restarts — the fork you just linked is not yet the code that's running, and a
 plugin you think you're testing may be the one you replaced.
 
+A symlinked fork also needs its own `node_modules`. npm never installs
+dependencies *through* the symlink — the pinned registry version in
+`~/.signalk/package.json` is a version string, not an install — so the fork's
+declared deps are only ever present by accident, hoisted by some earlier
+registry install of the same package. Any rebuild of `~/.signalk/node_modules`
+drops them and the plugin fails to start:
+
+```text
+bt-sensors-plugin-sk failed to start: Cannot find module '@naugehyde/node-ble'
+```
+
+Install them inside the fork instead of anywhere near `~/.signalk` — that
+keeps it to a few dozen packages rather than the 1.7 GB tree that OOMs the Pi:
+
+```bash
+cd ~/bt-sensors-plugin-sk
+npm install --omit=dev --ignore-scripts --no-audit --no-fund
+```
+
+`--ignore-scripts` is safe here only because these deps are all pure JS.
+*Verify* — if this finds anything, run `npm rebuild` in the same directory:
+
+```bash
+find ~/bt-sensors-plugin-sk/node_modules -name '*.node'   # expect no output
+```
+
+
 ---
 
 ## When a hook blocks your commit
@@ -2660,6 +2819,95 @@ a stopgap running past the reason it exists.
 
 ---
 
+## Testing the DSC / AIS distress receive chain
+
+**Never press a radio's DSC distress button or activate a SART/MOB/EPIRB to
+test anything** — that transmits a real distress alert; standing rule, see
+`maintenance/priorities.md`. Everything below injects synthetic traffic over
+UDP instead. Nothing goes on the air.
+
+Prerequisites: `@sailingnaturali/signalk-dsc` and
+`@sailingnaturali/signalk-ais-distress` installed and enabled
+(`signalk-mob-notifier` optionally, for the `notifications.mob` alarm).
+
+1. **Turn DSCWatch reporting off before injecting anything.** signalk-dsc
+   ships every received call — synthetic ones included — to dscwatch.com,
+   and undelivered reports queue on disk and send when connectivity returns,
+   so an offline test still pollutes the network later. Plugin Config →
+   signalk-dsc → untick "Report received calls to DSCWatch.com", or set
+   `dscwatchEnabled: false` in
+   `plugin-config-data/signalk-dsc.json` and restart. Restore afterwards.
+
+2. Add a UDP NMEA 0183 input if the server has none — Settings →
+   Connections → Add, or in `settings.json` `pipedProviders`:
+
+   ```json
+   { "id": "dsc-test-udp", "enabled": true,
+     "pipeElements": [{ "type": "providers/simple",
+       "options": { "type": "NMEA0183", "subOptions": { "type": "udp", "port": "7777" } } }] }
+   ```
+
+   Restart SignalK after adding it.
+
+3. Clone the plugin repos for the test scripts. Don't look for them in the
+   installed packages — the npm tarballs omit `scripts/`, so
+   `npm run send-test-dsc` fails with module-not-found on any app-store
+   install (reported upstream 2026-08):
+
+   ```
+   git clone https://github.com/sailingnaturali/signalk-dsc
+   git clone https://github.com/sailingnaturali/signalk-ais-distress
+   ```
+
+4. Fire test traffic. Always pass `--host` — the default is the author's
+   own boat hostname, not localhost:
+
+   ```
+   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777
+   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777 --nature mob --category urgency
+   node signalk-ais-distress/scripts/send-test-ais.js --host localhost --port 7777 --beacon mob
+   ```
+
+5. Verify each stage (`$TOK` = any access token; anonymous works where
+   read-only access is allowed):
+
+   ```
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/dsc-calls
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/ais-distress
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v1/api/vessels/self/notifications
+   ```
+
+   Expect: the stored call with parsed fields, a
+   `notifications.received.<category>.<id>` per call (distress → `emergency`,
+   urgency → `alarm`), and for a `--beacon mob` injection additionally
+   `notifications.mob` at `emergency` from signalk-mob-notifier. A distress
+   caller also appears as a SaR target (`sar.urn:mrn:imo:mmsi:<caller>`) in
+   Freeboard.
+
+6. **Don't judge the test by the phone buzzing.** Per-call distress alarms
+   currently never reach `signalk-ntfy` or any other wildcard
+   `notifications.*` subscriber — a signalk-server delivery bug, verified
+   0-for-6 on 2.31.1; details in `reference/distress_monitoring.md`. Verify
+   via the REST endpoints above. If ntfy stays silent, that is the known
+   bug, not a broken test.
+
+7. Clear the alarms when done — clearing is a write, so it needs a
+   readwrite token, and run it from the cloned repos:
+
+   ```
+   cd signalk-dsc          && SIGNALK_TOKEN=$TOK node scripts/clear-dsc-alarm.js --host localhost --category all
+   cd ../signalk-ais-distress && SIGNALK_TOKEN=$TOK node scripts/clear-ais-alarm.js --host localhost --beacon all
+   ```
+
+   Cleared alarms drop to `normal` and stop re-raising across restarts. An
+   uncleared distress alarm re-raises for up to an hour after a server
+   restart — deliberate plugin behavior, not a stuck test.
+
+8. Afterwards: restore the DSCWatch setting to whatever the standing config
+   says, and disable the test UDP input if it was added only for this.
+
+---
+
 ## Never use OpenPlotter's "Reinstall" for Signal K
 
 Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf` on
@@ -2671,3 +2919,9 @@ nothing is backed up.
 
 If you need that branch to run — say, to regenerate the launcher after moving
 Node — back up `~/.signalk` first and put the config files back afterward.
+
+
+## List of packages that might need to be installed (based on HALOS investigation)
+sudo apt-get install yadm pre-commit 
+
+For yadm, my git key or a new one

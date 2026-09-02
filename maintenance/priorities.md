@@ -171,7 +171,14 @@ Detailed state, evidence and micro-tasks for every item below live in
   QuestDB volume actually grows, porting the dashboards, and getting a copy
   of the InfluxDB backup off the boat — then retire InfluxDB.
 - Phone and audible delivery for vessel alarms (ntfy live both places;
-  Pushover relay and speaker still open)
+  Pushover relay and speaker still open). Per-call distress alarms don't
+  reach any delivery plugin yet — signalk-server delivery bug, see
+  `reference/distress_monitoring.md`.
+- Bring the DSC/AIS distress receive chain to the boat (`signalk-dsc` +
+  `signalk-ais-distress`; validated end to end by synthetic injection
+  2026-08-19, neither installed aboard yet). Before install: decide DSCWatch
+  reporting, and close or accept the alarm-delivery gap — both in
+  `reference/distress_monitoring.md`; test procedure in `RUNBOOK.md`.
 - Ansible for host provisioning (clock and watchdog roles first)
 - Fit a DS3231 RTC; get GPS time off the N2K bus into chrony
 - Rate-limit sshd (fail2ban or equivalent) — precautionary
@@ -186,6 +193,7 @@ Detailed state, evidence and micro-tasks for every item below live in
 - Plugin housekeeping: nine major-version upgrades, broken/unconfigured
   plugins, barometric-drop notification
 - MOB detection — research only; **never live-test the DSC emergency button**
-  (standing rule)
+  (standing rule). What consumes the aboard hardware is now settled by
+  synthetic injection — see `reference/distress_monitoring.md`.
 - Install BLE hub for lighting and related devices
 - Off-machine Vaultwarden hosting for the sops/age key backup

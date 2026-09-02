@@ -223,9 +223,11 @@ questions durably rather than in scrollback, and draft PRs are mine to get
 ready-and-green without being asked — live in
 `dotfiles/.claude/rules/code.md` § PR ownership / § Babysitting a PR is
 cheap. Symphony-specific instances of those:
-- A PreToolUse hook (`.claude/hooks/no-persistent-polling.sh`) enforces the
-  no-scheduled-wakeup rule here — if it denies a call, take the redirect
-  rather than looking for another way to schedule.
+- The no-scheduled-wakeup rule is enforced by a PreToolUse hook — if it
+  denies a call, take the redirect rather than looking for another way to
+  schedule. On a machine with `dotfiles` installed this comes from its
+  user-level `~/.claude/hooks/no-persistent-polling.sh`, wired in every
+  session; without it, nothing in this repo enforces the rule mechanically.
 - One-watcher-per-PR has bitten this repo concretely: two sessions babysat
   PR #8 while four triggers queued against it.
 - Open questions park in `intermediate_files/claude_slop/kanban.md` under

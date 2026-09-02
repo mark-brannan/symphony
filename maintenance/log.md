@@ -241,6 +241,24 @@
 - Electrical refit diagramming started: git-native SVG + draw.io XML as the
   system of record; first DC system overview drawn to the intended
   architecture; ABYC E-11 sizing tooling (`ampacity`, `wire-wright`) built.
+- Corresponded with the author of `signalk-dsc` and `signalk-ais-distress`,
+  who confirmed the DSC/AIS receive chain is testable by synthetic UDP
+  injection, nothing on the air.
+- Rebuilt the dev SignalK stack in a cloud sandbox from this repo's own
+  config and validated that chain end to end with synthetic distress calls
+  and AIS survival beacons: parse, store, per-call emergency alarms, SaR
+  chart target, marker layers, restart re-announce, token-authed clearing
+  all work. Confirmed `signalk-mob-notifier` consumes AIS MOB beacons and
+  raises `notifications.mob` at emergency — the question §H had open.
+- Found while doing it: signalk-server 2.31.1 never delivers the first
+  values delta of a newly-created path to wildcard `notifications.*`
+  subscribers, so per-call distress alarms reach the model but never
+  `signalk-ntfy` (0 of 6 in repeated runs). Written up with mitigations in
+  `reference/distress_monitoring.md`; the boat's server still unverified.
+- Docs corrected on the back of all this: census `ACTOR_HINTS` extended
+  (`dsc`, `distress`), the already-done weather-hint backlog item retired,
+  MOB entries updated in priorities and use-cases, distress test procedure
+  added to the RUNBOOK.
 - Cleaned fuel filter.
 - Cleaned oil filter.
 - Prop shaft coupler (muff coupler) replaced with a temporary solution — permanent fix still needed, see backlog.
@@ -336,3 +354,24 @@
   handshake (the actual fix behind the 2026-08-20 auth_timeout workaround)
   and opened it as a draft PR against Mark's fork; not yet verified on real
   BLE hardware.
+- Verified that fix on the boat and merged it. Removed the `auth_timeout`
+  workaround from the Pi and from `host/install.sh`, then cold-booted:
+  both BLE battery banks were publishing 80 seconds later, with no D-Bus
+  auth failures in the boot journal.
+
+## 2026-08-25/26
+- SignalK went down 2026-08-25 when a `signalk-server` reinstall failed
+  over the boat's cellular link and npm rolled back the package entirely.
+  Reinstalled it 2026-08-26 with a warmed npm cache and raised timeouts;
+  the boat is collecting data again, including NMEA 2000 over the CAN bus.
+
+## 2026-08-26
+- Confirmed QuestDB on the boat has been receiving and retaining SignalK
+  and Telegraf data all along; the earlier "QuestDB holds zero tables"
+  finding was about a different plugin on the dev container, not the boat.
+- Applied and verified the postgsail SQLite-bind fix on the boat.
+
+## 2026-09-01
+- Fixed bt-sensors-plugin-sk so sensor data resumes after a D-Bus drop
+  without a SignalK restart; verified on the boat, pushed to the fork and
+  upstream PR #189.

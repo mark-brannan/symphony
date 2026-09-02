@@ -6,6 +6,149 @@ one without updating the card that points at it. This file dies with its
 cards: when a card is checked off and removed from `kanban.md`, delete the
 matching section here too.
 
+## Sync halos-pi4's SignalK config with this repo (Track A trial)
+
+Started as "fix the dead RUNBOOK anchor," expanded 2026-08-26 into the
+real goal: bring halos-pi4's SignalK config in line with this repo's, and
+as much else of the stack as reasonable. Progress and findings below —
+this is a bigger job than one session should finish inline; see the
+ready-to-run prompt at the bottom.
+
+### The OIDC front door is not actually in the way
+
+`/etc/halos/oidc-clients.d/signalk.yml` federates SignalK's Traefik-fronted
+admin UI to Authelia (port 4430). But **SignalK also listens directly on
+`:3000` on all interfaces, bypassing Traefik/Authelia entirely** —
+confirmed reachable as `curl http://halos-pi4:3000/signalk` from a dev
+box over the tailnet. This is a real gap in HALOS's front door (every
+container app likely has the same bypass — not verified for the others)
+worth flagging to Mark once, not re-litigating: it means anyone on the
+tailnet can already reach SignalK's public read API unauthenticated, no
+Authelia session needed.
+
+SignalK still runs its own separate security layer on top
+(`"security": {"strategy": "./tokensecurity"}` in `settings.json`) —
+`:3000/admin/` demands SignalK's own login, and plugin-config endpoints
+return 401 without a token. A device-access-token request was already
+pending from the earlier setup session (`halos-setup-script`,
+`2d350bb4-...`, 2026-08-26T06:08 UTC) — never approved. A second one was
+opened this session (`b975da82-fad8-4de4-8293-fe32113f3822`, poll
+`http://halos-pi4:3000/signalk/v1/requests/b975da82-...`). Both need
+someone to hit **Approve** in the SignalK admin UI (`:3000/admin/#/`,
+Security → Access Requests) — that's a browser action, and there's no
+known SignalK admin password for this box (`admin-password` file exists
+at `/var/lib/container-apps/marine-signalk-server-container/data/admin-password`
+but is root:root 600 — `pi` can't read it).
+
+### The actual fast path: direct filesystem access, no token needed
+
+The bind-mounted config dir is **owned by `pi`, not root**:
+`/var/lib/container-apps/marine-signalk-server-container/data/data/` holds
+`plugin-config-data/`, `package.json`, `settings.json`, `baseDeltas.json`,
+etc., all `pi:pi` and writable over plain SSH — no API, no token, no
+Authelia. `security.json` is `pi`-owned but `0600` (readable/writable by
+`pi`, not world). This is the same shape as boat-Pi config management,
+just a different mount point.
+
+**Restarting the container to pick up file changes needs a decision,
+not just a command** — `systemctl restart marine-signalk-server-container`
+is blocked by this session's own auto-mode classifier as a state-changing
+action on live infra, correctly. `pi` has no passwordless sudo either, so
+this box's own polkit rules may require asking Mark regardless of the
+harness.
+
+### What's already there vs. the repo
+
+Encouraging: an earlier session (`halos-box-setup-plugins-4e5990`,
+2026-08-26 AM) already `npm install`ed ~60+ `signalk-*` packages into
+`node_modules` on halos-pi4 — a large fraction of this repo's
+`signalk/package.json` dependency list is already present as installed
+node modules (confirmed via directory listing, not tested running).
+`package.json`'s own `dependencies` block wasn't updated to match (still
+lists only `signalk-noaa-space-weather`), and `plugin-config-data/` has
+only ~12 files — HALOS's own bundled defaults (`course-provider`,
+`freeboard-sk`, `signalk-autostate`, `signalk-flags`, `signalk-node-red`,
+`signalk-questdb-history-provider`, `signalk-to-influxdb2`,
+`sk-ais-status`, `resources-provider`, `skip-plotter-panel`) — so
+plugins are installed but **not configured/enabled** with this repo's
+settings yet. Architecturally this box already matches where the repo
+is heading: QuestDB as history store is HALOS's default, same as our
+Track B migration target.
+
+### Left open — this is the real scope of the card now
+
+1. Approve (or get Mark to approve) one of the two pending access
+   requests, or find another way to auth for real admin-API-driven config
+   pushes (vs. raw file writes + a restart).
+2. Decide the restart story: get explicit go-ahead per file-sync round,
+   since there's no dry-run for a container restart and no docker/sudo
+   access to inspect it beforehand.
+3. Actually diff `signalk/plugin-config-data/*.json` and
+   `signalk/package.json` against halos-pi4's copies, file by file —
+   only the top-level listing was compared so far, not contents. Expect
+   real conflicts: this repo already carries per-plugin config (paths,
+   credentials, tuned settings) that HALOS's defaults don't have, and
+   some plugins (BLE/bt-sensors, GPIO, hardware-specific ones) may not
+   even make sense on this box.
+4. `security.json` diverges by design (different users, different auth
+   mode) — union config data, never security/users config, same as the
+   project's existing merge convention for peripheral configs.
+5. Decide what "as much else as possible" includes beyond SignalK:
+   Grafana dashboards, Telegraf, Caddy have no equivalent on HALOS
+   (Traefik replaces Caddy, HALOS's own Grafana container replaces
+   ours) — this overlaps directly with the open Track A verdict in
+   `reference/containerization_strategy.md` (adopt/reject/adopt-with-exceptions),
+   which nothing has settled yet. Don't let file-syncing plugins get
+   ahead of that call.
+6. Fix the dead RUNBOOK anchor once the real access story (API token vs.
+   file+restart) is settled — the current text ("needs a token") is now
+   known to undersell what's actually possible (direct file writes) and
+   oversell the OIDC path (bypassable, not the actual gate).
+
+### Ready-to-paste prompt for a fresh session (Opus, high effort)
+
+```
+Continue the halos-pi4 SignalK sync card in
+intermediate_files/claude_slop/kanban-detail.md (heading: "Sync
+halos-pi4's SignalK config with this repo (Track A trial)"). Read that
+section in full first — it has the access-path findings, the two
+pending SignalK access-request IDs, and why a container restart needs
+Mark's explicit go-ahead per attempt, not once.
+
+Work in an isolated worktree per this repo's CLAUDE.md.
+
+1. Diff signalk/plugin-config-data/*.json and signalk/package.json
+   against halos-pi4:/var/lib/container-apps/marine-signalk-server-container/data/data/
+   (reachable read/write over plain SSH as pi, no sudo). Report the
+   actual delta — which plugins are installed but unconfigured, which
+   configs would need credentials/paths that don't apply on this box,
+   which don't make sense there at all (BLE/GPIO/hardware-specific).
+2. Ask Mark before writing anything: which plugins from that delta he
+   actually wants configured on the HALOS trial box, given it's a
+   Track A evaluation, not a second production install.
+3. For each approved plugin, write its config JSON directly via SSH
+   (pi owns plugin-config-data/), then ask Mark for go-ahead before
+   restarting marine-signalk-server-container.service — no
+   passwordless sudo on that box, and the harness blocks unprompted
+   service restarts on live infra. Verify after restart: the plugin
+   shows enabled and initialized in the SignalK log
+   (journalctl -u marine-signalk-server-container -n 50) and its data
+   appears in the API (curl the relevant path).
+4. Once SignalK is settled, ask Mark explicitly whether "as much else
+   as possible" should extend to Grafana/dashboards or stop there —
+   that decision is entangled with the still-open Track A
+   adopt/reject verdict in reference/containerization_strategy.md, and
+   isn't yours to make by momentum.
+5. Update this kanban-detail.md section (or close the card) with what
+   landed, and fix RUNBOOK.md's dead "Setting up plugins on the HALOS
+   trial Pi" anchor to describe the real access path once you've used
+   it end to end.
+
+Difficulty: high — expect several judgment-heavy back-and-forths with
+Mark (which plugins matter on a trial box, restart go-aheads), not a
+mechanical copy job. Budget for it, don't try to one-shot it.
+```
+
 ## Purchase itemizations in maintenance/log.md
 
 From the 2026-08-19 doc-bloat audit. Open call: trim maintenance/log.md's
@@ -538,22 +681,6 @@ SignalK will pick between them in arrival order.
 advance because N2K addresses are claimed dynamically and have to be read
 off the running bus.
 
-## Fix bt-sensors-plugin-sk's bus lifecycle
-
-The D-Bus EPIPE incident (fixed 2026-08-20 with a raised `auth_timeout`,
-see maintenance/log.md) was a workaround, not a fix. Root cause:
-`bt-sensors-plugin-sk` calls `createBluetooth()` at module scope, so its
-D-Bus socket opens during SignalK's plugin-load sweep and the handshake can
-die if the event loop is starved past dbus-daemon's 30s `auth_timeout`.
-Two changes needed in Mark's fork (`mark-brannan/bt-sensors-plugin-sk`):
-move `createBluetooth()` out of module scope into `plugin.start()` behind a
-memoizing getter, and attach an `error` handler that reconnects with
-backoff instead of leaving the bus dead for the life of the process.
-Laziness narrows the window; the retry is what actually closes it, and also
-covers a mid-life bus drop. Worth upstreaming — this bites anyone running
-the plugin on a loaded Pi. Once it lands, remove
-`/etc/dbus-1/system-local.conf` and its `host/` entry.
-
 ## Add bt-sensors-plugin-sk to the watchdog's expectPlugins
 
 `plugins/signalk-plugin-watchdog` was deployed to the boat back on
@@ -835,10 +962,23 @@ before treating this as live — a session-and-a-half has passed since.
 
 ## QuestDB migration execution notes not in the reference doc
 
+**Closed out 2026-08-26**: QuestDB is confirmed capturing what it should.
+23 tables present (3 history-plugin, 20 Telegraf/internal); `signalk` and
+`signalk_position` row counts climb minute to minute; sampled rows carry
+real, non-null values (dock GPS coords, battery/environment paths). This
+also resolves the "QuestDB holds zero tables" line under "Evaluate
+parked/unused SignalK plugins on the dev container" below, for the
+avoidance of doubt — that finding was always about the **dev container's**
+different, older `signalk-questdb` plugin, not the boat's
+`signalk-questdb-history-provider` (B3). The boat's `questdbHost:
+127.0.0.1` is correct: SignalK runs natively there, not in a container, so
+`127.0.0.1` reaches QuestDB's published Docker port. Re-ran
+`scripts/questdb_table_hygiene.sh` against the boat — 0 changes needed,
+every managed table already had TTL and dedup keys set.
+
 `reference/containerization_strategy.md` carries the B1-B7 plan and some
 retroactively-added plan-level facts, but three execution findings from
-the actual 2026-08-20 B1-B3 run aren't in it, and the still-open B5 parity
-work depends on the first one:
+the actual 2026-08-20 B1-B3 run aren't in it:
 
 - **Telegraf's retry can double-write.** A timed-out HTTP response can
   still have been committed by QuestDB, so a retried batch lands twice —
@@ -900,3 +1040,267 @@ convention):
 - 3D-print gas sensor case
 - 3D-print BME688 case
 - 3D-print IMU case
+
+## bt-sensors-plugin-sk must survive the SignalK reinstall
+
+The boat runs a **source checkout**, not the published package. The fix in
+upstream PR #189 (lazy D-Bus + reconnect-on-error) is not in any released
+version — `1.3.8-beta10` on the registry does **not** have it. Two links carry
+it, and both live outside git:
+
+- `~/.signalk/node_modules/bt-sensors-plugin-sk` -> `~/bt-sensors-plugin-sk`
+- npm global prefix is `/home/pi/.npm-global`, where
+  `bt-sensors-plugin-sk@1.3.8-beta10 -> ../../bt-sensors-plugin-sk` is linked.
+
+`~/bt-sensors-plugin-sk` also holds **untracked webpack output** in `public/`
+(`main.js`, `remoteEntry.js`, the numbered chunks) that the plugin's webview
+needs at runtime and `.gitignore` excludes. A re-clone loses them; `npm run
+build` in that directory regenerates them.
+
+`/etc/dbus-1/system-local.conf` and its raised `auth_timeout` were deliberately
+removed once the plugin fix landed. Don't restore that workaround — the fix
+replaces it.
+
+**2026-08-26 update: it didn't survive.** After the 2026-08-25 SignalK
+reinstall, `~/bt-sensors-plugin-sk/node_modules` was gone entirely (no
+lockfile either) and the plugin failed to load with `Cannot find module
+'@naugehyde/node-ble'`. Both symlinks above were intact, and so was the
+untracked `public/` webpack output — only `node_modules` needs restoring.
+`npm install --no-audit --no-fund --prefer-offline` in that directory ran
+29m28s and died on `ECONNRESET` (8 direct deps, but no lockfile pulls in
+their full dev tree — material-ui, recharts, eslint, etc). npm rolled back
+cleanly; no partial `node_modules` left behind. Matches the documented
+cellular-WAN pattern (see the "binding constraint" card) — didn't retry a
+second time per standing instruction. SignalK's core (NMEA 2000 via
+canboatjs, confirmed live) is unaffected; this only blocks BLE sensor data.
+Next attempt: either retry over a quieter link, or pre-populate `~/.npm/_cacache`
+from a machine with faster internet the way the signalk-server reinstall did.
+
+## Evidence-gathering for upstream PR #189
+
+2026-08-27/28, on Symphony, working toward a merge case for
+[PR #189](https://github.com/naugehyde/bt-sensors-plugin-sk/pull/189) (lazy
+D-Bus + reconnect-on-error, replacing the `auth_timeout` workaround).
+
+**Confirmed:**
+- Deployed `~/bt-sensors-plugin-sk/index.js` matches the PR's diff exactly
+  (`getBluetoothSession`, backoff reconnect, the "Bluetooth D-Bus connection
+  lost, reconnecting…" status text are all present).
+- `/etc/dbus-1/system-local.conf` is gone, as the PR says it should be.
+- SignalK ran 10h+ crash-free under real BLE error load (800
+  `DBusError: Not connected` / 1130 `Unhandled rejection` log lines/24h from
+  `JBDBMS.js` — a separate, still-open BLE-level issue this PR doesn't
+  touch) before this session started poking at it.
+- Live battery data (House Battery 2) flows continuously with fresh
+  timestamps throughout — the plugin works end-to-end on real hardware.
+
+**Three attempts to directly trigger the PR's new reconnect branch, none
+succeeded, none caused lasting damage:**
+1. `systemctl restart bluetooth` — only bounces bluetoothd/BlueZ objects,
+   not the D-Bus system bus socket the plugin's connection lives on. No
+   effect on the plugin's bus connection.
+2. `systemctl restart dbus.service` — bounces the system bus itself.
+   Confirmed prediction: NetworkManager (D-Bus-activated) died with
+   `SIGTERM` and stayed down (`Restart=no`) until manually restarted;
+   SSH/Tailscale connectivity never dropped throughout. Restarted
+   NetworkManager afterward — reassociated eth0/wlan0/wlan9 within ~10s,
+   fully recovered. But the plugin's own bus connection apparently
+   survived this too — no reconnect log line fired.
+3. Identified the plugin's live system-bus fd directly (node pid's fd 39,
+   paired with dbus-daemon's fd 18 via matching adjacent socket inodes —
+   `ss -xp` / `lsof -p <pid> -a -U`) and closed it with
+   `gdb -p <pid> -batch -ex 'call (int)close(39)'`. Fd confirmed closed,
+   SignalK stayed up, battery data kept flowing — but still no reconnect
+   log line. Likely explanation: a raw `close()` syscall via gdb bypasses
+   libuv's own bookkeeping, so Node/dbus-next's event-driven error handling
+   (which expects an OS-level error like `ECONNRESET` from a live peer,
+   not a silently-vanished fd) may never actually observe it the way a
+   real network-level disconnect would.
+
+**Still missing for a fully closed case:** direct proof the PR's own
+error-handler + backoff branch has ever fired and recovered on real
+hardware. What's next to try (not yet attempted): trigger a genuine
+peer-side disconnect instead of a local fd close — e.g. `nft`/`iptables`
+DROP on the dbus socket briefly (won't work, it's AF_UNIX, not
+TCP/netfilter-visible), or send `SIGKILL`/restart directly to the
+`dbus-daemon` PID that's actually serving this connection (not
+`systemctl restart dbus.service`, which is a controlled `SIGTERM` the
+daemon handles gracefully) — a hard kill should generate a real socket
+error on the plugin's end without dragging NetworkManager through another
+death-and-recovery cycle. Handoff prompt for this: see `log.md`'s
+2026-08-28 entry.
+
+## postgsail SQLite bind fix — done 2026-08-26
+
+Applied and verified on the boat: `maxSpeedOverGround`/`courseOverGroundTrue`
+in `~/.signalk/node_modules/signalk-postgsail/index.js` (lines 51-52) now
+default to `0`, matching `windSpeedApparent`/`angleSpeedApparent` two lines
+below. Restarted `signalk`; the `TypeError: Provided value cannot be bound
+to SQLite parameter 5` is gone from the log, only unrelated
+`api.openplotter.cloud` connect-timeout errors remain (a WAN/upstream
+issue, not this bug). Root cause and upstream fix:
+[issue #68](https://github.com/xbgmsharp/signalk-postgsail/issues/68).
+Reminder for whoever next reinstalls this plugin: the patch lives in
+`node_modules` and is silently lost on the next `npm install`/upgrade —
+reapply until upstream merges.
+
+## Uninstall signalk-to-influxdb2, blocked on an npm-tree quirk
+
+Confirmed dead: InfluxDB was purged 2026-08-25 (disk pressure), and
+`signalk-to-influxdb2`'s `HistoryAPI` throws an unhandled rejection
+(`Cannot read properties of undefined (reading 'filter')`) trying to reach
+it, live-confirmed 2026-08-26 00:30.
+
+**2026-08-26: WAN is no longer the blocker** — checked first
+(`curl` to registry.npmjs.org, 1.4s; `ping` to 8.8.8.8, 30-45ms, 0% loss)
+and `cd ~/.signalk && npm uninstall signalk-to-influxdb2 --dry-run`
+completed cleanly in 56s, showing a sane 14-package removal plan with
+`signalk-plugin-watchdog` merely re-resolved (version unchanged), not
+pruned.
+
+The **real** `npm uninstall signalk-to-influxdb2` (no `--dry-run`) then
+failed, exit 254:
+```
+npm warn tarball tarball data for signalk-plugin-watchdog@file:signalk-plugin-watchdog (null) seems to be corrupted. Trying again.
+npm error enoent Could not read package.json: ENOENT: /home/pi/.signalk/signalk-plugin-watchdog/package.json
+```
+Root cause and what it did and didn't damage:
+[signalk-plugin-watchdog's self-referencing `file:` dependency](#signalk-plugin-watchdogs-self-referencing-file-dependency)
+below — read that card before retrying. Net effect of the failed attempt:
+**`signalk-to-influxdb2` is untouched** (still in `~/.signalk/package.json`
+and `node_modules`, confirmed after) — the transaction aborted before
+reaching it. A harmless stray top-level directory,
+`~/.signalk/signalk-plugin-watchdog/` (not the working
+`node_modules/signalk-plugin-watchdog/` copy, not the git-tracked
+`plugins/signalk-plugin-watchdog/` source — nothing on the boat or in this
+repo referenced that top-level path), got pruned as extraneous mid-run;
+confirmed no operational effect (no watchdog errors in the log since,
+plugin dependency in `~/.signalk/node_modules/signalk-plugin-watchdog/` is
+intact).
+
+**Also found while investigating this**: a live concurrent session
+(`claude --continue --remote-control symphony-pi`, running since 2026-08-25,
+several tailnet ssh sessions attached) was actively using the SignalK
+app store — installing `signalk-noaa-space-weather@0.29.1` — within two
+minutes of this session's `systemctl restart signalk` for the postgsail
+fix above. No sign either session broke the other, but it's real evidence
+the "check for a live session first" rule in this repo's CLAUDE.md isn't
+theoretical here; a `who`/`ps aux` check that shows no process mid-install
+at the instant you look can still be running one 90 seconds later. Retry
+the uninstall only after fixing the `file:` dependency below, and re-check
+for concurrent activity immediately before, not just at session start.
+
+To finish once the `file:` dependency card is resolved: `cd ~/.signalk &&
+npm uninstall signalk-to-influxdb2`, remove
+`~/.signalk/plugin-config-data/signalk-to-influxdb2.json`, restart
+signalk, confirm the `HistoryAPI` errors stop in the log, and drop
+`signalk-to-influxdb2` from the repo's `signalk/package.json` (the
+tracked manifest a clean reinstall is built against) in the same commit.
+
+## signalk-plugin-watchdog's self-referencing `file:` dependency
+
+`~/.signalk/package.json` on the boat declares
+`"signalk-plugin-watchdog": "file:./node_modules/signalk-plugin-watchdog"`
+— the dependency's `file:` source points at its own resolved location
+inside `node_modules`, rather than at an external directory. This is what
+made the influxdb2-uninstall attempt above fail: npm's reify step for a
+self-referencing `file:` dependency errored trying to read a package.json
+from a derived top-level path (`~/.signalk/signalk-plugin-watchdog/`, no
+`node_modules/`) that doesn't correspond to anything real, and aborted the
+whole transaction. This will recur on **any** future `npm install` or
+`npm uninstall` in `~/.signalk` that touches dependency resolution, not
+just this one.
+
+Likely fix: repoint the entry at the boat's actual git checkout,
+`file:../symphony/plugins/signalk-plugin-watchdog` (confirmed present and
+matching `node_modules/signalk-plugin-watchdog`'s contents on the boat,
+2026-08-26), so it's a real external source rather than a self-reference.
+Untested — didn't attempt it this session given a live concurrent session
+was using the box (see above); this is exactly the kind of npm-tree
+mutation that shouldn't run next to someone else's app-store install.
+Confirm afterward with a `npm install --dry-run` in `~/.signalk` that it
+resolves cleanly.
+
+## PR #189 verification, 2026-09-01 — the reconnect branch fires but does not recover
+
+Reproduced the bug, verified the fix's detection path, found two real
+defects in the PR, fixed both, and then established that **the PR still
+does not restore sensor data after a D-Bus drop.**
+
+**Working repro of the original bug** (answers the maintainer's question):
+`/etc/dbus-1/system-local.conf` with `<limit name="auth_timeout">20</limit>`,
+`systemctl reload dbus`, restart SignalK → `electrical/batteries/5C90`
+404s, plugin mute. At 1000ms and 100ms the handshake still wins; 20ms is
+reliable. Also reproduces off-boat against a private `dbus-daemon` with no
+BLE hardware — see the PR comment draft.
+
+Note the plugin uses **`@jellybrick/dbus-next`** (a fork, via
+`@naugehyde/node-ble`), not upstream `dbus-next`.
+
+**Why three earlier attempts read as "the branch never fired":** it logs
+nowhere observable. `index.js:233` used `plugin.debug` (dark without
+`DEBUG=bt-sensors-plugin-sk`) and the backoff used only `setStatusText`
+(admin UI, not the journal). Absence of a journal line was never evidence.
+Fixed on branch `verify-reconnect-logging`: connection loss, each retry and
+successful reconnect now log at error level.
+
+**The working fault-injection harness** (the thing three sessions failed to
+find). `systemctl restart bluetooth`, `systemctl restart dbus.service` and a
+gdb fd-close all fail to trigger it. What works:
+1. Drop-in `/etc/systemd/system/dbus.service.d/99-test-restart.conf` with
+   `Restart=always`, `RestartSec=1`, `daemon-reload`. **Required** — not
+   just for safety: with stock `Restart=no` the plugin retries against a bus
+   that never returns, so only detection can be observed, never recovery.
+2. `sudo kill -9 $(systemctl show dbus -p MainPID --value)`.
+3. dbus respawns in ~1s. NetworkManager dies (D-Bus-activated, `Restart=no`)
+   — `systemctl start NetworkManager` afterwards; recovers in ~10s.
+   SSH/Tailscale are unaffected throughout.
+Arm `systemd-run --on-active=8min` to restart dbus/NM/signalk as a net.
+
+**Two defects found and fixed** (branch `verify-reconnect-logging`, commit
+`7282ae3`):
+- A dying bus emits once *per queued write*, not once. Every error called
+  `scheduleBluetoothReconnect()` → restart loop, ~170 errors/min. Now only
+  the session still held in `btSession` may drive a reconnect; replaced
+  sessions are detached and ignored. Measured: 170 errors → 1.
+- `plugin.start()` clears `sensorMap` but **not** the discovery, progress
+  and device-health timers — only `plugin.stop()` does. Replaying `start()`
+  alone hits `!discoveryIntervalID`, finds the stale id set, and never
+  restarts discovery. Now tears down first, bounded at 10s since a dead bus
+  can hang `stop()`.
+- Also resets `plugin.stopped` if `start()` throws, so a failed attempt
+  isn't silently the last one.
+
+**Diagnosed and fixed 2026-09-01 (later session), commit `f1c9cb8` (squashed from the four commits below).**
+The reconnect path came back with a clean log and BlueZ discovering, but
+no GATT sensor ever republished. Cause: every GATT connect goes through
+one process-wide serial queue (`connectQueue` in `BTSensor.js`), and
+dbus-next never settles a method call that was pending when the
+connection died. A connect action in flight at the moment of the kill
+stayed `pending=true` for the life of the process and every connect the
+re-created sensors queued sat behind it. Deterministic repro: tail the
+journal for the sensor's connect and `kill -9` dbus on it — the earlier
+"kill between polls" runs passed by luck (kill 20:13:03Z, data 20:14:59Z)
+and only the mid-connect kill wedged (kill 20:19:32Z, frozen at
+20:18:33Z until the healer). The fix: fresh queue before replaying
+`start()`; `deviceConnect()`'s timeout rejects instead of throwing from
+inside the timer callback (an uncaught exception, not a rejection — it
+stalled the queue the same way); `plugin.stop()` stops sensors
+concurrently so every sensor drops its timers even when an earlier one
+hangs disconnecting from a dead bus. Verified on the committed code with
+the mid-connect kill: kill 20:35:21Z, reconnect logged 20:35:35Z, first
+fresh 5C90 values 20:36:09Z, polling normally after, no SignalK restart.
+
+Pre-existing and untouched: `Response timed out (+30s)` / `DBusError: Not
+connected` from `JBDBMS.js` run 8–63/hour in steady state over the prior
+24 h (BMS link flakiness); the `preparePath ... reading 'substring'`
+TypeError (JBDBMS protectionStatus path) and the influxdb2 `HistoryAPI`
+`reading 'filter'` rejection both predate every kill. The two Victron
+advertisement devices time out in `waitDevice` on a plain restart too.
+
+**Landed:** fork `main` and `verify-reconnect-logging` both at `f1c9cb8`
+(PR #189 now carries all four commits); maintainer comment posted with
+the repro, harness, diagnosis and timestamps. Boat left on
+`verify-reconnect-logging` at `f1c9cb8`, all scaffolding removed (no dbus
+drop-in, `Restart=no`, no healer timer, no `/tmp` files), services
+active, data flowing.

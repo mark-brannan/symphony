@@ -1130,3 +1130,525 @@ RUNBOOK. Boarded it, did not diagnose it. That is the next session's work
 and it matters, since power monitoring is the stated point of this stack.
 
 Left as a draft PR (#25), CI green, per the repo's own convention.
+
+## 2026-08-21 (bt-sensors verification, branch/PR cleanup)
+
+Continuation session. Four of the five open items closed.
+
+**bt-sensors-plugin-sk PR #1 — verified and merged.** Deployed the branch
+into the boat's checkout at `/home/pi/bt-sensors-plugin-sk` (it's a git
+clone symlinked into `.signalk/node_modules`, so deploying is a checkout,
+not an npm install). Then removed `/etc/dbus-1/system-local.conf` and
+restarted SignalK: battery data was back within 15s. Cold-booted the Pi to
+test the real case — the workaround-free path through a full plugin-load
+sweep — and both banks (`0146`, `5C90`) published 80s post-boot with zero
+`auth_timeout`/`EPIPE` lines in the boot journal. Squash-merged as 2d58949,
+put the boat checkout back on `main` at that commit (identical content, so
+no further restart), and dropped `host/dbus-auth-timeout.conf`, its INSTALL
+entry and the now-empty `dbus` RELOAD entry from `host/install.sh`.
+Rewrote the RUNBOOK's "BLE sensors go silent after a reboot" section around
+the fix, with an explicit don't-reinstate-the-timeout note.
+
+Ordering note for the record: the "does the dbus config survive a cold
+boot" card became moot rather than passing. Removing the workaround made
+the reboot a stronger test — it verified the plugin fix cold, which is what
+the dbus file existed to substitute for.
+
+Pre-reboot check for other sessions: the Pi's resident
+`claude --remote-control` session had last written its transcript 16h
+earlier, and nothing else (npm/apt/git) was running. Safe.
+
+**Orphan branch deletion — the previous session's claim was wrong.**
+The card said "session push access doesn't cover branch deletion." It does:
+`git push origin --delete` removed both
+`claude/ecoworthy-signalk-telemetry-vy82ta` and
+`claude/symphony-git-divergence-followups-q2yynq` first try. Worth
+remembering the next time a card asserts a permission limit without a
+recorded error.
+
+**PR #25 rebased.** 7 commits onto a main that had moved 22 ahead; four
+conflicts, not three. `intermediate_files/claude_slop/kanban.md` conflicted
+three separate times and each time the branch carried the whole
+pre-restructure board — took main's side outright rather than merging a
+superseded structure. `maintenance/log.md` and the slop log were genuine
+union merges. `test_dashboards.py` passes and `build_dashboards.py`
+regenerates byte-identical output; CI green. Left open — it repoints the
+boat's provisioned Grafana dashboards at QuestDB, which is Mark's call to
+land.
+
+## 2026-08-25 — Disk recovery on the boat, and the SignalK outage's real cause
+
+**Started as** a disk-pressure and kanban-triage session. Turned into an
+outage post-mortem: SignalK had been down since 2026-08-23 and nobody knew.
+
+### What was actually wrong
+
+`/usr/local/lib/node_modules/signalk-server` had been deleted. Config was
+intact — `security.json`, `plugin-config-data`, the whole `~/.signalk` tree —
+only the executable was gone, so `signalk.service` failed with
+`status=127, /usr/local/bin/signalk-server: not found` and had been failing
+for two days.
+
+Reconstructed from `/var/log/apt/term.log` and the tmux scrollback of the
+login shell that did it:
+
+- 02:33 — `nodejs` 18.20.4 removed, `nsolid` 22.23.2 installed in its place
+- 04:01 — `/usr/local/lib/node_modules` rewritten; `signalk-server` gone
+- 04:10 — `rpi-eeprom` upgraded
+- 06:07 — `apt upgrade -y rpi-eeprom --fix-missing` started, then suspended
+  (state `T`, `do_signal_stop`) and left holding the package lock for 2d12h
+
+The tmux session showed what was being attempted: `docker pull
+signalk/signalk-server` (TLS handshake timeout), `apt install grafana`
+(343 MB, connection timed out), `npm install` (ETIMEDOUT), `sudo apt`
+(broken pipe). All network failures.
+
+### The finding that matters most
+
+**The cellular WAN is the binding constraint on this boat, and it has now
+caused two separate outages.** `symphony-pi` reaches the tailnet from
+`172.56.x`, a T-Mobile range. The 2026-08-23 attempt died on it; so did this
+session's recovery attempt, 27 minutes in, with `EIDLETIMEOUT` from
+registry.npmjs.org and single tarballs taking 54 seconds.
+
+This reframes the fresh-card plan from convenience to necessity: the boat
+cannot be rebuilt in place over its own link. A card staged and fully
+populated at home and carried down is the only reliable path.
+
+### Why the "official" install route is not the safe one
+
+`RUNBOOK.md` directed the reader to `sudo openplotter-signalk-installer` as
+the only safe path. Reading
+`/usr/lib/python3/dist-packages/openplotterSignalkInstaller/signalkPostInstall.py`
+showed it is the opposite:
+
+- line 45 runs `apt autoremove -y nodejs npm` before reinstalling from
+  NodeSource — on this Pi that resolved to the conflicting `nsolid` package
+- line 91 derives the install prefix from `npm config get prefix` and line 95
+  writes it into the `~/.signalk/signalk-server` launcher. Under `sudo` that
+  value is **working-directory dependent**: from `/home/pi`, npm reads
+  `/home/pi/.npmrc` as *project* config, refuses its `prefix=~/.npm-global`,
+  and re-expands `~` against root's HOME to `/root/.npm-global` — a path the
+  `User=pi` service cannot read, silently.
+
+Mark had flagged this instinct before I read the source; the source confirmed
+it and went further than expected. RUNBOOK section rewritten in `d040724`.
+
+### Work completed
+
+Disk 91% → 64% (2.6 GB → 9.9 GB free), all with Mark's per-item approval:
+
+| action | reclaimed |
+|---|---|
+| journald vacuum to 200 MB | 1.1 GB |
+| `~/.config/chromium` | 1.9 GB |
+| `/var/lib/influxdb` + `/var/lib/grafana` (stopped, disabled, purged) | 1.5 GB |
+| `~/.claude/remote`, bt-sensors `node_modules` | 1.2 GB |
+| apt cache (after clearing the lock) | 745 MB |
+| npm cache, docker dangling images | ~1 GB |
+
+`grafana.db` (2.2 MB, the hand-made dashboards) copied to
+`~/keep-before-purge/` before the purge. `~/influx-export` (1.4 GB) left
+untouched at Mark's instruction — it must not cross the WAN.
+
+Also: cleared the wedged apt and its orphaned `sudo` wrapper (`dpkg --audit`
+clean throughout, `apt-get check` passes); removed Telegraf's dead InfluxDB
+output, which was failing every flush and dropping metrics on buffer overflow
+(`0ac6266`); raised npm's timeouts in `~/.npmrc` for the retry.
+
+### HALOS survey
+
+`halos-pi4` is reachable as `ssh pi@halos-pi4` over the tailnet — worth
+recording, since Mark had been using the IP. It runs Traefik + Authelia +
+Homarr as core, with containerised SignalK, QuestDB, Grafana, OpenCPN and
+AvNav, each its own systemd unit, config declarative under `/etc/halos/`
+(`hostnames.conf`, `oidc-clients.d/`, `port-registry`, `routing.d/`,
+`traefik-dynamic.d/`) and per-app compose plus prestart hooks under
+`/var/lib/container-apps/`. Direct `docker compose` is deliberately blocked by
+a sentinel env var.
+
+It is architecturally where this repo was already heading — QuestDB as history
+store, containers, reverse proxy plus SSO — and adopting it would retire
+`priorities.md`'s top SignalK/IoT item (move off hand-rolled bash wrappers onto
+declarative config management) outright. What it discards is plumbing; what it
+preserves is the judgments. Caveat: that box is a 2 GB Pi 4 running at ~358 MB
+available, so HALOS implies committing to the HALPI2.
+
+### Left open
+
+SignalK is still down. The retry is carded with everything staged for it.
+
+## 2026-08-26 — halos-pi4 SSH re-verified
+`ssh pi@halos-pi4` re-confirmed working from this host (key-auth, no
+prompt, tailnet). No open card existed for this — RUNBOOK.md § "The HALOS
+trial Pi (home, not the boat)" already documents it (committed 4dee11c,
+same session as the original verification). Nothing to update there;
+re-verification just confirms it still holds.
+
+## 2026-08-26 — dropped symphony's redundant no-persistent-polling.sh
+Mark asked to "assess whether symphony needs its own copy [of a hook] or
+the dotfiles one covers it" — no literal card for this; matched it to
+dotfiles' CLAUDE.md note that `no-persistent-polling.sh` was hoisted to
+`~/.claude/hooks/` on 2026-08-19 "so it covers every repo." It's wired at
+user scope in `~/.claude/settings.json` on the same matcher
+(`mcp__.*__(send_later|create_trigger)`) symphony's own copy used, so both
+were firing on every call — same deny, doubled — and had already drifted
+(dotfiles' copy gained a fail-closed jq-missing branch and fixed the path
+in its deny messages; symphony's never got either).
+
+Deleted symphony's `.claude/hooks/no-persistent-polling.sh` and its
+settings.json wiring; left CLAUDE.md's mention of the guard in place but
+repointed it at the user-level hook, with one added sentence: without
+dotfiles installed, nothing here enforces the rule mechanically. Mark
+asked explicitly to keep that edit light — a contributor without his
+dotfiles shouldn't trip over an unexplained rewrite.
+
+Pushed straight to main (bf2344d) — under the branch-vs-main line, not a
+branch trigger.
+
+Self-correction, not left for Mark to catch: the first attempt at the
+settings.json edit and the `rm` of the hook file landed in the shared
+checkout (`/home/solace/symphony`) instead of this session's worktree —
+copy-pasted the wrong path. Caught before committing anything;
+`git checkout HEAD -- .claude/hooks/no-persistent-polling.sh` in the
+shared checkout restored the one file touched there, untouched the other
+sessions' unrelated uncommitted work sitting in that checkout, and both
+edits were redone correctly in the worktree. No trace of the slip reached
+the shared checkout or the commit.
+
+## 2026-08-26 — SignalK health check, outside + inside
+
+**Recovered, both ways.** `signalk.symphony.dark-star-llc.com` is 200 via
+Caddy from outside; `auth.symphony...` (Dex) is 200. `grafana.symphony...`
+is 502 — expected, Grafana's been off since the 2026-08-25 disk-pressure
+purge (already on the board).
+
+Inside via ssh: `signalk` systemd unit active, started 00:09:51 today,
+`NRestarts=0`, no errors in its unit history, admin UI serving fine. This
+retires the "SignalK reinstall — still down" card: the 2026-08-25 outage
+is over, the install landed. Removed that card, replaced with a new
+finding below.
+
+Host state: `influxdb`/`grafana-server` systemd units are `inactive` +
+`disabled` (matches the known 2026-08-25 purge, not new). Dex, QuestDB
+and ntfy run as docker containers, all `Up 4 days` — expected per
+`reference/software_stack.md`. `signalk-to-influxdb2`'s `HistoryAPI`
+unhandled rejection is present in the log too — already covered by the
+open "uninstall signalk-to-influxdb2" card, this is just live confirmation
+it's still misbehaving.
+
+New: `signalk-postgsail` is throwing `TypeError: Provided value cannot be
+bound to SQLite parameter 5` in `updateDatabase` on every delta right now
+— its own local SQLite queue, not the InfluxDB/QuestDB path. Carded.
+
+Memory: 59 MB free, swap 199/199 MB full, `pswpout` climbing — real
+pressure, right now, even with InfluxDB and Grafana already off. Didn't
+act on it: a live session (tmux + several ssh pts, one active
+`claude --remote-control symphony-pi`) is already on the box, so stopping
+anything risked stepping on concurrent work. Flagging rather than acting.
+
+## 2026-08-26 — PR #30 landed and closed
+- The draft PR #30 (mislabeled "Docs corrections", actually carrying the
+  DSC/AIS distress-chain material) squash-landed on main as 9f90ebf, then
+  closed with a pointer comment; head branch deleted. Main's branch rules
+  reject merge commits, hence the squash.
+- Conflict resolution: main had rewritten `maintenance/priorities.md` and
+  `reference/node_red_signalk_use_cases.md` into compact form since the
+  branch diverged; kept main's structure and grafted short pointers into
+  `reference/distress_monitoring.md` (new file, landed intact) — the
+  distress-chain boat-install item, the delivery-gap note on the alarm
+  bullet, MOB pointers. `maintenance/log.md`'s 2026-08-19 section gained
+  the four distress bullets; the resurrected "Date unknown" header from
+  the stale branch was dropped to match main.
+- Redaction pass per Mark's call: the plugin author stays unnamed (log
+  entry now "corresponded with the author of…", no verified-his-claims
+  framing) and the census comment no longer attributes the misreading to
+  him. MMSI 368391180 was checked and is already public on main
+  (specs.md, README AIS links) — not redacted.
+- Board card for PR #30 retired.
+
+## 2026-08-26 — postgsail fix + influxdb2 uninstall, both blocked
+
+Found the root cause of the postgsail SQLite error from the earlier
+health check: `maxSpeedOverGround`/`courseOverGroundTrue` never
+initialized, undefined bind on every delta while the boat has no SOG
+source (dockside, AIS unpowered). Filed
+[upstream issue #68](https://github.com/xbgmsharp/signalk-postgsail/issues/68)
+with the one-line fix.
+
+Tried to apply it directly and to uninstall `signalk-to-influxdb2` (both
+carded as "easy" pickups). Neither landed: the harness's permission
+classifier blocked writing to the boat over ssh (`scp`, `sed -i` — reads
+were fine), and independently `npm uninstall --dry-run` over ssh hung
+>200s on the boat's cellular WAN before I killed it. Didn't force either
+— a hung npm operation on this boat's `package-lock=false` tree is the
+exact shape of the 2026-08-25 outage. Detail and exact resume commands in
+kanban-detail.md under both cards.
+
+## 2026-08-26 — SignalK restored
+Ran the retry per RUNBOOK.md § Upgrading SignalK on the boat Pi with what
+the prior session staged (warm 167 MB `~/.npm/_cacache`, raised
+`~/.npmrc` timeouts). `npm install -g signalk-server --no-audit --no-fund
+--prefer-offline` as `pi`, no `sudo`: 756 packages in 10m, no network
+error this time.
+
+One thing the runbook didn't anticipate: npm's install-scripts allowlist
+gate (new in this npm 11.19.0) skipped `@canboat/canboatjs`'s native
+`canSocket.node` build along with 5 other packages' scripts. That's the
+CAN-bus addon for `n2k-can0`/`canbus-canboatjs` — Symphony's actual NMEA
+2000 source, and exactly the thing "boat collecting nothing" meant.
+Re-ran with `npm install -g --allow-scripts=@canboat/canboatjs,es5-ext,
+storage-engine,@serialport/bindings-cpp,@scarf/scarf,core-js` (2m,
+incremental) and confirmed the `.node` build landed.
+
+Launcher (`~/.signalk/signalk-server`) was still pointing at
+`/usr/local/bin/signalk-server` — stale from the pre-outage 2.14.4
+install. Rewrote it per the runbook, started `signalk.socket` before
+`signalk.service`. Verified: `Successfully connected to can0` in the
+journal, no `Cannot find module` anywhere in the signalk-server tree, and
+live n2k deltas over the HTTP API (`signalk-n2k-displays`, fresh
+timestamps).
+
+Reconciled two open cards against this:
+- **`/usr/local/bin` symlinks card** — closed. Confirmed cause: npm's
+  prefix has been `~/.npm-global` since bt-sensors was linked globally;
+  nothing manages `/usr/local/bin` anymore, and nothing needs to now that
+  the launcher points straight at `~/.npm-global`. The old
+  `/usr/lib/node_modules/signalk-server` (2.14.4) tree is still on disk,
+  inert.
+- **RUNBOOK's `openplotter-signalk-installer` warning** — already landed
+  by an earlier session; card removed, nothing to do.
+
+Then found `bt-sensors-plugin-sk` failing to load
+(`Cannot find module '@naugehyde/node-ble'`) — first read as unrelated
+history (last commit 2026-08-21), but its `node_modules` was gone
+entirely and its `.git` dir had been touched the same day as the outage.
+This is exactly what the existing "must survive the reinstall" card
+anticipated. Both symlinks and the plugin's untracked webpack `public/`
+output were intact — only `node_modules` was gone. Tried `npm install`
+there (8 direct deps, no lockfile): 29m28s, died on `ECONNRESET`. Matches
+the "cellular WAN is the binding constraint" card exactly. Didn't retry a
+second time per standing instruction — updated the card with these
+findings instead of re-running into the same wall. Core SignalK is
+unaffected; this only blocks BLE sensor data.
+
+`maintenance/log.md` got one factual line for the outage+restore.
+`kanban.md`/`kanban-detail.md` updated: removed the SignalK-retry card,
+the now-done RUNBOOK-correction card, and the resolved symlinks card;
+updated the bt-sensors card in place.
+
+Not done, not carded further — the RUNBOOK card asking to document the
+boat's non-standard Node/npm state (nsolid at `/usr/bin/node`, standalone
+node parked at `/usr/local/bin/node.disabled-20260825`, npm prefix at
+`~/.npm-global`) is still open and accurate; left it as-is rather than
+expand this session further.
+
+## 2026-08-26 — Track B: QuestDB "connectivity bug" didn't exist; postgsail fixed; influxdb2 uninstall hit a new npm quirk; found a live concurrent session mid-session
+
+Read `reference/containerization_strategy.md` in full, then investigated
+the reported B3 bug ("signalk-questdb enabled, QuestDB holds zero tables,
+questdbHost 127.0.0.1 misconfigured"). That finding, in kanban-detail.md
+under "Evaluate parked/unused SignalK plugins on the dev container", was
+always about the **dev container's** older `signalk-questdb` plugin
+(dirkwa's original, container-to-container networking), not the boat's
+`signalk-questdb-history-provider` (the Hat Labs B3 fork). On the boat,
+SignalK runs natively, so `questdbHost: 127.0.0.1` correctly reaches
+QuestDB's Docker-published port. Verified directly: 23 tables present,
+`signalk`/`signalk_position` row counts climbing minute to minute
+(confirmed with two counts a minute apart), sampled rows non-null and
+sane (dock GPS coords, live battery/environment/nav paths). Re-ran
+`scripts/questdb_table_hygiene.sh` against the boat — 0 changes needed,
+already fully applied. No fix was needed or made; this was a stale/
+misattributed finding, now corrected in kanban-detail.md.
+
+Cleared the two boat-write-permission-blocked cards, since this session
+had that permission — checked `who`/`ps aux` first, saw no active
+npm/apt/docker process, and confirmed WAN health
+(curl to registry.npmjs.org: 1.4s; ping to 8.8.8.8: 30-45ms, 0% loss)
+before either:
+
+- **postgsail SQLite-bind fix**: applied the two-line default (`= 0` on
+  `maxSpeedOverGround`/`courseOverGroundTrue`), restarted `signalk`,
+  confirmed the bind error is gone from the log.
+- **signalk-to-influxdb2 uninstall**: dry-run succeeded cleanly (56s,
+  14-package removal plan). The real uninstall then failed, exit 254, on
+  an unrelated tree quirk — `signalk-plugin-watchdog`'s dependency entry
+  is a *self-referencing* `file:` path
+  (`file:./node_modules/signalk-plugin-watchdog`), and npm's reify step
+  errored trying to read a package.json from a derived top-level path
+  that doesn't exist, aborting the whole transaction before touching
+  signalk-to-influxdb2. Confirmed no functional damage: signalk-to-
+  influxdb2 is unchanged, and the one thing that *did* get deleted mid-run
+  (`~/.signalk/signalk-plugin-watchdog/`, a stray top-level directory) was
+  provably unreferenced by anything — not the working
+  `node_modules/signalk-plugin-watchdog/` copy, not this repo's tracked
+  `plugins/signalk-plugin-watchdog/` source, not any deploy script or
+  cron job. Watchdog has logged no errors since. Filed both the uninstall
+  retry and the underlying `file:` fix as separate cards in kanban.md —
+  the fix (repointing at `file:../symphony/plugins/signalk-plugin-watchdog`
+  on the boat) is untested and belongs in its own session.
+
+**Stopped there rather than starting B4/B6.** Right after the postgsail
+restart, boat logs showed the box's standing `claude --continue
+--remote-control symphony-pi` session actively installing
+`signalk-noaa-space-weather@0.29.1` via the SignalK app store — direct
+evidence it was doing real work at that moment, not sitting idle the way
+the earlier `who`/`ps aux` check (which only catches an in-progress
+process, not a session about to start one) suggested. Nothing looked
+broken on either side, but B4 (dashboards) and B6 (containerize SignalK,
+drop the docker.sock mount) are exactly the higher-blast-radius changes
+that shouldn't run next to someone else's live session on the same box.
+Left both for a session that confirms the box is clear first.
+
+## 2026-08-26 — symphony-pi npm install failure, and a shared-checkout near-miss
+
+Boat symptom: every SignalK App Store install failed with ENOENT on
+`/home/pi/.signalk/signalk-plugin-watchdog/package.json` — a package nobody
+was installing. Cause: `~/.signalk/package.json` carried
+`"signalk-plugin-watchdog": "file:./node_modules/signalk-plugin-watchdog"`,
+a self-reference. npm packs the file: source, then clears the destination
+before unpacking; source and destination were the same directory, so reify
+aborted and nothing installed. Repointed at the git-tracked source,
+`file:../symphony/plugins/signalk-plugin-watchdog`, and ran a real install:
+clean, `signalk-noaa-space-weather` now 0.21.1 on disk. Server still runs
+0.21.0 in memory; restart deliberately left to Mark.
+
+`npm install --dry-run` exits 0 against the broken entry — it resolves
+without reifying, and the bug is entirely in reify. It is not a valid check.
+Documented in RUNBOOK.md, along with an amendment to the 2026-08-15
+"use a `file:` entry" advice, which is what produced this: the target has to
+be outside `node_modules`.
+
+The larger finding is not about npm. The shared checkout `/home/solace/symphony`
+had ten files of uncommitted work that nobody could account for. Unpicking it:
+
+- Commit `351fdb0` (08:34) was orphaned a minute later by `dc36c63` — same
+  commit message, different content, two sessions committing into one
+  checkout. Its log content had already reached main by another path, so
+  nothing was lost there, but only by luck.
+- The working tree was never brought forward onto `dc36c63`, so most of what
+  looked like edits was stale content. Committing it as-is would have
+  reverted eight commits — 854 deletions, including deleting
+  `reference/distress_monitoring.md` outright and restoring the 08-21 advice
+  to "use the openplotter installer only", which `d040724` reversed on 08-25
+  after that tool took the boat offline for two days.
+- Genuinely uncommitted work was in there too, and is now on main: two
+  hand-written RUNBOOK notes, a round of dev-container plugin upgrades, and
+  two bt-sensors-plugin-sk board cards.
+
+Also: this session and `questdb-connectivity-track-b` independently
+diagnosed the same npm bug and were both about to write to `~/.signalk`.
+Two earlier messages from that session never arrived here; Mark relayed the
+diagnosis by hand. Collision was avoided because that session checked, not
+because anything prevented it.
+
+## 2026-08-28 — PR #189 evidence gathering, live experiments on Symphony
+
+Verified SSH access, confirmed the deployed plugin matches PR #189's diff,
+`auth_timeout` workaround already removed, 10h+ SignalK uptime under real
+BLE error load, live battery data flowing throughout. Detail and the
+attempt log (bluetooth.service restart, dbus.service restart + NetworkManager
+recovery, gdb fd-close) are in `kanban-detail.md` §"Evidence-gathering for
+upstream PR #189" — not duplicated here.
+
+Mark explicitly approved forcing a `dbus.service` restart after being told
+the specific risk (NetworkManager is D-Bus-activated and could die without
+auto-restarting) and the confidence level (moderate, reasoned from config,
+not measured precedent). It happened exactly as predicted; recovered in
+under a minute, fully remote, no lasting damage. Also got explicit
+go-ahead to try a gdb-based fd close after the harness's auto-mode
+classifier blocked the first attempt — that one worked mechanically (fd
+closed clean, no crash) but didn't hit the target code path either.
+
+Net: two service-level restarts and one syscall-level fd close, three
+attempts, zero damage, zero direct proof the PR's reconnect branch has
+ever fired. That's a real gap, not a formality — worth closing before
+leaning on this as the case for merge.
+
+**Handoff for next session** (recommend: Sonnet, low-medium effort — this
+is mechanical, not exploratory; the diagnosis and dead ends are already
+written down):
+
+> On Symphony (`ssh pi@symphony-pi`), read
+> `intermediate_files/claude_slop/kanban-detail.md` § "Evidence-gathering
+> for upstream PR #189" for what's been tried. Find the actual PID
+> currently running `dbus-daemon` (`systemctl show dbus -p MainPID
+> --value` or `pgrep dbus-daemon`) and send it a hard `SIGKILL` (not
+> `systemctl restart dbus.service`, which is a graceful SIGTERM the daemon
+> already handles fine and produces no reconnect signal) — systemd's
+> `dbus.socket` should respawn a fresh `dbus-daemon` on the next
+> connection attempt. Watch `journalctl -u signalk -f` for the plugin's
+> own "Bluetooth D-Bus connection lost, reconnecting in Ns..." line and
+> confirm battery data (`curl localhost:3000/signalk/v1/api/vessels/self/electrical/batteries/5C90/voltage`)
+> resumes after. Also re-check NetworkManager (`systemctl is-active
+> NetworkManager`) afterward and restart it if it died again, same as last
+> time. If this still doesn't trigger the reconnect branch, stop escalating
+> further live-fault-injection attempts and instead draft the PR #189
+> comment from the evidence already gathered (10h+ crash-free under real
+> error load, live data flowing) — that's solid regression evidence even
+> without a direct reconnect-branch trace. Post it only with Mark's
+> go-ahead, per standing orders on outward-facing actions.
+
+## 2026-09-01 — PR #189: found and fixed why sensors never republished after a D-Bus reconnect
+
+Root cause was the process-wide GATT connect queue, not device objects
+bound to the dead bus: a connect in flight when dbus died never settles
+(dbus-next never rejects pending calls), so the queue stayed busy forever
+and every re-created sensor's connect waited behind it. Reproduced
+deterministically by killing dbus during a connect; fixed with a fresh
+queue on reconnect, a real timeout rejection in `deviceConnect()`, and
+concurrent sensor teardown in `stop()`. Pass criterion met on the
+committed code: kill 20:35:21Z, fresh 5C90 data 20:36:09Z, no SignalK
+restart. Pushed to fork `main` (updates PR #189), maintainer comment
+posted, scaffolding removed. Detail in kanban-detail.md § "PR #189
+verification, 2026-09-01".
+
+One slip: the comment was posted before the push had succeeded (the
+boat has no GitHub credentials; the ssh exit code hid the failure).
+Pushed from the dev box a minute later, so the PR and the comment agree.
+
+Correction, same day: Mark rejected the PR comment and the code comments as
+wordy and obviously AI. Replaced the comment with bare repro steps
+(auth_timeout 20 ms in `/etc/dbus-1/system-local.conf`), trimmed every
+comment to one line (later squashed with everything else into one signed commit `f1c9cb8` on fork main, PR #189 head), and re-ran the
+repro in order on the boat: pre-PR code logs one uncaught EPIPE and 404s;
+PR code retries with backoff and reconnects by itself once the file is
+removed. Scaffolding removed, data flowing 21:08Z.
+
+## 2026-09-01 — B1a–c on halos (P1 of the swap plan), and a credential leak
+
+Executed `intermediate_files/claude_slop/halos-swap-plan.md` items B1a–c on
+`pi@192.168.0.193`: PiCAN-M overlays appended to `/boot/firmware/config.txt`,
+`cfg80211.ieee80211_regdom` GB→US plus `cgroup_enable=memory
+cgroup_memory=1` in `cmdline.txt`, `/etc/systemd/network/80-can.network`
+added and `systemd-networkd` enabled. The plan file itself only exists on
+the unmerged `claude/halos-boat-swap-trial-9e5d36` branch, not on main or
+this session's branch — read via `git show` rather than checked out.
+
+**Incident, self-caused.** First attempt used
+`run(){ printf "%s\n" "$PW" | sudo -S "$@"; }` called as
+`run tee -a file <<EOF ... EOF`. The pipe into `sudo -S` overrides the
+function's stdin, so the heredoc content never reached `tee` — instead the
+sops-decrypted `symphony_halos_pi_password` itself got written into
+`/boot/firmware/config.txt` and `/etc/systemd/network/80-can.network`, and
+printed once into this transcript. Caught it in the very next command,
+confirmed the exact scope (`cat -A` on both files — one leaked line each,
+nothing else touched), and rewrote both files correctly using a
+password-free sudo call against a temp file staged as `pi` (no sudo
+needed for `/tmp`). Verified clean afterward. Mark's call: not rotating
+the password, not raising it again. Memory saved
+(`sudo-password-heredoc-pipe-bug`) so no future session repeats the
+pattern of mixing a piped sudo password with heredoc content in the same
+invocation.
+
+Rebooted, ran the B1 verification block:
+- `/dev/serial0` present; `/dev/i2c-1` **absent** — `i2c_bcm2835` loaded,
+  `dtparam=i2c_arm=on` is in config.txt, but no `i2c-dev` device node.
+  Outside B1a–c scope (plan didn't call for it), flagged not fixed.
+- `cgroup.controllers` includes `memory` ✓.
+- regdom reports `US` ✓.
+- `dmesg | grep mcp251`: overlay probed, `Probe failed, err=110` —
+  expected, no PiCAN-M HAT attached at home.
+- `can0` not present — plan says that verifies at the boat only.
+
+P2–P7 of the swap plan are unstarted.
