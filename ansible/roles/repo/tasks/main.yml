@@ -2,6 +2,30 @@
 # from -- host/install.sh, the telegraf config symlink, the compose files and
 # the local plugin forks all live in it.
 
+- name: step 22 | anything in the checkout not owned by pi
+  ansible.builtin.command:
+    argv: [find, "{{ symphony_repo_dir }}", "!", "-user", "pi", "-printf", "%p\n"]
+  register: repo_not_pi
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: step 22 | give the checkout back to pi
+  ansible.builtin.file:
+    path: "{{ symphony_repo_dir }}"
+    owner: pi
+    group: pi
+    recurse: true
+  when: repo_not_pi.stdout | default('') | length > 0
+  # A `sudo git` on the card leaves root-owned refs behind, and git's failure
+  # then names a lock file rather than the ownership:
+  #   cannot lock ref ...: Unable to create '.../refs/heads/claude/x.lock':
+  #   Permission denied
+  # Found on symphony-halos 2026-09-02: `.git/refs/heads/claude/`, the pack
+  # files and `.git/config` were all root:root, so `pi` could not create any
+  # branch under claude/. Repaired here rather than by hand, because a hand
+  # repair is not in the build and the next root git command recreates it.
+
 - name: step 22 | symphony repo is checked out
   ansible.builtin.git:
     repo: https://github.com/mark-brannan/symphony.git
