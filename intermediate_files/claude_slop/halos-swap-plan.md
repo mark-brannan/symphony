@@ -44,6 +44,23 @@ these override it. Evidence: `halos-swap-execution-2026-09-02.md` and
   confirmed as Authelia.
 - **Precondition** the boat router now has a DHCP reservation for the Cerbo
   (192.168.8.107).
+- **B5a** confirmed 2026-09-02 10:18Z: `/sso/` is Authelia (its CSP nonce and
+  `<base href>` on the domain), `/` is SignalK, `/ca/` the CA download.
+- **B4 host state, found by the first full preflight (2026-09-02):**
+  `systemd-networkd-wait-online` had been enabled that morning (03:18) and
+  fails on every boot after a two-minute timeout — networkd manages only
+  `can*` on HALOS, NetworkManager already serves `network-online.target`.
+  Disabled. The `apt-get remove` of the InfluxDB app left its unit file, which
+  still started and failed at boot; purged. Both were showing up as the
+  heartbeat pinging `/fail`. Recorded in `host/halos/README.md`.
+- **B3c plugin parity, measured:** three plugins exist on one card only and
+  are image facts, not build gaps — `signalk-app-dock` (bundled with the
+  boat's npm-installed server, absent from the HALOS image),
+  `signalk-polar-performance-plugin` (the reverse), and
+  `signalk-instrument-light-plugin` (off on the boat, never loads on HALOS).
+  The preflight allow-lists them (`IMAGE_ONLY`).
+- **`pi` is not in the `docker` group on HALOS.** Every `docker` command in a
+  runbook or README needs `sudo`; scripts read `/proc` instead.
 
 ## Decisions for the trial
 

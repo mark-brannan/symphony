@@ -9,6 +9,14 @@
 #
 # Adding a file: drop it in host/, then add a line to INSTALL and (if it
 # needs scheduling) to CRON below.
+#
+# Run anywhere but a boat card -- a Mac, WSL, a desktop container -- this
+# refuses and does nothing. It has no notion of a target host: it writes
+# root-owned files into /usr/local/sbin, /etc/systemd, /etc/apt and
+# /home/pi, enables timers, and rewrites the root crontab, all on whatever
+# machine it happens to be on. The three checks below are what stand between
+# a mistyped `sudo host/install.sh` and a dev box with a boat's cron in it.
+# SYMPHONY_INSTALL_FORCE=1 skips them if you know better.
 
 set -euo pipefail
 
@@ -18,11 +26,39 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # units are installed and enabled below.
 BOAT_USER=pi
 
+# Is this a boat card? Three questions, each answered once and by name, so
+# the refusal below can say which one failed.
+have_systemd=no
+have_boat_user=no
+is_arm=no
+[ -d /run/systemd/system ] && have_systemd=yes
+id "$BOAT_USER" >/dev/null 2>&1 && have_boat_user=yes
+case "$(uname -m)" in aarch64 | armv7l | armv6l) is_arm=yes ;; esac
+
+if [ "${SYMPHONY_INSTALL_FORCE:-}" != 1 ]; then
+	refuse=
+	[ "$have_systemd" = yes ] || refuse="$refuse systemd(not booted with it)"
+	[ "$have_boat_user" = yes ] || refuse="$refuse user-$BOAT_USER(absent)"
+	[ "$is_arm" = yes ] || refuse="$refuse arch($(uname -m), not a Pi)"
+	if [ -n "$refuse" ]; then
+		echo "install.sh: this does not look like a boat card --$refuse" >&2
+		echo "install.sh: refusing. SYMPHONY_INSTALL_FORCE=1 to override." >&2
+		exit 1
+	fi
+fi
+
+# Native SignalK on the boat card, containerised SignalK on a HALOS card; the
+# drop-in goes in whichever unit's .d directory, and on a card with neither
+# yet, the native one. Shared with host/signalk-ble-check so the two agree.
+# shellcheck source=host/signalk-unit.sh
+. "$HERE/signalk-unit.sh"
+signalk_unit_detect
+
 # <source in host/>:<destination>:<mode>:<owner>:<group>
 INSTALL=(
 	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755:root:root"
 	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
-	"signalk-after-bluetooth.conf:/etc/systemd/system/signalk.service.d/after-bluetooth.conf:0644:root:root"
+	"signalk-after-bluetooth.conf:/etc/systemd/system/$SIGNALK_UNIT.d/after-bluetooth.conf:0644:root:root"
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
 	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
@@ -31,6 +67,7 @@ INSTALL=(
 	"boat-heartbeat.json:/etc/boat-heartbeat.json:0600:root:root"
 	"boat-heartbeat.service:/etc/systemd/system/boat-heartbeat.service:0644:root:root"
 	"boat-heartbeat.timer:/etc/systemd/system/boat-heartbeat.timer:0644:root:root"
+	"signalk-unit.sh:/usr/local/lib/symphony/signalk-unit.sh:0644:root:root"
 	"signalk-ble-check:/usr/local/sbin/signalk-ble-check:0755:root:root"
 	"signalk-ble-check.service:/etc/systemd/system/signalk-ble-check.service:0644:root:root"
 	"signalk-ble-check.timer:/etc/systemd/system/signalk-ble-check.timer:0644:root:root"
