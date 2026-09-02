@@ -11,6 +11,9 @@ usage window at ~07:30Z 2026-09-02.
 PR branch `claude/halos-boat-swap-trial-9e5d36` (checkpointed as `pr33-fable`
 merged with main; scripts rewritten, runbook and plan NOT yet updated).
 
+**At 07:35Z Mark's Opus session (`handoff-halos-b3-62a913-a6`) was working
+i2c on the bench box — check `ListAgents`/message it before touching halos.**
+
 **Mark's standing calls tonight:** bypass permissions is on; do the work, ask
 only what is genuinely his. Defaults he accepted: secrets move by pipe and
 never print; DNS write path may be exercised; the trial accepts local Authelia
@@ -29,7 +32,8 @@ secrets/symphony.sops.yaml | ssh pi@192.168.0.193 "sudo -S -p '' bash -c '<cmd>'
    domain; a cold start takes 3–4 min there. `docker ps` must show
    `signalk-server ... (healthy)`; if `unhealthy`, the override did not apply —
    `systemctl cat marine-signalk-server-container | grep symphony.override`.
-2. **B5a Traefik router.** Write `/etc/halos/traefik-dynamic.d/symphony-signalk-host.yml`
+2. **B5a Traefik router — installed 07:33Z; only the `/sso/` confirmation is
+   left** (see the execution file). Original instructions, for reference: write `/etc/halos/traefik-dynamic.d/symphony-signalk-host.yml`
    from the plan (B5a), literal host `signalk.symphony.dark-star-llc.com`,
    `url: http://host.docker.internal:3000` (HALOS's own
    `signalk-server-icons.yml` uses exactly that, so it resolves). HALOS's own
@@ -39,8 +43,10 @@ secrets/symphony.sops.yaml | ssh pi@192.168.0.193 "sudo -S -p '' bash -c '<cmd>'
    (`curl -sk --resolve signalk.symphony.dark-star-llc.com:443:127.0.0.1 https://signalk.symphony.dark-star-llc.com/`
    → 200 SignalK; `/sso`, `/sso/`, `/ca`, `/ca/` → not SignalK). If it
    misbehaves, delete the file.
-3. **Fix the swap check** (`scripts/halos_swap_check.sh`, on the PR branch),
-   found by the real baseline run at 07:16Z:
+3. **Swap check fixed and re-verified against the boat at 07:34Z** (PR head
+   after commit "N2K liveness from any n2k-can0 value"). Left for you: the
+   preflight has never run end to end against halos. Details of what was
+   fixed, for context:
    - `n2k`: position on the boat comes from `signalk-fixed-position`; test N2K
      liveness as "newest value with `$source` starting `n2k-can0` anywhere in
      `vessels/self` is < 60 s old" (water temperature was 5 s old).

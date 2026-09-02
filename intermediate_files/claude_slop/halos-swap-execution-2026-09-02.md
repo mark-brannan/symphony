@@ -44,6 +44,17 @@ Done tonight, in order:
   `symphony.dark-star-llc.com` (07:27Z). SignalK restarted for the new
   `extra_hosts` entry.
 
+- B5a Traefik router `/etc/halos/traefik-dynamic.d/symphony-signalk-host.yml`
+  installed 07:33Z (priority 50 on `websecure`, `host.docker.internal:3000`).
+  Measured with `--resolve` against 127.0.0.1: `/` → 302 to `/admin/`
+  (SignalK's own redirect, so SignalK serves the root), `/ca` → 302 `/ca/`,
+  `/ca/` → 200 CA download, `/sso` → 404, `/sso/` → 200 whose first bytes
+  mention `signalk` — **confirm that body is Authelia** (`grep -c -i authelia`)
+  before trusting SSO; if it is SignalK, the `!PathPrefix` exclusion is not
+  winning and the file should be deleted.
+- 07:35Z: Mark's Opus session is wiring i2c on the bench box; hands off it
+  from here.
+
 ## Boat card (symphony-pi) — touched read-only except:
 
 - `systemctl reset-failed grafana-server unattended-upgrades` (06:45Z): the
@@ -71,6 +82,10 @@ Done tonight, in order:
 
 ## Not yet done
 
-- B2c domain fix, B5a Traefik router, reboot soak with all units, preflight
-  run to green, PR #33 slimmed and rebased, runbook updated with real output,
-  swap-day dispatch prompt.
+- Reboot soak with all units, preflight run to green (script untested
+  against halos as a whole; its `front` and `plugins` lines are new), PR #33
+  slimmed and rebased, plan + runbook updated with real output, swap-day
+  dispatch prompt, pypilot (B4d) decision.
+- Swap check re-run on the boat at 07:34Z after the fixes: every line ok
+  except `victron` (Cerbo) and `questdb` (boat QuestDB does not answer in
+  30 s) — both pre-existing, both now explained in the line itself.
