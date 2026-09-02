@@ -30,11 +30,15 @@ Both of the SignalK fixes above fail silently, so check them explicitly after
 installing and restarting the unit:
 
     # i2c reachable from inside the container -- silence is a pass
-    docker exec signalk-server python3 -c "open('/dev/i2c-1')"
+    sudo docker exec signalk-server python3 -c "open('/dev/i2c-1')"
 
     # what actually took effect
-    docker inspect signalk-server --format '{{json .HostConfig.GroupAdd}}'   # expect ["960","4","988"]
-    docker inspect signalk-server --format '{{json .Config.Healthcheck}}'
+    sudo docker inspect signalk-server --format '{{json .HostConfig.GroupAdd}}'   # expect ["960","4","988"]
+    sudo docker inspect signalk-server --format '{{json .Config.Healthcheck}}'
+
+`pi` is not in the `docker` group on HALOS, so every `docker` command needs
+`sudo`. `scripts/halos_preflight.sh` checks the gid without it, from
+`/proc/<pid>/status` of the container's `node` process.
 
 Without gid 988 the BME680 tree simply stays empty, which is indistinguishable
 from the normal ~10 minute post-restart burn-in, and `i2c-reader` logs only

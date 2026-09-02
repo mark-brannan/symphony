@@ -64,8 +64,10 @@ else
   fi
 fi
 
-out=$(r "$HOST" 'echo $(systemctl is-active marine-signalk-server-container) $(curl -s -m 10 127.0.0.1:3000/signalk | python3 -c "import json,sys; print(json.load(sys.stdin)[\"server\"][\"version\"])" 2>/dev/null) $([ -f /etc/container-apps/marine-signalk-server-container/symphony.override.yml ] && [ -f /etc/systemd/system/marine-signalk-server-container.service.d/symphony.conf ] && echo override)')
-[[ "$out" == "active 2."*" override" ]] && say ok signalk "$out (healthcheck override installed)" || say FAIL signalk "got '$out' (want: active <version> override)"
+# The override's two effects fail silently (host/halos/README.md); the gid is read
+# from the container's node process because `pi` cannot run docker on HALOS.
+out=$(r "$HOST" 'echo $(systemctl is-active marine-signalk-server-container) $(curl -s -m 10 127.0.0.1:3000/signalk | python3 -c "import json,sys; print(json.load(sys.stdin)[\"server\"][\"version\"])" 2>/dev/null) $([ -f /etc/container-apps/marine-signalk-server-container/symphony.override.yml ] && [ -f /etc/systemd/system/marine-signalk-server-container.service.d/symphony.conf ] && echo override) $(grep -q "^Groups:.* 988 " /proc/$(pgrep -f "^node /home/node/signalk" | head -1)/status 2>/dev/null && echo gid988)')
+[[ "$out" == "active 2."*" override gid988" ]] && say ok signalk "$out (healthcheck override installed, i2c gid in the SignalK process)" || say FAIL signalk "got '$out' (want: active <version> override gid988)"
 
 out=$(r "$HOST" 'systemctl is-active telegraf chrony boat-heartbeat.timer signalk-ble-check.timer marine-signalk-server-container marine-questdb-container marine-grafana-container halos-core-containers | paste -sd" "')
 [ "$out" = "active active active active active active active active" ] && say ok services "8 active" || say FAIL services "telegraf chrony heartbeat.timer ble-check.timer signalk questdb grafana core: $out"
