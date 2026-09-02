@@ -1,0 +1,20 @@
+2026-09-02T18:44:44Z	cd /home/solace && yadm add .claude/hooks/log-host-commands.sh .claude/settings.json .local/bin/cloud-session-setup.sh && yadm commit -m "hooks: log ssh commands to intermediate_files/claude_slop/host-commands.log
+
+PostToolUse hook on Bash: any command containing \"ssh \" gets a
+timestamped line appended to the invoking repo's
+intermediate_files/claude_slop/host-commands.log, so host changes leave a
+trail even when a session doesn't write one up elsewhere.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>" -- .claude/hooks/log-host-commands.sh .claude/settings.json .local/bin/cloud-session-setup.sh
+2026-09-02T18:45:00Z	cd /home/solace && gh pr create --repo mark-brannan/dotfiles --head claude/log-host-commands-hook --base main --title "Log ssh commands to intermediate_files/claude_slop/host-commands.log" --body "$(cat <<'EOF'
+New PostToolUse hook, `log-host-commands.sh`: any Bash command containing
+`ssh ` gets a timestamped line appended to the invoking repo's
+`intermediate_files/claude_slop/host-commands.log`, so a host touched over
+ssh leaves a trail even when a session doesn't write it up elsewhere.
+
+Wired into `.claude/settings.json`'s PostToolUse/Bash matcher and added to
+`cloud-session-setup.sh`'s INSTALL list.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
