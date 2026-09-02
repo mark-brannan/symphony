@@ -512,9 +512,13 @@ Mark's instruction, 2026-09-02: **do not restart the SignalK unit without the
 consent of `symphony-pr-33-review-601c06-0a`.** Standing until he or that
 session lifts it.
 
-The corrected override is written to **`/tmp/symphony.override.yml` on the
-staging Pi** and validated (`yaml.safe_load` returns
-`group_add == ['4','960','988']`). It has deliberately **not** been copied to
+The corrected override was written to `/tmp/symphony.override.yml` on the
+staging Pi and validated there (`yaml.safe_load` returns
+`group_add == ['4','960','988']`). **Do not rely on that file** — `/tmp` does
+not survive a reboot and the card is expected to reboot before this lands. The
+authoritative copy of its content is inline in
+[prompt-halos-i2c-fix.md](prompt-halos-i2c-fix.md); write it from there. It has
+deliberately **not** been copied to
 `/etc/container-apps/marine-signalk-server-container/`: installing it is inert
 until a restart, but it would silently change the behaviour of that session's
 *next* restart in the middle of their healthcheck verification, which is the
