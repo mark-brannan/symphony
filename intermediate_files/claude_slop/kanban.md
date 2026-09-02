@@ -8,6 +8,18 @@ session can pick up and execute. Full working detail behind a card lives in
 `kanban-detail.md`, or at an existing reference doc / open PR when one
 already carries enough context.
 
+## Standing context — not cards, not decisions to make
+
+- **HALOS is an experiment; its output is learning, not a commitment.**
+  Whether the boat ends up on HALOS or on a hardened OpenPlotter install is
+  deliberately unsettled and stays that way. Sessions carry that ambiguity
+  rather than resolving it: don't card it, don't ask Mark to settle it, and
+  don't treat the swap plan, the bench card or any PR as evidence the fork
+  is closed. Work the trial on its merits and let the long-run answer come
+  from what the trial teaches. The evidence on both sides, which is still
+  worth reading before touching this track, is in
+  [kanban-detail.md](kanban-detail.md#the-rebuild-fork--strategic-context).
+
 ## Yours
 
 ### Repo & tooling
@@ -34,7 +46,6 @@ already carries enough context.
 ### Boat Pi / hardware
 - [ ] **Power-cycle the Cerbo GX at the panel** (DC feed off ~30 s), then confirm Settings → Services → MQTT on LAN (SSL) is still on; if it stays dark it is a failed unit, not a config problem. Re-checked from the boat 2026-09-02: no ICMP reply and 80/443/1883/8883/22 all closed, but ARP for `5c:c5:63:0a:df:52` is `REACHABLE` — the NIC answers, nothing above it does. SignalK's Victron client is still in SYN-SENT to 192.168.8.107:8883 since 2026-09-01 21:06Z; Victron data is dead on both cards until then ([execution file](halos-swap-execution-2026-09-02.md)).
 - [ ] After the swap: copy `~/influx-export`, `~/keep-before-purge/` and the `symphony_questdb-data` volume off the old boat card before it is reused (plan S3 / P7).
-- [ ] **Decide the rebuild fork: HALOS on a fresh 64 GB card, or keep hardening the current OpenPlotter install.** Grafana's return, the dockerization track and the SD-card strategy are all downstream of this one call. Evidence on 2026-08-25: a Node runtime swap silently removed `signalk-server`, the boat ran dark for 2 days, and OpenPlotter's own installer is what did it (`signalkPostInstall.py:45` runs `apt autoremove -y nodejs npm`). Against: HALOS undoes real work already done. Survey of `halos-pi4` (reachable as `ssh pi@halos-pi4`): Traefik + Authelia + Homarr core, containerised SignalK/QuestDB/Grafana/OpenCPN/AvNav, all systemd-managed, declarative config under `/etc/halos/` — architecturally where this repo was already heading, and it retires the "move off hand-rolled bash wrappers" item in `priorities.md` outright. Caveat: that box is a 2 GB Pi 4 with ~358 MB available under load, so HALOS implies the HALPI2.
 - [ ] **The cellular WAN is the binding constraint — decide the staging plan around it.** Every rebuild failure on this boat is a network timeout, not a logic error. 2026-08-23: `docker pull signalk/signalk-server` died on TLS handshake timeout, `apt install grafana` (343 MB) timed out, `npm install` hit ETIMEDOUT. 2026-08-25: the SignalK reinstall ran 27 minutes and died on `EIDLETIMEOUT` from registry.npmjs.org, with single tarballs taking 54 s. `symphony-pi`'s tailscale endpoint is `172.56.x`, a T-Mobile range. Practical consequence: **the boat cannot be rebuilt in place over its own link** — a card staged and fully populated at home, then carried down, is the only reliable path.
 - [ ] **Decide whether the current 32 GB card comes home after the swap.** It holds the only copies of `~/influx-export` (1.4 GB) and `~/keep-before-purge/grafana.db` — neither can cross the WAN without throttling risk, so a physical card swap is the only way to recover them.
 - [ ] [Confirm the HALPI2 purchase](kanban-detail.md#halpi2-purchase-sd-card-boot-media-strategy) — already in cart; ends the SD-card/boot-media decision outright.
