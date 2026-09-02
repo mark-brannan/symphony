@@ -4,10 +4,13 @@
 # id, the command. Local buffer for the as-built file, never committed --
 # see .gitignore.
 #
-# Redacts before writing: a command matching sops -d, sudo -S,
-# Authorization, psk=, token, password, or containing a heredoc (<<) is
-# logged as only its first line plus "[redacted: <pattern>]". Everything
-# else is logged verbatim.
+# Redacts before writing, case-insensitively: a command matching sops -d,
+# sudo -S, Authorization, psk=, token, password, or containing a heredoc
+# (<<) is logged as "[redacted: <pattern>]" only. A heredoc is the one case
+# where the secret is never on line 1, so that case logs its first line too
+# -- for the others the match itself is proof the whole line can carry the
+# value, so nothing of the command is kept. Everything else is logged
+# verbatim.
 #
 # Fires on PostToolUse for Bash. Must exit 0 on every path -- a missing log
 # directory or unwritable file never blocks a tool call -- so every step
@@ -33,13 +36,15 @@ redact_pattern=""
 for p in 'sops -d' 'sudo -S' 'Authorization' 'psk=' 'token' 'password' '<<'; do
   case "$p" in
     '<<') printf '%s' "$cmd" | grep -qF -- '<<' && { redact_pattern="heredoc (<<)"; break; } ;;
-    *)    printf '%s' "$cmd" | grep -qF -- "$p" && { redact_pattern="$p"; break; } ;;
+    *)    printf '%s' "$cmd" | grep -qiF -- "$p" && { redact_pattern="$p"; break; } ;;
   esac
 done
 
-if [ -n "$redact_pattern" ]; then
+if [ "$redact_pattern" = "heredoc (<<)" ]; then
   first_line=$(printf '%s' "$cmd" | head -n1)
   line_cmd="${first_line} [redacted: ${redact_pattern}]"
+elif [ -n "$redact_pattern" ]; then
+  line_cmd="[redacted: ${redact_pattern}]"
 else
   line_cmd="$cmd"
 fi
