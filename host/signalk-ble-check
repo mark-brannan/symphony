@@ -32,19 +32,24 @@ TAG=signalk-ble-check
 STATE=/run/signalk-ble-check.state
 API=http://localhost:3000/signalk/v1/api/vessels/self
 
-# Native SignalK has a socket unit; the HALOS container unit does not, so the
-# restart path below differs. Config path differs too. Same fallback order as
-# install.sh: native unless the container unit is the one actually present.
-if systemctl cat marine-signalk-server-container.service >/dev/null 2>&1 &&
-	! systemctl cat signalk.service >/dev/null 2>&1; then
-	UNIT=marine-signalk-server-container.service
-	CONFIG=/var/lib/container-apps/marine-signalk-server-container/data/data/plugin-config-data/bt-sensors-plugin-sk.json
-	HAS_SOCKET=0
-else
-	UNIT=signalk.service
-	CONFIG=/home/pi/.signalk/plugin-config-data/bt-sensors-plugin-sk.json
-	HAS_SOCKET=1
+log() { logger -t "$TAG" -p user.notice "$1"; }
+
+# Which SignalK this host runs -- native or the HALOS container -- decides the
+# config path and the restart path below. host/install.sh sources the same
+# file, so the two never disagree. Installed copy first; the sibling in the
+# repo is for running this straight out of a checkout.
+UNIT_HELPER=/usr/local/lib/symphony/signalk-unit.sh
+[ -r "$UNIT_HELPER" ] || UNIT_HELPER="$(dirname "$0")/signalk-unit.sh"
+if [ ! -r "$UNIT_HELPER" ]; then
+	log "signalk-unit.sh not found; re-run host/install.sh"
+	exit 0
 fi
+# shellcheck source=host/signalk-unit.sh
+. "$UNIT_HELPER"
+signalk_unit_detect
+UNIT=$SIGNALK_UNIT
+CONFIG=$SIGNALK_CONFIG
+HAS_SOCKET=$SIGNALK_HAS_SOCKET
 
 # SignalK needs roughly 100s to reach its plugins and longer for BLE sensors to
 # connect and complete a first poll. A young service has not failed, it just
@@ -52,8 +57,6 @@ fi
 MIN_SERVICE_AGE=300
 COOLDOWN=1800
 MAX_RESTARTS=3
-
-log() { logger -t "$TAG" -p user.notice "$1"; }
 
 systemctl is-active --quiet "$UNIT" || exit 0
 [ -r "$CONFIG" ] || exit 0
@@ -156,10 +159,10 @@ log "bt-sensors is loaded but publishing nothing; restarting SignalK (attempt $(
 
 if [ "$HAS_SOCKET" -eq 1 ]; then
 	# Socket first, or the socket unit reactivates the service mid-stop.
-	systemctl stop signalk.socket || true
+	systemctl stop "$SIGNALK_SOCKET_UNIT" || true
 	systemctl stop "$UNIT" || true
 	systemctl reset-failed "$UNIT" 2>/dev/null || true
-	systemctl start signalk.socket || true
+	systemctl start "$SIGNALK_SOCKET_UNIT" || true
 	# Socket activation needs a connection to actually launch the server.
 	curl -s -o /dev/null --max-time 60 http://localhost:3000/signalk/ 2>/dev/null || true
 else
