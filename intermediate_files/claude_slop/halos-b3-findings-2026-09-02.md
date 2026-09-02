@@ -303,3 +303,33 @@ does more than "make `mem_limit` work in general" — it specifically changes
 how much memory QuestDB takes, and the JVM must be container-aware for that
 to land softly. **Not yet observed on real hardware; QuestDB has not been
 watched under an enforced cap on this card.**
+
+## Checked: wiping the data volume's node_modules did not destroy HALOS's baked plugins
+
+This looked like a real risk after the clean reinstall, so it was verified
+against `halos-org/signalk-server-docker` rather than assumed.
+
+HALOS bakes its curated set into
+**`/home/node/signalk/node_modules/signalk-server/node_modules/`** — the
+*image's* signalk-server package root (`Dockerfile:103-104`), chosen
+deliberately because "Signal K discovers modules under `<appPath>/node_modules`
+... not the top-level node_modules, where a plain npm install would hoist
+them."
+
+The `rm -rf` was against `$D/node_modules`, i.e. the **data volume** at
+`/home/node/.signalk/node_modules`. Different path. **Nothing baked was
+touched**: `@halos-org/skip` (which carries the browser-side alarm audio),
+`@signalk/freeboard-sk`, `@signalk/charts-plugin`,
+`signalk-questdb-history-provider`, `@signalk/signalk-node-red` and the rest
+of `plugins.list` are intact. The audio recommendation above is unaffected.
+
+One consequence to be aware of rather than fix: the README states the data
+volume "shadows the image copy and wins permanently". Where the boat's
+`package.json` overlaps HALOS's curated list —
+`signalk-anchoralarm-plugin`, `signalk-to-influxdb2`,
+`signalk-n2kais-to-nmea0183`, `@signalk/signalk-node-red`, others — the
+card now runs **the boat's versions, not HALOS's curated ones**. That is the
+inevitable consequence of B3a copying the boat's state wholesale, and it is
+another instance of the "the boat is not golden" problem: the trial will
+exercise boat-pinned plugin versions rather than the set HALOS tests.
+Worth a deliberate decision later; not a swap blocker.
