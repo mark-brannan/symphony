@@ -22,7 +22,7 @@ tool=$(printf '%s' "$input" | jq -r '.tool_name // ""' 2>/dev/null) || exit 0
 [ "$tool" = "Bash" ] || exit 0
 
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null) || exit 0
-printf '%s' "$cmd" | grep -q 'ssh ' || exit 0
+printf '%s' "$cmd" | grep -qi 'ssh ' || exit 0
 
 cwd=$(printf '%s' "$input" | jq -r '.cwd // ""' 2>/dev/null)
 sid=$(printf '%s' "$input" | jq -r '.session_id // ""' 2>/dev/null)
