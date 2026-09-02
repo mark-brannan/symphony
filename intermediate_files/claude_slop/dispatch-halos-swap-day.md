@@ -59,5 +59,9 @@ Nothing on the boat card was changed by the trial.
 - Position comes from `signalk-fixed-position`; N2K is live regardless.
 - The boat card's QuestDB may not answer in 30 s; that is the baseline, not
   the new card.
+- Containers now carry healthchecks and the boat card runs `autoheal`; the
+  HALOS card has its own. What the swap has to carry, including why the
+  "QuestDB may not answer in 30 s" line above is now a liveness input:
+  [halos-swap-container-liveness-2026-09-02.md](halos-swap-container-liveness-2026-09-02.md).
 - pypilot is not on the HALOS card (plan B4d). The trial runs without it
   unless Mark decides otherwise before the day.
