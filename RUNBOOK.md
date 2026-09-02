@@ -629,9 +629,15 @@ other end is what tells you the boat went quiet.
 ## Swapping the HALOS card onto the boat
 
 Puts the HALOS card into the boat Pi for a live trial; the boat card comes
-home as the rollback. The card must have finished
-`intermediate_files/claude_slop/halos-swap-plan.md` first. The Pi is powered
-from the NMEA 2000 bus, so "power off" means unplugging its Micro-C.
+home as the rollback. The card is built per
+`intermediate_files/claude_slop/halos-swap-plan.md`; what was actually done
+and measured is in `halos-swap-execution-2026-09-02.md` next to it. The Pi is
+powered from the NMEA 2000 bus, so "power off" means unplugging its Micro-C.
+
+Both check scripts print one `ok`/`FAIL` line per function and exit non-zero
+on any `FAIL`. **A line that FAILs on the boat card before the swap and FAILs
+on the HALOS card after it is a boat problem, not a card problem** — the
+baseline in step 1 exists to tell those apart.
 
 ### Before leaving home
 
@@ -639,24 +645,29 @@ from the NMEA 2000 bus, so "power off" means unplugging its Micro-C.
 scripts/halos_preflight.sh
 ```
 
-Every line must be `ok`. Nothing can be fetched at the boat.
+Every line must be `ok`. Nothing can be fetched at the boat. The `services`
+line needs QuestDB and Grafana running on the bench Pi; on the 2 GB bench they
+fit only with the zram swap in place and only for a soak, so start them for
+the run and stop them after.
 
 ```
 ok    host       signalk symphony.dark-star-llc.com signalk.symphony.dark-star-llc.com symphony-halos
-ok    boot       overlays cgroup regdom serial0 i2c-1
-ok    wifi       Symphony profile, Halos-AP ssid SignalK
-ok    plugins    package.json matches; plugin-config-data matches except the 3 expected HALOS-disabled; local-plugins: bt-sensors-plugin-sk signalk-plugin-watchdog ; 91 loaded
+ok    boot       overlays cgroup regdom i2c-dev serial0 i2c-1
+ok    wifi       profile Symphony; hotspot Halos-AP ssid SignalK
+ok    plugins    118 loaded, 66 on; same set and states as the boat except the 4 expected; forks pinned, D-Bus fix present
+ok    signalk    active 2.31.1 override (healthcheck override installed)
 ok    services   8 active
-ok    disabled   avnav opencpn influxdb: disabled disabled disabled
+ok    staydown   avnav opencpn disabled+inactive; influxdb app absent
 ok    heartbeat  ping ok
-ok    questdb    cpu rows 48211
+ok    questdb    telegraf cpu rows 4821; newest signalk row 3 s old
 ok    ntfy       health 200
+ok    front      Traefik :4430 -> SignalK 200; device cert has signalk.symphony.dark-star-llc.com
+ok    mem        612 MB available, 540 MB swap used (2 GB bench cannot hold the databases; the 4 GB boat can)
 ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x ... symphony-pi 100.x.x.x <- current symphony-halos 100.x.x.x
 ```
 
-`dns_cutover.sh`'s read path (`status`) runs on every preflight; the write
-path (`set`) does not, and the boat is the wrong place to find out it's
-broken. Exercise it once from home, on both cards, before packing up:
+`dns_cutover.sh`'s read path (`status`) runs on every preflight. Exercise the
+write path once from home the day you go, so a dead token is found at home:
 
 ```bash
 scripts/dns_cutover.sh set symphony-halos -y
@@ -665,8 +676,8 @@ scripts/dns_cutover.sh set symphony-pi -y
 dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card's IP
 ```
 
-About ten minutes of off-boat access, including the 300 s propagation
-window each way.
+Public resolvers followed within 30 s each way when this was run; allow the
+record's 300 s TTL. Off-boat access is on the bench card for that window.
 
 ### At the boat
 
@@ -676,6 +687,24 @@ window each way.
    scripts/halos_swap_check.sh symphony-pi
    ```
 
+   ```
+   ok    signalk    signalk 2.31.1 up=1000844s
+   ok    lan        eth0 192.168.8.240/24 can0 UP
+   ok    n2k        newest n2k-can0 value 0 s old (/navigation/attitude)
+   ok    victron    ESTAB 192.168.8.107:8883; electrical: batteries chargers inverters solar
+   ok    ble        1 of 5 configured sensors publishing voltage, newest 123 s
+   ok    heartbeat  ping ok
+   ok    ntfy       sent to symphony-alarms; check the phone
+   ok    questdb    newest signalk history row 4 s old
+   ok    devices    /dev/serial0 /dev/i2c-1
+   ok    bme680     inside: airquality gas humidity refrigerator relativeHumidity temperature
+   ok    front      https signalk.symphony.dark-star-llc.com :443 200 -> SignalK
+   ```
+
+   Keep this output. `victron` FAILs while the Cerbo is not answering on
+   port 8883, and `questdb` FAILs when the boat card's QuestDB is too loaded
+   to answer in 30 s; both are boat-side and carry over to the new card.
+
 2. Shut it down; unplug the Micro-C when the green LED stops:
 
    ```bash
@@ -684,30 +713,20 @@ window each way.
 
 3. Swap the cards. The boat card goes in your pocket; it is the only copy of
    the QuestDB history and `~/influx-export`.
-4. Reconnect the Micro-C. Wait three minutes.
-5. Check every core function, over Tailscale — this doesn't touch public
-   DNS, so it's safe to run before traffic moves:
+4. Reconnect the Micro-C. Wait five minutes: SignalK cold-starts in 3–4 min
+   with this plugin set, and the container healthcheck allows 15.
+5. Check every core function over Tailscale — this doesn't touch public DNS,
+   so it's safe to run before traffic moves:
 
    ```bash
    scripts/halos_swap_check.sh
    ```
 
-   ```
-   ok    lan        eth0 192.168.8.240/24 can0 UP
-   ok    n2k        position from n2k-can0.2, 1 s old
-   ok    victron    ESTAB 192.168.8.107:8883; electrical: batteries chargers inverters solar
-   ok    ble        5 batteries, newest 12 s
-   ok    heartbeat  ping ok
-   ok    ntfy       sent to symphony-alarms; check the phone
-   ok    questdb    navigation.position rows 1932
-   ok    devices    /dev/i2c-1 /dev/serial0
-   ok    bme680     inside: humidity pressure temperature
-   ```
-
+   Same lines as the baseline, with `up=` small and `front` on `:4430`.
    `ble` and `bme680` can take ten minutes after boot; rerun. A `ble` FAIL
    after that is "BLE sensors go silent after a reboot". Don't move on to
-   DNS until this is all `ok` — a slow boot otherwise moves public traffic
-   to a node that isn't ready yet.
+   DNS until every line that was `ok` in the baseline is `ok` here — a slow
+   boot otherwise moves public traffic to a node that isn't ready yet.
 
 6. Cut public DNS over (on-boat devices need nothing; the router override
    follows the Pi's MAC):
@@ -720,10 +739,15 @@ window each way.
    A symphony.dark-star-llc.com -> 100.x.x.x. Public resolvers follow within 300 s
    ```
 
+   Within about 35 minutes healthchecks.io reports `SignalK Symphony` late:
+   that is the boat card no longer pinging. The HALOS card pings its own
+   check, `SignalK Symphony (halos card)`. Pause the old check in the
+   healthchecks.io app, or accept the one notification.
+
 7. Phone on the boat WiFi: install the certificate from
    `https://signalk.symphony.dark-star-llc.com/ca/`, then open
-   `https://signalk.symphony.dark-star-llc.com:4430`. SignalK admin, no
-   certificate warning, `SignalK` in the WiFi list.
+   `https://signalk.symphony.dark-star-llc.com/`. SignalK admin at the root,
+   no certificate warning, `SignalK` in the WiFi list.
 
 ### Rolling back
 
@@ -735,7 +759,8 @@ scripts/halos_swap_check.sh symphony-pi
 scripts/dns_cutover.sh set symphony-pi
 ```
 
-Nothing on the boat card is changed by the trial.
+The `(halos card)` check goes late instead of the boat one. Nothing on the
+boat card is changed by the trial.
 
 ---
 
