@@ -1858,3 +1858,37 @@ Left for Mark as a new card: PID 986 `labwc -m`, his own desktop session on
 tty1, spins at 100 % of a core with 6d7h of CPU in 12 days uptime — the same
 labwc spin as the greeters, but it is the physical screen so a session won't
 kill it. Swap is still 199/199 MB full and won't drain without a reboot.
+
+### Same session, follow-up — the boat Pi now boots headless
+
+Mark asked whether the GUI was earning its keep. Measured first: with
+`rpi-connect-wayvnc` stopped, `labwc` still burned 98 % of a core, so the
+spin is labwc's own on a display-less Pi, not wayvnc pulling frames. Same bug
+explains the six leaked greeters — one spinning compositor per orphaned
+session.
+
+Checked what would break before changing anything. RPi Connect was signed in
+and healthy the whole time (the earlier "not running" was a missing
+`XDG_RUNTIME_DIR`, not a fault); remote shell needs no display, screen
+sharing does, because wayvnc attaches to a live Wayland session. `Linger=yes`
+is set for `pi`, so RPi Connect's user services survive a headless boot with
+nobody logged in — that was the one thing that could have cost Mark remote
+access, and it was already right.
+
+Mark chose on-demand. Executed: `systemctl set-default multi-user.target`,
+lightdm stopped, `rpi-connect-wayvnc` disabled (it restart-loops against a
+display that isn't there). `systemctl stop lightdm` did not stop the tty1
+autologin compositor — PID 986 under PID 920, reparented away at boot — so
+both were killed by PID. Rehearsed the bring-up and tear-down verbatim before
+documenting: `start lightdm` + `--user start rpi-connect-wayvnc` gives a
+`labwc -m` session and an active wayvnc; the reverse plus a `pkill -u pi -x
+labwc` puts it away. Procedure is in `RUNBOOK.md` § Starting a desktop on the
+boat Pi on demand.
+
+Self-correction worth keeping: the tear-down used `pkill -u pi -f
+"/usr/bin/labwc -m"` and killed the ssh session running it, because `-f`
+matched its own command line. `-x labwc` is the correct form and is what the
+runbook says.
+
+Boat after: load average 1.31 (from 13.2 at session start), 869 MB available,
+swap draining, no compositor anywhere, SignalK/Caddy/dex/questdb/ntfy all up.

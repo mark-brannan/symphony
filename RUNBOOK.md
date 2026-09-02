@@ -26,6 +26,7 @@ logged in `maintenance/log.md`.
 - [Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat)
 - [Swapping the HALOS card onto the boat](#swapping-the-halos-card-onto-the-boat)
 - [Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi)
+- [Starting a desktop on the boat Pi on demand](#starting-a-desktop-on-the-boat-pi-on-demand)
 - [Upgrading the scanners](#upgrading-the-scanners)
 
 **Secrets and encryption**
@@ -819,6 +820,56 @@ If the count is climbing, find what's driving the GPU and stop it — the
 desktop by itself doesn't touch v3d. The Freeboard entry now sits in
 `~/.config/autostart-disabled/`; its Desktop launcher still works when
 someone is actually at a screen.
+
+---
+
+## Starting a desktop on the boat Pi on demand
+
+The Pi boots to `multi-user.target` with no desktop. `labwc` busy-loops at
+~100% of a core when no display is attached, so a desktop left running costs
+a quarter of the board's CPU continuously — measured 6d7h of CPU across 12
+days uptime on 2026-09-02, and it is not wayvnc driving it: stopping wayvnc
+left labwc at 98%.
+
+RPi Connect **remote shell** works headless and needs nothing below. Only
+**screen sharing** needs a desktop, because wayvnc attaches to a live
+Wayland session. `rpi-connect-wayvnc` is therefore disabled — left enabled it
+restart-loops against a display that isn't there.
+
+To bring a desktop up:
+
+```bash
+sudo systemctl start lightdm
+sleep 20
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user start rpi-connect-wayvnc
+```
+
+Verify before reaching for the RPi Connect web UI — `screen sharing:
+allowed` alone does not mean a session exists to share:
+
+```bash
+pgrep -a -x labwc                                              # want a `labwc -m` line
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active rpi-connect-wayvnc   # want active
+```
+
+To put it away again:
+
+```bash
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop rpi-connect-wayvnc
+sudo systemctl stop lightdm
+pkill -u pi -x labwc
+pgrep -a -x labwc                                              # want no output
+```
+
+`systemctl stop lightdm` does **not** stop the autologin session's compositor
+— it is reparented away from lightdm at boot and survives — which is why the
+`pkill` line is there. Match on `-x labwc`, never `pkill -f '/usr/bin/labwc
+-m'`: the `-f` form matches your own ssh command line and kills your session
+before it reaches labwc.
+
+Persistence: `Linger=yes` is set for `pi`, so RPi Connect's user services
+come back on a headless boot with nobody logged in. Don't clear it — remote
+access to the boat depends on it.
 
 ---
 
