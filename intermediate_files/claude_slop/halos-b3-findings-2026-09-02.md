@@ -123,11 +123,24 @@ Measured divergence, 2026-09-02:
 
 Neither side is a superset. Two consequences already hit this session:
 
-1. **An earlier claim in this repo's monitoring notes needs revisiting.** The
-   Pushover relay was described as an unbuilt "primary path to build"; the
-   repo has a configured, enabled `signalk-pushover-notification-relay.json`.
-   It is the *boat* that lacks it. That is a deployment gap, not a missing
-   design.
+1. **A Pushover "deployment gap" I reported here was wrong — retracted.**
+   There are two distinct Pushover paths and I conflated them:
+   - **Role 1 (host liveness):** live on the boat and working.
+     `/usr/local/sbin/boat-heartbeat` lines 41-127 read
+     `pushover_api_token`/`pushover_user_key` and implement the soft-warning
+     tier and escalation; `boat-heartbeat.timer` is active and firing every
+     ~5 min. Mark configured and tested this, and it still runs.
+   - **Role 2 (SignalK notification bus -> Pushover):**
+     `signalk-pushover-notification-relay` is genuinely not on the boat -
+     absent from `package.json`, `node_modules` and `plugin-config-data`.
+     `monitoring_decisions.md` Role 2 lists it under **Add**, i.e. planned,
+     and the board card "Audit and fork signalk-pushover-notification-relay"
+     is still open. So this is the documented plan, not a regression.
+   The repo's `signalk-pushover-notification-relay.json` (commit 67a7222) is
+   repo-side prep for an uninstalled plugin. Nothing reverted.
+   **Lesson: check any monitoring claim against `monitoring_decisions.md` and
+   `monitoring_posture.md` before reporting it — those docs already assign
+   roles and would have caught this.**
 2. **The watchdog config I created may be inert.** The boat tree already has
    `plugin-watchdog.json` *and* I added `signalk-plugin-watchdog.json`. Which
    filename SignalK uses depends on the plugin's registered id, which I did
