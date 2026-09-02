@@ -270,3 +270,36 @@ failures. Conversely, staging cannot fully rehearse the running system on
 this hardware — the card can be *built* and its filesystem verified at home,
 but HALOS-under-load can only be observed once the card is in the 4 GB boat
 Pi. That is an argument for doing the swap, not against it.
+
+## B1b has a second effect nobody flagged: it activates QuestDB's memory cap
+
+Read from `halos-org/halos-marine-containers` (shallow clone, 2026-09-02):
+
+- **`apps/signalk-server/docker-compose.yml` sets no `mem_limit`** and no
+  `deploy.resources.limits`. SignalK is uncapped, so nothing will OOM-kill it
+  at its ~1246 MB working set. Good — this was worth confirming before the
+  swap, because B1b makes limits real.
+- **`apps/questdb/docker-compose.yml:110` sets
+  `mem_limit: ${QUESTDB_MEMORY_LIMIT:-768m}`**, and HALOS's own comment
+  (lines 33-40) says it is currently inert: *"It cannot read mem_limit below,
+  because Raspberry Pi OS boots with cgroup_disable=memory and there is no
+  memory controller to read — so on a 4 GiB board it reserves 1 GiB and grows
+  into it. Measured on a HALPI2: 312 MB of committed heap... Capping at 192m
+  (what a working 768m limit would have produced) returns 43 MB of RSS."*
+
+**B1b adds `cgroup_enable=memory cgroup_memory=1` to `cmdline.txt`, so that
+limit starts being enforced.** Verified on the staging card: `memory` is now
+present in `/sys/fs/cgroup/cgroup.controllers`.
+
+This is an improvement, not a regression, and it is what HALOS intends — the
+comment describes the enforced behaviour as the desired one and reports it
+measured *better* (43 MB RSS vs 312 MB committed heap). It also slightly
+improves the memory arithmetic above in the boat's favour.
+
+It is recorded because it is non-obvious: a boot-config change in B1 silently
+alters the runtime behaviour of a container in B4, and the only warning sits
+in a comment inside a third-party repo. Anyone reviewing B1b should know it
+does more than "make `mem_limit` work in general" — it specifically changes
+how much memory QuestDB takes, and the JVM must be container-aware for that
+to land softly. **Not yet observed on real hardware; QuestDB has not been
+watched under an enforced cap on this card.**
