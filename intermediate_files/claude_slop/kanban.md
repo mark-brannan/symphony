@@ -10,6 +10,14 @@ already carries enough context.
 
 ## Standing context — not cards, not decisions to make
 
+**The test before carding a decision for Mark: does anything on a session's
+side actually hinge on the answer?** If the work proceeds either way and a
+session just updates the docs afterwards to match what he chose, it is not a
+card — it is context, and it belongs in this section. Carding a decision
+Mark will reach independently, on his own timeline, spends his judgment on a
+question that was never blocking. Established 2026-09-02 after three such
+cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
+
 - **HALOS is an experiment; its output is learning, not a commitment.**
   Whether the boat ends up on HALOS or on a hardened OpenPlotter install is
   deliberately unsettled and stays that way. Sessions carry that ambiguity
@@ -31,6 +39,13 @@ already carries enough context.
   at home, then carried down, is the only reliable path — and large data
   moves off the boat go by physical card, not over the wire. Assume this in
   every plan; it does not need re-deciding or re-discovering.
+
+- **The HALPI2 is a probable maybe.** It is in the cart, Mark will decide
+  independently, and nothing on a session's side is blocked either way. If it
+  arrives, add it to the hardware list in the reference docs; if it doesn't,
+  don't. The only thing worth knowing is why it keeps coming up: the bench box
+  is a 2 GB Pi 4 sitting at ~358 MB available under load, so anything
+  container-heavy on that hardware is memory-bound.
 
 ## Yours
 
@@ -58,7 +73,6 @@ already carries enough context.
 ### Boat Pi / hardware
 - [ ] **Power-cycle the Cerbo GX at the panel** (DC feed off ~30 s), then confirm Settings → Services → MQTT on LAN (SSL) is still on; if it stays dark it is a failed unit, not a config problem. Re-checked from the boat 2026-09-02: no ICMP reply and 80/443/1883/8883/22 all closed, but ARP for `5c:c5:63:0a:df:52` is `REACHABLE` — the NIC answers, nothing above it does. SignalK's Victron client is still in SYN-SENT to 192.168.8.107:8883 since 2026-09-01 21:06Z; Victron data is dead on both cards until then ([execution file](halos-swap-execution-2026-09-02.md)).
 - [ ] **Bring the 32 GB card home once the swap succeeds** (decided 2026-09-02; conditional on a successful swap — if it fails the card goes back in the boat). It holds the only copies of `~/influx-export` (1.4 GB) and `~/keep-before-purge/grafana.db`, neither of which can cross the WAN. Copy those and the `symphony_questdb-data` volume off before the card is reused (plan S3 / P7).
-- [ ] [Confirm the HALPI2 purchase](kanban-detail.md#halpi2-purchase-sd-card-boot-media-strategy) — already in cart; ends the SD-card/boot-media decision outright.
 - [ ] [Decide whether to track openplotter.conf in git](kanban-detail.md#track-openplotteropenplotterconf-in-git-or-not) — its `soundignore` key is load-bearing and lives only on the boat.
 - [ ] [Decide whether to pursue a read-only root filesystem](kanban-detail.md#read-only-root-filesystem-for-the-boat-pi) — real workflow change, not a config toggle.
 - [ ] [Pick a journald SystemMaxUse size](kanban-detail.md#journald-cap-on-the-boat-pi) — measured 1.6 GB on 2026-09-02, already regrown past the 200 MB one-time vacuum; no `SystemMaxUse` set anywhere. Root fs 76% full.
