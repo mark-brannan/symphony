@@ -379,13 +379,6 @@ decision to drop it:
   has rate settings but no MMSI or endpoint — never fully configured.
   Decide whether to finish configuring it or drop it.
 
-## Journald cap on the boat Pi
-
-Journald reached 639 MB on 2026-08-13 (largely `user-1000` files fed by the
-pypilot crash loop), then self-rotated back to 192 MB. A `SystemMaxUse` cap
-would bound both size and SD-card writes, but the right number isn't
-obvious yet — deferred deliberately, not forgotten.
-
 ## Subscribe the phone to ntfy
 
 `signalk-ntfy` has been installed and delivering on both the boat Pi

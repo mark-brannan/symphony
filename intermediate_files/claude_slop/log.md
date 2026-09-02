@@ -2124,3 +2124,84 @@ Image tooling differs and was checked rather than assumed: questdb ships
 `curl` and no `wget`, dex and ntfy ship busybox `wget` and no `curl`.
 
 The nightly-reboot crontab line was left commented out, per Mark.
+
+## 2026-09-02 — pypilot_web fixed and re-enabled; journal capped at 1G (session boat-pi-stability-6d614e)
+
+Two stability cards, both closed. A second session was on the same box adding
+container healthchecks and autoheal to dex/questdb/ntfy; nothing collided, and
+all four containers were still healthy after the journald restart below.
+
+### pypilot_web — root cause found by reading, not by installing
+
+The card's prime suspect was right in outline and wrong in the fix. The kwarg
+is not "leaking" from a Flask-SocketIO version bump that needs pinning away —
+it is pypilot passing a kwarg that only one of Flask-SocketIO's three server
+branches consumes:
+
+- `pypilot/web/web.py:229` calls
+  `socketio.run(app, debug=False, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)`
+  unconditionally.
+- `flask_socketio/__init__.py:637` pops `allow_unsafe_werkzeug` **inside the
+  `async_mode == 'threading'` branch only**. The boat has gevent 22.10.2
+  installed, so `async_mode` is `gevent` and control never reaches that pop.
+- The gevent branch forwards the surviving `**kwargs` into
+  `gevent.pywsgi.WSGIServer`, which stuffs anything it doesn't recognise into
+  `self.ssl_args`. Every accepted connection then calls
+  `wrap_socket(client_socket, **self.ssl_args)` and dies with the TypeError.
+  That is why the port accepted and then produced `code=000`: the socket is
+  real, the handshake is not.
+
+So pinning Flask-SocketIO below 5.3.0 would have been the wrong lever, and
+upgrading pypilot would have meant a pip install over the cellular WAN with
+`pypilot.service` — currently healthy — in the blast radius. Neither was
+needed. **The fix is a launcher, not a package change**: `host/pypilot-web` is
+`pypilot.web.web.main()` with the one kwarg dropped, and
+`host/pypilot-web-launcher.conf` is a drop-in that repoints `ExecStart` at it.
+Both are in `host/install.sh`'s INSTALL array, and `pypilot_web.service` is now
+in ENABLE. No network, no risk to pypilot itself.
+
+Tested before installing: ran the launcher by hand as `pi` on port 8000 while
+the unit was still disabled, got 200, then removed the test copy. After
+install — `curl -s -o /dev/null -w %{http_code} http://127.0.0.1:8000/` → 200,
+`NRestarts=0`, 8 journal lines in 20 minutes against the old 720/min, and
+`pypilot.service` still active since boot. Both done-criteria met.
+
+One version oddity worth knowing: `/usr/local/bin/pypilot_web` is an
+entry-point script for `pypilot==0.70` while `pip list` reports 0.56, and both
+`pypilot-0.56.egg-info` and `pypilot-0.70.egg-info` are present. The code that
+actually runs is the 0.56 tree. Not touched.
+
+### Journal growth, measured properly
+
+The pypilot_web flood was logging under **uid 1000** (the unit runs
+`User=pi`), so it went to `user-1000.journal`, not the system journal. That is
+why user-1000 files were 1.22 GB against system's 607 MB, and it means the
+system-journal rate was never contaminated by it.
+
+Rates taken byte-exact from `journalctl --file … --header` on consecutive
+archived files rather than sampled:
+
+- system: 71,751,304 B over 17h54m34s = **96.2 MB/day**; 72,684,120 B over
+  17h43m58s = **98.4 MB/day**.
+- user-1000, pre-fix: 134.2 MB over the same 17h44m window = **181.6 MB/day**,
+  now gone (78 user entries in the first hour of this boot).
+- Pre-fix total ≈ 278 MB/day; post-fix ≈ 96–98 MB/day.
+
+A 300 s per-unit line count agrees on the shape: 204 lines/min, of which
+`openplotter-i2c-read.service` plus the `init.scope` lines from its restart
+loop are 66%, `tailscaled` 12% (that is the measuring ssh session logging its
+own commands — the known trap), and `pypilot_web` does not appear at all.
+
+Mark picked **1G** from 256M/500M/1G/2G priced in days of retained history.
+`host/journald-symphony.conf` → `/etc/systemd/journald.conf.d/symphony.conf`,
+with `systemd-journald` added to install.sh's RESTART list because journald
+rereads that file only on restart. Applied: `journalctl --disk-usage` 1.4G →
+991.7M, root fs 76% → 74%, and signalk/caddy/pypilot/pypilot_web plus all four
+containers still up across the bounce.
+
+The floor is structural. `openplotter-i2c-read.service` is `Restart=always` /
+`RestartSec=3` around a program that exits cleanly — OpenPlotter's i2c polling
+loop implemented as a systemd restart loop, ~13.9/min forever. It is how the
+BME680 and the other i2c sensors are read, so the cap is the only lever
+available. If the open "BME680 sensor ownership" card ever moves that job to
+the dedicated plugin, the rate drops ~88% and 1G buys months instead of days.
