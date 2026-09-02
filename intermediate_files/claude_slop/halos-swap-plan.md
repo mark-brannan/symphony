@@ -188,6 +188,14 @@ the registry build lacks them) and
 `cp -r /home/pi/symphony/plugins/signalk-plugin-watchdog "$D/local-plugins/"`
 after `git -C /home/pi/symphony pull`.
 
+This is the exact failure mode in RUNBOOK.md → "A local plugin fork keeps
+reverting to the registry build" — it has already happened once on HALOS
+(B3d). The HALOS container's `file:local-plugins/...` mechanism differs
+from the boat's symlink-plus-exact-pin one in that RUNBOOK section, but the
+failure (`npm install` or the app store quietly swapping the fork for the
+registry version) is the same, and it's silent either way. `halos_preflight.sh`
+now checks for it — see B3c's verify.
+
 **B3c. `package.json` and install.** Take the boat's `package.json`
 (rsynced in B3a, 124 deps) and change two entries:
 `"signalk-plugin-watchdog": "file:local-plugins/signalk-plugin-watchdog"` and
@@ -227,7 +235,11 @@ Restart the unit. *Verify:* the raw counts below are a first signal only —
 `scripts/halos_preflight.sh` (run at B6) does the exact check, diffing
 `<plugin>.json <enabled>` pairs between the boat and HALOS and expecting
 exactly three differences (`signalk-container`, `signalk-to-influxdb2`,
-`signalk-to-influxdb-v2-buffer`, all disabled on HALOS only):
+`signalk-to-influxdb-v2-buffer`, all disabled on HALOS only), plus a
+`forkpins` check that both `bt-sensors-plugin-sk` and
+`signalk-plugin-watchdog` still resolve to `file:local-plugins/...` in
+`package.json` (not silently reverted to the registry build) and that the
+fork's `index.js` still carries the D-Bus reconnect fix:
 `curl -s localhost:3000/skServer/plugins | python3 -c 'import json,sys; p=json.load(sys.stdin); print(len(p), sum(1 for x in p if x.get("data",{}).get("enabled")))'`
 gives roughly 90 total and 60 enabled;
 `journalctl -u marine-signalk-server-container -n 200 | grep -iE "EACCES|Cannot find module|watchdog|bt-sensors"` shows the two local plugins starting

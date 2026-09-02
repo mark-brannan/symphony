@@ -49,6 +49,20 @@ else
   say FAIL plugins "package.json diff lines $d, unexpected config diff: $(echo "$cfgdiff" | grep '^[<>]' | grep -vE "$EXPECT_DIFF"), expected-but-absent:${absent:- none}, local-plugins: ${l:-none}, loaded ${n:-0}"
 fi
 
+# deps() above only diffs dependency *names*, so a plugin quietly reverted
+# from the local fork to the registry build (this bit halos once already,
+# per B3d) would show zero diff. bt-sensors-plugin-sk is a fork carrying an
+# unmerged upstream PR (naugehyde/bt-sensors-plugin-sk#189) for the D-Bus
+# reconnect fix — check the package.json *value* still points at the fork,
+# and that the fork content actually has the fix, not just the right path.
+pins=$(r "$HOST" "python3 -c 'import json; d=json.load(open(\"$D/package.json\"))[\"dependencies\"]; print(d.get(\"bt-sensors-plugin-sk\",\"MISSING\"), d.get(\"signalk-plugin-watchdog\",\"MISSING\"))'")
+fix=$(r "$HOST" "grep -c getBluetoothSession $D/local-plugins/bt-sensors-plugin-sk/index.js" 2>/dev/null)
+if [ "$pins" = "file:local-plugins/bt-sensors-plugin-sk file:local-plugins/signalk-plugin-watchdog" ] && [ "${fix:-0}" -gt 0 ]; then
+  say ok forkpins "both forks pinned to local-plugins; D-Bus reconnect fix present ($fix)"
+else
+  say FAIL forkpins "pins: ${pins:-none} (want both file:local-plugins/...); reconnect-fix grep: ${fix:-0} (want >0) — a plugin reverted to the registry build"
+fi
+
 out=$(r "$HOST" 'systemctl is-active telegraf chrony boat-heartbeat.timer signalk-ble-check.timer marine-signalk-server-container marine-questdb-container marine-grafana-container halos-core-containers | sort | uniq -c | tr -s " " | tr "\n" ";"')
 [ "$out" = " 8 active;" ] && say ok services "8 active" || say FAIL services "$out"
 
