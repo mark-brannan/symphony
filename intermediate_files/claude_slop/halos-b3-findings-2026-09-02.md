@@ -438,3 +438,70 @@ file is not subject to that. No objection from this session.
 Messaged `symphony-pr-33-review-601c06-0a` twice; the first did not arrive.
 Staging-box work parked pending their reply, to avoid two sessions bouncing
 SignalK and each misreading the other's restart as the healthcheck loop.
+
+### CONFIRMED DEFECT: the SignalK container cannot open `/dev/i2c-1`
+
+The handoff called this "the most likely failure" and expected it to need a
+sensor on the bus. It does not — the permission check fails before any
+hardware is touched, so this was provable at home, today.
+
+Measured on the card:
+
+    host:      i2c:x:988:pi          /dev/i2c-1 -> crw-rw---- 1 0 988
+    container: user=node uid=1000, privileged=true, group_add=["960","4"]
+               groups=node,4(adm),20(dialout),960,989(spi),990(i2c),991(docker)
+    result:    PermissionError: [Errno 13] Permission denied: '/dev/i2c-1'
+
+Root cause, and the reason it looks fine at a glance: **the container image
+has its own `i2c` group at gid 990, and the host's is gid 988.** The `node`
+user *is* in a group called `i2c` inside the container, which reads as
+correct in `id` output and is worthless — DAC on the bind-mounted host device
+node is checked against the host gid 988, which nothing grants. `group_add`
+supplies 960 and 4 (`adm`); neither is 988. `privileged: true` does not
+rescue it, because the process runs as non-root `node` and so holds no
+`CAP_DAC_OVERRIDE`.
+
+This is precisely the audio-gid bug again (host `audio` gid 29 ungranted),
+one device along.
+
+**Consequence if shipped as-is:** the BME680 plugin and `i2c-reader` will
+find nothing on the boat, and — as B1a already showed with the missing
+`i2c-dev` module — the failure is silent. `i2c-reader` currently logs only
+"devices config is missing", which would mask this.
+
+**Proposed fix** (not applied — see below): add the host i2c gid to the
+override the PR #33 session already established, listing all three gids
+explicitly because compose list-merge semantics are not worth betting on:
+
+    services:
+      signalk-server:
+        group_add: ["4", "960", "988"]
+
+in `/etc/container-apps/marine-signalk-server-container/symphony.override.yml`,
+whose source of truth is `host/halos/` on PR #33. The gid travels with the
+card, so 988 stays correct on the boat. Verify with the same one-liner:
+`docker exec signalk-server python3 -c "open('/dev/i2c-1')"` — silence is a
+pass.
+
+Not applied by this session because the override file and its PR are owned by
+`symphony-pr-33-review-601c06-0a`, and applying it needs a unit restart while
+that session is actively restarting the unit (see below).
+
+### Another session is actively restarting the SignalK unit
+
+`marine-signalk-server-container.service` restarted at 07:12:50Z and again at
+07:15:59Z. This is **not** the autoheal loop: autoheal has fired nothing since
+06:45:26Z, `RestartCount` is 0, and the journal shows a clean
+`Deactivated successfully` / `Stopped` / `Starting` cycle with exit code 0 —
+the signature of a deliberate `systemctl restart`, not a health kill.
+
+Two consequences:
+- The "correction" recorded above — that the loop was fixed — was itself
+  premature. The honest statement is narrower: **autoheal has not restarted
+  the container since the override went in at 07:12**, which is consistent
+  with the fix working but is not yet a clean observation, because a second
+  session keeps bouncing the unit.
+- **Handoff item 2 (is `plugin-watchdog` running?) cannot be answered while
+  this continues.** The test is that the watchdog must log
+  `ALERT: plugin bt-sensors-plugin-sk ...` 600 s after startup; every restart
+  resets that clock, and nothing has stayed up for 600 s.
