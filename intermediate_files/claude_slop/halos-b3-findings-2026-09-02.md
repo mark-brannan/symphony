@@ -99,3 +99,39 @@ an unverified precondition: whether any speaker is physically connected.
 
 **`signalk-plugin-watchdog` enabled** — it had no `plugin-config-data` entry
 so it never started. Schema has no required fields; created with defaults.
+
+## Correction: the boat's config is not golden — 2026-09-02
+
+B3a copies the **boat's** `.signalk` state onto the halos card, so everything
+verified above is verified against the boat, not against this repo. Mark's
+standing position: neither side is authoritative; the repo's `signalk/` tree
+is the intended golden source and reconciling the two is unfinished work.
+A problem found on either side needs investigation, a decision from Mark, or
+both — not an assumption that the boat is right.
+
+Measured divergence, 2026-09-02:
+
+- repo `signalk/plugin-config-data`: **64** configs
+- boat (now on halos): **84** configs
+- **17 exist only in the repo**, including `signalk-pushover-notification-relay`
+  (enabled, with credentials), `signalk-mob-notifier`, `signalk-dsc`,
+  `signalk-questdb`, `signalk-grafana`, `open-meteo`, `signalk-rules`,
+  `vedirect-signalk`, `signalk-doctor`.
+- **30 exist only on the boat**, including `i2c-reader`, `barometer`,
+  `signalk-barometer-trend`, `signalk-triplogger`, `signalk-engine-hours`,
+  `signalk-n2k-switching`, `pypilot-autopilot-provider`, `airmar-plugin`.
+
+Neither side is a superset. Two consequences already hit this session:
+
+1. **An earlier claim in this repo's monitoring notes needs revisiting.** The
+   Pushover relay was described as an unbuilt "primary path to build"; the
+   repo has a configured, enabled `signalk-pushover-notification-relay.json`.
+   It is the *boat* that lacks it. That is a deployment gap, not a missing
+   design.
+2. **The watchdog config I created may be inert.** The boat tree already has
+   `plugin-watchdog.json` *and* I added `signalk-plugin-watchdog.json`. Which
+   filename SignalK uses depends on the plugin's registered id, which I did
+   not confirm. **Unresolved — do not assume the watchdog is running.**
+
+Reconciling these 47 differing configs is its own task and is not attempted
+here.
