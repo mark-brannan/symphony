@@ -108,3 +108,7 @@ Done tonight, in order:
 - Soak (B6) with zram (`/dev/zram0` is 1.8 GB, not 1 GB): QuestDB and
   Grafana started 10:17Z; five minutes in, 310–345 MB available, ~1.15 GB
   of zram in use, load back to 1.1 from a 6.4 startup peak.
+- Rebooted 10:22Z with QuestDB and Grafana enabled: SignalK answered after
+  194 s, no failed units, every preflight line `ok` at 10:26Z (401 MB
+  available, 1118 MB of zram in use). Homarr re-stopped. That block is now
+  the runbook's. `/dev/zram0` reports 1.8 GB.
