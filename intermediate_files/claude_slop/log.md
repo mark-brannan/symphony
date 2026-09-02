@@ -1879,16 +1879,17 @@ Mark chose on-demand. Executed: `systemctl set-default multi-user.target`,
 lightdm stopped, `rpi-connect-wayvnc` disabled (it restart-loops against a
 display that isn't there). `systemctl stop lightdm` did not stop the tty1
 autologin compositor — PID 986 under PID 920, reparented away at boot — so
-both were killed by PID. Rehearsed the bring-up and tear-down verbatim before
-documenting: `start lightdm` + `--user start rpi-connect-wayvnc` gives a
-`labwc -m` session and an active wayvnc; the reverse plus a `pkill -u pi -x
-labwc` puts it away. Procedure is in `RUNBOOK.md` § Starting a desktop on the
-boat Pi on demand.
+both were killed by PID. Procedure is in `RUNBOOK.md` § Starting a desktop on the
+boat Pi on demand, and both halves have now been run verbatim from it:
+`start lightdm` + `--user start rpi-connect-wayvnc` gives `814691
+/usr/bin/labwc -m` and an active wayvnc; the reverse plus `pkill -u pi -x
+labwc` leaves `pgrep -a -x labwc` empty with the ssh session intact.
 
-Self-correction worth keeping: the tear-down used `pkill -u pi -f
+Self-correction worth keeping: the first tear-down used `pkill -u pi -f
 "/usr/bin/labwc -m"` and killed the ssh session running it, because `-f`
-matched its own command line. `-x labwc` is the correct form and is what the
-runbook says.
+matched its own command line. `-x labwc` is the correct form, is what the
+runbook says, and was left untested until Mark asked whether the scar was
+actually fixed — it now is, exercised end to end.
 
 Boat after: load average 1.31 (from 13.2 at session start), 869 MB available,
 swap draining, no compositor anywhere, SignalK/Caddy/dex/questdb/ntfy all up.
