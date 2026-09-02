@@ -45,6 +45,7 @@ already carries enough context.
 ## Claude's
 
 ### Infrastructure
+- [ ] Point the dev stack's seeder at QuestDB — `scripts/seed_dev_influx.py` still fills a development InfluxDB while the dashboards ([PR #25](https://github.com/mark-brannan/symphony/pull/25)) query QuestDB, so `scripts/dev_stack.sh up` shows layout and units but no data. QuestDB takes ILP on `:9009` or `POST /write`.
 - [ ] [Uninstall `signalk-to-influxdb2` on the boat](kanban-detail.md#uninstall-signalk-to-influxdb2-blocked-on-an-npm-tree-quirk) — confirmed dead (InfluxDB purged 2026-08-25), plugin still erroring every cycle. WAN is no longer the blocker (confirmed healthy 2026-08-26); a real `npm uninstall` now aborts on an unrelated tree quirk involving `signalk-plugin-watchdog`'s self-referencing `file:` dependency. No functional loss from the attempt, but the uninstall itself didn't land.
 - [ ] [Fix `signalk-plugin-watchdog`'s self-referencing `file:` dependency](kanban-detail.md#signalk-plugin-watchdogs-self-referencing-file-dependency) — found 2026-08-26 investigating the influxdb2-uninstall failure above; every future `npm install`/`uninstall` on the boat's `~/.signalk` tree risks aborting the same way until this is repointed.
 - [ ] Deploy the `telegraf.conf` InfluxDB-output removal to the boat — the repo change is committed, but `/etc/telegraf/telegraf.conf` is a symlink into the boat's own checkout, so it needs a pull there. Until then Telegraf fails every flush against the purged InfluxDB and drops host metrics on buffer overflow.
