@@ -295,15 +295,9 @@ cheap. Symphony-specific instances of those:
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
-- **No cherry-pick.** Cherry-pick is a signal that commits ended up in the
-  wrong place. This repo's workflow (worktrees + push-on-verify) is designed
-  to prevent that state. If you're reaching for cherry-pick, stop and ask:
-  Did a worktree collision happen? Did a commit land on the wrong branch by
-  mistake? Fix the root cause instead — rebase, amend, redo the commit on the
-  right branch. Cherry-picks are recorded as a quality metric (they happen, but
-  they're a red flag for workflow breakdown). If cherry-pick is genuinely the
-  right tool for a specific case, document it in the commit message and flag it
-  to the owner.
+- **Reaching for `git cherry-pick` means a commit landed in the wrong place.**
+  Fix that instead — rebase, amend, or redo it on the right branch. If a
+  cherry-pick really is the right tool, say why in the commit message.
 - **Work on main.** Default to committing straight to main in small,
   iterative commits, each one verified before the next. Push as soon as a
   commit is verified rather than batching. Don't create a branch because the
