@@ -1652,3 +1652,68 @@ Rebooted, ran the B1 verification block:
 - `can0` not present — plan says that verifies at the boat only.
 
 P2–P7 of the swap plan are unstarted.
+
+## 2026-09-01/02 — PR #25 live walkthrough, session 1 of N (Navstation only)
+
+Worktree: `grafana-dashboards-pr25-89c9f8`, branch
+`claude/influxdb-questdb-migration-t3lkra` (PR #25 itself). Demo stack
+(`questdb-demo`, `grafana-demo` on `symphony-demo-net`, localhost:3100
+admin/devadmin) reused from an earlier session rather than rebuilt — still
+up, left running for the next session. `verify_dashboards_live.py`
+confirmed 196/196 before and after tonight's change.
+
+**Navstation redesigned and shipped.** Was a flat grid of 18 identical
+`w=4 h=5` stat tiles; compared side-by-side against
+`meri-imperiumi/lille-oe`'s Navstation (same six-dashboard structure,
+public repo) and found panel *count* was nearly identical (21 vs 22) — the
+"busy" feeling was panel-type/size uniformity, not density. Regrouped into
+Navigation/Power/Weather-and-tide rows with gauges on primary values (SOG,
+heading, house SOC, wind) and varied stat sizing for the rest. Committed
+`7ff9d48`, pushed to the PR branch. Mark reviewed live and approved.
+
+**Verified against real boat data, once, carefully.** Boat's real QuestDB
+(on symphony-pi) is 11 days up with SignalK actively writing — confirmed
+fresh (`max(ts)` ~now) and confirmed real row volume
+(`environment.outside.pressure`: 4,271 rows/6h, ~1 sample/5s) before
+touching anything, so the bandwidth estimate for the boat's constrained
+uplink is measured, not guessed. No Grafana currently runs on the boat at
+all (compose `grafana` crash-looped, `sk-signalk-grafana` lost its port
+race, `grafana-server` systemd unit is `failed`) — so there was nothing to
+deploy to or risk breaking; the move was a read-only SSH tunnel
+(`127.0.0.1:18812` on this box → boat's `127.0.0.1:8812`, never exposed
+past loopback) into the *demo* Grafana's existing QuestDB datasource,
+one-shot, then reverted and torn down. Confirmed real values came back:
+Heel 0.6°, Barometer 1010.3 hPa, Outside 61.6°F, Fridge 69.6°F, Trip log
+0.0 nm. Nav/wind/power panels reading "No data" against real data matched
+what the row-count query predicted (those paths have zero rows right
+now — boat's at dock, sensors quiet) — not a bug. `Vessel state` /
+`Tendency` "No data" is the pre-existing text-mode-stat bug, unrelated to
+tonight, not fixed.
+
+Two Playwright screenshot attempts against the live tunnel came back
+empty — a genuine bug in my own capture script (the dashboard's saved 10s
+refresh never actually turned off, so screenshots raced the refresh
+cycle), not a data problem. Didn't retry a third time against the boat to
+chase a client-side timing bug — burning more of the boat's measured
+bandwidth to fix a screenshot script isn't a good trade. Mark asked to cut
+the boat connection; confirmed torn down (no process on 18812, datasource
+reverted). Noted but did not touch: two unrelated pre-existing
+`ssh pi@symphony-pi` sessions on this box (since Aug 22 and today
+13:43) — not mine to kill.
+
+**PR #25 review scope, for whenever Mark reads the diff himself:** 3051+/
+1852- across 23 files, but only `scripts/build_dashboards.py` (348 lines,
+the actual panel/unit/threshold decisions),
+`grafana/provisioning/datasources/questdb.yaml` + `.env.j2` (what the boat
+will point at once deployed), and `RUNBOOK.md` are worth a human read. The
+six dashboard JSON files (3600+ of the diff) are pure `build_dashboards.py`
+output verified by `test_dashboards.py`; `intermediate_files/claude_slop/*`
+and the test/verify scripts are mechanical/session-state. Not yet decided:
+whether/when to actually deploy PR #25 (the InfluxDB→QuestDB cutover) to
+the boat — nothing tonight implied or executed that; it's still open.
+
+**Not yet walked:** Electricity, System health, Navigation, Weather, Life
+support — five dashboards, same process (show, take comments, fix small
+ones in `build_dashboards.py`, regenerate, commit; anything bigger gets a
+card). Demo stack is up and ready; PR #25 branch is the working branch, no
+new branch needed to keep committing to it.
