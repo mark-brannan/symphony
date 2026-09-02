@@ -1,6 +1,7 @@
 # Symphony's override for HALOS's marine-signalk-server-container compose file.
-# HALOS gives SignalK 60 s to answer its healthcheck; a 120-plugin config takes
-# longer, and autoheal restarts the container before it finishes starting.
+# Stock HALOS healthcheck: 60 s start period, then 3 probes 30 s apart (150 s
+# in all). A 120-plugin config takes 3–4 min, and autoheal restarts the
+# container before it finishes starting.
 services:
   signalk-server:
     healthcheck:

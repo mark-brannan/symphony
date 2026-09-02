@@ -49,7 +49,7 @@ if [ -z "$boatp" ] || [ -z "$hostp" ]; then
   say FAIL plugins "could not list plugins (boat: $(echo "$boatp" | grep -c .), $HOST: $(echo "$hostp" | grep -c .)) — login or server down"
 else
   # id+enabled must match except EXPECT (boat on, halos off); versions differ only for the two forks.
-  unexpected=$(diff <(echo "$boatp" | awk '{print $1, $2}') <(echo "$hostp" | awk '{print $1, $2}') | grep '^[<>]' | grep -vE "^[<>] ($(echo "$EXPECT" | sed 's/ /|/g')) " | tr '\n' ';')
+  unexpected=$(diff <(echo "$boatp" | awk '{print $1, $2}') <(echo "$hostp" | awk '{print $1, $2}') | grep '^[<>]' | grep -vE "^[<>] (${EXPECT// /|}) " | tr '\n' ';')
   absent=; for p in $EXPECT; do echo "$hostp" | grep -q "^$p off" || absent="$absent $p"; done
   pins=$(r "$HOST" "python3 -c 'import json; d=json.load(open(\"$D/package.json\"))[\"dependencies\"]; print(d.get(\"bt-sensors-plugin-sk\",\"MISSING\"), d.get(\"signalk-plugin-watchdog\",\"MISSING\"))'")
   fix=$(r "$HOST" "grep -c getBluetoothSession $D/local-plugins/bt-sensors-plugin-sk/index.js")

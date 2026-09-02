@@ -53,7 +53,7 @@ for k,v in d.items():
     if t: ages.append(int((now-datetime.datetime.fromisoformat(t.replace("Z","+00:00"))).total_seconds()))
 print(len(ages), min(ages) if ages else -1)' 2>/dev/null)
 n=${out%% *}; age=${out##* }
-if [ "${n:-0}" -ge 1 ] && [ "$age" -ge 0 ] && [ "$age" -lt 600 ]; then say ok ble "$n of ${conf:-?} configured sensors publishing voltage, newest ${age} s (baseline on the boat card 2026-09-02: 1 of 5)"; else say FAIL ble "${n:-0} of ${conf:-?} configured sensors publishing voltage; allow 10 min after boot"; fi
+if [ "${n:-0}" -ge 1 ] && [ "$age" -ge 0 ] && [ "$age" -lt 600 ]; then say ok ble "$n of ${conf:-?} configured sensors publishing voltage, newest ${age} s"; else say FAIL ble "${n:-0} of ${conf:-?} configured sensors publishing voltage; allow 10 min after boot"; fi
 
 out=$(r 'journalctl -t boat-heartbeat -n 1 --no-pager -o cat')
 case "$out" in *"ping ok"*) say ok heartbeat "$out" ;; *) say FAIL heartbeat "${out:-no heartbeat log}" ;; esac
