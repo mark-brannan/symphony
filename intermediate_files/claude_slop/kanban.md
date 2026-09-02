@@ -11,6 +11,7 @@ already carries enough context.
 ## Yours
 
 ### Repo & tooling
+- [ ] Decide the critical-path list and age thresholds for Role 4's off-boat freshness check ([reference/monitoring_decisions.md](../../reference/monitoring_decisions.md) Role 4) — it's the designated owner of data-staleness and is unbuilt, so `signalk-healthcheck`'s single `n2k-can0` watch is holding the role while only alarming when the Pi is healthy enough to complain. Scoped at one script, reuses the live heartbeat + healthchecks.io plumbing; blocked only on which paths count as critical.
 - [ ] [Purchase itemizations in maintenance/log.md](kanban-detail.md#purchase-itemizations-in-maintenancelogmd) — trim to one-line totals with detail moved to a purchases file, or keep as-is.
 - [ ] Review and land the five open PRs, in this order: [#34](https://github.com/mark-brannan/symphony/pull/34), [#28](https://github.com/mark-brannan/symphony/pull/28), [#29](https://github.com/mark-brannan/symphony/pull/29), [#33](https://github.com/mark-brannan/symphony/pull/33), [#25](https://github.com/mark-brannan/symphony/pull/25) — all green, all mergeable, bot threads answered and resolved as of 2026-09-01; each PR body names the sections worth reading. #31 closed as superseded.
 - [ ] [Rotate the Tailscale OAuth client credential](kanban-detail.md#rotate-the-tailscale-oauth-client-credential) — it was pasted into a session transcript; read-only scope, not urgent.
