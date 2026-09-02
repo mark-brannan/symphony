@@ -11,6 +11,10 @@
 # override answers instead and never changes: the LAN IP follows the Pi's MAC,
 # and the card swap keeps the Pi.
 #
+# The A record follows the card's tailnet node, not the Pi's MAC or the
+# network it is on, so `set` works from home too: run it before leaving and
+# the boat card is off the public name for the drive, LAN unaffected.
+#
 # Reads `boat_domain` and `cloudflare_api_token` from secrets/symphony.sops.yaml.
 # The token is the "Edit zone DNS" one Caddy uses for ACME; it can edit records
 # in this zone and nothing else. Tailnet IPs come from the local

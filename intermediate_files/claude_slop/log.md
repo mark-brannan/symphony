@@ -1576,7 +1576,3 @@ GB; the spare Pi is 2 GB and swapping 1.5 GB. InfluxDB is already gone from
 the boat (purged 08-25, export only on the boat card), so QuestDB-only is
 the decision, not a migration. healthchecks.io is pinged by
 `boat-heartbeat.timer`, not a plugin. Pushover = the heartbeat's escalation.
-
-Self-correction: a probe printed the Victron plugin's VRM credentials into
-this session's transcript (nested `VRM.password` slipped past a top-level
-filter). Told Mark; rotation is his call.

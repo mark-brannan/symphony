@@ -1,10 +1,37 @@
 # HALOS card build plan and work breakdown — 2026-09-01
 
-Goal: get the HALOS card (spare Pi 4 at home, `ssh pi@192.168.0.193`,
-tailnet `halos-pi4`) ready to swap into the boat Pi. Context and decisions:
+Goal: get the HALOS card (bench Pi 4 at home, `ssh pi@192.168.0.193`,
+tailnet `halos-pi4`) ready to swap into the boat Pi. What runs where:
 `reference/system_map.md`. The at-boat procedure: `RUNBOOK.md` →
 "Swapping the HALOS card onto the boat". Facts below were measured on both
 boxes on 2026-09-01.
+
+## Decisions for the trial
+
+- **History: QuestDB only.** Both cards run QuestDB 10 on the same localhost
+  ports, so the history provider and `telegraf.conf` carry over unchanged
+  and HALOS's Grafana already provisions the datasource. The boat's InfluxDB
+  was purged 2026-08-25; its export is only on the boat card. Remove HALOS's
+  InfluxDB app (it fails to start), keep `signalk-to-influxdb2` disabled.
+  The boat's QuestDB history (1.8 GB) stays on the old card; a stopped-db
+  directory copy can merge it later.
+- **SSO and TLS: HALOS as shipped.** Hostname `signalk`, domain
+  `symphony.dark-star-llc.com`; HALOS derives the FQDN, puts it in the
+  device-CA cert and every login redirect. Install the CA on the phone and
+  laptop once. Dex and Caddy stay on the boat card as the rollback. Real
+  certificates need a leaf-cert path HALOS does not expose yet (upstream
+  ask, not a trial task).
+- **Plugin containers: external mode only.** The Docker socket inside the
+  HALOS SignalK container is gid 105, not granted to `node`, and anything
+  it started would sit outside Traefik, autoheal and the port registry. The
+  history provider already runs `managedContainer: false`. Keep
+  `signalk-container`, `signalk-grafana`, `signalk-chart-locker` disabled.
+
+Differences that are not build items: `NODE_TLS_REJECT_UNAUTHORIZED=0` is set
+on the HALOS SignalK container (accept for the trial, raise upstream later);
+Node 24 in the image vs nsolid 22 on the boat (native modules rebuild, see
+B3c); gpsd provider in HALOS's default `settings.json` (overwritten in B3a);
+no GitHub/Google login (Authelia is file-based); no history before the swap.
 
 Ground rules for every item:
 
@@ -227,6 +254,20 @@ only ntfy. Port 8090 on all interfaces, same as the boat, so
 `curl -s -o /dev/null -w '%{http_code}\n' localhost:8090/v1/health` is 200
 and `curl -d test localhost:8090/symphony-alarms` reaches a subscribed phone.
 
+**B4d. pypilot, IMU and web UI only.** HALOS ships nothing for pypilot
+(checked `halos-marine-containers/apps` and the SignalK image's plugin list).
+Install it natively on the host the way OpenPlotter does, without the servo:
+`git clone https://github.com/pypilot/pypilot && cd pypilot && sudo pip install '.[optimize,ui,hat,web]' --break-system-packages`,
+then enable services for `pypilot`, `pypilot_boatimu` and `pypilot_web`
+(port 8000). The SignalK container is host-network and mounts `/dev`, so
+`pypilot-autopilot-provider.json` reaches `localhost:8000` unchanged and
+there is no port clash. Unverified: whether the `pypilot` daemon runs clean
+with no servo device at all; test on the bench with the IMU before the
+swap. Findings with sources were captured in the 2026-09-01 planning
+session; the OpenPlotter recipe is in `reference/legacy_openplotter_stack.md`.
+*Verify:* `curl -s -o /dev/null -w '%{http_code}\n' localhost:8000` is 200
+and the web UI shows heading and pitch/roll moving when the Pi is tilted.
+
 ### B5 — front door polish (needs B2c; optional)
 
 **B5a. SignalK at the root of `signalk.<boat-domain>`.** Today
@@ -273,13 +314,12 @@ are on items above. Recommended model and effort are per item.
 | P1 hardware+boot | — | Sonnet, low | Do B1a–B1c from `intermediate_files/claude_slop/halos-swap-plan.md` on `ssh pi@192.168.0.193` (sudo password via the sops pattern in the plan). Reboot, run the B1 verification, report each line's output. |
 | P2 network identity | S1 for B2a/B2b | Sonnet, low | Do B2a–B2d from the plan. Read the PSKs from sops keys the sensitive lane added (names in `secrets/symphony.sops.yaml`, never print them). Run the B2 verifications. Do B2c last: it restarts every HALOS container. |
 | P3 SignalK state | — (rsync over the boat's cellular link; retry on timeouts) | Opus, medium | Do B3a–B3c from the plan. Keep `package.json.halos` aside. Use `--ignore-scripts` then `rebuild`. Then run the B3c verification and paste the plugin count and the grep output. If `npm rebuild` fails on anything other than `better-sqlite3`, stop and report. |
-| P4 host layer | S2 for B4b; P3 for the ble-check path | Opus, medium | Do B4a–B4c from the plan. Change `host/signalk-ble-check` in the repo so it picks `marine-signalk-server-container.service` when `signalk.service` is absent, and the config path from the running unit; keep it working unchanged on the boat card. Commit that to a branch and open a draft PR. Run the B4 verifications. |
+| P4 host layer | S2 for B4b; P3 for the ble-check path | Opus, medium | Do B4a–B4d from the plan. The `host/signalk-ble-check` dual-unit change is PR #34; pull that branch on halos for B4b. Run the B4 verifications. |
 | P5 front door | P2 | Sonnet, low | Do B5a. If the router file does not work as written, find the Traefik priority Homarr and Authelia actually got (`docker exec traefik wget -qO- localhost:8080/api/http/routers`) and fix the priority; report what worked. |
 | P6 soak | P1–P5 | Sonnet, low | Do B6. Run the RUNBOOK "Before leaving home" block verbatim and paste every output. Anything that fails is a card, not a fix. |
 | P7 old-card salvage (after the swap) | the boat card at home | Sonnet, low | With the old boat card in a reader or the spare Pi: copy `home/pi/influx-export`, `home/pi/keep-before-purge` and `var/lib/docker/volumes/symphony_questdb-data` to the dev box, verify SHA256SUMS, and record sizes in `intermediate_files/claude_slop/log.md`. |
 
-Left out on purpose: pypilot (no HALOS package, not on the must-keep list),
-Dex and Caddy (they are the rollback and stay on the boat card), QuestDB
+Left out on purpose: Dex and Caddy (they are the rollback and stay on the boat card), QuestDB
 history migration (old card holds it; merge later if HALOS is adopted),
 Grafana dashboards (HALOS provisions the datasource; panels are the open
 PR #25 question).

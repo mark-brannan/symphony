@@ -628,146 +628,85 @@ other end is what tells you the boat went quiet.
 
 ## Swapping the HALOS card onto the boat
 
-Puts the HALOS card into the boat Pi for a live trial. The boat card comes
-home as the rollback. Read
-[reference/system_map.md](reference/system_map.md) first for what differs
-between the two cards; the card must have finished the build plan in
-`intermediate_files/claude_slop/halos-swap-plan.md` before you leave home.
-
-The Pi is powered from the NMEA 2000 bus (SMPS PiCAN-M), so "power off"
-means unplugging its Micro-C connector, not a switch.
+Puts the HALOS card into the boat Pi for a live trial; the boat card comes
+home as the rollback. The card must have finished
+`intermediate_files/claude_slop/halos-swap-plan.md` first. The Pi is powered
+from the NMEA 2000 bus, so "power off" means unplugging its Micro-C.
 
 ### Before leaving home
 
-Run all of these against the HALOS card in the spare Pi. Every line must
-pass; a missing plugin cannot be fetched over the boat's cellular link.
-
 ```bash
-ssh pi@symphony-halos 'hostname; hostname -d; cat /run/halos/domain.env; tailscale status --self | head -1'
+scripts/halos_preflight.sh
 ```
 
-Expect `signalk`, `<boat-domain>`, `HALOS_DOMAIN=signalk.<boat-domain>`, and
-a `symphony-halos` tailnet line.
+Every line must be `ok`. Nothing can be fetched at the boat.
 
-```bash
-ssh pi@symphony-halos 'grep -E "mcp2515|enable_uart|i2c_arm|spi=on" /boot/firmware/config.txt; grep -o "cgroup_enable=memory" /boot/firmware/cmdline.txt; grep -o "regdom=US" /boot/firmware/cmdline.txt; ls -l /dev/serial0 /dev/i2c-1; cat /sys/fs/cgroup/cgroup.controllers'
 ```
-
-Expect the four overlay lines, both `cmdline.txt` matches, both device
-nodes, and `memory` in the controllers line. `can0` cannot exist at home;
-the HAT is on the boat.
-
-```bash
-ssh pi@symphony-halos 'nmcli -t -f NAME,TYPE con show | grep -E "^(Symphony|Wired connection 1|Halos-AP):"; nmcli -f 802-11-wireless.ssid con show Halos-AP'
+ok    host       signalk symphony.dark-star-llc.com signalk.symphony.dark-star-llc.com symphony-halos
+ok    boot       overlays cgroup regdom serial0 i2c-1
+ok    wifi       Symphony profile, Halos-AP ssid SignalK
+ok    plugins    package.json and plugin-config-data match the boat; local-plugins: bt-sensors-plugin-sk signalk-plugin-watchdog ; 91 loaded
+ok    services   8 active
+ok    disabled   avnav opencpn influxdb: disabled disabled disabled
+ok    heartbeat  ping ok
+ok    questdb    cpu rows 48211
+ok    ntfy       health 200
+ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x ... symphony-pi 100.x.x.x <- current symphony-halos 100.x.x.x
 ```
-
-Expect all three profiles and SSID `SignalK`.
-
-```bash
-diff <(ssh pi@symphony-pi 'python3 -c "import json; print(*sorted(json.load(open(\"/home/pi/.signalk/package.json\"))[\"dependencies\"]), sep=\"\\n\")"') \
-     <(ssh pi@symphony-halos 'python3 -c "import json; print(*sorted(json.load(open(\"/var/lib/container-apps/marine-signalk-server-container/data/data/package.json\"))[\"dependencies\"]), sep=\"\\n\")"')
-diff <(ssh pi@symphony-pi 'ls /home/pi/.signalk/plugin-config-data/*.json | xargs -n1 basename') \
-     <(ssh pi@symphony-halos 'ls /var/lib/container-apps/marine-signalk-server-container/data/data/plugin-config-data/*.json | xargs -n1 basename')
-ssh pi@symphony-halos 'ls /var/lib/container-apps/marine-signalk-server-container/data/data/local-plugins; curl -s localhost:3000/skServer/plugins | python3 -c "import json,sys; print(len(json.load(sys.stdin)), \"plugins loaded\")"'
-```
-
-Expect both `diff`s empty (the boat card is the reference, whatever it holds
-today), `bt-sensors-plugin-sk` and `signalk-plugin-watchdog` under
-`local-plugins`, and a loaded-plugin count close to the number of config
-files.
-
-```bash
-ssh pi@symphony-halos 'systemctl is-active telegraf chrony boat-heartbeat.timer signalk-ble-check.timer marine-signalk-server-container marine-questdb-container marine-grafana-container halos-core-containers; systemctl is-enabled marine-avnav-container marine-opencpn-container marine-influxdb-container; journalctl -t boat-heartbeat -n 1 --no-pager; curl -s "localhost:9000/exec?query=select%20count()%20from%20cpu" | head -c 80; curl -s -o /dev/null -w "%{http_code}\n" localhost:8090/v1/health'
-```
-
-Expect `active` for the first eight, `disabled` for the three apps,
-`ping ok`, a non-zero row count, and `200` from ntfy.
-
-```bash
-scripts/dns_cutover.sh status
-```
-
-Expect both `symphony-pi` and `symphony-halos` listed with tailnet IPs and
-`symphony-pi` marked current.
 
 ### At the boat
 
-1. Record the boat card's state, so the trial has a baseline:
+1. Baseline the boat card:
 
-```bash
-ssh pi@symphony-pi 'ip -br link show can0; curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/position/\$source; ss -tn | grep 8883; curl -s localhost:3000/signalk/v1/api/vessels/self/electrical/batteries | head -c 200'
-```
+   ```bash
+   scripts/halos_swap_check.sh symphony-pi
+   ```
 
-2. Shut the boat card down cleanly, then unplug the Pi's Micro-C
-   connector once the green LED stops:
+2. Shut it down; unplug the Micro-C when the green LED stops:
 
-```bash
-ssh pi@symphony-pi 'sudo shutdown -h now'
-```
+   ```bash
+   ssh pi@symphony-pi 'sudo shutdown -h now'
+   ```
 
-3. Swap the cards. Put the boat card in its case and in your pocket; it is
-   the only copy of `~/influx-export` and the QuestDB history.
+3. Swap the cards. The boat card goes in your pocket; it is the only copy of
+   the QuestDB history and `~/influx-export`.
+4. Reconnect the Micro-C. Wait three minutes.
+5. Cut public DNS over (on-boat devices need nothing; the router override
+   follows the Pi's MAC):
 
-4. Plug the Micro-C back in. Wait three minutes.
+   ```bash
+   scripts/dns_cutover.sh set symphony-halos
+   ```
 
-5. Cut public DNS over. On-boat devices need nothing; the router override
-   already points at the Pi's LAN IP.
+   ```
+   A symphony.dark-star-llc.com -> 100.x.x.x. Public resolvers follow within 300 s
+   ```
 
-```bash
-scripts/dns_cutover.sh set symphony-halos
-```
+6. Check every core function:
 
-*Verify:* `dig +short signalk.<boat-domain> @1.1.1.1` prints
-`symphony-halos`'s tailnet IP within five minutes.
+   ```bash
+   scripts/halos_swap_check.sh
+   ```
 
-6. Verify each core function. Every command runs from a tailnet machine.
+   ```
+   ok    lan        eth0 192.168.8.240/24 can0 UP
+   ok    n2k        position from n2k-can0.2, 1 s old
+   ok    victron    ESTAB 192.168.8.107:8883; electrical: batteries chargers inverters solar
+   ok    ble        5 batteries, newest 12 s
+   ok    heartbeat  ping ok
+   ok    ntfy       sent to symphony-alarms; check the phone
+   ok    questdb    navigation.position rows 1932
+   ok    devices    /dev/i2c-1 /dev/serial0
+   ok    bme680     inside: humidity pressure temperature
+   ```
 
-```bash
-ssh pi@symphony-halos 'ip -br a | grep -E "eth0|wlan0|can0"'
-```
+   `ble` and `bme680` can take ten minutes after boot; rerun. A `ble` FAIL
+   after that is "BLE sensors go silent after a reboot".
 
-*Expect:* `eth0` at `192.168.8.240`, `can0` `UP`.
-
-```bash
-ssh pi@symphony-halos 'curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/position'
-```
-
-*Expect:* a `$source` of `n2k-can0.2` and a timestamp from the last few
-seconds. Any other source means the CAN bus is not feeding SignalK.
-
-```bash
-ssh pi@symphony-halos 'ss -tn | grep 8883; curl -s localhost:3000/signalk/v1/api/vessels/self/electrical | python3 -c "import json,sys; print(list(json.load(sys.stdin).keys()))"'
-```
-
-*Expect:* an `ESTAB` line to the Cerbo (`192.168.8.107`), and `batteries`
-plus the venus keys. Then open VRM on your phone: the Cerbo must still be
-reporting. It is not touched by the swap; this check is proof.
-
-```bash
-ssh pi@symphony-halos 'sleep 120; curl -s localhost:3000/signalk/v1/api/vessels/self/electrical/batteries | python3 -c "import json,sys; d=json.load(sys.stdin); print({k:v.get(\"voltage\",{}).get(\"timestamp\") for k,v in d.items()})"'
-```
-
-*Expect:* a fresh timestamp for each of the five Bluetooth batteries. A
-missing key means the plugin never published — see "BLE sensors go silent
-after a reboot".
-
-```bash
-ssh pi@symphony-halos 'journalctl -t boat-heartbeat -n 2 --no-pager; curl -s -d "swap test" localhost:8090/symphony-alarms >/dev/null && echo ntfy ok'
-```
-
-*Expect:* `ping ok`, `ntfy ok`, and the ntfy message on your phone.
-
-```bash
-ssh pi@symphony-halos 'curl -s "localhost:9000/exec?query=select%20count()%20from%20%27navigation.position%27"; ls -l /dev/serial0; curl -s localhost:3000/signalk/v1/api/vessels/self/environment/inside | head -c 200'
-```
-
-*Expect:* a row count that grows on a second run, the serial device, and
-BME680 readings (allow ten minutes after boot for `inside.*`).
-
-7. From your phone on the boat WiFi: open `https://signalk.<boat-domain>/ca/`
-   and install the certificate, then `https://signalk.<boat-domain>:4430`.
-   *Expect:* the SignalK admin UI with no certificate warning, and the
-   `SignalK` hotspot in the WiFi list.
+7. Phone on the boat WiFi: install the certificate from
+   `https://signalk.symphony.dark-star-llc.com/ca/`, then open
+   `https://signalk.symphony.dark-star-llc.com:4430`. SignalK admin, no
+   certificate warning, `SignalK` in the WiFi list.
 
 ### Rolling back
 
@@ -775,11 +714,10 @@ Unplug the Micro-C, swap the boat card in, plug in, wait three minutes, then:
 
 ```bash
 scripts/dns_cutover.sh set symphony-pi
-ssh pi@symphony-pi 'systemctl is-active signalk caddy telegraf; ip -br link show can0'
+scripts/halos_swap_check.sh symphony-pi
 ```
 
-*Expect:* three `active` and `can0 UP`. Nothing on the boat card was changed
-by the trial.
+Nothing on the boat card is changed by the trial.
 
 ---
 
