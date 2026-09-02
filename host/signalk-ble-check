@@ -26,12 +26,26 @@
 #
 # Expected source names come from the plugin's own config rather than being
 # hardcoded here, so renaming a sensor doesn't quietly disable the check.
+#
+# Serves two host shapes: native SignalK (signalk.service, with
+# signalk.socket) and a HALOS card running SignalK in a container
+# (marine-signalk-server-container.service, no socket unit). The unit is
+# detected at runtime; CONFIG and the restart path follow from it.
 set -eu
 
 TAG=signalk-ble-check
 STATE=/run/signalk-ble-check.state
-CONFIG=/home/pi/.signalk/plugin-config-data/bt-sensors-plugin-sk.json
 API=http://localhost:3000/signalk/v1/api/vessels/self
+
+if systemctl cat signalk.service >/dev/null 2>&1; then
+	UNIT=signalk.service
+	CONFIG=/home/pi/.signalk/plugin-config-data/bt-sensors-plugin-sk.json
+	HAS_SOCKET=1
+else
+	UNIT=marine-signalk-server-container.service
+	CONFIG=/var/lib/container-apps/marine-signalk-server-container/data/data/plugin-config-data/bt-sensors-plugin-sk.json
+	HAS_SOCKET=0
+fi
 
 # SignalK needs roughly 100s to reach its plugins and longer for BLE sensors to
 # connect and complete a first poll. A young service has not failed, it just
@@ -42,7 +56,7 @@ MAX_RESTARTS=3
 
 log() { logger -t "$TAG" -p user.notice "$1"; }
 
-systemctl is-active --quiet signalk.service || exit 0
+systemctl is-active --quiet "$UNIT" || exit 0
 [ -r "$CONFIG" ] || exit 0
 
 # Never restart on top of a package install. A restart landing on an
@@ -65,7 +79,7 @@ if [ -n "$busy" ]; then
 	exit 0
 fi
 
-started=$(systemctl show signalk.service -p ActiveEnterTimestamp --value)
+started=$(systemctl show "$UNIT" -p ActiveEnterTimestamp --value)
 since=$(echo "${started:-}" | cut -d' ' -f2-3)
 [ -n "$since" ] || exit 0
 start_epoch=$(date -d "$since" +%s 2>/dev/null || echo 0)
@@ -141,13 +155,17 @@ fi
 
 log "bt-sensors is loaded but publishing nothing; restarting SignalK (attempt $((count + 1)))"
 
-# Socket first, or the socket unit reactivates the service mid-stop.
-systemctl stop signalk.socket || true
-systemctl stop signalk.service || true
-systemctl reset-failed signalk.service 2>/dev/null || true
-systemctl start signalk.socket || true
-# Socket activation needs a connection to actually launch the server.
-curl -s -o /dev/null --max-time 60 http://localhost:3000/signalk/ 2>/dev/null || true
+if [ "$HAS_SOCKET" -eq 1 ]; then
+	# Socket first, or the socket unit reactivates the service mid-stop.
+	systemctl stop signalk.socket || true
+	systemctl stop "$UNIT" || true
+	systemctl reset-failed "$UNIT" 2>/dev/null || true
+	systemctl start signalk.socket || true
+	# Socket activation needs a connection to actually launch the server.
+	curl -s -o /dev/null --max-time 60 http://localhost:3000/signalk/ 2>/dev/null || true
+else
+	systemctl restart "$UNIT" || true
+fi
 
 printf '%s %s\n' "$now_epoch" "$((count + 1))" >"$STATE"
 log "SignalK restarted"
