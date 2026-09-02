@@ -227,10 +227,6 @@
   baseDeltas; the deprecated `@signalk/zones` plugin is now a removal item.
 - Added the `hostvars` git filter so per-machine plugin-config values
   (first case: ntfy URL) stop fighting over one committed file.
-- Wrote an upstream signalk-server change for the SSO-admin problem:
-  identity allowlists beside the existing group mapping. Branch
-  `oidc-identity-permissions` on the fork, preview PR
-  mark-brannan/signalk-server#1. Nothing sent upstream yet.
 
 ## 2026-08-18
 - Settled containerization direction: trial HALOS on the spare Pi at home,
@@ -375,3 +371,7 @@
 - Fixed bt-sensors-plugin-sk so sensor data resumes after a D-Bus drop
   without a SignalK restart; verified on the boat, pushed to the fork and
   upstream PR #189.
+- Wrote an upstream signalk-server change for the SSO-admin problem (work
+  done 2026-08-15): identity allowlists beside the existing group mapping.
+  Branch `oidc-identity-permissions` on the fork, preview PR
+  mark-brannan/signalk-server#1. Nothing sent upstream yet.
