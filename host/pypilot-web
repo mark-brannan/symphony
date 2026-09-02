@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+# pypilot's own `pypilot_web` entry point calls socketio.run() with
+# allow_unsafe_werkzeug=True unconditionally. Flask-SocketIO consumes that
+# kwarg only on its "threading" async path; on the gevent path (what this box
+# takes, gevent 22.10.2 installed) the leftover kwarg is forwarded into
+# gevent.pywsgi.WSGIServer's ssl_args, so every accepted connection dies in
+# wrap_socket() with a TypeError. The port accepts and then hangs up
+# (curl -> code=000) and the unit crash-restarts, which is what wrote 720
+# journal lines/min on the boat Pi until pypilot_web was disabled 2026-09-02.
+#
+# This is pypilot.web.web.main() with that one kwarg dropped. Retire it and go
+# back to plain `pypilot_web` once the installed pypilot stops passing it.
+#
+# Invoked as `pypilot-web <port>`: pypilot's web.py reads sys.argv[1] at
+# import time, so the port argument must still be there.
+import os
+import sys
+
+from pypilot.web import web
+
+# web.main() chdirs here before serving; keep that.
+os.chdir(os.path.dirname(os.path.abspath(web.__file__)))
+
+port = web.pypilot_web_port
+while True:
+    try:
+        web.socketio.run(web.app, debug=False, host='0.0.0.0', port=port)
+        break
+    except PermissionError as e:
+        print('failed to run socket io on port', port, e, file=sys.stderr)
+        port += 8000 - 80
+        print('trying port', port, file=sys.stderr)
