@@ -473,17 +473,21 @@ crontab alone.
 
 It only runs on a boat card. It checks three things — systemd is booted, the
 `pi` user exists, `uname -m` is `aarch64`/`armv7l`/`armv6l` — and if any fails
-it names every one that failed, installs nothing, and exits 1:
+it names every one that failed, installs nothing, and exits 1. From an x86_64
+WSL2 box with systemd enabled and no `pi` user, two of the three:
 
 ```
 install.sh: this does not look like a boat card -- user-pi(absent) arch(x86_64, not a Pi)
 install.sh: refusing. SYMPHONY_INSTALL_FORCE=1 to override.
 ```
 
-That's the expected output on a Mac, in WSL, or in a desktop container. Don't
-reach for the override to get past it there: this writes root-owned files into
-`/usr/local/sbin`, `/etc/systemd`, `/etc/apt` and `/home/pi`, enables timers,
-and rewrites the root crontab of whatever machine it is run on.
+Expect a longer list elsewhere — a Mac or a container without systemd as PID 1
+adds `systemd(not booted with it)`, and an Apple Silicon Mac still fails the
+arch check, since `uname -m` there is `arm64` rather than `aarch64`. Refusing
+is the right answer on all of them. Don't reach for the override to get past
+it: this writes root-owned files into `/usr/local/sbin`, `/etc/systemd`,
+`/etc/apt` and `/home/pi`, enables timers, and rewrites the root crontab of
+whatever machine it is run on.
 
 ```bash
 sudo SYMPHONY_INSTALL_FORCE=1 host/install.sh
