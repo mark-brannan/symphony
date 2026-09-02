@@ -20,10 +20,22 @@ already carries enough context.
   worth reading before touching this track, is in
   [kanban-detail.md](kanban-detail.md#the-rebuild-fork--strategic-context).
 
+- **The cellular WAN is a working constraint, not a task.** Every rebuild
+  failure on this boat is a network timeout, not a logic error: `docker pull
+  signalk/signalk-server` died on a TLS handshake timeout and `apt install
+  grafana` (343 MB) timed out on 2026-08-23; the SignalK reinstall ran 27
+  minutes and died on `EIDLETIMEOUT` from registry.npmjs.org on 2026-08-25,
+  with single tarballs taking 54 s. `symphony-pi`'s tailscale endpoint is a
+  T-Mobile range. The practical consequence is permanent: **the boat cannot
+  be rebuilt in place over its own link.** A card staged and fully populated
+  at home, then carried down, is the only reliable path — and large data
+  moves off the boat go by physical card, not over the wire. Assume this in
+  every plan; it does not need re-deciding or re-discovering.
+
 ## Yours
 
 ### Repo & tooling
-- [ ] **Pick the swap day and launch [dispatch-halos-swap-day.md](dispatch-halos-swap-day.md)** — PR #33 is merged, the bench card passes every preflight line after a reboot; the two open calls (pypilot, Cerbo) are below.
+- [ ] **When you are next at the boat with the new card, launch [dispatch-halos-swap-day.md](dispatch-halos-swap-day.md)** — a ready-to-paste prompt, no date to pick and nothing scheduled against it. PR #33 is merged and the bench card passes every preflight line after a reboot; the open items that want doing first are the Cerbo power-cycle below and pypilot on Claude's side.
 - [ ] Decide the critical-path list and age thresholds for Role 4's off-boat freshness check ([reference/monitoring_decisions.md](../../reference/monitoring_decisions.md) Role 4) — it's the designated owner of data-staleness and is unbuilt, so `signalk-healthcheck`'s single `n2k-can0` watch is holding the role while only alarming when the Pi is healthy enough to complain. Scoped at one script, reuses the live heartbeat + healthchecks.io plumbing; blocked only on which paths count as critical.
 - [ ] [Purchase itemizations in maintenance/log.md](kanban-detail.md#purchase-itemizations-in-maintenancelogmd) — trim to one-line totals with detail moved to a purchases file, or keep as-is.
 - [ ] Resume the live dashboard walkthrough — Navstation done, 5 to go (Electricity, System health, Navigation, Weather, Life support). [PR #25](https://github.com/mark-brannan/symphony/pull/25) landed on main 2026-09-02, so this now continues **on main**, not on that branch. State and what's still open: [log.md#2026-09-01/02 — PR #25 live walkthrough, session 1 of N](log.md#2026-09-0102--pr-25-live-walkthrough-session-1-of-n-navstation-only). Demo stack is left running at localhost:3100 (admin/devadmin) in worktree `grafana-dashboards-pr25-89c9f8`.
@@ -45,9 +57,7 @@ already carries enough context.
 
 ### Boat Pi / hardware
 - [ ] **Power-cycle the Cerbo GX at the panel** (DC feed off ~30 s), then confirm Settings → Services → MQTT on LAN (SSL) is still on; if it stays dark it is a failed unit, not a config problem. Re-checked from the boat 2026-09-02: no ICMP reply and 80/443/1883/8883/22 all closed, but ARP for `5c:c5:63:0a:df:52` is `REACHABLE` — the NIC answers, nothing above it does. SignalK's Victron client is still in SYN-SENT to 192.168.8.107:8883 since 2026-09-01 21:06Z; Victron data is dead on both cards until then ([execution file](halos-swap-execution-2026-09-02.md)).
-- [ ] After the swap: copy `~/influx-export`, `~/keep-before-purge/` and the `symphony_questdb-data` volume off the old boat card before it is reused (plan S3 / P7).
-- [ ] **The cellular WAN is the binding constraint — decide the staging plan around it.** Every rebuild failure on this boat is a network timeout, not a logic error. 2026-08-23: `docker pull signalk/signalk-server` died on TLS handshake timeout, `apt install grafana` (343 MB) timed out, `npm install` hit ETIMEDOUT. 2026-08-25: the SignalK reinstall ran 27 minutes and died on `EIDLETIMEOUT` from registry.npmjs.org, with single tarballs taking 54 s. `symphony-pi`'s tailscale endpoint is `172.56.x`, a T-Mobile range. Practical consequence: **the boat cannot be rebuilt in place over its own link** — a card staged and fully populated at home, then carried down, is the only reliable path.
-- [ ] **Decide whether the current 32 GB card comes home after the swap.** It holds the only copies of `~/influx-export` (1.4 GB) and `~/keep-before-purge/grafana.db` — neither can cross the WAN without throttling risk, so a physical card swap is the only way to recover them.
+- [ ] **Bring the 32 GB card home once the swap succeeds** (decided 2026-09-02; conditional on a successful swap — if it fails the card goes back in the boat). It holds the only copies of `~/influx-export` (1.4 GB) and `~/keep-before-purge/grafana.db`, neither of which can cross the WAN. Copy those and the `symphony_questdb-data` volume off before the card is reused (plan S3 / P7).
 - [ ] [Confirm the HALPI2 purchase](kanban-detail.md#halpi2-purchase-sd-card-boot-media-strategy) — already in cart; ends the SD-card/boot-media decision outright.
 - [ ] [Decide whether to track openplotter.conf in git](kanban-detail.md#track-openplotteropenplotterconf-in-git-or-not) — its `soundignore` key is load-bearing and lives only on the boat.
 - [ ] [Decide whether to pursue a read-only root filesystem](kanban-detail.md#read-only-root-filesystem-for-the-boat-pi) — real workflow change, not a config toggle.
