@@ -1,11 +1,20 @@
 # Host provisioning
 
-How a boat computer gets from a blank card to a running host today, why that
-is being moved to Ansible, and what Ansible should and shouldn't own.
+How a boat computer gets from a blank card to a running host, why that moved to
+Ansible, and what Ansible should and shouldn't own.
 
 ## What exists now
 
-Two mechanisms, neither of which is provisioning:
+`ansible/` provisions the host layer of a HALOS card, ported from the plan-v1
+as-built record and converged against `symphony-halos` on 2026-09-02 (two
+consecutive runs at `changed=0`). Nine roles cover boot config and `can0`,
+NetworkManager and hostname/certificate identity, packages and swap, the repo
+checkout, `host/install.sh`, telegraf and the heartbeat, and the SignalK
+container overrides. `RUNBOOK.md` → "Provisioning a HALOS card with Ansible" is
+how to run it.
+
+The two mechanisms that preceded it are both still in place, and one of them is
+still authoritative:
 
 **`RUNBOOK.md` → "Bringing up a host"** is four phases of commands typed by
 hand: tooling (Docker, pre-commit, sops, age), key material, repo and git
@@ -51,7 +60,7 @@ problems this boat actually has:
 | `unattended_upgrades` | Nothing patches this box on a schedule right now. |
 | `common`, `node`, `signalk-npm` | Reference for shape and ordering, not for direct use. |
 
-## Proposed shape
+## Shape
 
 An `ansible/` directory **in this repo**, not a new one. The playbooks need
 `secrets/symphony.sops.yaml`, the rendered `.env`, the compose files and
@@ -60,20 +69,36 @@ duplicating the golden config or wiring two repos together for every change.
 This repo already carries infrastructure alongside the maintenance log, so
 this is not a new kind of thing for it.
 
-Suggested layout, mirroring what `host/install.sh` already groups:
+Built layout. Roles are named for what they own and ordered by dependency, not
+by the as-built's section headings:
 
 ```
 ansible/
-  inventory.yml          # symphony-pi over Tailscale; more hosts later
+  inventory.yml          # halos_cards: symphony-halos, over Tailscale
+                         # openplotter_cards: symphony-pi, inventory-only
   site.yml
   roles/
-    base/                # apt packages, timezone, unattended-upgrades
-    clock/               # chrony + the gpsd drop-in + makestep
-    watchdog/            # systemd RuntimeWatchdogUSec
-    monitoring/          # telegraf, its config symlink, rpi-health, heartbeat
-    claude-resident/     # the tmux user unit and lingering
-    signalk-host/        # gpsd, can0, serial aliases, groups
+    boot/                # config.txt, cmdline.txt, i2c-dev, the reboot
+    can/                 # 80-can.network, networkd, wait-online off
+    network/             # NetworkManager keyfiles, the AP, the tailnet name
+    identity/            # hostname, /etc/hosts, HALOS hostnames + certs
+    base/                # apt repo and packages, zram, the stay-down apps
+    repo/                # the checkout at /home/pi/symphony
+    host_files/          # invokes host/install.sh
+    monitoring/          # telegraf wiring, per-host heartbeat config
+    signalk_container/   # the two HALOS override files
 ```
+
+The `clock`, `watchdog` and `claude-resident` roles this file originally
+proposed are **not** here: their contents are still inside `host/install.sh`,
+which `host_files` invokes. Porting them is the next slice, and it is the point
+at which `install.sh` starts to shrink.
+
+`monitoring` runs after `host_files` so that Ansible, not the installer, is the
+last writer of `/etc/boat-heartbeat.json`. That file is the one place the two
+cards genuinely differ — they ping two different healthchecks.io checks — and
+`install.sh` copying one card's copy onto the other is how a card went quiet
+with nothing alarming.
 
 ### What Ansible owns
 
@@ -105,10 +130,14 @@ for a given path should be the only one that writes it.
 
 ## Open decisions
 
-- Which host runs the playbooks. The boat Pi can run them against `localhost`
-  with no control machine, which works offshore; a laptop over Tailscale is
-  easier to iterate on and useless with no uplink. Doing both is normal, but
-  it means the Pi needs Ansible installed.
+- Which host runs the playbooks. Answered provisionally by use: a laptop over
+  Tailscale, which is easier to iterate on and useless with no uplink. The boat
+  Pi could run them against `localhost` with no control machine, which works
+  offshore, but it would need Ansible and the age key on it. Doing both is
+  normal; nothing here prevents it.
+- Whether the boat card gets roles of its own. It is in the inventory with its
+  own heartbeat URL, in a group no play targets, because these roles assume
+  HALOS paths.
 - Whether to adopt `root-ro`. A read-only root is the strongest available
   answer to SD-card wear, and it makes every write an explicit decision —
   which is a real change to how the box is worked on, not just a config

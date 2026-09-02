@@ -1322,9 +1322,20 @@ dockerization track, and the SD-card/boot-media strategy.
 
 ## Bench-test containerized pypilot on HALOS
 
-Blocked on PR #37 merging. Run this prompt exactly as written, no
+PR #37 merged 2026-09-02. Run this prompt exactly as written, no
 improvising around it:
 
 ```
 Bench-test the containerized pypilot on the HALOS Pi. Follow RUNBOOK.md § "pypilot in a container" → "Run it on a Pi with the IMU" verbatim; do not improvise around it. Record: image build time and peak memory on arm64, whether `docker exec pypilot i2cdetect -y 1` shows 0x68, whether imu.heading moves when the Pi is tilted, and whether pypilot 0.71 reads a copy of the boat's 0.56 ~/.pypilot without complaint. Copy the boat's state, never move it. Update reference/pypilot_containerization.md § "Not yet verified" with what you measured and close the board card.
 ```
+
+Context carried over from an earlier, now-superseded version of this card:
+`pypilot/Dockerfile` + `compose-pypilot.yml` build and run verified only on
+the amd64 dev box (no IMU). Design and unknowns:
+[reference/pypilot_containerization.md](../../reference/pypilot_containerization.md).
+The i2c leg couldn't be done on the bench card as of 2026-09-02: `/dev/i2c-1`
+exists and `pi` is in the `i2c` group, but the bus was empty — no MPU9250,
+nothing. That leg needs an IMU wired to the bench Pi, or waits for swap day
+aboard. Coordinate before touching the bench card — other sessions use it,
+and it has sat as low as 236 MB available with swap full, so a build needs
+the stack stopped first.

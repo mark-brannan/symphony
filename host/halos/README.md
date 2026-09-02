@@ -2,9 +2,12 @@
 
 HALOS owns its unit and compose files under `/var/lib/container-apps/` and
 overwrites them on `apt upgrade`, so Symphony's changes live in override files
-that HALOS never touches. `host/install.sh` does not install these yet; place
-them by hand (paths below), then `systemctl daemon-reload` and restart the
-SignalK unit.
+that HALOS never touches.
+
+`ansible/roles/signalk_container` places the first two and restarts the unit;
+`host/install.sh` still does not. To install them by hand instead, use the paths
+below, then `systemctl daemon-reload` and restart the SignalK unit. The Traefik
+file is not in any role yet and is always placed by hand.
 
 | File | Installs to | Why |
 |---|---|---|
@@ -12,7 +15,8 @@ SignalK unit.
 | `signalk-unit-override.conf` | `/etc/systemd/system/marine-signalk-server-container.service.d/symphony.conf` | Adds the override file to HALOS's `docker compose` command line. |
 | `traefik-symphony-signalk-host.yml` | `/etc/halos/traefik-dynamic.d/` | Serves SignalK at the root of `signalk.<boat-domain>` instead of Homarr; `/sso` and `/ca` stay with Authelia and the CA download. Traefik reloads it on write. |
 
-Two host settings go with the files, also by hand:
+Two host settings go with the files. `ansible/roles/can` and
+`ansible/roles/base` apply them; by hand they are:
 
 ```bash
 sudo systemctl disable systemd-networkd-wait-online

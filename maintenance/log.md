@@ -390,6 +390,11 @@
   pinned upstream source, compose files for the boat and the dev box, and a
   runbook procedure. Built and run on the dev box only; the boat still runs
   pypilot natively.
+- Built `ansible/` for the HALOS card: nine roles covering boot config, `can0`,
+  wifi and hostname identity, packages, host files and the SignalK container
+  overrides. Converged against `symphony-halos`; two consecutive runs at zero
+  changes, preflight all `ok`. Each card now writes its own heartbeat check
+  URL, which `host/install.sh` used to overwrite.
 - Proved the containerized pypilot on the bench Pi: builds on arm64 in seven
   minutes, reaches the i2c bus from inside the container, drives a real IMU
   and serves its web UI. Still to check against the boat's own IMU and its
