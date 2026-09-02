@@ -378,6 +378,8 @@ diffs, all benign:
 - `ansible.builtin.apt_repository` is deprecated and goes away in ansible-core
   2.25. Its replacement writes `influxdata.sources` rather than
   `influxdata.list`; both cards carry the `.list` form, so moving is a separate,
-  deliberate step. Deprecation warnings are off in `ansible.cfg` because of it.
+  deliberate step. The warning is left visible — suppressing it repo-wide would
+  also hide the next deprecation a future role picks up, and it is what keeps
+  the migration on the board.
 - pypilot, QuestDB history migration, Grafana provisioning, Dex and Caddy — all
   as v1 left them.
