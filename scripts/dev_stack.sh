@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # Brings up QuestDB, InfluxDB and Grafana locally, seeds synthetic vessel
-# data, and runs the panel check. One command to see the dashboards without
-# being aboard.
+# data into both, and checks that every provisioned panel draws something.
+# One command to see the dashboards without being aboard.
 #
-# The panel check does not pass here yet, and `up` reports it rather than
-# aborting: the dashboards query QuestDB while seed_dev_influx.py still fills
-# InfluxDB, so panels come up connected but empty. Layout, units and
-# provisioning are what this stack verifies today.
+# The dashboards read QuestDB; InfluxDB is still seeded because the boat's
+# own bucket is still there for ad-hoc Flux exploration, and the two seeders
+# share their value ranges.
 #
 #   scripts/dev_stack.sh up       # start, seed, verify
 #   scripts/dev_stack.sh verify   # re-run the panel check only
@@ -111,8 +110,7 @@ cmd_up() {
 	wait_for InfluxDB "${INFLUX_URL_LOCAL}/health"
 	wait_for Grafana "${GRAFANA_URL}/api/health"
 	cmd_seed
-	# Expected to fail until the seeder writes QuestDB -- see the header.
-	cmd_verify || echo "panel check did not pass (expected: no QuestDB data yet)"
+	cmd_verify
 	echo
 	echo "Grafana:  ${GRAFANA_URL}   admin / $(password_from_env)"
 	echo "Dashboards are in the 'Marine' folder."
@@ -126,6 +124,7 @@ cmd_seed() {
 		--url "${INFLUX_URL_LOCAL}" \
 		--token "$(token_from_env)" \
 		--org symphony
+	python3 scripts/seed_dev_questdb.py --url "${QUESTDB_URL_LOCAL}"
 }
 
 cmd_verify() {

@@ -2061,21 +2061,22 @@ into the spec.
 scripts/dev_stack.sh up
 ```
 
-Starts QuestDB, InfluxDB and Grafana, creates the buckets, seeds synthetic
-vessel data in SignalK's SI units, runs the panel check, and prints the URL.
-SignalK does not come up -- it wants hardware a laptop does not have.
-`scripts/dev_stack.sh down` removes the volumes.
+Starts QuestDB, InfluxDB and Grafana, seeds synthetic vessel data into both
+stores, checks that every panel draws, and prints the URL. SignalK does not
+come up -- it wants hardware a laptop does not have. `scripts/dev_stack.sh
+down` removes the volumes.
 
 The seed values are invented but the *shape* is real: same measurement names,
-same `_field`, same tags, same SI units. Seeding in display units would make a
+same fields, same tags, same SI units. Seeding in display units would make a
 broken conversion look correct, which is the one thing this has to not do.
+What gets seeded is read out of the generated dashboards themselves, so a
+panel added to the spec is covered on the next run without anyone remembering
+to add it here.
 
-**The panel check does not pass here yet, by design.** The dashboards query
-QuestDB and the seeder still fills InfluxDB, so panels come up connected but
-empty; `up` reports the failure and carries on rather than aborting. Use this
-stack for layout, units and provisioning; for data, read the boat. If you have
-an older dev `.env`, delete it first — the script only writes one when absent,
-and the `QUESTDB_*` variables are new.
+If you have a dev `.env` from before the QuestDB port, delete it first — the
+script only writes one when absent, and the `QUESTDB_*` variables are new.
+Symptom of a stale one: every panel empty and the QuestDB datasource failing
+to connect.
 
 ### Checking the real thing
 
