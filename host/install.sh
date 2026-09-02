@@ -71,6 +71,7 @@ INSTALL=(
 	"signalk-ble-check:/usr/local/sbin/signalk-ble-check:0755:root:root"
 	"signalk-ble-check.service:/etc/systemd/system/signalk-ble-check.service:0644:root:root"
 	"signalk-ble-check.timer:/etc/systemd/system/signalk-ble-check.timer:0644:root:root"
+	"journald-symphony.conf:/etc/systemd/journald.conf.d/symphony.conf:0644:root:root"
 	"pypilot-web:/usr/local/bin/pypilot-web:0755:root:root"
 	"pypilot-web-launcher.conf:/etc/systemd/system/pypilot_web.service.d/symphony.conf:0644:root:root"
 	"apt-auto-upgrades.conf:/etc/apt/apt.conf.d/20auto-upgrades:0644:root:root"
@@ -83,6 +84,10 @@ INSTALL=(
 RESTART=(
 	"chrony"
 	"telegraf"
+	# journald rereads journald.conf only on restart, and vacuums to the new
+	# SystemMaxUse as it starts. Safe on systemd 252: services keep their
+	# stdout/stderr across the bounce.
+	"systemd-journald"
 )
 
 # System services that reread their config on reload. Same purpose as RESTART,
