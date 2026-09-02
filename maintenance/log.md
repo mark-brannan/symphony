@@ -390,3 +390,7 @@
   pinned upstream source, compose files for the boat and the dev box, and a
   runbook procedure. Built and run on the dev box only; the boat still runs
   pypilot natively.
+- Proved the containerized pypilot on the bench Pi: builds on arm64 in seven
+  minutes, reaches the i2c bus from inside the container, drives a real IMU
+  and serves its web UI. Still to check against the boat's own IMU and its
+  existing autopilot settings.

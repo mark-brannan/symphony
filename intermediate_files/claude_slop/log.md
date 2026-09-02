@@ -2231,3 +2231,53 @@ the real-IMU path are a separate bench session, carded on the board.
 Open call for Mark, put to him at wrap-up: whether the bench Pi has an IMU
 wired for that test, and whether the containerized pypilot is meant to be
 part of the swap-day trial or stays a PoC until after it.
+
+### Same session, follow-up — containerized pypilot proven on arm64
+
+Mark decided pypilot goes in a container on HALOS, superseding plan B4d's
+native `pip install` recipe. He then wired an IMU to the bench Pi, which made
+three of PR #37's four unknowns testable at home in one sitting.
+
+Sequence on `symphony-halos`, with `grafana`, `questdb`, `homarr` and
+`signalk-server` stopped to free memory (1029 MB available at the start of the
+build) and all four restarted and healthy afterwards:
+
+- **arm64 build: 416 s, exit 0** on the 2 GB Pi 4. Not marginal — it did not
+  OOM and did not need the swap headroom I expected it to.
+- **i2c passthrough: closed.** Host probe of `/dev/i2c-1` returned
+  `['0x48','0x68']`; the same probe inside a container run with
+  `--device /dev/i2c-1` returned the same two addresses. Device mapping works
+  on arm64 against real hardware.
+- **pypilot drives the IMU from inside the container.** `ICM-20948 init
+  complete`, `IMU all sensor axes verified`, `imu rate set to rate 20`,
+  `calibration loaded`, and the calibration written into the mounted volume.
+  zeroconf enumerated the host's interfaces including the docker bridges,
+  exactly as PR #37's compose comments describe.
+- **`pypilot_web` returns 200** in the container.
+
+**A correction to what I told Mark earlier this session.** I predicted the
+container would avoid the `allow_unsafe_werkzeug` crash by not having gevent
+installed, so Flask-SocketIO would fall to its `threading` branch — the one
+branch that consumes the kwarg. Wrong. The container logs `async mode gevent`
+and has gevent 26.8.0; it works because **Flask-SocketIO 5.6.1 fixed the bug**,
+where the boat's Debian-packaged 5.3.2 has it. The conclusion (the container is
+unaffected, `host/pypilot-web` is native-only) held, but the mechanism I gave
+was not the real one.
+
+**The gap that remains is a hardware mismatch, and it is worth being precise
+about.** The bench IMU is an **ICM-20948**; the boat's is an **MPU9250**. Both
+answer at 0x68 and RTIMULib supports both, so this is likely fine — but it is
+not the same chip, and "pypilot initialized the bench IMU" is not evidence
+about the boat's. Untested alongside it: whether pypilot master (0.71) reads
+the boat's 0.56 `~/.pypilot` state. That is the one with teeth, because a
+format mismatch loses the compass calibration silently rather than loudly.
+
+Left on the bench card deliberately: image `symphony/pypilot:test` and
+`/home/pi/pypilot-build/` (Dockerfile plus a `data/` volume). Rebuilding is
+seven minutes if a future session finds them gone.
+
+Also this session: PR #37 was `CONFLICTING`; merged main into it rather than
+rebasing, so no history was rewritten on another session's branch. Its kanban
+hunk now nets to zero and the card lives on main as its own commit — Mark's
+rule, no code mixed with kanban. Both log files were unioned, not chosen
+between. PR is `MERGEABLE` with twelve checks green.
