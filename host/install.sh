@@ -18,11 +18,21 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # units are installed and enabled below.
 BOAT_USER=pi
 
+# SignalK's own unit varies by host shape: native SignalK (signalk.service)
+# on the boat card, or SignalK in a container
+# (marine-signalk-server-container.service) on a HALOS card. Drop-ins for
+# whichever is present go in its .d directory.
+if systemctl cat signalk.service >/dev/null 2>&1; then
+	SIGNALK_UNIT=signalk.service
+else
+	SIGNALK_UNIT=marine-signalk-server-container.service
+fi
+
 # <source in host/>:<destination>:<mode>:<owner>:<group>
 INSTALL=(
 	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755:root:root"
 	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
-	"signalk-after-bluetooth.conf:/etc/systemd/system/signalk.service.d/after-bluetooth.conf:0644:root:root"
+	"signalk-after-bluetooth.conf:/etc/systemd/system/$SIGNALK_UNIT.d/after-bluetooth.conf:0644:root:root"
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
 	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
