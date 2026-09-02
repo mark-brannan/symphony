@@ -5,8 +5,8 @@
 # see .gitignore.
 #
 # Redacts before writing, case-insensitively: a command matching sops -d,
-# sudo -S, Authorization, psk=, token, password, or containing a heredoc
-# (<<) is logged as "[redacted: <pattern>]" only. A heredoc is the one case
+# sudo -S, Authorization, psk=, token, password, sshpass -p, or containing a
+# heredoc (<<) is logged as "[redacted: <pattern>]" only. A heredoc is the one case
 # where the secret is never on line 1, so that case logs its first line too
 # -- for the others the match itself is proof the whole line can carry the
 # value, so nothing of the command is kept. Everything else is logged
@@ -33,7 +33,7 @@ root=$(cd "${cwd:-.}" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null)
 # Order matters only for which pattern name gets reported when several
 # match -- the redaction itself is the same regardless.
 redact_pattern=""
-for p in 'sops -d' 'sudo -S' 'Authorization' 'psk=' 'token' 'password' '<<'; do
+for p in 'sops -d' 'sudo -S' 'Authorization' 'psk=' 'token' 'password' 'sshpass -p' '<<'; do
   case "$p" in
     '<<') printf '%s' "$cmd" | grep -qF -- '<<' && { redact_pattern="heredoc (<<)"; break; } ;;
     *)    printf '%s' "$cmd" | grep -qiF -- "$p" && { redact_pattern="$p"; break; } ;;
