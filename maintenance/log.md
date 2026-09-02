@@ -381,3 +381,8 @@
 - Landed the HALOS card-swap procedure, its check scripts and the host
   override files (PR #33). The bench card passed every preflight check
   after a reboot with the full stack running.
+- Built `ansible/` for the HALOS card: nine roles covering boot config, `can0`,
+  wifi and hostname identity, packages, host files and the SignalK container
+  overrides. Converged against `symphony-halos`; two consecutive runs at zero
+  changes, preflight all `ok`. Each card now writes its own heartbeat check
+  URL, which `host/install.sh` used to overwrite.

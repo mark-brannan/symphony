@@ -22,6 +22,7 @@ logged in `maintenance/log.md`.
 
 **Building and maintaining the host**
 - [Bringing up a host](#bringing-up-a-host)
+- [Provisioning a HALOS card with Ansible](#provisioning-a-halos-card-with-ansible)
 - [Installing host files](#installing-host-files)
 - [Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat)
 - [Swapping the HALOS card onto the boat](#swapping-the-halos-card-onto-the-boat)
@@ -455,6 +456,103 @@ before running it:
 - **If it minted a new `influxdb_signalk_token`:** update the `token` field
   in `signalk/plugin-config-data/signalk-to-influxdb2.json` and restart
   `signalk-server`.
+
+---
+
+## Provisioning a HALOS card with Ansible
+
+Builds a HALOS card's host layer: boot config, `can0`, wifi and hostname,
+packages, host files, and the SignalK container overrides. Not SignalK's plugin
+tree, not container application config, not the age key or the git filters — see
+[reference/host_provisioning.md](reference/host_provisioning.md) for where the
+line is and why.
+
+Run from a laptop over Tailscale, not from the card.
+
+### Before the first run
+
+On the control machine:
+
+```bash
+sudo apt install ansible
+ansible-galaxy collection list community.sops community.general
+```
+
+You also need `sops` on `PATH`, the age key at `~/.config/sops/age/keys.txt`,
+Tailscale up, and ssh to `pi@symphony-halos` on a key. The playbook reads
+`secrets/symphony.sops.yaml` on the *control* machine; nothing is installed on
+the card.
+
+On the card, wire the git filters once — Ansible warns about their absence but
+will not fix it, because the age key has to arrive out of band:
+
+```bash
+ssh pi@symphony-halos 'cd /home/pi/symphony && bash scripts/setup-git-filters.sh'
+```
+
+### Run it
+
+```bash
+cd ansible && ansible-playbook site.yml
+```
+
+Useful variants:
+
+```bash
+ansible-playbook site.yml --check --diff
+```
+
+```bash
+ansible-playbook site.yml --tags verify
+```
+
+```bash
+ansible-playbook site.yml -e symphony_allow_reboot=false
+```
+
+`--check --diff` changes nothing and prints every drift line; the read-only
+verification tasks still run under it. `--tags verify` audits a card without
+touching it. `symphony_allow_reboot=false` turns a needed reboot into a warning
+— use it on a card carrying live data, and reboot it yourself afterwards, or the
+running kernel stays behind `/boot/firmware`.
+
+To converge a card against work that has not landed yet:
+
+```bash
+ansible-playbook site.yml -e symphony_repo_version=claude/some-branch
+```
+
+### Verify
+
+Run it twice. The second run is the test:
+
+```bash
+cd ansible && ansible-playbook site.yml
+```
+
+`changed=0 failed=0` is the pass. Anything still changing on a second run is a
+task that is not idempotent, not a card that keeps drifting.
+
+Then, from a tailnet machine with sops access:
+
+```bash
+scripts/halos_preflight.sh
+```
+
+Every line must read `ok`.
+
+### Existing cards
+
+The card is never a fresh clone. Two traps on a card built before this playbook:
+
+- **A `sudo git` in its past.** Root-owned refs under
+  `/home/pi/symphony/.git/refs/` stop `pi` creating branches, and git reports it
+  as a lock file it cannot create rather than as an ownership problem. The
+  playbook repairs this; nothing else does.
+- **`/etc/boat-heartbeat.json` may hold the *other* card's check URL,** if that
+  card ran `host/install.sh` more recently. The playbook rewrites it from
+  `heartbeat_url` in that host's vars. Confirm which check a card pings before
+  assuming its silence means it is down.
 
 ---
 

@@ -1892,3 +1892,59 @@ runbook says.
 
 Boat after: load average 1.31 (from 13.2 at session start), 869 MB available,
 swap draining, no compositor anywhere, SignalK/Caddy/dex/questdb/ntfy all up.
+
+## 2026-09-02 — ansible/ built from the HALOS plan-v1 as-built
+
+Ported the Base OS, Network, Host services and SignalK container layers of
+`halos-build-v1-asbuilt.md` into nine Ansible roles and converged them against
+`symphony-halos` over Tailscale. Step-by-step record in
+[halos-build-v2-asbuilt.md](halos-build-v2-asbuilt.md); this file carries only
+what that one does not.
+
+**The acceptance evidence.** Two `--check --diff` passes, then four converges.
+Runs 3 and 4 both came back `ok=60 changed=0 failed=0`, and
+`scripts/halos_preflight.sh` returned every line `ok` afterwards — 337 MB
+available, the same twelve `ok` lines as before the session started. Nothing
+about the pre-swap baseline moved.
+
+Mark chose "full converge now" over the recommended check-only when asked up
+front. That was the right call in hindsight: three of the four defects below
+were only reachable by actually writing to the card.
+
+**Four defects, and where each was caught.**
+
+1. `--check` pass 1: `lineinfile` keyed on `item.split('=')[0]` made all three
+   `dtparam=` lines in `config.txt` look like one setting, so each loop item
+   overwrote the previous item's line. `dtparam` is a namespace, not a key.
+   A check-mode diff showed it directly; nothing else would have, because the
+   end state after a full loop is still *a* valid config.txt.
+2. `--check` pass 1: read-only verification commands are skipped in check mode,
+   so the assertions downstream of them had nothing to read. Fixed with
+   `check_mode: false`, which also makes `--check` usable as a card audit.
+3. Converge 3: `.git/refs/heads/claude/`, the pack files and `.git/config` on
+   the card were root-owned, left by a `sudo git` during the v1 build, so `pi`
+   could not create a branch. Git reports this as a lock file it cannot create,
+   which reads like a stale lock. Cost most of an hour before the ownership was
+   visible. Now repaired by `roles/repo` rather than by hand.
+4. Converge 2: one task still changed on every run — `/etc/boat-heartbeat.json`,
+   because `host/install.sh` on the card (from `main`) predated the `keep` flag
+   and rewrote it each time for Ansible to rewrite back. Visible only because
+   the run was repeated; a single converge looks clean.
+
+**Self-correction.** The first attempt at converge 3 left the card's index
+partially staged. `git reset --hard` on it was denied by the user-scope hook —
+correctly; the redirect was better. The staged tree was preserved as a commit on
+a local branch `salvage/ansible-partial-checkout` rather than discarded, and the
+card is back on a clean `main`. That branch is carded for deletion.
+
+**One deliberate deviation from the card's current bytes.**
+`roles/identity/files/halos-hostnames.conf` carries HALOS's vendor comment
+header verbatim, so a HALOS update to that header gets re-asserted away on the
+next converge. The alternative was markers inside a file HALOS parses. The
+header is entirely comments, so the cost is cosmetic — but it is a pin, and it
+is worth knowing it is there.
+
+**Scope held.** Steps 31–42 (SignalK state) stayed a documented procedure, per
+the brief and per `reference/host_provisioning.md`. Steps 43–47 were left out
+because the brief named four layers; the one `[artifact]` among them, the
+Traefik router file, is carded.
