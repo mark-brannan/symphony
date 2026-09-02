@@ -61,6 +61,9 @@
     executable: /bin/bash
   register: cert_sans
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   tags: [verify]
 
 - name: step 17 | the certificate covers all three names

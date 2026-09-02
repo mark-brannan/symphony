@@ -30,7 +30,7 @@
 
 - name: step 22 | installer output
   ansible.builtin.debug:
-    var: install_sh.stdout_lines
+    var: install_sh.stdout_lines | default(['not run (check mode)'])
   tags: [verify]
 
 - name: step 23 | note when the installer stopped early
@@ -40,13 +40,16 @@
       unit, which does not start on a HALOS card. Files, service restarts and
       timer enables all completed; the root crontab section did not run. Its
       only entry is the commented-out nightly reboot, so nothing is missing.
-  when: install_sh.rc != 0
+  when: install_sh.rc | default(0) != 0
   tags: [verify]
 
 - name: step 26 | the installer's timers are enabled and running
   ansible.builtin.command: systemctl is-active boat-heartbeat.timer signalk-ble-check.timer
   register: installer_timers
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   failed_when: false
   tags: [verify]
 

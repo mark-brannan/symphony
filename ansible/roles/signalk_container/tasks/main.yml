@@ -41,6 +41,9 @@
     argv: [docker, exec, signalk-server, python3, -c, "open('/dev/i2c-1')"]
   register: i2c_open
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   failed_when: false
   tags: [verify]
 
@@ -49,6 +52,9 @@
     docker inspect signalk-server --format {% raw %}'{{json .HostConfig.GroupAdd}}'{% endraw %}
   register: sk_group_add
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   tags: [verify]
 
 - name: step 30 | healthcheck that actually took effect
@@ -56,6 +62,9 @@
     docker inspect signalk-server --format {% raw %}'{{json .Config.Healthcheck}}'{% endraw %}
   register: sk_healthcheck
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   tags: [verify]
 
 - name: step 30 | both overrides are live

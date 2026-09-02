@@ -22,6 +22,11 @@ boat_domain: "{{ symphony_secrets.boat_domain }}"
 # symlink and the local plugin forks all assume this path.
 symphony_repo_dir: /home/pi/symphony
 
+# Which ref the card checks out. `main` is right for a card in service; point it
+# at a branch to converge a card against work that has not landed yet:
+#   ansible-playbook site.yml -e symphony_repo_version=claude/some-branch
+symphony_repo_version: main
+
 # Reboot when a change needs one (boot firmware config, kernel cmdline).
 # True is right for a fresh card, which is the acceptance test; set false on
 # the command line when converging a card that is carrying live data:

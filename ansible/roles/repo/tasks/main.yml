@@ -6,12 +6,15 @@
   ansible.builtin.git:
     repo: https://github.com/mark-brannan/symphony.git
     dest: "{{ symphony_repo_dir }}"
-    version: main
+    version: "{{ symphony_repo_version }}"
     update: true
     # Never force. A checkout on a card is not disposable: sops- and
     # hostvars-filtered files read as modified whenever the filters are not
     # wired up, and a reset --hard would delete whatever a session left there.
     force: false
+  # --diff on this task prints the whole pending repo diff -- eleven thousand
+  # lines of it -- which buries every other line of the run.
+  diff: false
   become_user: pi
   become: true
   register: repo_checkout
@@ -24,6 +27,9 @@
   become: true
   register: sops_filter
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   failed_when: false
   tags: [verify]
 

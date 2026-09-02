@@ -72,6 +72,9 @@
   ansible.builtin.command: systemctl is-active telegraf chrony
   register: base_services
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   failed_when: false
   tags: [verify]
 
@@ -84,6 +87,9 @@
   ansible.builtin.command: chronyc tracking
   register: chrony_tracking
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   tags: [verify]
 
 - name: step 26 | report the clock

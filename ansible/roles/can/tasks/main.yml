@@ -34,6 +34,9 @@
   ansible.builtin.command: ip -details link show can0
   register: can_link
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   failed_when: false
   tags: [verify]
   # The PiCAN-M HAT is on the boat, not the bench, so a missing can0 here is
