@@ -2001,3 +2001,33 @@ the N2K bus, consistent with the pypilot observation above.
 Card status: "calm the boat before the baseline" is closed on its own terms —
 load 13.2 → ~1.6, and the baseline can be taken on a quiet, freshly booted
 box.
+
+### Same session — nightly reboot rejected; the actual gap is liveness detection
+
+Mark: "I don't like the nightly-reboot unless we really need it. Are there
+other ways to address these problems besides a bounce?" Checked rather than
+argued. He is right — a nightly reboot would have addressed almost nothing
+that 12 days of uptime actually cost:
+
+- Six spinning compositors: gone structurally, the box is headless now.
+- Swap exhaustion: those compositors caused it. `swapoff -a && swapon -a`
+  reclaims it live if it ever recurs; no reboot needed.
+- journald growth: wants a `SystemMaxUse` cap, already carded.
+- SignalK memory: **not** a leak. 1,334,180 KB RSS at 49 minutes uptime — a
+  baseline, not a growth curve, so a reboot recovers nothing.
+- Total hang: the hardware watchdog already covers it
+  (`RuntimeWatchdogSec=30`, `RebootWatchdogSec=2min`).
+
+The one thing a nightly reboot genuinely bought was bounding the QuestDB
+wedge — and it bought it badly, at up to 24 h of dead ingest.
+
+Measured the real gap: `dex`, `questdb` and `ntfy` all have **no
+healthcheck** (`.Config.Healthcheck` empty, health state `-`) and there is no
+autoheal container on the boat. All three are `unless-stopped`, which only
+fires on process *exit*. QuestDB never exited. Nothing on the box could have
+detected it. Carded, with the instruction to reuse `host/halos/`'s existing
+healthcheck + autoheal pattern rather than invent one.
+
+Trap noted on the card: `vcgencmd get_throttled` is sticky-since-boot, so it
+reports history, not current state — it read `0xe0000` before the reboot and
+`0x0` after, with no change to the hardware.
