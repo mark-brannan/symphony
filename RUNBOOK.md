@@ -24,6 +24,7 @@ logged in `maintenance/log.md`.
 - [Bringing up a host](#bringing-up-a-host)
 - [Installing host files](#installing-host-files)
 - [Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat)
+- [Container liveness — healthchecks and autoheal](#container-liveness--healthchecks-and-autoheal)
 - [Swapping the HALOS card onto the boat](#swapping-the-halos-card-onto-the-boat)
 - [Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi)
 - [Starting a desktop on the boat Pi on demand](#starting-a-desktop-on-the-boat-pi-on-demand)
@@ -582,6 +583,120 @@ journalctl -t nightly-reboot --since yesterday
 ```
 
 ---
+
+## Container liveness — healthchecks and autoheal
+
+Every container in this stack carries a healthcheck, and `autoheal`
+(`compose-autoheal.yml`) restarts any that goes `unhealthy`. This exists
+because `restart: unless-stopped` fires only when a process *exits*: on
+2026-09-02 QuestDB spun at 250 % CPU for eleven hours, accepting the socket
+and never answering, while `docker ps` said `Up 12 days`.
+
+### Check the current state
+
+```bash
+ssh pi@symphony-pi 'docker ps --format "{{.Names}}\t{{.Status}}"'
+```
+
+Every line must read `(healthy)`. A container with no health word at all has
+no healthcheck — that is the failure this section exists to prevent, not a
+container that happens to be fine.
+
+If one is unhealthy, read the probe's own output before restarting anything:
+
+```bash
+ssh pi@symphony-pi 'docker inspect questdb --format "{{json .State.Health}}"' | python3 -m json.tool
+```
+
+`FailingStreak` and the last `Log` entry's `ExitCode`/`Output` say which
+probe failed and how. Curl exit 28 (timeout) against a container burning CPU
+is the wedge signature; exit 7 (refused) is an ordinary crash.
+
+What autoheal has restarted, and when:
+
+```bash
+ssh pi@symphony-pi 'docker logs autoheal --since 24h'
+```
+
+### Deploy a compose change to the boat
+
+```bash
+ssh pi@symphony-pi
+cd ~/symphony && git pull
+docker compose --profile tls up -d questdb ntfy dex autoheal
+```
+
+**Name the services explicitly.** The boat runs SignalK, InfluxDB, Grafana
+and Caddy as native systemd units, but `docker-compose.yml` `include`s a
+service for each of them. A bare `docker compose up -d` there starts
+containers that fight the native processes for ports 3000, 8086, 3001 and
+443. The same trap is spelled out for `dex` under
+[Deploy (on the boat)](#4--deploy-on-the-boat); it applies to every compose
+command run on the boat.
+
+*Verify:* the `docker ps` check above, ~90 s later, once each probe has run.
+
+### Add a healthcheck to a new service
+
+Two things, in the same block, or the service is only half covered:
+
+```yaml
+    healthcheck:
+      test: ["CMD-SHELL", "<probe>"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    labels:
+      autoheal: "true"
+```
+
+- **Probe the request path, not the port.** QuestDB's wedge kept the
+  listening socket open the whole time. `select 1` through `/exec` is what
+  catches it; `curl http://host:9000/` would not have.
+- **Check what the image actually has.** `questdb` ships `curl` and no
+  `wget`; `dex` and `ntfy` ship busybox `wget` and no `curl`.
+- **Without the `autoheal: "true"` label nothing restarts it.** Autoheal is
+  configured for label opt-in, so a healthcheck alone gets you a red word in
+  `docker ps` and no action.
+- **Set `start_period` from a measured cold start, then multiply.** Too
+  tight is the expensive mistake: a 60 s window against SignalK's 3–4 min
+  cold start had autoheal restarting it every ~3 min on the HALOS card
+  (`host/halos/signalk-healthcheck-override.yml`). Measure with:
+
+  ```bash
+  ssh pi@symphony-pi 'c=questdb; s=$(date +%s); docker restart $c >/dev/null
+    until docker exec $c curl -sf -o /dev/null "http://127.0.0.1:9000/exec?query=select%201"; do sleep 1; done
+    echo "ready after $(( $(date +%s) - s ))s"'
+  ```
+
+### Test that it actually restarts
+
+A healthcheck that has never failed is untested. Simulate the wedge —
+a spinning process that never exits — by freezing the container's process:
+
+```bash
+ssh pi@symphony-pi 'pid=$(docker inspect -f "{{.State.Pid}}" ntfy); sudo kill -STOP $pid'
+```
+
+Then watch `docker ps`. Expect `(healthy)` → `(unhealthy)` after
+`retries × interval`, then a restart by autoheal within one
+`AUTOHEAL_INTERVAL`. Measured on the boat 2026-09-02: **132 s** from the
+SIGSTOP to a healthy ntfy again. The restart clears the SIGSTOP, so there
+is nothing to undo. If you abort early, `sudo kill -CONT $pid` unfreezes it.
+
+A wedged container burns the whole stop timeout before SIGKILL, so expect
+roughly 30 s of dead air between autoheal's log line and the container
+actually coming back. That is the wait working, not a hang.
+
+Use `ntfy` for this. It is the cheapest container to interrupt; QuestDB
+loses history writes and Dex logs everyone out.
+
+### If a container flaps
+
+Repeated restarts in `docker logs autoheal` mean the probe is losing a race,
+not that the service is broken. Do not tighten anything — raise
+`start_period` on that service, redeploy, and only then look for a fault.
 
 ## Turning on the off-boat heartbeat
 
