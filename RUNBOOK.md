@@ -654,6 +654,20 @@ ok    ntfy       health 200
 ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x ... symphony-pi 100.x.x.x <- current symphony-halos 100.x.x.x
 ```
 
+`dns_cutover.sh`'s read path (`status`) runs on every preflight; the write
+path (`set`) does not, and the boat is the wrong place to find out it's
+broken. Exercise it once from home, on both cards, before packing up:
+
+```bash
+scripts/dns_cutover.sh set symphony-halos -y
+dig +short symphony.dark-star-llc.com @1.1.1.1    # the halos tailnet IP
+scripts/dns_cutover.sh set symphony-pi -y
+dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card's IP
+```
+
+About ten minutes of off-boat access, including the 300 s propagation
+window each way.
+
 ### At the boat
 
 1. Baseline the boat card:
@@ -671,18 +685,8 @@ ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x ... symphony-pi 100.x
 3. Swap the cards. The boat card goes in your pocket; it is the only copy of
    the QuestDB history and `~/influx-export`.
 4. Reconnect the Micro-C. Wait three minutes.
-5. Cut public DNS over (on-boat devices need nothing; the router override
-   follows the Pi's MAC):
-
-   ```bash
-   scripts/dns_cutover.sh set symphony-halos
-   ```
-
-   ```
-   A symphony.dark-star-llc.com -> 100.x.x.x. Public resolvers follow within 300 s
-   ```
-
-6. Check every core function:
+5. Check every core function, over Tailscale — this doesn't touch public
+   DNS, so it's safe to run before traffic moves:
 
    ```bash
    scripts/halos_swap_check.sh
@@ -701,7 +705,20 @@ ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x ... symphony-pi 100.x
    ```
 
    `ble` and `bme680` can take ten minutes after boot; rerun. A `ble` FAIL
-   after that is "BLE sensors go silent after a reboot".
+   after that is "BLE sensors go silent after a reboot". Don't move on to
+   DNS until this is all `ok` — a slow boot otherwise moves public traffic
+   to a node that isn't ready yet.
+
+6. Cut public DNS over (on-boat devices need nothing; the router override
+   follows the Pi's MAC):
+
+   ```bash
+   scripts/dns_cutover.sh set symphony-halos
+   ```
+
+   ```
+   A symphony.dark-star-llc.com -> 100.x.x.x. Public resolvers follow within 300 s
+   ```
 
 7. Phone on the boat WiFi: install the certificate from
    `https://signalk.symphony.dark-star-llc.com/ca/`, then open
@@ -710,11 +727,12 @@ ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x ... symphony-pi 100.x
 
 ### Rolling back
 
-Unplug the Micro-C, swap the boat card in, plug in, wait three minutes, then:
+Unplug the Micro-C, swap the boat card in, plug in, wait three minutes, then
+check readiness before moving DNS back — same order as the swap itself:
 
 ```bash
-scripts/dns_cutover.sh set symphony-pi
 scripts/halos_swap_check.sh symphony-pi
+scripts/dns_cutover.sh set symphony-pi
 ```
 
 Nothing on the boat card is changed by the trial.

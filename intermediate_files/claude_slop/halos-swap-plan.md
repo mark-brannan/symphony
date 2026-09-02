@@ -14,7 +14,9 @@ boxes on 2026-09-01.
   was purged 2026-08-25; its export is only on the boat card. Remove HALOS's
   InfluxDB app (it fails to start), keep `signalk-to-influxdb2` disabled.
   The boat's QuestDB history (1.8 GB) stays on the old card; a stopped-db
-  directory copy can merge it later.
+  directory copy would *replace* HALOS's history with the boat's, not merge
+  the two. Combining them later needs an ILP re-export (`Table2Ilp` or the
+  REST export) into the running HALOS instance.
 - **SSO and TLS: HALOS as shipped.** Hostname `signalk`, domain
   `symphony.dark-star-llc.com`; HALOS derives the FQDN, puts it in the
   device-CA cert and every login redirect. Install the CA on the phone and
@@ -110,12 +112,27 @@ without the HAT — that is expected at home). `can0` is verified at the boat.
 
 ### B2 — network identity (B2a/B2b need S1)
 
-**B2a. Boat WiFi.** `nmcli con add type wifi ifname wlan0 con-name Symphony ssid Symphony wifi-sec.key-mgmt wpa-psk wifi-sec.psk <from sops>`.
+**B2a. Boat WiFi.** Don't pass the PSK as an `nmcli` argument — it would sit
+in shell history and process listings. Decrypt it locally and write a
+keyfile instead:
+
+```
+sops -d --extract '["<sops key for the Symphony PSK>"]' secrets/symphony.sops.yaml > /tmp/symphony.psk
+printf '[connection]\nid=Symphony\ntype=wifi\ninterface-name=wlan0\n\n[wifi]\nmode=infrastructure\nssid=Symphony\n\n[wifi-security]\nkey-mgmt=wpa-psk\npsk=%s\n\n[ipv4]\nmethod=auto\n\n[ipv6]\nmethod=auto\n' "$(cat /tmp/symphony.psk)" > /tmp/Symphony.nmconnection
+scp /tmp/Symphony.nmconnection pi@192.168.0.193:/tmp/
+rm /tmp/symphony.psk /tmp/Symphony.nmconnection
+ssh pi@192.168.0.193 'sudo install -m 0600 -o root -g root /tmp/Symphony.nmconnection /etc/NetworkManager/system-connections/Symphony.nmconnection && rm /tmp/Symphony.nmconnection && sudo nmcli con reload'
+```
+
 The home network profile (`TP-Link_397D`) stays; NM picks whichever is
 present. *Verify:* `nmcli -t -f NAME con show | grep ^Symphony`.
 
 **B2b. Hotspot.** Rename HALOS's AP so boat devices reconnect without
-changes: `nmcli con modify Halos-AP 802-11-wireless.ssid SignalK wifi-sec.psk <from sops>`.
+changes. Same keyfile approach — edit HALOS's existing
+`/etc/NetworkManager/system-connections/Halos-AP.nmconnection` in place
+rather than passing the PSK on the `nmcli` command line: `scp` it down,
+change `ssid=` to `SignalK` and `psk=` to the sops value locally, `scp` it
+back over the original (mode stays 0600), then `sudo nmcli con reload`.
 The boat's hotspot is SSID `SignalK`, `ipv4.method shared`, 10.42.0.1 —
 identical addressing to HALOS's, only the SSID and key differ. *Verify:*
 `nmcli -f 802-11-wireless.ssid con show Halos-AP` prints `SignalK`, and a
@@ -143,9 +160,15 @@ and `ssh pi@symphony-halos hostname` prints `signalk`.
 ### B3 — SignalK state (needs nothing; B3c needs B3a and B3b)
 
 **B3a. Copy the boat's state dir.** From halos (home-fleet → symphony-devices
-SSH is allowed by policy), over the boat's cellular link, small:
+SSH is allowed by policy), over the boat's cellular link, small. Keep
+HALOS's own `package.json` aside *first* — the rsync below has no exclude
+for it, so it overwrites HALOS's package with the boat's, and a backup
+taken after the fact would only capture the boat's copy, not HALOS's
+original:
 
 ```
+D=/var/lib/container-apps/marine-signalk-server-container/data/data
+cp "$D/package.json" /home/pi/package.json.halos
 rsync -av --exclude node_modules --exclude appstore-cache --exclude 'skserver-raw_*' \
   --exclude '*.bak*' --exclude '*.deb' --exclude signalk-server --exclude 'ssl-*.pem' \
   pi@symphony-pi:.signalk/ "$D"/
@@ -156,8 +179,7 @@ provider, `uniqueNumber` 368391, `bleApi.localBluetoothManaged: false`),
 `security.json` (3 users incl. `captain`), all ~90 `plugin-config-data`
 files, `red/` (Node-RED flows), `applicationData`, `serverState`,
 `baseDeltas.json`, `priorities.json`. It overwrites HALOS's default
-`settings.json` (whose only provider was gpsd, not wanted). Keep HALOS's
-`package.json` aside first: `cp "$D/package.json" "$D/package.json.halos"`.
+`settings.json` (whose only provider was gpsd, not wanted).
 
 **B3b. Local plugin forks.** `mkdir "$D/local-plugins"`, then
 `rsync -a --exclude node_modules --exclude .git pi@symphony-pi:bt-sensors-plugin-sk/ "$D/local-plugins/bt-sensors-plugin-sk/"`
@@ -190,13 +212,22 @@ Disable in `plugin-config-data` (set `"enabled": false`):
 Leave `pypilot-autopilot-provider.json` as it is; with no pypilot it logs a
 connection error and nothing else.
 
+Before editing `venus.json`, make the Cerbo's DHCP reservation a
+precondition, not a someday-item — without it, a lease change silently
+breaks `MQTT.host` and the container has no `.local` name to fall back on:
+`ssh pi@symphony-pi 'ssh root@192.168.8.1 "uci show dhcp | grep -i cerbo"'`
+(or match on the Cerbo's MAC if it isn't named). If there is no reservation
+yet, add one on the boat router before continuing.
+
 Edit `venus.json`: `MQTT.host` from `venus.local` to `192.168.8.107` (the
 Cerbo's LAN IP, measured on the boat via mDNS). The container's
 `nsswitch.conf` is `files dns`, so `.local` names never resolve in there.
-Add a DHCP reservation for the Cerbo on the boat router when convenient;
-the RUNBOOK's router section has the access pattern.
 
-Restart the unit. *Verify:*
+Restart the unit. *Verify:* the raw counts below are a first signal only —
+`scripts/halos_preflight.sh` (run at B6) does the exact check, diffing
+`<plugin>.json <enabled>` pairs between the boat and HALOS and expecting
+exactly three differences (`signalk-container`, `signalk-to-influxdb2`,
+`signalk-to-influxdb-v2-buffer`, all disabled on HALOS only):
 `curl -s localhost:3000/skServer/plugins | python3 -c 'import json,sys; p=json.load(sys.stdin); print(len(p), sum(1 for x in p if x.get("data",{}).get("enabled")))'`
 gives roughly 90 total and 60 enabled;
 `journalctl -u marine-signalk-server-container -n 200 | grep -iE "EACCES|Cannot find module|watchdog|bt-sensors"` shows the two local plugins starting
@@ -279,7 +310,7 @@ To serve SignalK at `/` on that hostname only, add
 http:
   routers:
     symphony-signalk-host:
-      rule: "Host(`signalk.<boat-domain>`) && !PathPrefix(`/sso/`) && !PathPrefix(`/ca/`)"
+      rule: "Host(`signalk.<boat-domain>`) && !PathPrefix(`/sso/`) && !PathPrefix(`/ca/`) && !Path(`/sso`) && !Path(`/ca`)"
       entrypoints: [websecure]
       tls: {}
       priority: 50
@@ -291,11 +322,15 @@ http:
           - url: "http://host.docker.internal:3000"
 ```
 
-Traefik watches that directory; no restart. Homarr's router is priority 1,
-Authelia's `/sso/` router uses default priority (rule length ~20), so 50
-wins for this host and the exclusions keep SSO and CA download working.
-*Verify:* `curl -sk -o /dev/null -w '%{http_code}\n' https://127.0.0.1/signalk -H 'Host: signalk.<boat-domain>'`
-is 200 and `.../sso/` still is. Untested; if it misbehaves, delete the file.
+`PathPrefix` alone doesn't match the bare `/sso` and `/ca` (no trailing
+slash) — only `/sso/...` and `/ca/...` — so the exact-path exclusions are
+needed too. Traefik watches that directory; no restart. Homarr's router is
+priority 1, Authelia's `/sso/` router uses default priority (rule length
+~20), so 50 wins for this host and the exclusions keep SSO and CA download
+working. *Verify*, all five: `curl -sk -o /dev/null -w '%{http_code}\n' -H 'Host: signalk.<boat-domain>' https://127.0.0.1<path>`
+for `/`, `/sso`, `/sso/`, `/ca`, `/ca/` — the first is 200 (SignalK), the
+other four go to Authelia/CA download, not SignalK. Untested; if it
+misbehaves, delete the file.
 
 ### B6 — reboot soak and image (needs everything above)
 
@@ -320,9 +355,9 @@ are on items above. Recommended model and effort are per item.
 | P7 old-card salvage (after the swap) | the boat card at home | Sonnet, low | With the old boat card in a reader or the spare Pi: copy `home/pi/influx-export`, `home/pi/keep-before-purge` and `var/lib/docker/volumes/symphony_questdb-data` to the dev box, verify SHA256SUMS, and record sizes in `intermediate_files/claude_slop/log.md`. |
 
 Left out on purpose: Dex and Caddy (they are the rollback and stay on the boat card), QuestDB
-history migration (old card holds it; merge later if HALOS is adopted),
-Grafana dashboards (HALOS provisions the datasource; panels are the open
-PR #25 question).
+history migration (old card holds it; an ILP re-export later if HALOS is
+adopted), Grafana dashboards (HALOS provisions the datasource; panels are
+the open PR #25 question).
 
 ## Observations for Mark, not in the plan
 
@@ -333,6 +368,7 @@ PR #25 question).
 - `signalk-healthcheck` is enabled on the boat card again (config keys
   `host`, `providers`, `mail`), against the inventory that said disabled. It
   is not the healthchecks.io path either way.
-- `NODE_TLS_REJECT_UNAUTHORIZED=0` is set by HALOS on its SignalK container.
-  Every plugin's outbound HTTPS skips certificate checks. Fine for a trial;
-  an upstream issue if HALOS is adopted.
+- `NODE_TLS_REJECT_UNAUTHORIZED=0` is set by HALOS's own package-owned
+  compose, not ours. It disables certificate checks process-wide: every
+  plugin's outbound HTTPS and the MQTT-TLS link to the Cerbo. Fine for a
+  trial; an upstream issue if HALOS is adopted.
