@@ -8,7 +8,7 @@
 # Nothing can be fetched at the boat, so every line must be ok.
 # shellcheck disable=SC2015,SC2016
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 HOST="${1:-symphony-halos}"
 BOAT=symphony-pi
@@ -81,7 +81,7 @@ rows=${out%% *}; age=${out##* }
 code=$(r "$HOST" "curl -s -m 10 -o /dev/null -w '%{http_code}' 127.0.0.1:8090/v1/health")
 [ "$code" = 200 ] && say ok ntfy "health 200" || say FAIL ntfy "http ${code:-none}"
 
-out=$(r "$HOST" "echo \$(curl -sk -m 15 -o /dev/null -w '%{http_code}' https://127.0.0.1:4430/signalk) \$(openssl s_client -connect 127.0.0.1:443 </dev/null 2>/dev/null | openssl x509 -noout -ext subjectAltName | grep -c signalk.$DOMAIN)")
+out=$(r "$HOST" "echo \$(curl -sk -m 15 --resolve signalk.$DOMAIN:4430:127.0.0.1 -o /dev/null -w '%{http_code}' https://signalk.$DOMAIN:4430/signalk) \$(openssl s_client -connect 127.0.0.1:443 </dev/null 2>/dev/null | openssl x509 -noout -ext subjectAltName | grep -c signalk.$DOMAIN)")
 [ "$out" = "200 1" ] && say ok front "Traefik :4430 -> SignalK 200; device cert has signalk.$DOMAIN" || say FAIL front "http/san: $out (want: 200 1)"
 
 out=$(r "$HOST" 'free -m | awk "/Mem:/{print \$7}"; awk "/SwapTotal/{t=\$2} /SwapFree/{f=\$2} END{print int((t-f)/1024)}" /proc/meminfo' | paste -sd" ")

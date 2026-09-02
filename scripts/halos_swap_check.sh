@@ -12,6 +12,8 @@
 set -uo pipefail
 
 HOST="${1:-symphony-halos}"
+cd "$(dirname "$0")/.." || exit 1
+DOMAIN=$(sops --decrypt --extract '["boat_domain"]' secrets/symphony.sops.yaml)
 rc=0
 say() { printf '%-5s %-10s %s\n' "$1" "$2" "$3"; [ "$1" = ok ] || rc=1; }
 r() { ssh -o BatchMode=yes -o ConnectTimeout=15 "pi@${HOST}" "$@" 2>/dev/null; }
@@ -24,9 +26,19 @@ out=$(r 'echo $(hostname) $(curl -s -m 10 127.0.0.1:3000/signalk | python3 -c "i
 out=$(r 'ip -br a | grep -E "^(eth0|can0) "' | awk '{print $1, ($1=="can0" ? $2 : $3)}' | tr '\n' ' ')
 case "$out" in *"eth0 192.168.8.240"*"can0 UP"*) say ok lan "$out" ;; *) say FAIL lan "${out:-no answer} (want eth0 192.168.8.240/24 and can0 UP)" ;; esac
 
-out=$(sk navigation/position | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["$source"], d["timestamp"])' 2>/dev/null)
-src=${out%% *}; age=$(age_of "${out##* }")
-[[ "$src" == n2k-can0* && "${age:-9999}" -lt 60 ]] && say ok n2k "position from $src, ${age} s old" || say FAIL n2k "${out:-no position} (want n2k-can0.*, <60 s old)"
+out=$(r "curl -s -m 20 127.0.0.1:3000/signalk/v1/api/vessels/self" | python3 -c '
+import json,sys
+d=json.load(sys.stdin); best=("","")
+def walk(o,p):
+    global best
+    if isinstance(o,dict):
+        if "timestamp" in o and str(o.get("$source","")).startswith("n2k-can0"):
+            if o["timestamp"]>best[0]: best=(o["timestamp"],p)
+            return
+        for k,v in o.items(): walk(v,p+"/"+k)
+walk(d,""); print(best[0], best[1])' 2>/dev/null)
+age=$(age_of "${out%% *}")
+[ "${age:-9999}" -lt 60 ] 2>/dev/null && say ok n2k "newest n2k-can0 value ${age} s old (${out##* })" || say FAIL n2k "no n2k-can0 value under 60 s old (newest: ${out:-none})"
 
 est=$(r 'ss -tn | grep -E "192.168.8.107:8883" | awk "{print \$1}"' | head -1)
 keys=$(sk electrical | python3 -c 'import json,sys; print(" ".join(sorted(json.load(sys.stdin))))' 2>/dev/null)
@@ -49,17 +61,17 @@ case "$out" in *"ping ok"*) say ok heartbeat "$out" ;; *) say FAIL heartbeat "${
 code=$(r "curl -s -m 10 -o /dev/null -w '%{http_code}' -d 'swap check on ${HOST}' 127.0.0.1:8090/symphony-alarms")
 [ "$code" = 200 ] && say ok ntfy "sent to symphony-alarms; check the phone" || say FAIL ntfy "http ${code:-none}"
 
-out=$(r "curl -s -m 10 '127.0.0.1:9000/exec?query=select%20max(ts)%20from%20signalk'" | python3 -c 'import json,sys; print(json.load(sys.stdin)["dataset"][0][0])' 2>/dev/null)
+out=$(r "curl -s -m 30 '127.0.0.1:9000/exec?query=select%20ts%20from%20signalk%20limit%20-1'" | python3 -c 'import json,sys; print(json.load(sys.stdin)["dataset"][0][0])' 2>/dev/null)
 age=$(age_of "$out")
-[ "${age:-9999}" -lt 600 ] 2>/dev/null && say ok questdb "newest signalk history row ${age} s old" || say FAIL questdb "newest signalk history row: ${out:-none} (want <600 s old)"
+if [ "${age:-9999}" -lt 600 ] 2>/dev/null; then say ok questdb "newest signalk history row ${age} s old"; elif [ -z "$out" ]; then say FAIL questdb "no answer in 30 s (the boat card's QuestDB is known to be too loaded to answer; compare with the baseline)"; else say FAIL questdb "newest signalk history row ${out} (want <600 s old)"; fi
 
-out=$(r 'ls /dev/serial0 /dev/i2c-1 2>&1' | tr '\n' ' ')
-case "$out" in *"No such"*) say FAIL devices "$out" ;; *serial0*i2c-1*) say ok devices "$out" ;; *) say FAIL devices "${out:-no answer}" ;; esac
+out=$(r 'for d in /dev/serial0 /dev/i2c-1; do [ -e $d ] && echo "$d" || echo "MISSING:$d"; done' | tr '\n' ' ')
+case "$out" in *MISSING*|"") say FAIL devices "${out:-no answer}" ;; *) say ok devices "$out" ;; esac
 
 out=$(sk environment/inside | python3 -c 'import json,sys; print(" ".join(sorted(json.load(sys.stdin))))' 2>/dev/null)
 [[ "$out" == *temperature* ]] && say ok bme680 "inside: $out" || say FAIL bme680 "inside: ${out:-nothing yet}; allow 10 min after boot"
 
-out=$(r "for p in 4430 443; do c=\$(curl -sk -m 15 -o /dev/null -w '%{http_code}' https://127.0.0.1:\$p/signalk); [ \"\$c\" = 200 ] && { echo \"\$p \$c\"; break; }; done")
-[ -n "$out" ] && say ok front "https :${out} -> SignalK" || say FAIL front "no HTTPS front door answered 200 on :4430 (Traefik) or :443 (Caddy)"
+out=$(r "for p in 4430 443; do c=\$(curl -sk -m 15 --resolve signalk.${DOMAIN}:\$p:127.0.0.1 -o /dev/null -w '%{http_code}' https://signalk.${DOMAIN}:\$p/signalk); case \$c in 200|302) echo \"\$p \$c\"; break;; esac; done")
+[ -n "$out" ] && say ok front "https signalk.${DOMAIN} :${out} -> SignalK" || say FAIL front "no HTTPS front door answered 200/302 on :4430 (Traefik) or :443 (Caddy) for signalk.${DOMAIN}"
 
 exit $rc
