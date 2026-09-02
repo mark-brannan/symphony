@@ -381,3 +381,7 @@
 - Landed the HALOS card-swap procedure, its check scripts and the host
   override files (PR #33). The bench card passed every preflight check
   after a reboot with the full stack running.
+- Added a containerized pypilot proof of concept: an image built from
+  pinned upstream source, compose files for the boat and the dev box, and a
+  runbook procedure. Built and run on the dev box only; the boat still runs
+  pypilot natively.

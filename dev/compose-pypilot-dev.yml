@@ -1,0 +1,47 @@
+# Dev-box pypilot: bridge networking, published ports, no I2C device.
+#
+# For proving the image builds and the daemon/web UI come up on a laptop.
+# Not a substitute for the real thing: with no IMU, imu.heading stays False,
+# the control loop is unpaced and logs "server/client is running too _slowly_",
+# and mDNS discovery of SignalK does not work across the bridge.
+#
+#   docker compose -f dev/compose-pypilot-dev.yml up -d --build
+#   curl -s -o /dev/null -w '%{http_code}\n' localhost:18000   # expect 200
+#   docker compose -f dev/compose-pypilot-dev.yml down -v
+#
+# Uses its own project name so it cannot collide with the symphony stack.
+
+name: pypilot-dev
+
+services:
+  pypilot:
+    build: ../pypilot
+    image: symphony/pypilot:local
+    restart: unless-stopped
+    # Every port for both containers is published here: pypilot-web shares
+    # this container's network namespace, and a container that does not own
+    # its namespace cannot publish ports.
+    ports:
+      - "127.0.0.1:23322:23322"
+      - "127.0.0.1:20220:20220"
+      - "127.0.0.1:18000:8000" # 18000 keeps the dev box's own :8000 free
+    volumes:
+      - pypilot-dev-data:/root/.pypilot
+    cap_add:
+      - SYS_NICE
+    ulimits:
+      rtprio: 99
+
+  pypilot-web:
+    image: symphony/pypilot:local
+    restart: unless-stopped
+    command: ["pypilot_web", "8000"]
+    # pypilot_web talks to the daemon over the pypilot container's network.
+    network_mode: "service:pypilot"
+    volumes:
+      - pypilot-dev-data:/root/.pypilot
+    depends_on:
+      - pypilot
+
+volumes:
+  pypilot-dev-data:

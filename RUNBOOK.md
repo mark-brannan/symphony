@@ -28,6 +28,9 @@ logged in `maintenance/log.md`.
 - [Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi)
 - [Upgrading the scanners](#upgrading-the-scanners)
 
+**Running the autopilot**
+- [pypilot in a container](#pypilot-in-a-container)
+
 **Secrets and encryption**
 - [Adding a secret](#adding-a-secret)
 - [Rotating a secret](#rotating-a-secret)
@@ -844,6 +847,112 @@ The scanners live in `secret-scan.yml`, not `validate.yml`. Nothing in
 `validate.yml` is version-pinned this way.
 
 ---
+
+## pypilot in a container
+
+Proof of concept, not the running autopilot. The boat still runs pypilot
+natively under OpenPlotter; nothing here replaces it. Design notes and what is
+still unverified: `reference/pypilot_containerization.md`. Both cannot run at
+once — they bind the same ports (8000, 20220, 23322).
+
+### Build and run it on a laptop
+
+No IMU needed. This is the check that the image still builds.
+
+```bash
+docker compose -f dev/compose-pypilot-dev.yml up -d --build
+sleep 30
+```
+
+*Verify:* `curl -s -o /dev/null -w '%{http_code}\n' localhost:18000` is 200,
+and both containers are up:
+
+```bash
+docker compose -f dev/compose-pypilot-dev.yml ps
+docker compose -f dev/compose-pypilot-dev.yml logs pypilot | grep realtime
+```
+
+The log line must read `made imu process realtime`. If it reads `failed to
+make ... realtime`, the `cap_add`/`ulimits` pair in the compose file did not
+take effect and the control loop is running at ordinary priority — the
+failure is otherwise silent. `imu.heading = False` is expected here: there is
+no IMU on a laptop.
+
+Tear down, including its data volume:
+
+```bash
+docker compose -f dev/compose-pypilot-dev.yml down -v
+```
+
+### Run it on a Pi with the IMU
+
+Only on a machine where pypilot is *not* already running natively. Stop the
+native one first if it is (`sudo systemctl stop pypilot pypilot_web`), and
+remember it will come back at the next reboot unless disabled.
+
+From the repo checkout on the Pi:
+
+```bash
+docker compose --profile pypilot up -d --build pypilot pypilot-web
+```
+
+Seed the calibration and the SignalK token before trusting anything it says —
+`RTIMULib.ini` holds the compass calibration, which is expensive to redo:
+
+```bash
+# from a machine that can reach the boat
+scp pi@symphony-pi:.pypilot/RTIMULib.ini pi@symphony-pi:.pypilot/signalk-token \
+    ./pypilot/data/
+sudo chown root:root pypilot/data/RTIMULib.ini pypilot/data/signalk-token
+docker compose --profile pypilot restart pypilot
+```
+
+*Verify,* in this order — each line distinguishes a different silent failure:
+
+```bash
+# the container can reach the bus at all (0x68 present = the MPU9250 answers)
+docker exec pypilot i2cdetect -y 1
+
+# realtime scheduling took effect
+docker logs pypilot 2>&1 | grep -i realtime
+
+# the IMU is actually producing a heading; tilt the Pi and run it again
+docker exec pypilot pypilot_client imu.heading imu.pitch imu.error
+
+# the web UI, which is also what the SignalK plugin talks to
+curl -s -o /dev/null -w '%{http_code}\n' localhost:8000
+```
+
+`imu.heading = False` with an empty `imu.error` means the daemon started but
+never got a reading — check `i2cdetect` first, then whether the native pypilot
+is still holding the bus.
+
+### Back up the state that matters
+
+Everything pypilot persists is in `pypilot/data/`, and none of it is tracked
+(it holds a SignalK token). Back it up off the box before rebuilding or
+re-imaging:
+
+```bash
+tar czf ~/pypilot-data-$(date +%Y%m%d).tgz -C pypilot data
+```
+
+*Verify:* `tar tzf ~/pypilot-data-*.tgz | grep RTIMULib.ini` prints a match.
+Without that file the compass calibration is gone and has to be redone by
+swinging the boat.
+
+### Rebuild after an upstream bump
+
+`PYPILOT_REF` in `pypilot/Dockerfile` pins one upstream commit. To move it,
+edit the ARG, then:
+
+```bash
+docker compose --profile pypilot up -d --build pypilot pypilot-web
+```
+
+*Verify:* `docker exec pypilot pip show pypilot | head -2` reports the version
+you expect, then re-run the four verification commands above. Do not bump it
+on the boat first.
 
 ## Adding a secret
 
