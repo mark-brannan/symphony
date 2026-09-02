@@ -16,19 +16,23 @@ D=/var/lib/container-apps/marine-signalk-server-container/data/data
 DOMAIN=$(sops --decrypt --extract '["boat_domain"]' secrets/symphony.sops.yaml)
 rc=0
 say() { printf '%-5s %-10s %s\n' "$1" "$2" "$3"; [ "$1" = ok ] || rc=1; }
-r() { ssh -o BatchMode=yes -o ConnectTimeout=15 "pi@$1" "$2" 2>/dev/null; }
+r() { ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 "pi@$1" "$2" 2>/dev/null; }
 
 # `id enabled version` per plugin from the running server, not from files: a
 # config file that exists but never loaded is exactly the failure to catch.
 # /skServer/plugins needs an admin login; the captain password goes over stdin.
 plugins() {
   printf '{"username":"captain","password":"%s"}' "$(sops --decrypt --extract '["signalk_captain_password"]' secrets/symphony.sops.yaml)" \
-    | ssh -o BatchMode=yes -o ConnectTimeout=15 "pi@$1" 'T=$(curl -s -m 20 -H "Content-Type: application/json" -X POST 127.0.0.1:3000/signalk/v1/auth/login --data-binary @- | python3 -c "import json,sys; print(json.load(sys.stdin).get(\"token\",\"\"))"); curl -s -m 30 -H "Authorization: Bearer $T" 127.0.0.1:3000/skServer/plugins' 2>/dev/null \
+    | ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 "pi@$1" 'T=$(curl -s -m 20 -H "Content-Type: application/json" -X POST 127.0.0.1:3000/signalk/v1/auth/login --data-binary @- | python3 -c "import json,sys; print(json.load(sys.stdin).get(\"token\",\"\"))"); curl -s -m 30 -H "Authorization: Bearer $T" 127.0.0.1:3000/skServer/plugins' 2>/dev/null \
     | python3 -c 'import json,sys
 for p in json.load(sys.stdin): print(p["id"], "on" if p.get("data",{}).get("enabled") else "off", p.get("version",""))' 2>/dev/null | sort
 }
 # Enabled on the boat, disabled on HALOS by decision (halos-swap-plan.md).
 EXPECT="signalk-container signalk-to-influxdb2 signalk-to-influxdb-v2-buffer signalk-notification-player"
+# Present on one card only, by the images rather than the build: app-dock is bundled
+# by the boat's npm server but not the HALOS image; polar-performance the reverse;
+# instrument-light is off on the boat and never loads on HALOS (serialport bindings).
+IMAGE_ONLY="signalk-app-dock signalk-polar-performance-plugin signalk-instrument-light-plugin"
 
 out=$(r "$HOST" 'echo $(hostname) $(hostname -d) $(cut -d= -f2 /run/halos/domain.env) $(tailscale status --self --peers=false | awk "{print \$2}")')
 [ "$out" = "signalk $DOMAIN signalk.$DOMAIN symphony-halos" ] && say ok host "$out" || say FAIL host "${out:-no answer} (want: signalk $DOMAIN signalk.$DOMAIN symphony-halos)"
@@ -49,12 +53,12 @@ if [ -z "$boatp" ] || [ -z "$hostp" ]; then
   say FAIL plugins "could not list plugins (boat: $(echo "$boatp" | grep -c .), $HOST: $(echo "$hostp" | grep -c .)) — login or server down"
 else
   # id+enabled must match except EXPECT (boat on, halos off); versions differ only for the two forks.
-  unexpected=$(diff <(echo "$boatp" | awk '{print $1, $2}') <(echo "$hostp" | awk '{print $1, $2}') | grep '^[<>]' | grep -vE "^[<>] (${EXPECT// /|}) " | tr '\n' ';')
+  unexpected=$(diff <(echo "$boatp" | awk '{print $1, $2}') <(echo "$hostp" | awk '{print $1, $2}') | grep '^[<>]' | grep -vE "^[<>] (${EXPECT// /|}|${IMAGE_ONLY// /|}) " | tr '\n' ';')
   absent=; for p in $EXPECT; do echo "$hostp" | grep -q "^$p off" || absent="$absent $p"; done
   pins=$(r "$HOST" "python3 -c 'import json; d=json.load(open(\"$D/package.json\"))[\"dependencies\"]; print(d.get(\"bt-sensors-plugin-sk\",\"MISSING\"), d.get(\"signalk-plugin-watchdog\",\"MISSING\"))'")
   fix=$(r "$HOST" "grep -c getBluetoothSession $D/local-plugins/bt-sensors-plugin-sk/index.js")
   if [ -z "$unexpected" ] && [ -z "$absent" ] && [ "$pins" = "file:local-plugins/bt-sensors-plugin-sk file:local-plugins/signalk-plugin-watchdog" ] && [ "${fix:-0}" -gt 0 ]; then
-    say ok plugins "$(echo "$hostp" | grep -c .) loaded, $(echo "$hostp" | grep -c ' on ') on; same set and states as the boat except the $(echo "$EXPECT" | wc -w) expected; forks pinned, D-Bus fix present"
+    say ok plugins "$(echo "$hostp" | grep -c .) loaded, $(echo "$hostp" | grep -c ' on ') on; same set and states as the boat except the $(echo "$EXPECT" | wc -w) expected-off and $(echo "$IMAGE_ONLY" | wc -w) image-only; forks pinned, D-Bus fix present"
   else
     say FAIL plugins "unexpected diffs (< boat, > $HOST): ${unexpected:-none}; expected-but-not-off:${absent:- none}; pins: $pins; fix grep: ${fix:-0}"
   fi

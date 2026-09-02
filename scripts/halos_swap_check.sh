@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.." || exit 1
 DOMAIN=$(sops --decrypt --extract '["boat_domain"]' secrets/symphony.sops.yaml)
 rc=0
 say() { printf '%-5s %-10s %s\n' "$1" "$2" "$3"; [ "$1" = ok ] || rc=1; }
-r() { ssh -o BatchMode=yes -o ConnectTimeout=15 "pi@${HOST}" "$@" 2>/dev/null; }
+r() { ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 "pi@${HOST}" "$@" 2>/dev/null; }
 sk() { r "curl -s -m 15 127.0.0.1:3000/signalk/v1/api/vessels/self/$1"; }
 age_of() { python3 -c 'import sys,datetime; t=sys.argv[1]; print(int((datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(t.replace("Z","+00:00"))).total_seconds()))' "$1" 2>/dev/null; }
 
