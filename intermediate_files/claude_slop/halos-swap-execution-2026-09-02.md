@@ -35,9 +35,14 @@ Done tonight, in order:
 - ntfy (B4c): up on :8090 from the repo compose, health 200.
 - zram: `systemd-zram-generator`, 1 GB zstd at priority 100 — bench aid so the
   2 GB box can run the full stack for a soak without SD-card swap thrash.
-- Hostname `signalk`, `hostname -d` = boat domain (B2c). **Open:** HALOS still
-  derives `HALOS_DOMAIN=signalk.local` — its canonical name is the first
-  entry of `/etc/halos/hostnames.conf`; being fixed.
+- Hostname `signalk`, `hostname -d` = boat domain (B2c). HALOS's canonical
+  name is the *first* entry of `/etc/halos/hostnames.conf`, so the order is
+  now `${fqdn}`, `${hostname}.local`, `${domain}` (the plan's literal
+  `symphony.<boat-domain>` line was wrong: `boat_domain` in sops *is* the
+  apex, so `${domain}` covers it). Result: `HALOS_DOMAIN=signalk.symphony.dark-star-llc.com`,
+  device cert SANs `signalk.local`, `signalk.symphony.dark-star-llc.com`,
+  `symphony.dark-star-llc.com` (07:27Z). SignalK restarted for the new
+  `extra_hosts` entry.
 
 ## Boat card (symphony-pi) — touched read-only except:
 
@@ -57,6 +62,12 @@ Done tonight, in order:
   from `signalk-fixed-position`, not N2K (N2K itself is live: water
   temperature fresh); QuestDB `signalk_position` last written 2026-08-20
   (`signalk` table is live).
+
+- Boat QuestDB is overloaded: `questdb` container at 164 % CPU, even the
+  metadata queries `tables()` / `wal_tables()` time out at 30 s, and the boat's
+  load average is 11.8 with 13 logged-in users (07:23Z). Pre-existing. The
+  swap check's `questdb` line needs a query that is cheap on the boat too, or
+  the runbook says the baseline may time out there.
 
 ## Not yet done
 
