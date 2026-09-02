@@ -1,0 +1,35 @@
+# Ported from host/install.sh's INSTALL array -- see
+# reference/host_provisioning.md's migration path. install.sh no longer owns
+# this path.
+
+- name: hardware watchdog manager settings
+  ansible.builtin.copy:
+    src: watchdog.conf
+    dest: /etc/systemd/system.conf.d/watchdog.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: re-exec systemd
+  # A [Manager] setting only takes effect on daemon-reexec; daemon-reload is
+  # not enough. The handler serializes and re-execs the whole manager, so the
+  # verify step below waits for it to finish first.
+
+- name: apply the manager settings before verifying them
+  ansible.builtin.meta: flush_handlers
+
+- name: the watchdog is armed
+  ansible.builtin.command: systemctl show -p RuntimeWatchdogUSec -p RebootWatchdogUSec
+  register: watchdog_settings
+  changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertion
+  # below has nothing to read and --check cannot be used to audit a card.
+  check_mode: false
+  tags: [verify]
+
+- name: report the watchdog
+  ansible.builtin.assert:
+    that:
+      - "'RuntimeWatchdogUSec=30' in watchdog_settings.stdout"
+    success_msg: "{{ watchdog_settings.stdout_lines }}"
+    fail_msg: "{{ watchdog_settings.stdout_lines }}"
+  tags: [verify]

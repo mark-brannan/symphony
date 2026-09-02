@@ -1,11 +1,23 @@
 # as-built v1 steps 19 and 24: telegraf's wiring, and the heartbeat's per-card
-# configuration.
+# configuration. The heartbeat script, unit and timer (below) are ported from
+# host/install.sh's INSTALL/ENABLE arrays -- see
+# reference/host_provisioning.md's migration path. install.sh no longer owns
+# those paths.
 #
 # Runs AFTER host_files, so Ansible is the last writer of
 # /etc/boat-heartbeat.json. install.sh no longer overwrites an existing copy,
 # but ordering it this way means the per-card value is correct even when the
 # card's checkout predates that fix -- which is exactly the case while this
 # work is still on a branch.
+
+- name: step 19 | telegraf's rpi-health exec input script
+  ansible.builtin.copy:
+    src: telegraf-rpi-health
+    dest: /usr/local/bin/telegraf-rpi-health
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart telegraf
 
 - name: step 19 | telegraf reads the repo's config
   ansible.builtin.file:
@@ -34,6 +46,30 @@
   # that owns the repo and the SignalK data, which is what the rpi-health
   # script and the QuestDB writer both assume.
 
+- name: step 24 | the heartbeat script
+  ansible.builtin.copy:
+    src: boat-heartbeat
+    dest: /usr/local/sbin/boat-heartbeat
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: step 24 | the heartbeat's oneshot unit
+  ansible.builtin.copy:
+    src: boat-heartbeat.service
+    dest: /etc/systemd/system/boat-heartbeat.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: step 24 | the heartbeat's timer
+  ansible.builtin.copy:
+    src: boat-heartbeat.timer
+    dest: /etc/systemd/system/boat-heartbeat.timer
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: step 24 | heartbeat configuration for THIS card
   ansible.builtin.template:
     src: boat-heartbeat.json.j2
@@ -47,9 +83,20 @@
   # checks, and host/install.sh's unconditional copy meant whichever card ran
   # the installer last silently took over the other's check -- so the card that
   # lost it went quiet and nothing alarmed, because the check was still being
-  # pinged. host/install.sh now leaves an existing file alone; Ansible is
-  # authoritative for the contents, per host_provisioning.md's "whichever one
-  # is authoritative for a given path should be the only one that writes it".
+  # pinged. host/install.sh now leaves an existing file alone (`keep`, for a
+  # card Ansible has not reached yet); Ansible is authoritative for the
+  # contents, per host_provisioning.md's "whichever one is authoritative for a
+  # given path should be the only one that writes it".
+
+- name: step 26 | the heartbeat timer is enabled and running
+  ansible.builtin.systemd_service:
+    name: boat-heartbeat.timer
+    daemon_reload: true
+    enabled: true
+    state: started
+  # daemon_reload unconditionally, matching install.sh's own unconditional
+  # `systemctl enable --now` -- cheap, and it's what picks up a changed unit
+  # or timer file without a separate notify/handler round trip.
 
 - name: step 26 | the heartbeat has run
   ansible.builtin.command: journalctl -t boat-heartbeat -n 1 --no-pager

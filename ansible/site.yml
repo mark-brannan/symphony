@@ -35,6 +35,10 @@
   #   identity decides the certificate SANs, so it precedes the front door
   #   base installs the packages monitoring and host_files then configure
   #   repo must exist before the telegraf symlink points into it
+  #   clock needs the chrony package base installs
+  #   host_files still runs what's left of host/install.sh; clock, watchdog,
+  #     claude-resident and monitoring are the pieces ported out of it, in
+  #     roughly the order install.sh's own INSTALL array used to run them
   #   monitoring runs LAST of the host-services roles so that Ansible, not
   #     host/install.sh, is the final writer of /etc/boat-heartbeat.json --
   #     true even against a checkout predating install.sh's `keep` flag
@@ -53,6 +57,12 @@
       tags: [repo, host_services]
     - role: host_files
       tags: [host_files, host_services]
+    - role: clock
+      tags: [clock, host_services]
+    - role: watchdog
+      tags: [watchdog, host_services]
+    - role: claude-resident
+      tags: [claude_resident, host_services]
     - role: monitoring
       tags: [monitoring, host_services]
     - role: signalk_container

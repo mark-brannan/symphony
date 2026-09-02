@@ -22,8 +22,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# The login user that owns the boat's interactive session. Its systemd --user
-# units are installed and enabled below.
+# The login user that owns the boat's interactive session.
 BOAT_USER=pi
 
 # Is this a boat card? Three questions, each answered once and by name, so
@@ -61,13 +60,7 @@ signalk_unit_detect
 # one card's version and overwriting the other card's is a silent regression.
 INSTALL=(
 	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755:root:root"
-	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
 	"signalk-after-bluetooth.conf:/etc/systemd/system/$SIGNALK_UNIT.d/after-bluetooth.conf:0644:root:root"
-	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
-	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
-	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
-	"telegraf-rpi-health:/usr/local/bin/telegraf-rpi-health:0755:root:root"
-	"boat-heartbeat:/usr/local/sbin/boat-heartbeat:0755:root:root"
 	# keep: the two cards ping two DIFFERENT healthchecks.io checks, and this
 	# file has room for one URL. Copying it unconditionally meant whichever
 	# card ran the installer last took over the other's check -- so the card
@@ -76,8 +69,6 @@ INSTALL=(
 	# host from sops; here it is a fallback for a card Ansible has not
 	# reached yet.
 	"boat-heartbeat.json:/etc/boat-heartbeat.json:0600:root:root:keep"
-	"boat-heartbeat.service:/etc/systemd/system/boat-heartbeat.service:0644:root:root"
-	"boat-heartbeat.timer:/etc/systemd/system/boat-heartbeat.timer:0644:root:root"
 	"signalk-unit.sh:/usr/local/lib/symphony/signalk-unit.sh:0644:root:root"
 	"signalk-ble-check:/usr/local/sbin/signalk-ble-check:0755:root:root"
 	"signalk-ble-check.service:/etc/systemd/system/signalk-ble-check.service:0644:root:root"
@@ -86,12 +77,16 @@ INSTALL=(
 	"apt-unattended-boat.conf:/etc/apt/apt.conf.d/52unattended-upgrades-boat:0644:root:root"
 )
 
+# The watchdog drop-in, chrony's conf.d file, claude-resident and the
+# heartbeat script/units are gone from here -- ported to ansible/roles/clock,
+# watchdog, claude-resident and monitoring. This installer no longer owns
+# those paths; reference/host_provisioning.md's migration path is explicit
+# that the two must not both own a file.
+
 # System services to restart after their config lands. Skipped when the unit
 # isn't present, so this file can carry config for a package that hasn't been
 # installed yet.
 RESTART=(
-	"chrony"
-	"telegraf"
 )
 
 # System services that reread their config on reload. Same purpose as RESTART,
@@ -105,7 +100,6 @@ RELOAD=(
 # file that lands in /etc/systemd/system does nothing until something enables
 # it, and forgetting that is how a change looks installed but never runs.
 ENABLE=(
-	"boat-heartbeat.timer"
 	"signalk-ble-check.timer"
 )
 
@@ -141,16 +135,17 @@ for spec in "${INSTALL[@]}"; do
 	echo "  $dest  ($mode $owner:$group)"
 	case "$dest" in
 	/etc/systemd/*) reexec=yes ;;
-	*/.config/systemd/user/*) user_units=yes ;;
 	esac
 done
 
-# systemd manager settings (watchdog and friends) only take effect on
-# re-exec; daemon-reload is not enough.
+# A [Manager] setting under /etc/systemd/system.conf.d only takes effect on
+# re-exec; daemon-reload is not enough. Nothing left in INSTALL writes there
+# today (ansible/roles/watchdog does), but a unit file under /etc/systemd/
+# still wants the manager to have re-read it, so this stays broad rather than
+# naming a specific path.
 if [ "${reexec:-}" = yes ]; then
 	echo "== systemd daemon-reexec =="
 	systemctl daemon-reexec
-	systemctl show -p RuntimeWatchdogUSec -p RebootWatchdogUSec | sed 's/^/  /'
 fi
 
 # Services whose config lives in host/. A dropped-in config file does nothing
@@ -195,21 +190,6 @@ for unit in "${ENABLE[@]:-}"; do
 	systemctl enable --now "$unit" >/dev/null 2>&1 || true
 	echo "  $unit  ($(systemctl is-enabled "$unit" 2>&1), $(systemctl is-active "$unit" 2>&1))"
 done
-
-# A systemd --user unit only runs while that user has a session, unless
-# lingering is on. Enabling it here is what lets the resident Claude session
-# come back after a reboot with nobody logged in.
-if [ "${user_units:-}" = yes ]; then
-	echo "== user units =="
-	uid="$(id -u "$BOAT_USER")"
-	as_boat_user() {
-		sudo -u "$BOAT_USER" XDG_RUNTIME_DIR="/run/user/$uid" "$@"
-	}
-	loginctl enable-linger "$BOAT_USER"
-	as_boat_user systemctl --user daemon-reload
-	as_boat_user systemctl --user enable --now claude-resident.service
-	echo "  claude-resident.service  $(as_boat_user systemctl --user is-enabled claude-resident.service || true)"
-fi
 
 echo "== root crontab =="
 current="$(crontab -l 2>/dev/null || true)"

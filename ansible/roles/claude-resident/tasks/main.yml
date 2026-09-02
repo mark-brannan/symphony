@@ -1,0 +1,64 @@
+# Ported from host/install.sh's INSTALL array and its "user units" block --
+# see reference/host_provisioning.md's migration path. install.sh no longer
+# owns these paths or attempts to enable the unit.
+
+- name: claude-resident launcher script
+  ansible.builtin.copy:
+    src: claude-resident
+    dest: /home/pi/bin/claude-resident
+    owner: pi
+    group: pi
+    mode: "0755"
+
+- name: claude-resident user unit
+  ansible.builtin.copy:
+    src: claude-resident.service
+    dest: /home/pi/.config/systemd/user/claude-resident.service
+    owner: pi
+    group: pi
+    mode: "0644"
+
+# A systemd --user unit only runs while pi has a login session, unless
+# lingering is on. This is what lets the resident session come back after a
+# reboot with nobody aboard logged in. loginctl has no idempotent read this
+# can check first; harmless to repeat, same as install.sh's own unconditional
+# call.
+- name: pi's session lingers after logout
+  ansible.builtin.command: loginctl enable-linger pi
+  changed_when: true
+
+# The --user calls below need a user bus to talk to, which needs this uid --
+# `become_user` alone does not set XDG_RUNTIME_DIR for a user with no active
+# login session.
+- name: pi's uid
+  ansible.builtin.command: id -u pi
+  register: pi_uid
+  changed_when: false
+  check_mode: false
+
+- name: claude-resident user unit is enabled
+  ansible.builtin.systemd_service:
+    name: claude-resident.service
+    scope: user
+    daemon_reload: true
+    enabled: true
+    state: started
+  become: true
+  become_user: pi
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ pi_uid.stdout }}"
+  register: claude_resident_enable
+  # Known to fail on a HALOS card today: pi has no active login session and
+  # therefore no user D-Bus for `enable-linger` to hand a unit to.
+  # host/install.sh tolerated exactly this, by name, before this role existed
+  # (intermediate_files/claude_slop/halos-swap-execution-2026-09-02.md).
+  # Reported below rather than silently swallowed.
+  failed_when: false
+
+- name: report the resident session
+  ansible.builtin.debug:
+    msg: >-
+      claude-resident.service:
+      {{ 'enabled and started' if claude_resident_enable is succeeded
+         else 'not enabled -- ' ~ (claude_resident_enable.msg | default('no user session for pi')) }}
+  tags: [verify]
