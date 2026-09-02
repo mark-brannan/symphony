@@ -645,7 +645,7 @@ Every line must be `ok`. Nothing can be fetched at the boat.
 ok    host       signalk symphony.dark-star-llc.com signalk.symphony.dark-star-llc.com symphony-halos
 ok    boot       overlays cgroup regdom serial0 i2c-1
 ok    wifi       Symphony profile, Halos-AP ssid SignalK
-ok    plugins    package.json and plugin-config-data match the boat; local-plugins: bt-sensors-plugin-sk signalk-plugin-watchdog ; 91 loaded
+ok    plugins    package.json matches; plugin-config-data matches except the 3 expected HALOS-disabled; local-plugins: bt-sensors-plugin-sk signalk-plugin-watchdog ; 91 loaded
 ok    services   8 active
 ok    disabled   avnav opencpn influxdb: disabled disabled disabled
 ok    heartbeat  ping ok

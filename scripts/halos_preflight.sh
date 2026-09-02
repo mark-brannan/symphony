@@ -20,6 +20,7 @@ deps() { r "$1" "python3 -c 'import json; print(*sorted(json.load(open(\"$2\"))[
 # match hides an enabled/disabled mismatch.
 cfgs() { r "$1" "for f in $2/plugin-config-data/*.json; do python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(sys.argv[1].rsplit(\"/\",1)[-1], d.get(\"enabled\"))' \"\$f\"; done | sort"; }
 # disabled on HALOS only, by design — see the plugin-container decision in halos-swap-plan.md
+EXPECT_NAMES="signalk-container signalk-to-influxdb2 signalk-to-influxdb-v2-buffer"
 EXPECT_DIFF='signalk-container\.json|signalk-to-influxdb2\.json|signalk-to-influxdb-v2-buffer\.json'
 
 out=$(r "$HOST" 'echo $(hostname) $(hostname -d) $(cut -d= -f2 /run/halos/domain.env) $(tailscale status --self --peers=false | awk "{print \$2}")')
@@ -34,12 +35,18 @@ out=$(r "$HOST" 'nmcli -t -f NAME con show | grep -cE "^(Symphony|Halos-AP)$"; n
 d=$(diff <(deps "$BOAT" /home/pi/.signalk/package.json) <(deps "$HOST" "$D/package.json") | grep -c '^[<>]')
 cfgdiff=$(diff <(cfgs "$BOAT" /home/pi/.signalk) <(cfgs "$HOST" "$D"))
 c=$(echo "$cfgdiff" | grep '^[<>]' | grep -cvE "$EXPECT_DIFF")
+# Counting only *unexpected* diffs passes when B3c's disable step was skipped
+# and nothing differs at all, so require each expected difference to be there.
+absent=
+for p in $EXPECT_NAMES; do
+  echo "$cfgdiff" | grep -q "$p" || absent="$absent $p"
+done
 l=$(r "$HOST" "ls $D/local-plugins" | tr '\n' ' ')
 n=$(r "$HOST" 'curl -s localhost:3000/skServer/plugins' | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)
-if [ "$d" = 0 ] && [ "$c" = 0 ] && [[ "$l" == *bt-sensors-plugin-sk* && "$l" == *signalk-plugin-watchdog* ]] && [ "${n:-0}" -gt 50 ]; then
+if [ "$d" = 0 ] && [ "$c" = 0 ] && [ -z "$absent" ] && [[ "$l" == *bt-sensors-plugin-sk* && "$l" == *signalk-plugin-watchdog* ]] && [ "${n:-0}" -gt 50 ]; then
   say ok plugins "package.json matches; plugin-config-data matches except the 3 expected HALOS-disabled; local-plugins: $l; $n loaded"
 else
-  say FAIL plugins "package.json diff lines $d, unexpected config diff: $(echo "$cfgdiff" | grep '^[<>]' | grep -vE "$EXPECT_DIFF"), local-plugins: ${l:-none}, loaded ${n:-0}"
+  say FAIL plugins "package.json diff lines $d, unexpected config diff: $(echo "$cfgdiff" | grep '^[<>]' | grep -vE "$EXPECT_DIFF"), expected-but-absent:${absent:- none}, local-plugins: ${l:-none}, loaded ${n:-0}"
 fi
 
 out=$(r "$HOST" 'systemctl is-active telegraf chrony boat-heartbeat.timer signalk-ble-check.timer marine-signalk-server-container marine-questdb-container marine-grafana-container halos-core-containers | sort | uniq -c | tr -s " " | tr "\n" ";"')
