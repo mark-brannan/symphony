@@ -386,3 +386,7 @@
   it was disabled earlier the same day.
 - Capped the boat Pi's journal at 1 GB, about ten days of history at its
   measured rate. Journal 1.4 GB to 992 MB, root filesystem 76% to 74%.
+- Added a containerized pypilot proof of concept: an image built from
+  pinned upstream source, compose files for the boat and the dev box, and a
+  runbook procedure. Built and run on the dev box only; the boat still runs
+  pypilot natively.

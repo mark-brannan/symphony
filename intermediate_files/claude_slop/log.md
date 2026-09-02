@@ -2205,3 +2205,29 @@ loop implemented as a systemd restart loop, ~13.9/min forever. It is how the
 BME680 and the other i2c sensors are read, so the cap is the only lever
 available. If the open "BME680 sensor ownership" card ever moves that job to
 the dedicated plugin, the rate drops ~88% and 1G buys months instead of days.
+## 2026-09-02 — pypilot containerization PoC (PR #37)
+
+Asked for a docker-compose file for pypilot as a HALOS-migration proof of
+concept, with research first and repeatability steps.
+
+Research was done against the running boat rather than from memory: read-only
+ssh established that the autopilot aboard is an MPU9250 on I2C bus 1 with a
+live heading, no motor controller and no serial devices at all, seven
+processes at ~130 MB RSS, and that the SignalK plugin talks to it at
+`localhost:8000`. That narrowed the container problem to one device node and
+one state directory.
+
+Built and verified on the amd64 dev box only. Three traps were found by
+running it, not by reading about it: the git-URL install ships the SWIG `.so`
+without its Python wrapper (daemon dies immediately), `RTIMULib.ini` is read
+from the working directory rather than `~/.pypilot`, and `SCHED_FIFO` needs
+`cap_add: SYS_NICE` *and* an `rtprio` ulimit — verified both ways, by log line
+and by `chrt -p` inside the container.
+
+Did not touch the bench HALOS card: `halo-card-swap-repeatability` and
+`ansible-symphony-halos` sessions were both active, and the arm64 build plus
+the real-IMU path are a separate bench session, carded on the board.
+
+Open call for Mark, put to him at wrap-up: whether the bench Pi has an IMU
+wired for that test, and whether the containerized pypilot is meant to be
+part of the swap-day trial or stays a PoC until after it.
