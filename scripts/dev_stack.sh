@@ -106,14 +106,27 @@ cmd_up() {
 	write_env_if_absent
 	python3 scripts/build_dashboards.py
 	docker compose up -d questdb influxdb grafana
-	wait_for QuestDB "${QUESTDB_URL_LOCAL}/status"
-	wait_for InfluxDB "${INFLUX_URL_LOCAL}/health"
-	wait_for Grafana "${GRAFANA_URL}/api/health"
-	cmd_seed
-	cmd_verify
+
+	# Every step below reports its own failure and then carries on, so that
+	# the Grafana URL still gets printed: a stack that is up with one panel
+	# empty is worth opening, and the exit status carries the bad news.
+	local failed=0
+
+	# /exec, not /status: QuestDB serves /status, /health and /metrics only
+	# on its separate "min" server (9003), which compose-questdb.yml does not
+	# publish. Measured on the pinned digest (QuestDB 10.0.0) -- /status on
+	# 9000 is a 404, which curl -f treats as down, so this waited out the
+	# full timeout and then aborted `up`.
+	wait_for QuestDB "${QUESTDB_URL_LOCAL}/exec?query=select+1" || failed=1
+	wait_for InfluxDB "${INFLUX_URL_LOCAL}/health" || failed=1
+	wait_for Grafana "${GRAFANA_URL}/api/health" || failed=1
+	cmd_seed || { echo "seeding did not complete -- see above"; failed=1; }
+	cmd_verify || { echo "panel check did not pass -- see above"; failed=1; }
+
 	echo
 	echo "Grafana:  ${GRAFANA_URL}   admin / $(password_from_env)"
 	echo "Dashboards are in the 'Marine' folder."
+	return "$failed"
 }
 
 cmd_seed() {
