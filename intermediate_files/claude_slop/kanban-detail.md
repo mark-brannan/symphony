@@ -1271,7 +1271,7 @@ Arm `systemd-run --on-active=8min` to restart dbus/NM/signalk as a net.
 - Also resets `plugin.stopped` if `start()` throws, so a failed attempt
   isn't silently the last one.
 
-**Diagnosed and fixed 2026-09-01 (later session), commit `aaadc2a`.**
+**Diagnosed and fixed 2026-09-01 (later session), commit `f1c9cb8` (squashed from the four commits below).**
 The reconnect path came back with a clean log and BlueZ discovering, but
 no GATT sensor ever republished. Cause: every GATT connect goes through
 one process-wide serial queue (`connectQueue` in `BTSensor.js`), and
@@ -1298,9 +1298,9 @@ TypeError (JBDBMS protectionStatus path) and the influxdb2 `HistoryAPI`
 `reading 'filter'` rejection both predate every kill. The two Victron
 advertisement devices time out in `waitDevice` on a plain restart too.
 
-**Landed:** fork `main` and `verify-reconnect-logging` both at `aaadc2a`
+**Landed:** fork `main` and `verify-reconnect-logging` both at `f1c9cb8`
 (PR #189 now carries all four commits); maintainer comment posted with
 the repro, harness, diagnosis and timestamps. Boat left on
-`verify-reconnect-logging` at `aaadc2a`, all scaffolding removed (no dbus
+`verify-reconnect-logging` at `f1c9cb8`, all scaffolding removed (no dbus
 drop-in, `Restart=no`, no healer timer, no `/tmp` files), services
 active, data flowing.
