@@ -333,3 +333,72 @@ inevitable consequence of B3a copying the boat's state wholesale, and it is
 another instance of the "the boat is not golden" problem: the trial will
 exercise boat-pinned plugin versions rather than the set HALOS tests.
 Worth a deliberate decision later; not a swap blocker.
+
+---
+
+## Session `handoff-halos-b3-62a913-a6`, 2026-09-02 ~06:45–07:00 UTC
+
+Successor to the B3 session, working the handoff's items 2 and 3.
+
+### Change made: stopped the `homarr` container
+
+Found the staging Pi 12 min after Mark's ~07:40 BST power-cycle at **270 MB
+available, 1124 MB swap in use, actively paging** (`pswpin` 1174243 /
+`pswpout` 1955669).
+
+Cause: **the reboot undid the stops.** `homarr` was running again as part of
+`halos-core-containers.service` (Traefik, Authelia, Homarr), costing ~195 MB
+(`next-server` 166 MB + `tasks.cjs` 28 MB). This is exactly the trap the
+project CLAUDE.md records — a `stop` is deliberately not a `disable`, so it
+does not survive a reboot. **Any session power-cycling this box must re-stop
+the heavy units afterwards.**
+
+Action: `docker stop homarr` (not the systemd unit — that would also stop
+Traefik and Authelia). Result: **534 MB available, swap 1124 -> 651 MB and
+draining.** `opencpn`, `avnav`, `questdb` and `grafana` were already not
+running.
+
+### Confirmed: the watchdog's stray config file is gone
+
+`plugin-config-data/` holds `plugin-watchdog.json` (the live config, matching
+the real plugin id) and a `plugin-watchdog/` data dir. The inert
+`signalk-plugin-watchdog.json` is **deleted** — loose end 1 in the preflight
+is closed. Live config:
+
+    {"enabled": true, "configuration": {"checkIntervalSeconds": 60,
+     "graceSeconds": 600, "stallSeconds": 0,
+     "expectPlugins": ["bt-sensors-plugin-sk"]}}
+
+`plugin-watchdog/known-producers.json` is dated Aug 26 — **not** evidence
+either way: `saveState()` only writes when the producer set changes.
+
+### Confirmed: exactly one plugin fails to start
+
+From the container log, filtering the `can0` retry spam:
+
+- `signalk-instrument-light-plugin failed to start: Could not locate the
+  bindings file` — the one expected failure. Leave it.
+- Not failures, but noted: `i2c-reader: devices config is missing`;
+  `WARNING: found multiple copies of plugin with id signalk-to-noforeignland`;
+  `signalk-plugin-internet-speed` throws an unhandled rejection because the
+  `speedtest` binary is absent from the image.
+
+### Still open at the time of writing
+
+- Watchdog **running** state (handoff item 2) is still unconfirmed.
+  `setPluginStatus` output is only readable through the authenticated
+  `/skServer/plugins` (unauthenticated gives 401; `allow_readonly: true`
+  covers the data API only). An authenticated fetch was in flight when the
+  session was interrupted.
+- Absence of a watchdog notification proves nothing yet: `graceSeconds` is
+  600 and SignalK had been up ~5 min. **Open question worth carrying to the
+  boat:** if the healthcheck restart loop bounces SignalK every ~3 min, the
+  watchdog's 600 s grace window never elapses and it can never alarm. On the
+  boat, where the loop is expected to stop, this resolves itself.
+- Plugin totals (handoff item 3, ~118/~66) not yet re-measured.
+
+### Coordination
+
+Messaged `symphony-pr-33-review-601c06-0a` twice; the first did not arrive.
+Staging-box work parked pending their reply, to avoid two sessions bouncing
+SignalK and each misreading the other's restart as the healthcheck loop.
