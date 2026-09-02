@@ -1017,10 +1017,9 @@ The scanners live in `secret-scan.yml`, not `validate.yml`. Nothing in
 
 ## pypilot in a container
 
-Proof of concept, not the running autopilot. The boat still runs pypilot
-natively under OpenPlotter; nothing here replaces it. Design notes and what is
-still unverified: `reference/pypilot_containerization.md`. Both cannot run at
-once — they bind the same ports (8000, 20220, 23322).
+Design notes and what is still unverified: `reference/pypilot_containerization.md`.
+Don't run this alongside the native pypilot install — both bind the same
+ports (8000, 20220, 23322).
 
 ### Build and run it on a laptop
 
@@ -1067,9 +1066,8 @@ Seed the calibration and the SignalK token before trusting anything it says —
 `RTIMULib.ini` holds the compass calibration, which is expensive to redo:
 
 ```bash
-# from a machine that can reach the boat
-scp pi@symphony-pi:.pypilot/RTIMULib.ini pi@symphony-pi:.pypilot/signalk-token \
-    ./pypilot/data/
+# run on the Pi, from the repo checkout
+cp ~/.pypilot/RTIMULib.ini ~/.pypilot/signalk-token pypilot/data/
 sudo chown root:root pypilot/data/RTIMULib.ini pypilot/data/signalk-token
 docker compose --profile pypilot restart pypilot
 ```
