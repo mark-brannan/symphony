@@ -49,3 +49,7 @@ dex/config.yaml
 # Per-machine, never shared: committed as "contributor" it would silently
 # degrade every maintainer that pulls it.
 .secretguard-mode
+
+# ssh-command buffer for the as-built file (.claude/hooks/log-host-commands.sh)
+# -- a local scratch log, never committed.
+intermediate_files/claude_slop/host-commands.log
