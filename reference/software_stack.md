@@ -302,6 +302,12 @@ To run QuestDB from your own compose file instead, set
 plugin then behaves as a client and `signalk-container` isn't involved.
 `signalk-grafana` has no equivalent switch — it always runs its own.
 
+## SensESP peripheral devices
+
+Firmware for planned SensESP sensor nodes (engine room, aft, fore, midship)
+lives in [Dark-Star-LLC/symphony-sensesp](https://github.com/Dark-Star-LLC/symphony-sensesp).
+Planned, not installed — none of these are on the boat today.
+
 ## The Docker socket
 
 `compose-signalk.yml` mounts `/var/run/docker.sock` into `signalk-server`
