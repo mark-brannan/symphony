@@ -383,19 +383,55 @@ From the container log, filtering the `can0` retry spam:
   `signalk-plugin-internet-speed` throws an unhandled rejection because the
   `speedtest` binary is absent from the image.
 
+### Measured: plugin totals (handoff item 3)
+
+Authenticated `GET /skServer/plugins` as `captain` (unauthenticated gives
+401; `allow_readonly: true` covers the *data* API only, not `/skServer`):
+
+- **120 plugins present, 63 enabled.** The handoff expected ~118 / ~66; the
+  shortfall is the three plugins B3c deliberately disabled plus
+  `signalk-notification-player`. Nothing unaccounted for.
+- `plugin-watchdog` v0.1.0 (`packageName` `signalk-plugin-watchdog`) is
+  **present and enabled**, as is `bt-sensors-plugin-sk` v1.3.8-beta11.
+
+**`statusMessage` on this endpoint is not usable as evidence.** Only 2 of the
+63 enabled plugins carry the field at all, and both carry `''`. It is not the
+case that 61 plugins are dead; the list endpoint simply does not surface live
+plugin status on this server version. `/skServer/providerStatus` does not
+exist here either. Do not read an empty `statusMessage` as "did not start" —
+this session briefly did, and was wrong.
+
+### Corrected: the healthcheck restart loop is fixed, not ongoing
+
+A `docker ps` reading of "Up About a minute" at ~07:14 UTC looked like the
+~3-min loop continuing. It was not. Evidence:
+
+- `autoheal`'s last restart of the container was **06:45:26 UTC** and it has
+  not fired since.
+- `docker inspect`: `StartedAt 07:12:50Z`, `ExitCode 0`, `RestartCount 0`,
+  `Health.Status healthy`, `Health.FailingStreak 0`.
+- The live healthcheck is now
+  `curl -sf http://127.0.0.1:3000/signalk`, **interval 30 s, timeout 30 s,
+  start_period 900 s, retries 3**.
+
+So the 07:12:50 start is the `symphony.override.yml` drop-in from session
+`symphony-pr-33-review-601c06-0a` being applied, not another autoheal kill.
+That override supersedes the B3 handoff's "do not pre-edit the healthcheck"
+instruction: the handoff's objection was that an `apt upgrade` silently
+reverts a package-managed compose file, and a systemd drop-in plus override
+file is not subject to that. No objection from this session.
+
 ### Still open at the time of writing
 
-- Watchdog **running** state (handoff item 2) is still unconfirmed.
-  `setPluginStatus` output is only readable through the authenticated
-  `/skServer/plugins` (unauthenticated gives 401; `allow_readonly: true`
-  covers the data API only). An authenticated fetch was in flight when the
-  session was interrupted.
-- Absence of a watchdog notification proves nothing yet: `graceSeconds` is
-  600 and SignalK had been up ~5 min. **Open question worth carrying to the
-  boat:** if the healthcheck restart loop bounces SignalK every ~3 min, the
-  watchdog's 600 s grace window never elapses and it can never alarm. On the
-  boat, where the loop is expected to stop, this resolves itself.
-- Plugin totals (handoff item 3, ~118/~66) not yet re-measured.
+- Watchdog **running** state (handoff item 2). Still unconfirmed, but now
+  testable: `graceSeconds` is 600 and SignalK started cleanly at 07:12:50Z,
+  so if the watchdog is ticking it must log
+  `ALERT: plugin bt-sensors-plugin-sk enabled but has published no deltas`
+  at about **07:22:50Z** (no BT sensors are in range at home). Absence of
+  that line after ~07:23 is real evidence the plugin is not running; before
+  it, absence proves nothing.
+- The i2c container-access test (handoff item 1) remains blocked on Mark
+  wiring the BME680.
 
 ### Coordination
 
