@@ -148,3 +148,38 @@ Neither side is a superset. Two consequences already hit this session:
 
 Reconciling these 47 differing configs is its own task and is not attempted
 here.
+
+## The memory failures are a staging-rig property, not the target — 2026-09-02
+
+Measured tonight:
+
+| | staging rig (`halos-pi4`, 192.168.0.193) | swap target (`symphony-pi`) |
+|---|---|---|
+| board | Raspberry Pi 4 Model B Rev 1.5 | Raspberry Pi 4 Model B Rev 1.5 |
+| RAM | 1844 MB | 3796 MB |
+| boot media | SD card | SD card (`mmcblk0`, 29.5 G) |
+
+Same board, twice the RAM, and the boat boots from SD — so the card swap is
+exactly the mechanism, and **the HALOS card will run on 4 GB, not 2 GB.**
+
+Consequences:
+
+- Every memory failure recorded above — the hard reset, the npm heap OOM,
+  needing six container units stopped, and sshd refusing banner exchange
+  under load — is a property of the **staging box**, not of HALOS and not of
+  the destination. They are staging pain, not swap risk.
+- The ~3-minute restart loop is most likely the same thing: the healthcheck
+  probe *succeeds* but overruns its 10 s timeout because the box is slow
+  (13.2 s measured on one API call), so `autoheal` restarts a healthy
+  server. On 4 GB with the same container set this may simply not occur.
+  **Unproven until the card is in the boat Pi — but it is the leading
+  hypothesis and it is testable by the swap itself.**
+- **The kanban card's inference "HALOS implies the HALPI2" does not follow.**
+  It reasons from the 2 GB staging box to the hardware decision, but the
+  card's destination is the existing 4 GB boat Pi. Whether HALOS needs new
+  hardware is precisely what the trial is for, and the trial does not
+  presuppose a purchase.
+
+What this does *not* excuse: the no-compiler finding is structural and
+travels with the image to any host, and the plan's `docker exec` and
+verification-command defects are real regardless of RAM.
