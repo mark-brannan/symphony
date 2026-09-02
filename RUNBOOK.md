@@ -2218,8 +2218,9 @@ python3 scripts/test_dashboards.py
 
 The second one is not optional. It asserts the committed JSON still matches
 the spec, that every unit label is backed by the matching conversion in its
-query, that panels do not overlap, and that each query reads the bucket its
-measurement is actually written to. A dashboard is wrong silently -- nothing
+query, that panels do not overlap, and that each query reads the QuestDB
+table its measurement is actually written to -- a SignalK path filtered out
+of `signalk`/`signalk_str`, or a Telegraf table named after the measurement. A dashboard is wrong silently -- nothing
 about a blank or mis-scaled panel raises an error at runtime -- so this check
 is the only thing standing between a typo and a gauge that confidently reads
 3.6 knots when the boat is doing 7.
@@ -2235,14 +2236,22 @@ into the spec.
 scripts/dev_stack.sh up
 ```
 
-Starts InfluxDB and Grafana, creates the buckets, seeds synthetic vessel data
-in SignalK's SI units, checks every panel draws, and prints the URL. Only
-`influxdb` and `grafana` come up -- SignalK wants hardware a laptop does not
-have. `scripts/dev_stack.sh down` removes the volumes.
+Starts QuestDB, InfluxDB and Grafana, seeds synthetic vessel data into both
+stores, checks that every panel draws, and prints the URL. SignalK does not
+come up -- it wants hardware a laptop does not have. `scripts/dev_stack.sh
+down` removes the volumes.
 
 The seed values are invented but the *shape* is real: same measurement names,
-same `_field`, same tags, same SI units. Seeding in display units would make a
+same fields, same tags, same SI units. Seeding in display units would make a
 broken conversion look correct, which is the one thing this has to not do.
+What gets seeded is read out of the generated dashboards themselves, so a
+panel added to the spec is covered on the next run without anyone remembering
+to add it here.
+
+If you have a dev `.env` from before the QuestDB port, delete it first — the
+script only writes one when absent, and the `QUESTDB_*` variables are new.
+Symptom of a stale one: every panel empty and the QuestDB datasource failing
+to connect.
 
 ### Checking the real thing
 
@@ -2254,13 +2263,26 @@ python3 scripts/verify_dashboards_live.py --grafana https://grafana.<DOMAIN> \
     --user <admin> --password <password>
 ```
 
-`audit_dashboard_paths.py` asks InfluxDB directly whether each referenced
-measurement exists and is fresh, per bucket. It has to run on the boat -- it
-reads the token out of the live plugin config.
+`audit_dashboard_paths.py` lists what the dashboards reference, and which
+panel references it — no liveness. For freshness, ask QuestDB directly. The
+dashboards read four table families, so all four have to be checked:
 
-`verify_dashboards_live.py` runs every panel's query through Grafana's own
-`/api/ds/query`. That is the end-to-end one: datasource uid, token, Flux mode,
-org, bucket and a publishing path all have to be right for a panel to pass.
+```bash
+for t in signalk signalk_str; do curl -sG http://localhost:9000/exec \
+    --data-urlencode "query=SELECT path, max(ts) FROM $t GROUP BY path"; done
+curl -sG http://localhost:9000/exec --data-urlencode \
+    "query=SELECT max(ts) FROM signalk_position"
+curl -sG http://localhost:9000/exec --data-urlencode \
+    "query=SELECT table_name FROM tables()"
+```
+
+The last one lists the Telegraf tables (`cpu`, `mem`, `disk`, `net`,
+`procstat`, …); a table missing from it is a panel that cannot draw.
+
+`verify_dashboards_live.py` runs every panel's SQL through Grafana's own
+`/api/ds/query`. That is the end-to-end one: datasource uid, credentials, the
+QuestDB datasource plugin and a publishing path all have to be right for a
+panel to pass.
 The audit can pass while this fails, and that gap is exactly the datasource
 wiring.
 
