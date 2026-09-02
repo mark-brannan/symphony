@@ -1,17 +1,43 @@
 services:
   grafana:
-    image: grafana/grafana:latest
+    # Built, not pulled: grafana/Dockerfile COPYs ./grafana/provisioning into
+    # the image at build time instead of bind-mounting it from the host. A
+    # bind mount here used to let dockerd (root) silently create the host
+    # path as root:root whenever compose ran before that directory existed
+    # -- e.g. from an incomplete checkout -- which then broke every later
+    # Claude Code session sharing this uid's tmpdir. Baking it in means
+    # `docker compose up` is safe from any cwd or checkout state, no wrapper
+    # script required. Cost: editing provisioning now needs `docker compose
+    # up --build --no-deps grafana` to take effect, not a live host edit.
+    build: ./grafana
     container_name: grafana
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Datasource plugins for the provisioned datasources: Signal K live
+      # data (datasources/signalk.yaml) and QuestDB, kept installed while
+      # the QuestDB-vs-InfluxDB history question is still open. Preinstall
+      # is async and non-fatal, so an offline start (at anchor, no uplink)
+      # comes up without them rather than failing.
+      GF_PLUGINS_PREINSTALL: tkurki-signalk-datasource,questdb-questdb-datasource
     ports:
       - "3001:3000" # 3001 externally; SignalK owns 3000
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
     networks:
       - symphony-net
+    # Transitional, for as long as InfluxDB is still a native systemd service
+    # on the boat Pi -- the same shape as the dex port mapping in
+    # compose-idp.yml. With INFLUX_URL=http://host.docker.internal:8086 the
+    # datasource resolves to the host gateway; once InfluxDB is a compose
+    # service, INFLUX_URL becomes http://influxdb:8086 and this can go.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Start this one with `--no-deps` while InfluxDB is still native. Without
+    # it, compose starts the influxdb service too, which binds 8086 -- the
+    # port the native InfluxDB is already on. The container loses the race,
+    # or wins it and takes the database offline.
     depends_on:
       - influxdb
 

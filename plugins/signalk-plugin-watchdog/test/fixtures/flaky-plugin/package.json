@@ -1,0 +1,10 @@
+{
+  "name": "flaky-plugin",
+  "version": "0.0.1",
+  "description": "Test fixture: publishes every 2s unless a marker file exists, so tests can exercise learned-expectation, mute-after-reboot and recovery paths",
+  "main": "index.js",
+  "private": true,
+  "keywords": [
+    "signalk-node-server-plugin"
+  ]
+}

@@ -65,10 +65,37 @@ follows from the trust boundary above — the things that can reach it are
 already trusted. Signing in isn't what grants a read; it's what puts a
 name against one.
 
-## The owner's own email address may appear in the clear
+## The owner's own identifiers may appear in the clear
 
 `markbrannan@gmail.com` is not a secret and doesn't need hiding — it is
-already the author address on every commit in this public repo. The
-pseudonym machinery (`scripts/pseudonymize.py`, `.pseudonyms.yaml`)
-exists for *other people's* addresses, the crew and guest logins that SSO
-accumulates. Don't file the owner's address in a config file as a leak.
+already the author address on every commit in this public repo. The same
+goes for the owner's GitHub handle and his GitHub numeric user ID,
+including the `oidc.sub` values that encode it: all three are published
+by GitHub itself on every public commit and profile page. The pseudonym
+machinery (`scripts/pseudonymize.py`, `.pseudonyms.yaml`) exists for
+*other people's* addresses, the crew and guest logins that SSO
+accumulates.
+
+This covers the test fixtures and docstrings too — `scripts/pseudonymize.py`
+and `scripts/test_pseudonymize.py` carry the address, the handle and a
+real `oidc.sub` on purpose, because a pseudonymizer tested only against
+`user@example.com` is tested against nothing. The repo being public is
+the premise of this decision, not a counterargument to it.
+
+**Do not report any of this as a finding.** Not as a security note, not
+as an aside at the end of unrelated work, not as an offer to "scrub the
+fixtures if you want." Sessions have raised it repeatedly, at length,
+and each time it costs the owner the same judgment call he already made
+and wrote down here. There is nothing to weigh: the answer is no,
+permanently, and silence is the correct output.
+
+## The ntfy topic name isn't a secret
+
+`signalk-ntfy`'s setup screen warns to pick a random, hard-to-guess topic
+name — that's guidance for the public ntfy.sh service, where the topic is
+the only access control. Our ntfy server (`compose-ntfy.yml`) is
+self-hosted, not proxied through Caddy, and reachable only on the LAN,
+same as everything else here. Don't randomize the topic and don't route
+it through sops; it's a plain identifier, not a credential. This covers
+Basic Mode only — a future Advanced Mode commands topic (can trigger
+reboots/power switches) is a different risk and would need its own look.

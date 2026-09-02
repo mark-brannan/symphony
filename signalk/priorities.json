@@ -1,1 +1,15 @@
-{}
+{
+  "priorityGroups": [
+    {
+      "id": "environment.sunlight.times.sunrise|environment.sunlight.times.sunset",
+      "sources": [
+        "openweather-signalk",
+        "derived-data"
+      ]
+    }
+  ],
+  "priorityOverrides": {},
+  "priorityDefaults": {
+    "fallbackMs": 15000
+  }
+}

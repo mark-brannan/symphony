@@ -1,0 +1,22 @@
+- datetime: 2026-08-19T04:45:28.121Z
+  text: "Warn: dev container memory utilisation high
+    (environment.rpi.memory.utilisation)"
+  author: ""
+  origin: auto
+  position:
+    latitude: 47.657792
+    longitude: -122.3773056
+  barometer: 0
+  crewNames: []
+  category: navigation
+- datetime: 2026-08-19T04:49:39.139Z
+  text: "Cleared after 4 min: dev container memory utilisation critical — peaked
+    alarm, 4 transitions"
+  author: ""
+  origin: auto
+  position:
+    latitude: 47.657792
+    longitude: -122.3773056
+  barometer: 0
+  crewNames: []
+  category: navigation

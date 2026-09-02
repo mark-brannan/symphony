@@ -8,10 +8,28 @@ strings, which parse fine as plain strings. Meant to run in CI (no secrets
 available there) as well as locally.
 """
 import json
+import os
 import subprocess
 import sys
 
-import yaml
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import secretguard  # noqa: E402  -- needs the sys.path line above
+
+try:
+    import yaml
+except ImportError:
+    # No pyyaml on this clone. The JSON half of this check needs nothing but
+    # the stdlib, but there is no honest way to report a partial pass, so
+    # the whole check degrades: strict (and CI, which installs pyyaml) fails,
+    # contributor is warned and the commit proceeds.
+    sys.exit(
+        1
+        if secretguard.require_pyyaml(
+            "pre-commit hook 'validate-configs' (scripts/validate_configs.py)"
+        )
+        else 0
+    )
 
 TRACKED_JSON = subprocess.run(
     ["git", "ls-files", "*.json"], capture_output=True, text=True, check=True

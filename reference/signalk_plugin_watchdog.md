@@ -1,8 +1,12 @@
-# A watchdog for SignalK plugins that go mute
+# Why the plugin watchdog exists
 
-Design brief for a plugin that doesn't exist yet. Everything under "What we
-found" was measured on Symphony on 2026-08-13/14; everything under "Sketch" is
-proposal and hasn't been built or tested.
+The plugin now exists at `plugins/signalk-plugin-watchdog` (notify-only,
+deployed 2026-08-15). This file records the failure that motivated it and
+what was learned building it; the plugin's own README documents how it
+works, and [monitoring_decisions.md](monitoring_decisions.md) Role 4 places
+it in the monitoring plan. A draft community post about the failure is at
+`plugins/signalk-plugin-watchdog/DRAFT-POST.md`. Everything under "What we
+found" was measured on Symphony on 2026-08-13/14.
 
 ## The failure
 
@@ -32,50 +36,21 @@ Nothing in the ecosystem covers this.
   and raises notifications. It does not watch plugins, cannot see a plugin that
   loaded and went mute, and never acts.
 - `signalk-performance-monitor` does event-loop metrics and profiling. Unrelated.
-- No staleness, liveness, or plugin-supervision plugin exists in the registry.
-  Searched npm for watchdog, health, stale, and monitor against `signalk`.
-- The server core *does* have `stopPlugin` / `restartPlugin` internally
-  (`dist/interfaces/plugins.js`). The recovery mechanism exists. Nothing drives
-  it.
-
-So the gap is real, and the missing piece is a supervisor, not a new mechanism.
-
-## Sketch (proposal, untested)
-
-A plugin. Notify by default; restart opt-in.
-
-**Learn, don't configure.** Watch the delta stream and record which sources each
-plugin produces and how often. No per-plugin setup to maintain, and it stays
-correct when someone renames a sensor — which matters, because the obvious
-alternative (a hand-written list of expected paths) goes stale silently and
-becomes another thing that looks configured but isn't.
-
-**Judge staleness relative to learned cadence.** A 60-second BMS poll and a 1 Hz
-GPS cannot share a fixed threshold. Also catch "enabled but never published at
-all", which is the case we actually hit — there is no prior cadence to compare
-against, so absence has to be first-class rather than an edge case.
-
-**Act in a ladder.** Raise a SignalK notification first, so existing alarm paths,
-dashboards and any off-boat alerting pick it up for free. Then, only if enabled,
-restart that one plugin through the core API — no service bounce, no collateral.
-Attempt budget and backoff, and stop rather than loop.
-
-**Refuse to act when it can't tell.** Startup, a server that just restarted, or
-an unreadable state should all mean "do nothing". A supervisor that guesses is
-worse than none.
-
-## The crux to settle first
-
-Can a plugin map an observed `$source` back to the plugin that produced it?
-
-`app.handleMessage(pluginId, delta)` means the **server** knows. Whether that
-association is visible from another plugin is the open question, and the whole
-design rests on it. Settle it before writing anything else.
-
-If it isn't exposed, the fallbacks get worse fast: match on `$source` label
-conventions (fragile), require configuration (the thing we're trying to avoid),
-or push the feature into the server core instead of a plugin — which may be the
-honest answer.
+- No plugin-supervision plugin exists in the registry. One path-staleness
+  plugin does: `signalk-data-age-watchdog` (a keyword sweep on 2026-08-14
+  found it after the original text searches missed it — see
+  [monitoring_decisions.md](monitoring_decisions.md), Role 4, for how it
+  fits the boat's monitoring plan). Read in source: it watches a
+  hand-configured path list against one global age threshold, and skips any
+  path with no timestamp in the tree — so it cannot detect a plugin that is
+  mute from startup, which is the failure above. Supervision, learned
+  cadence, and never-published detection remain uncovered.
+So the gap is real, and the missing piece is a supervisor, not a new
+mechanism. Detection turned out to be available without the `$source`-to-plugin
+mapping the design assumed it needed — `app.providerStatistics` counts deltas
+per plugin id directly. Restart did not: it is admin-authenticated and has no
+plugin-facing API, which is why the shipped plugin is notify-only. Both
+findings, with sources, are in monitoring_decisions.md Role 4.
 
 ## Our stopgap, and why it isn't the answer
 

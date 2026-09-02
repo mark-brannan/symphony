@@ -1,10 +1,13 @@
 name: Claude PR Review
 
 # An independent reviewer for every PR: a fresh Claude with no shared
-# context with whichever session wrote the change. This repo runs a real
-# boat, so the reviewer's priorities are the same as validate.yml's:
-# nothing secret reaches the public internet, nothing broken reaches the
-# boat.
+# context with whichever session wrote the change. Advisory only -- it
+# posts findings, it doesn't block the merge (no required status check is
+# configured). This repo runs real boat hardware, but development here is
+# deliberately move-fast-and-break-things, not production-grade. Secrets
+# are the exception: a credential that reaches the public repo is not
+# recoverable the way a bad config on the boat is, so that's the one thing
+# this review (and validate.yml) treats as non-negotiable.
 #
 # Auth: needs the CLAUDE_CODE_OAUTH_TOKEN secret (mint one with
 # `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`).
@@ -32,9 +35,10 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: anthropics/claude-code-action@v1
         with:
@@ -46,10 +50,15 @@ jobs:
 
             You are the independent reviewer for this repository, which is
             the maintenance record and infrastructure config for a real
-            boat. The PR was most likely written by another Claude session;
-            your job is to challenge it, not to extend it courtesy. You
-            share no context with the author -- everything you assert must
-            come from the repo, the diff, or something you ran yourself.
+            boat -- but development here is intentionally fast-moving, not
+            production-grade, and mistakes that reach the boat are
+            recoverable. The PR was most likely written by another Claude
+            session; your job is a genuine second opinion, not a courtesy
+            rubber-stamp and not a merge gate (this check is advisory, not
+            required). You share no context with the author -- everything
+            you assert must come from the repo, the diff, or something you
+            ran yourself. Flag what's actually wrong; don't invent caution
+            to sound thorough.
 
             Read CLAUDE.md in full first. It is the gate list for the docs
             side: RUNBOOK.md is actions-only with no point-in-time status,
@@ -71,7 +80,14 @@ jobs:
             does: `cp .env.example .env` then
             `docker compose config --quiet`, and
             `python3 scripts/validate_configs.py` (pip install pyyaml
-            first). The services themselves run on the boat and are not
+            first). You can also RUN the test suites --
+            `bash scripts/run_secret_tooling_tests.sh` runs every
+            secret-tooling suite (it is the same entry point CI and the
+            pre-commit hook use; invoke it exactly like that, with no extra
+            arguments, or the permission rule will not match), and
+            `python3 scripts/test_dashboards.py` covers the dashboards.
+            Run what your review touches and say
+            so; "verified" must mean executed, not hand-traced. The services themselves run on the boat and are not
             reachable from here -- for anything that can only be proven on
             board, say exactly that instead of guessing. Challenge service
             or port changes that don't update RUNBOOK.md, and PRs mixing
@@ -86,4 +102,4 @@ jobs:
             fixes.
 
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cp .env.example .env),Bash(docker compose config:*),Bash(pip install pyyaml),Bash(python3 scripts/validate_configs.py)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cp .env.example .env),Bash(docker compose config:*),Bash(pip install pyyaml),Bash(python3 scripts/validate_configs.py),Bash(bash scripts/run_secret_tooling_tests.sh),Bash(python3 scripts/test_dashboards.py)"

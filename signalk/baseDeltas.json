@@ -52,5 +52,63 @@
         ]
       }
     ]
+  },
+  {
+    "context": "vessels.self",
+    "updates": [
+      {
+        "meta": [
+          {
+            "path": "environment.rpi.memory.utilisation",
+            "value": {
+              "zones": [
+                {
+                  "state": "normal",
+                  "upper": 0.84
+                },
+                {
+                  "state": "warn",
+                  "lower": 0.84,
+                  "upper": 0.89,
+                  "message": "dev container memory utilisation high"
+                },
+                {
+                  "state": "alarm",
+                  "lower": 0.89,
+                  "message": "dev container memory utilisation critical"
+                }
+              ]
+            }
+          },
+          {
+            "path": "environment.inside.airquality",
+            "value": {
+              "nominalMethod": null,
+              "alertMethod": ["visual"],
+              "emergencyMethod": ["visual", "sound"],
+              "zones": [
+                {
+                  "lower": 0,
+                  "upper": 100,
+                  "state": "nominal"
+                },
+                {
+                  "lower": 101,
+                  "upper": 200,
+                  "state": "alert",
+                  "message": "AQI is \"Orange\" or \"Red\" - This may cause adverse health effects"
+                },
+                {
+                  "lower": 201,
+                  "upper": 500,
+                  "state": "emergency",
+                  "message": "AQI is in range of \"Very Unhealthy\" to \"Hazardous\""
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 ]

@@ -1,0 +1,24 @@
+{
+  "configuration": {
+    "enabled": true,
+    "servers": [
+      {
+        "id": "local",
+        "name": "Self-hosted ntfy",
+        "url": "{{ ntfy_url }}",
+        "isDefault": true
+      }
+    ],
+    "topic": "symphony-alarms",
+    "filterDuplicates": false,
+    "minIntervalMinutes": 5,
+    "levels": [
+      "alert",
+      "warn",
+      "alarm",
+      "emergency"
+    ],
+    "listenForCommands": false
+  },
+  "enabled": true
+}

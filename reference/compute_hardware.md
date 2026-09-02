@@ -8,7 +8,9 @@ and [software_stack.md](software_stack.md).
 
 Raspberry Pi 4 Model B Rev 1.5, 4 GB RAM, on a 32 GB SD card (29 GB usable).
 Debian 12 (bookworm), kernel 6.12.96 aarch64, hostname `signalk`. OpenPlotter
-is installed on bare metal — eleven `openplotter-*` packages, no Docker.
+is installed on bare metal — eleven `openplotter-*` packages. Docker is also
+installed and running, but only for Dex and ntfy; SignalK and the rest of the
+stack are native.
 
 The SD card is the constraint that shapes everything else: it holds the OS,
 SignalK's state directory, the InfluxDB store and Grafana's database on one
@@ -54,8 +56,7 @@ position source once the AIS is powered — see the source-priority note in
 
 #### What this looked like before, and why it hid
 
-Worth keeping, because the failure was invisible for a long time and the shape
-of it will recur. Measured 2026-08-13, before the connection existed:
+Measured 2026-08-13, before the connection existed:
 
 - A GNSS device at N2K source address `0x02` publishes continuously:
   `129025` Position Rapid Update, `129026` COG & SOG, `129029` GNSS Position
@@ -133,28 +134,23 @@ Pi 4B:
   holes for two SMA antenna connectors. Further CAN or RS485 ports come from
   Waveshare isolated HATs.
 
-Orderable. The 8 GB / 512 GB SSD configuration was $614.35 and added to cart
-without issue on 2026-08-13.
-
-The shop carries a notice about Compute Module 5 being in short supply
-worldwide, but it applies per-variant — some configurations may be out at any
-given time, not the product as a whole. Don't read it as the machine being
-unavailable.
+Target configuration: 8 GB / 512 GB SSD, ~$614 as of 2026-08-13.
 
 ### Hal OS
 
-Raspberry Pi OS Trixie underneath, with the applications — Signal K Server,
-AvNav, and whatever else — running as Docker containers installed through
-Debian packages. Single sign-on spans the containerized apps, which are
-reached by domain name (`avnav.halos.local`) rather than by port. Cockpit
-provides web-based system administration, and a Container App Store handles
-installation. Images ship in headless, desktop, marine, and HALPI2 variants,
-and Hal OS can also be layered onto an existing Pi OS Trixie install.
+Raspberry Pi OS Lite arm64 underneath, with the applications — Signal K
+Server, Grafana, InfluxDB, QuestDB, AvNav, OpenCPN — running as Docker
+containers wrapped as Debian packages from `apt.halos.fi`. Traefik and
+Authelia provide SSO over path-based routing (`https://halos.local/grafana/`);
+Cockpit provides web administration. Images ship for generic Pi 4/5 as well
+as HALPI2, and it can be layered onto an existing Pi OS **Trixie** install
+via APT — untested on Bookworm, which is what the boat runs today.
 
-It is an early-stage project whose author is asking for test users, and the
-foundation was redesigned once already — so it is a direction, not yet a
-commitment.
+It is self-described as beta, its author is asking for test users, and the
+foundation has been redesigned once — so it is a direction, not a commitment.
+The full verified survey, the open questions, and the trial plan are in
+[containerization_strategy.md](containerization_strategy.md).
 
-Two things make it the natural target. It is containerized, which is where
-this repo's golden config already points, and its single-sign-on story
-overlaps the Dex work rather than fighting it.
+It is the natural target because it is containerized, which is where this
+repo's golden config already points. Its SSO is Authelia, not Dex; whether
+the two federate is one of the open questions the trial has to answer.

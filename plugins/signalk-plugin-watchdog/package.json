@@ -1,0 +1,11 @@
+{
+  "name": "signalk-plugin-watchdog",
+  "version": "0.1.0",
+  "description": "Notifies when an enabled SignalK plugin stops producing deltas, or never produces any after startup",
+  "main": "index.js",
+  "license": "MIT",
+  "private": true,
+  "keywords": [
+    "signalk-node-server-plugin"
+  ]
+}

@@ -1,18 +1,64 @@
 # Local secret-leak guards. Install with `scripts/setup-git-filters.sh`
 # (which runs `pre-commit install` for you) -- see RUNBOOK.md.
 #
+# SCOPE RULE, applies to every hook below: a hook may FAIL only on
+# something THIS commit stages, and every failure must name a way out that
+# works even for someone without the age key or hostvars.local.yaml. Repo-
+# wide state is CI's job -- the same scripts run there with --all. A guard
+# that blocks a one-line doc edit over a file you never touched is not
+# safer, it just gets bypassed; that cost days once already.
+#
+# Two deliberate exceptions, both in scripts/lint_repo_hygiene.py, and both
+# about a clone that is unsafe rather than a commit that is:
+#   - rule_plaintext_secrets_are_protectable blocks EVERY commit when real
+#     secrets are decrypted on disk and this machine can't re-encrypt them.
+#     It is a standing condition, not an event, and waiting for someone to
+#     stage one of those files means finding out via `git add .`.
+#   - strict mode blocks an unconfigured filter even with nothing covered
+#     staged. A clone that holds secrets and has no filters is the
+#     2026-08-14 incident waiting to happen.
+# Contributor mode softens the second and never the first.
+#
+# Hooks stay always_run because they scope themselves from
+# `git diff --cached` -- pre-commit's `files:` would duplicate scope that
+# already lives in .sops.yaml / .hostvars.yaml / .gitattributes, and would
+# not fire on a commit that only deletes a covered path.
+#
 # These give fast feedback at commit time. They are NOT the enforcement
 # boundary: any of them can be skipped with `--no-verify`, or simply never
-# installed on a fresh clone. The real gate is .github/workflows/validate.yml,
-# which runs the same checks plus a verified-secret scan on every push and
-# cannot be bypassed from a laptop.
+# installed on a fresh clone. The real gate is CI, which cannot be bypassed
+# from a laptop: .github/workflows/secret-scan.yml re-runs these checks over
+# full history plus a verified-live scan, on a push to ANY branch, and
+# .github/workflows/validate.yml covers syntax and config on main and PRs.
 #
-# Upgrading: run `pre-commit autoupdate` while you have connectivity --
-# it fetches new hook revisions, so it is a dockside operation, not an
-# underway one. Commit the resulting rev change so every machine and CI
-# agree on which scanner version cleared a given commit.
+# Every hook here is `repo: local`, so `pre-commit autoupdate` has nothing
+# to fetch and installing them needs no network. That is deliberate: the
+# gitleaks scanner version is pinned in scripts/gitleaks_precommit.sh
+# instead (see its header for how to upgrade, and why it isn't the upstream
+# gitleaks-docker hook any more).
+#
+# Missing local tooling degrades rather than blocking: see
+# scripts/secretguard.sh. A clone with no age key is in "contributor"
+# mode, where a hook that cannot run says so and lets the commit through --
+# except the staged-secrets guard, which hard-fails in every mode. Run
+# `bash scripts/check_clone_setup.sh` to see which mode a clone is in and
+# what it is missing.
 
-minimum_pre_commit_version: "3.0.0"
+# 3.2.0 is where `pre-commit` and `pre-push` became the stage names (they
+# were `commit` and `push` before), and both are used below.
+minimum_pre_commit_version: "3.2.0"
+
+# Two stages get installed by `pre-commit install`. The pre-push one is the
+# layer that still looks after `--no-verify`: commit-time hooks see only the
+# commit in front of them, a push-time hook sees every commit being
+# published, which is the last moment a mistake is still local.
+default_install_hook_types: [pre-commit, pre-push]
+
+# Without this, a hook that declares no `stages` runs at EVERY installed
+# hook type -- so every commit-time guard would run a second time on push,
+# re-scanning the index (which is empty by then) and doubling the wait for
+# nothing. Only prepush-secret-scan opts into the push stage.
+default_stages: [pre-commit]
 
 repos:
   # Broad secret detection. Catches credential-shaped strings in files that
@@ -20,21 +66,40 @@ repos:
   # since anything already in .sops.yaml is encrypted by the clean filter
   # before git ever sees it.
   #
-  # The -docker variant pins an exact image rather than using whatever
-  # `gitleaks` happens to be on PATH; a stale distro build would run a
-  # different (and differently-spelled) scanner than CI does.
+  # Runs a pinned image rather than whatever `gitleaks` happens to be on
+  # PATH; a stale distro build would run a different (and differently-
+  # spelled) scanner than CI does. Wrapped in a script so it degrades on a
+  # machine with no Docker daemon instead of failing the commit --
+  # scripts/gitleaks_precommit.sh has the version pin and the rationale.
   #
   # --redact is non-negotiable: without it gitleaks prints the secret it
   # found into the terminal and CI logs, turning a near-miss into a real
   # exposure.
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.30.1
-    hooks:
-      - id: gitleaks-docker
-        name: gitleaks (scan staged changes for secrets)
-
   - repo: local
     hooks:
+      - id: gitleaks
+        name: gitleaks (scan staged changes for secrets)
+        entry: scripts/gitleaks_precommit.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Push is the irreversible moment -- a commit is on your laptop, a
+      # push is on GitHub. Scans every commit in the range being pushed,
+      # so it catches one made earlier with --no-verify, and covers the
+      # window where CI does not run at all: validate.yml triggers on push
+      # to main and PRs to main, so a topic branch with no PR open is
+      # scanned by nothing until someone opens one. bash + git + grep only,
+      # deliberately -- it is the layer that has to work when everything
+      # else has degraded.
+      - id: prepush-secret-scan
+        name: pre-push secret scan (every commit being published)
+        entry: scripts/prepush_secret_scan.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       # .sops.yaml is the single source of truth for which files carry
       # secrets. This asserts .gitattributes still agrees with it -- a file
       # with a sops rule but no filter entry commits as PLAINTEXT, silently.
@@ -62,11 +127,23 @@ repos:
       # so they run on any change to the scripts. Stdlib unittest, no
       # dependency, well under a second.
       - id: secret-tooling-tests
-        name: unit tests (pseudonymize, sops recipients)
-        entry: bash -c 'python3 scripts/test_pseudonymize.py -q && python3 scripts/test_sops_recipients.py -q'
+        name: unit tests (pseudonymize, sops recipients, hostvars, secretguard, guard scoping)
+        entry: scripts/run_secret_tooling_tests.sh
         language: system
         pass_filenames: false
-        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|test_.*)\.py|\.sops\.yaml|\.pseudonyms\.yaml)$'
+        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|hostvars_filter|secretguard|lint_repo_hygiene|check_encoding_health|test_.*)\.py|scripts/secretguard\.sh|scripts/run_secret_tooling_tests\.sh|\.sops\.yaml|\.pseudonyms\.yaml|\.hostvars\.yaml)$'
+
+      # The hostvars analogue of the staged-secrets guard: git's copy of a
+      # covered file must hold its {{ placeholders }}, not one machine's
+      # literal value. Catches a clone whose hostvars filter isn't wired, and
+      # a value edited in SignalK's admin UI without hostvars.local.yaml
+      # being brought along (scripts/hostvars_filter.py refresh).
+      - id: hostvars-placeholders
+        name: hostvars guard (placeholders survive into git)
+        entry: python3 scripts/hostvars_filter.py check
+        language: system
+        pass_filenames: false
+        always_run: true
 
       # Rules whose absence has already cost real downtime on this boat. Each
       # one carries its incident in its docstring. Repo-only and CI-safe;
@@ -89,9 +166,12 @@ repos:
       # writes latin-1 back, turning an em dash into mojibake in a committed
       # file. This catches the damage at the commit rather than in review.
       # Repo layer only -- the host and process checks need the machine.
+      # --staged, not --repo: one file damaged by an old latin-1 round-trip
+      # used to block every commit in the repo, by someone who did not cause
+      # it. CI runs --repo. `--fix <path>` repairs a file.
       - id: encoding-health
         name: encoding (tracked files are UTF-8, no mojibake)
-        entry: python3 scripts/check_encoding_health.py --repo
+        entry: python3 scripts/check_encoding_health.py --staged
         language: system
         pass_filenames: false
         always_run: true

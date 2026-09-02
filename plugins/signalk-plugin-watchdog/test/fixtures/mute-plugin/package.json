@@ -1,0 +1,10 @@
+{
+  "name": "mute-plugin",
+  "version": "0.0.1",
+  "description": "Test fixture: enabled plugin that never publishes, simulating bt-sensors' D-Bus handshake dying at load",
+  "main": "index.js",
+  "private": true,
+  "keywords": [
+    "signalk-node-server-plugin"
+  ]
+}

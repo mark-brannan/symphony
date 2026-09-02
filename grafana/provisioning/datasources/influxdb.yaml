@@ -3,17 +3,27 @@ apiVersion: 1
 datasources:
   - name: InfluxDB
     type: influxdb
-    # Every provisioned dashboard names this uid -- 162 panel references across
-    # the five JSON files. Without it Grafana assigns a random one at startup
-    # and the dashboards come up empty, which reads as "no data" rather than as
-    # a wiring fault.
+    # Every provisioned dashboard names this uid. Without it Grafana assigns a
+    # random one at startup and the dashboards come up empty, which reads as
+    # "no data" rather than as a wiring fault.
+    #
+    # `version: Flux` below is load-bearing: the dashboards are generated with
+    # Flux queries (scripts/build_dashboards.py). A datasource left in the
+    # default InfluxQL mode renders every panel blank against this InfluxDB 2.x
+    # bucket, with no error anywhere.
     uid: influxdb-symphony
     access: proxy
-    url: http://influxdb:8086
+    # Not hardcoded to the compose service name, because during the move off
+    # systemd the two sides land at different times: a containerized Grafana
+    # reaching an InfluxDB that is still a native service needs
+    # http://host.docker.internal:8086, and the compose service needs
+    # http://influxdb:8086. Set INFLUX_URL in .env to whichever is true today;
+    # nothing else has to change when the other side moves.
+    url: $INFLUX_URL
     jsonData:
       version: Flux
-      organization: darkstarllc
-      defaultBucket: symphony
+      organization: $INFLUX_ORG
+      defaultBucket: $INFLUX_BUCKET
     secureJsonData:
       token: $INFLUX_TOKEN
     isDefault: true

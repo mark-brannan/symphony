@@ -46,6 +46,13 @@ RESTART=(
 	"telegraf"
 )
 
+# System services that reread their config on reload. Same purpose as RESTART,
+# but for daemons a restart would be worse than the stale config: bouncing the
+# system bus takes every dbus client on the box down with it. Skipped when the
+# unit isn't present.
+RELOAD=(
+)
+
 # System units this installer enables and starts. Timers belong here; a unit
 # file that lands in /etc/systemd/system does nothing until something enables
 # it, and forgetting that is how a change looks installed but never runs.
@@ -107,6 +114,20 @@ for unit in "${RESTART[@]:-}"; do
 	fi
 	if systemctl cat "$unit" >/dev/null 2>&1; then
 		systemctl restart "$unit"
+		echo "  $unit  ($(systemctl is-active "$unit" || true))"
+	else
+		echo "  $unit  not installed, skipped"
+	fi
+done
+
+for unit in "${RELOAD[@]:-}"; do
+	[ -n "$unit" ] || continue
+	if [ -z "${reload_header:-}" ]; then
+		echo "== service reloads =="
+		reload_header=done
+	fi
+	if systemctl cat "$unit" >/dev/null 2>&1; then
+		systemctl reload "$unit"
 		echo "  $unit  ($(systemctl is-active "$unit" || true))"
 	else
 		echo "  $unit  not installed, skipped"

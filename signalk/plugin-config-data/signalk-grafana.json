@@ -2,7 +2,7 @@
   "configuration": {
     "grafanaPort": 3001,
     "grafanaVersion": "latest",
-    "adminPassword": "ENC[AES256_GCM,data:46pPlxYaKxiAdDVuhcpp5Bnv7U1dZupWDRT0xzpC77I=,iv:30sL7l+vR0uGZYdKJJyxyyEZmU2IEHA+LsDm/kj5Oag=,tag:CYf146+r7G4y6ffp6yWplA==,type:str]",
+    "adminPassword": "ENC[AES256_GCM,data:uApZXZJDLx/AJGVw/cxlXaiZdsnrFsXlqWwPm7c7Cj8=,iv:mXs7S5e6kUvQ+0Y8zN9nT81+YzewytlftSQY8XZMm/M=,tag:V37RWw7gkpz811LNW0ZxBw==,type:str]",
     "anonymousAccess": true,
     "questdbContainerName": "signalk-questdb",
     "questdbPgPort": 8812,
@@ -11,21 +11,21 @@
     "networkName": "symphony-net",
     "bindToAllInterfaces": false
   },
-  "enabled": true,
+  "enabled": false,
   "sops": {
     "age": [
       {
-        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBoMTIvY2U1cGNIMjQ1cS9a\naXdJcEpjanZUK2I3N21JZCtQWm4vVGhnNzJ3ClpNMG1xbXBoZW4yc3BIRUgrdVlV\ndEhnQU1hanAvN0x2QXdheEZwY051VzAKLS0tIHBnd2paTWwrVmxHMitXOVZySlEv\nTHdvWUJRbzV3M2F2ZlU2Y052SzFHUWsKEdQW9v7eVDTP5n9Xs0s2EU320zUtkNYa\ny4ndqyWwxoM3kGsajMEWz6+cYrLAx0ElHPfJ5jEOQnxHK8aZwf9Z+w==\n-----END AGE ENCRYPTED FILE-----\n",
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA5Mm9QZ25ZbFdDMmVyWldQ\nSFRpcEs5Y254V3dPanJMbTQ1QnZINUZ2YW5VCm0rcG1VWER3QThkTllOVXMxSVJ4\nMXFjbkZ6K3VnakJLMGVHRDlGODJmK0EKLS0tIGpEdERkdmhpVXhDemw3a1JIUUgx\nNzFWK2MxRlgrSTZFYXV5eUpkZ2p6ZDgK7XtE5e/1HdPXnF8M40D3du0KuG0RH3in\ndADuQNzShNakT3dBr4KcUG8of9ZwqVRxTBdv6UftJNtIl+688KB1fA==\n-----END AGE ENCRYPTED FILE-----\n",
         "recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
       },
       {
-        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBaWVBlbGptMG4vTVM1SjZB\nYVM5Z1hoVHRBSzJGSlVUdWpEUnhqNExzR0g4Ckl4RzJpYzFiWUhRQi93aHJ4VDZT\nU2wvcE5wbG5JY0RzS1N4Z3d4NHhyS1kKLS0tIDZQNnFMRFFrRUNiUGJVWmx1YXFK\ndXk5aGJrNml2MEVWenhocjdhdzNXVEUKSnowPioNE52hsZ7mVQe81avtev4jg4i0\nErDA6aYNFLEstmKwdQSnu+ukzB5gAH0Ty7rKsjfGPohNBeGXcDiJqw==\n-----END AGE ENCRYPTED FILE-----\n",
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBvYXNZN2F6TFFwOUlwSXhj\nWi81eURKUFI2THVpTnhHVmJodzJVSXNnMGlZCllwN2lDNmVmZFFiWHNvMGJTRDgw\nRzBDSVU2NnM2WWQyV08wSkRHYVBQZUkKLS0tIHpxQnlKNVplcGIwaUNoNktXTC9p\nZi9mbWR4MGprYTJxNkE0NitSNDZxMDQKFIW6ujKM0xLOFZubbDiAreH8VNmbXyY4\nr1OXrqGaxQl18I/v069rz5y+IP6xbxp0zqMaHHnqK/UPH/kCamzdWA==\n-----END AGE ENCRYPTED FILE-----\n",
         "recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
       }
     ],
     "encrypted_regex": "^adminPassword$",
-    "lastmodified": "2026-08-13T03:05:04Z",
-    "mac": "ENC[AES256_GCM,data:Q2TowOJ6ldtZneBSi3/VNXTQaD9DuK7IyIS9OgpIKk3NXUp/9GIbgn/E+Pg79TGMIxckmpQq2mpG1bugjgJLLdAkvbzWO7Y0SkuGYqQWdga+SETiaekGxzct4QNTy1QUiBhrNFEYiiyyFar+66A9xSdJfwqSlO/tB88mQf8VIL0=,iv:YVkb3vKRp0uLmQIOuWYnaAxXIHm8IY12y52ciWZ2AxE=,tag:NGcqc8GAwtdlyf2kGWp+mg==,type:str]",
+    "lastmodified": "2026-08-15T11:34:21Z",
+    "mac": "ENC[AES256_GCM,data:t1WgJjV+TaiIopoVxHQNeeUNvDBMjspRBhGjpSozAg5OGIeHYVRNZYNry/065DYn22iBljX0Qz1IzUTXiRJicVAXw/s9zdnh7vl/tGQBqA8+1FzdpKsmvG73Zk1wrAj4v/FCj2kwL2EbLMjMGYe7g4jGg+VJQnX97Ihs2MPqF/A=,iv:aYuGKETVCjaxD/ZWv04gJ1uFa3h6aI0pDnoxapjzDts=,tag:4RDwRiCtH4Cq5MW7MxtD7g==,type:str]",
     "version": "3.13.3"
   }
 }

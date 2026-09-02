@@ -1,0 +1,29 @@
+{
+  "configuration": {
+    "host": {
+      "enabled": false,
+      "cpuWarning": 80,
+      "cpuAlarm": 90,
+      "memWarning": 20,
+      "memAlarm": 10,
+      "diskWarning": 20,
+      "diskAlarm": 10,
+      "checkFrequency": 60,
+      "checkMaxAttempts": 3,
+      "sendNotification": false,
+      "sendEmail": false
+    },
+    "providers": {
+      "n2k-can0": {
+        "enabled": false,
+        "deltaWarning": 1,
+        "deltaAlarm": 1,
+        "checkFrequency": 60,
+        "checkMaxAttempts": 3,
+        "sendNotification": true,
+        "sendEmail": false
+      }
+    }
+  },
+  "enabled": true
+}

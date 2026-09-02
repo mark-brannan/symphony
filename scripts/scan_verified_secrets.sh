@@ -16,7 +16,7 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-TRUFFLEHOG_VERSION="3.96.0"
+TRUFFLEHOG_VERSION="3.97.0"
 REPORT="$(mktemp)"
 trap 'rm -f "$REPORT"' EXIT
 

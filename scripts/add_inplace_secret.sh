@@ -19,6 +19,25 @@ FIELDS=("$@")
 [ "${#FIELDS[@]}" -ge 1 ] || { echo "need at least one field name" >&2; exit 1; }
 [ -f "$FILE" ] || { echo "no such file: $FILE" >&2; exit 1; }
 
+# In-place files only. The whole-file encrypted stores under secrets/ don't
+# go through the git filter at all -- wiring one up here appends a filter
+# entry that breaks every subsequent `git add` of the file (see RUNBOOK.md,
+# "Adding a secret"). Guard BEFORE touching .sops.yaml/.gitattributes: this
+# script edits as it goes, so a late failure leaves them half-applied.
+case "$FILE" in
+  secrets/*)
+    echo "error: $FILE is in the whole-file encrypted store -- this script is for" >&2
+    echo "  in-place plugin config files only. Edit the store with:  sops $FILE" >&2
+    exit 1;;
+esac
+if grep -qE '^sops:|"sops":' "$FILE" 2>/dev/null; then
+  echo "error: $FILE is sops ciphertext on disk -- refusing." >&2
+  echo "  Either it's a whole-file encrypted store (edit it with: sops $FILE), or this" >&2
+  echo "  clone never wired the smudge filter and the in-place files checked out" >&2
+  echo "  encrypted -- run: bash scripts/setup-git-filters.sh" >&2
+  exit 1
+fi
+
 if [ "${#FIELDS[@]}" -eq 1 ]; then
   ENCRYPTED_REGEX="^${FIELDS[0]}\$"
 else

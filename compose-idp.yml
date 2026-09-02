@@ -1,6 +1,10 @@
 services:
   dex:
-    image: ghcr.io/dexidp/dex:latest
+    # Pinned: `latest` moving under the boat is not a surprise worth having
+    # offshore, and Dex is the single point everything else authenticates
+    # against. The digest is the multi-arch index (linux/amd64 for the dev
+    # box, linux/arm64 for the Pi), not a single-platform manifest.
+    image: ghcr.io/dexidp/dex:v2.45.1@sha256:8499afd690c437f52301efd2b05b2455da5bd2dfc20332cd697dc9937f808462
     container_name: dex
     profiles: ["tls"]
     restart: unless-stopped

@@ -16,7 +16,7 @@ it includes:
 | `influxdb` | `influxdb:2.7` | 8086 | `influxdb-data`, `influxdb-config` volumes |
 | `grafana` | `grafana/grafana:latest` | 3001→3000 | `grafana-data` volume, `./grafana/provisioning` |
 | `caddy` | built from `./caddy` | 443 | `caddy-data` volume (certificates) |
-| `dex` | `ghcr.io/dexidp/dex:latest` | none (proxied by caddy) | none (memory only) |
+| `dex` | `ghcr.io/dexidp/dex:v2.45.1` (pinned by digest) | none (proxied by caddy) | none (memory only) |
 | `dex-dev` | `ghcr.io/dexidp/dex:latest` | 5556 | none (memory only) |
 
 The last three sit behind compose profiles and don't start with a plain
@@ -47,11 +47,13 @@ Outbound integrations that need credentials: PostgSail
 (`api.openplotter.cloud`), OpenWeather, Windy, and InfluxDB. Each token is
 encrypted in the relevant `signalk/plugin-config-data/*.json`.
 
-## The boat Pi runs none of this in Docker
+## The boat Pi runs only part of this in Docker
 
 The table above describes the intended deployment. The Pi aboard Symphony
-doesn't match it: Docker isn't installed there, and SignalK, InfluxDB,
-Grafana, Caddy, Dex, and Telegraf all run as systemd units instead.
+doesn't match it, and no longer matches it in one direction either: Docker
+*is* installed there now, and Dex, QuestDB and ntfy run as containers. Dex
+moved first, in `d3d690e`. SignalK, InfluxDB, Grafana, Caddy and Telegraf
+still run as systemd units.
 
 The constraint is the hardware. It's a Pi 4B with 4 GB of RAM on a 32 GB SD
 card, and the live data — SignalK's state directory, the InfluxDB store,
@@ -67,7 +69,6 @@ natively:
 | Service | Native form | Config source |
 |---|---|---|
 | `caddy` | `/usr/local/bin/caddy`, custom build with `caddy-dns/cloudflare` | `/etc/caddy/Caddyfile`, a copy of `caddy/Caddyfile` with the three upstreams repointed from container names to `localhost` |
-| `dex` | `/usr/local/bin/dex`, binary extracted from the OCI image | reads `dex/config.yaml` from the repo directly |
 | `telegraf` | Debian package | `/etc/telegraf/telegraf.conf`, a symlink to `telegraf/telegraf.conf` |
 | `signalk`, `grafana-server`, `influxdb` | Debian/npm installs predating the repo | their own config trees, not the repo's |
 
@@ -76,11 +77,16 @@ passed as `env_file`, delivered by an `EnvironmentFile=` drop-in under
 `/etc/systemd/system/<unit>.service.d/`. So `scripts/render.py` remains the
 single path from sops to running configuration, container or not.
 
-Two traps live here. Dex and Telegraf run as `pi` rather than their own
-service users, because `/home/pi` is mode 0700 and their config lives
-inside it — the same reason `compose-idp.yml` pins Dex to uid 1000. And
+Two traps live here. Telegraf runs as `pi` rather than its own service
+user, because `/home/pi` is mode 0700 and its config lives inside it — the
+same reason `compose-idp.yml` pins the Dex container to uid 1000. And
 Telegraf's packaged unit is `Type=notify`, which times out under this
 configuration; the drop-in overrides it.
+
+A disabled `dex.service` unit is still present on the boat, left from
+before `d3d690e`. It is superseded by the container and must stay disabled:
+`systemctl is-active dex` reporting `inactive` there is the correct state,
+not a fault. Check Dex with `docker ps` and its discovery endpoint instead.
 
 SignalK is installed twice on that host, 2.14.4 under `/usr/lib` and 2.30.0
 under `/usr/local`. The service ran the older one — which predates OIDC
@@ -167,16 +173,47 @@ How each piece consumes Dex:
 
 ### The permission model
 
-SSO is identity, not authority: every SSO login lands at
-`SIGNALK_OIDC_DEFAULT_PERMISSION` (readonly) and stays there. SignalK's
-permission mapper takes exactly one input — an IdP group-claims **array**
-(`Array.isArray`-gated in `dist/oidc/user-info.js`), re-derived on every
-login, no email-based hook — verified in the running 2.30.0 and still
-true on upstream master as of 2026-08-08. Google logins never carry
-groups, GitHub logins only carry them as org-team memberships, and the
-org/teams route was rejected as hoops without payoff. Admin work belongs
-to the local `captain` account, which predates SSO and is unaffected by
-it.
+The owner's login gets admin on SignalK; everyone else lands at
+`SIGNALK_OIDC_DEFAULT_PERMISSION` (readonly). Deployed 2026-08-14.
+
+SignalK's permission mapper reads groups and nothing else, and neither
+GitHub nor Google sends any. Rather than manufacture a group, the server
+is pointed at a claim that already exists:
+`SIGNALK_OIDC_GROUPS_ATTRIBUTE=email` names which claim to treat as
+groups, and the callback normalizes a bare string into a one-element
+list, so the email *is* the group. `SIGNALK_OIDC_ADMIN_GROUPS` then
+holds plain addresses — the same shape as Grafana's, and no Dex change
+at all. Both providers work, because Dex carries an email claim for
+either one.
+
+The load-bearing part is `GROUPS_ATTRIBUTE`. Drop it and the server
+looks for a `groups` claim nothing sends, and every SSO login silently
+becomes readonly — no error, either side.
+
+What makes this safe: permissions are recalculated on every login
+(`findOrCreateOIDCUser` updates an existing user's type when the mapping
+changes), so editing the list demotes or promotes people on their next
+sign-in with no cleanup. And the failure mode is closed — a broken
+mapping costs an admin their rights rather than handing anyone else
+theirs, with `captain` still available to fix it.
+
+Verified end-to-end against 2.30.0 on 2026-08-14, on a throwaway Dex and
+SignalK pair: a listed address came out `admin`, an unlisted one
+`readonly`, and swapping the list demoted the first and promoted the
+second on their next login.
+
+Two things to know before touching it. `dist/oidc/user-info.js` gates
+groups behind `Array.isArray` and would reject a bare string, but
+`extractUserInfo` is exported and never called anywhere in `dist` — it is
+dead code. The live path is the callback in `dist/oidc/oidc-auth.js`. Second, pointing `groupsAttribute` at a claim
+that isn't a group is off-label: both halves are supported (the option
+is documented, and the string-to-list normalization is deliberate and
+commented), but a future release could tighten it and quietly demote the
+owner. The RUNBOOK's post-deploy check is what catches that; the
+upstream patch below is the durable fix.
+
+The local `captain` account predates SSO and is unaffected by any of
+this — it stays the offshore fallback.
 
 Grafana is the exception because its role mapping can key off the
 **email claim**: `role_attribute_path` holds a hand-managed list in
@@ -192,22 +229,10 @@ attached. SignalK's separate anonymous no-login readonly mode (`allow_readonly`)
 is on as well, so reads don't require a login at all; signing in is what puts
 a name against them.
 
-If SignalK ever grows email-based permission lists (a small upstream
-addition next to `adminGroups`), SignalK's authority model collapses into
-the same shape as Grafana's: email lists in this repo.
+A Dex-synthesized group was built and dropped: it only ever covered Google,
+and the `GROUPS_ATTRIBUTE` route above covers both providers for less. The
+upstream route stays open as a tidiness argument rather than a coverage one:
 
-Two routes to that, looked at on 2026-08-11 and neither taken:
-
-- **Let Dex synthesize the group.** Dex 2.45's generic `oidc` connector
-  supports `claimModifications.newGroupFromClaims`, which builds a group
-  out of other claims. Pointed at `email`, every user arrives carrying a
-  group equal to their own address, and `SIGNALK_OIDC_ADMIN_GROUPS`
-  becomes the allowlist — one line per admin, guests still falling
-  through to readonly. Needs Google moved off Dex's purpose-built
-  `google` connector onto the generic `oidc` one, which works because
-  Google publishes a discovery document. GitHub can't follow: it's
-  OAuth2, `claimModifications` is OIDC-connector-only, and the org/teams
-  alternative is the one already rejected above.
 - **Patch upstream.** An email list beside `adminGroups` in
   `dist/oidc/permission-mapping.js`, which today takes the groups array
   and nothing else. This is the only route that covers both providers,
@@ -269,11 +294,8 @@ plugin-managed one dies with
 A container that lost this race is not retried — it stays in `Created`, and
 freeing 3001 afterwards has not been seen to bring it back on its own.
 
-*Unverified, and worth correcting if you learn otherwise:* the fix has never
-been run. Pointing the plugin's `grafanaPort` at a free port is the obvious
-move, but nobody has tried it, and it isn't known whether `signalk-grafana`
-honours the change or whether its auto-provisioning assumes 3001 elsewhere.
-Don't treat "just change `grafanaPort`" as a tested procedure.
+Untested fix: pointing the plugin's `grafanaPort` at a free port. Nobody has
+run it, so don't treat it as a procedure.
 
 To run QuestDB from your own compose file instead, set
 `managedContainer: false` and point `questdbHost` at the service name. The
@@ -310,39 +332,6 @@ the `docker.sock` volume and `group_add` from `compose-signalk.yml`.
 A socket proxy is the usual middle path, but it buys little here —
 `signalk-container` has to create containers to do its job, and container
 creation is itself the escalation.
-
-### The mount can go stale and strand the container
-
-Seen once, on the WSL dev box, 2026-08-12: `signalk-server` exited 127 and
-did not come back, with
-
-```
-error mounting "/run/desktop/mnt/host/wsl/docker-desktop-bind-mounts/Ubuntu/docker.sock"
-to rootfs at "/var/run/docker.sock": not a directory
-```
-
-The host socket itself was healthy at the time — `srw-rw---- root docker`,
-with an mtime matching Docker Desktop's restart. What had gone stale was
-Docker Desktop's own bind-mount staging path, not `/var/run/docker.sock`.
-`docker compose up -d --force-recreate` cleared it.
-
-The cost is that the container sits dead with nothing retrying it, and
-nothing alarms on it — this instance was down about eight hours before
-anyone noticed.
-
-*Unverified, and worth correcting if you learn otherwise:*
-
-- Whether this recurs on every Docker Desktop restart or was a one-off. It
-  has been observed exactly once.
-- Why `restart: unless-stopped` didn't recover it. The container had been up
-  since 2026-08-09 and `RestartCount` was still 0 afterwards, which points to
-  the policy never retrying rather than retrying and giving up — but that is
-  read off the counter, not observed directly.
-- Whether anything short of a full recreate fixes it. Plain `docker start`
-  was never tried.
-
-This is a Docker Desktop / WSL failure mode. The boat Pi runs no Docker at
-all, so it cannot be hit there.
 
 ## How secrets are stored
 
@@ -424,6 +413,70 @@ is a property of those two Dex connectors, not a guarantee — GitLab IDs
 resolve publicly, and Dex's static password DB puts whatever string you typed
 into the subject. Re-check it before adding a connector.
 
+## Per-machine values in plugin config
+
+The tracked plugin-config files double as the live configuration on every
+checkout, and one value genuinely differs by machine: `signalk-ntfy`'s
+server URL is `http://ntfy:80` on the dev stack (SignalK reaches ntfy over
+the compose network) but `http://localhost:8090` on the boat Pi (native
+SignalK, ntfy container's published port). With a single committed file,
+whichever machine committed last silently broke the other's alarm delivery.
+
+The fix reuses the clean/smudge filter architecture: git stores a
+placeholder (`"url": "{{ ntfy_url }}"`), and a second filter (`hostvars`,
+`scripts/hostvars_filter.py`) expands it on checkout from a gitignored
+per-machine `hostvars.local.yaml` and contracts it back on commit. SignalK
+reads and rewrites the file exactly as before; the machine-specific value
+never reaches git.
+
+Not sops, deliberately: these values aren't secrets, they just aren't
+shared — an ENC[...] blob would hide a harmless URL and still couldn't
+differ per machine. Only whole string values substitute, matched
+byte-for-byte, so a value can never be rewritten where it appears inside
+some longer string. `.hostvars.yaml` declares which files and variable
+names participate; the placeholder syntax matches the jinja2 templates
+`scripts/render.py` already renders, so an eventual Ansible migration
+treats these files as the templates they effectively are.
+
+The invariant — git's copy holds the placeholder, never one machine's
+literal value — is enforced the same way as the sops layer: a loud warning
+from the clean filter, a pre-commit hook (`hostvars-placeholders`), and the
+same check in CI (`scripts/hostvars_filter.py check`).
+
+### Alternatives considered for the ntfy URL
+
+Two other mechanisms could have carried this value; both were rejected for
+this case, and the reasons bound when each is the right tool.
+
+**A dev override** (`dev/plugin-config-overrides/`, a read-only bind mount
+over the repo's copy). Right for plugins that must be *forced* into a dev
+state — the pin deliberately breaks admin-UI saves, and it assumes the
+committed file is the boat's value with dev as the exception. Neither fits
+ntfy: the plugin is live in both environments, its other settings (topic,
+levels, `minIntervalMinutes`) should stay editable and committable from
+either machine, and the URL difference has no "real" side for the repo to
+own. The filter keeps the committed file environment-neutral and the
+admin-UI workflow intact on both machines.
+
+**One URL everywhere via DNS** — a split-horizon name, an `/etc/hosts`
+alias, or routing ntfy through Caddy. The two SignalK instances talk to
+*different* ntfy servers, each co-located with its SignalK; a shared name
+would not remove the per-machine difference, only relocate it from a
+declared, CI-checked `hostvars.local.yaml` into unversioned network state —
+a dnsmasq override per router, an `/etc/hosts` entry, a published-port
+choice — one copy per LAN, invisible to git and to `check`. On the boat it
+would also insert a resolver (and, via Caddy, the TLS front door and its
+offshore-expiring certificates) into the alarm-delivery path, which today
+depends on nothing but the loopback interface. Dev in fact already uses a
+split-horizon name: `ntfy` resolves only inside the compose network, via
+Docker's embedded DNS. The boat's equivalent binding is `localhost` — it
+just cannot be spelled identically, and alarms are the last traffic that
+should take on new dependencies to make a config file byte-identical.
+
+A client-facing name (a phone finding ntfy on the boat LAN, via the
+existing router DNS override and a Caddy route) is a separate, compatible
+concern — it would not change what SignalK dials.
+
 ## How the safety net is layered
 
 The layers are not equally trustworthy:
@@ -435,5 +488,22 @@ The layers are not equally trustworthy:
 | GitHub Actions | all of the above, plus full-history and live-credential scans | **no** — runs on every push |
 
 CI is the enforcement boundary; the hooks are fast feedback, not a guarantee.
-That is why `.github/workflows/validate.yml` re-runs the same checks rather
-than trusting that a hook already ran.
+That is why CI re-runs the same checks rather than trusting that a hook
+already ran.
+
+There are two workflows, split by deadline rather than by subject.
+`validate.yml` (compose, JSON/YAML, shellcheck, python, dashboards) runs on
+pushes to `main` and on pull requests: nothing it covers can reach the boat
+without a merge, so PR time is soon enough. `secret-scan.yml` (sops config
+consistency, encryption check, gitleaks, trufflehog) runs on a push to *any*
+branch, because this repo is public and a credential is exposed the moment
+the branch is pushed, PR or no PR. Before that split (2026-08-19) a `claude/*`
+branch pushed without a PR matched neither trigger and went unscanned.
+
+Deliberately not used on `secret-scan.yml`: a `paths:` filter. It would cut
+the run count, but gitleaks is there precisely to catch credential-shaped
+strings in files sops was never told about, and a path allowlist is another
+list of the files someone remembered to think about. It is also incoherent
+with the scan's scope — both scanners read full history, so gating them on
+one push's changed files would skip a whole-history scan whenever the newest
+commit happened to touch only a README.

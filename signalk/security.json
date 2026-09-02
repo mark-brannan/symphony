@@ -1,16 +1,16 @@
 {
   "allow_readonly": true,
   "expiration": "NEVER",
-  "secretKey": "ENC[AES256_GCM,data:xDvizTMaiNuN+DIEGv57RHe3Uo6PDTrT3e8M8i+WIIp3ztawWImPe/Vjo8/FIfP9oDUUW0BwDrJjF8nkJXKsTETd4n7Fb1yMj5qsYTJ2Ih75fstPSYyHLcPyZ9d3aO/edhv+0wrU7lDF6XVMmLdTRRw0rvFwp7WpSca46za5Txgd7Lap84m32E72zQbdeMLrS2mekkAPFHtWaXaFh72VjuoZt9aQqIwvXYh5+j7ezXlL0h7AUjEpvQo1Pd0vyKnTGvIFp6wcyZ1hykrCtRHmPfK3waKDb4+BOZh5IQIsxSS8O5xP/isviFXPNR66AHEDrcYsYNkZO8f4xjhC+yzOxPpaDLxpfyUNdijJxZ6qmcZRiHeKbQmLzHzY2MfSASQ4SwgyXZOu4G+Kf3SCAW4fy5h1dFrBhlGPpG94TUiuSBwHx4JmfXgxSeyPsUv+81ZoDVvd9L6gckLUYC5iORuqWZWt2nKZlhxI81ujmLo+/o8aGZR6V2/nBY78vaZhvr4kKZVRS5Ghx65CEbbRXdUaD0eAUDgrmguk0yBcF6fqHFhgeet3MY+uXYl7RISxLezpbNmg26Rbwsjs+4AKdAeYofqWWJQMMz3+1SAMK4ZL/CkTG3j4LoojeLFBoEi4l14dfsYt/28hshr2JsPf8rzIYK6dgPpMMfTxx4wS0B3k4tk=,iv:QTzWx+Jnl6qXHy02oyGaBlU8t5ZpirNKEDSBWFrt0mc=,tag:K4gg/MiA0PTrYuvZ2FxT6Q==,type:str]",
+  "secretKey": "ENC[AES256_GCM,data:XWQxMa+vjKrCkezaDjF68iJZlnFibrgIsCz406u320FErZR2rbtuKYsD2UXcZO+/wMeAPZcl1Y1Bn30D0/nsLr86zxXZRy7lMIk6BGLHOc/p7Anrc0VuCmaf9pGEFMnUMHBoomL2uURuJVXvKnfO2VFBO0hpw5yjr39eAhfYKy69dXHumMIJuxjvWY+isq82OzhyK44vKSxAfoP/RX2oCIkvNAKHLezMTb8D6UXCUi7CLNkw4DcYSjEFtj33ZSxOOjAiE1jvLsSOUYLoB/906xfQaxuBDoZ2nNGnfQgjdIhdOF9pK1HWD1CpUqzhIEjP+YjrmGsjmDrhhwBMZCwJaaILmKCx07V3PnN7dZq8VZYmVC/l32Wgc8eHof9AL6PjIw3xwIbeFdeFXT6Cg6WRjYxWjtok+m7vSnAt1EteIe1qBt+eMbqu7+R3VF9E3MzaIb6veks1CJoUUBn+GbAyDy5DLUfnIc9qg6ptA3kTfolSHb30pEa/VJJnkGUUsLhWVYHW4NZh3MLitumUv1SNbdCw69c8SgmXeiowWNs4Ho5PvOrpJpV2r65rtWSTPFy0Fiid1cBNADzvQDX84nFn8PGfNsFTG5C7eKKtae7yD8LLpKtsJ9zveB9FqQiILItrs/i6IxyAjJ3AFOhlHivNoEoiIx8dlm2W76mF4wAiDDw=,iv:6nzZV18vJjwr5ILjUYKeyG9MJwQW7vGXo75BGtVQakE=,tag:SpSomBlJ3cvOJLWOFT8qpA==,type:str]",
   "users": [
     {
       "username": "captain",
       "type": "admin",
-      "password": "ENC[AES256_GCM,data:VQNwKhoxYGNIjC4MCGORJ/95KSKfX8I8d7nhrE9uv2SxqW8JfLktWN+az8vz6JVtWhABTq6uHMEFJ8mB,iv:GZeKLUE1w4onv8HEZnLTu9ih0byiv7Vr7RBRoyDcVZo=,tag:51P5Rn6MMwcpLulIS2q7XQ==,type:str]"
+      "password": "ENC[AES256_GCM,data:v+jmBwRezIikSVK5V1fqDUBx7pduudDqKXoLA444ATH/eHMFO6y7PhZGUZwKVzBY0UHs3zAmOnMDFYxU,iv:W1Duofh1/+8XOqVLFs0AAygAfhJCpuk1KacfO2iIL3M=,tag:LqHHA11GFMgy0sUw9a9veA==,type:str]"
     },
     {
       "username": "screenshots",
-      "password": "ENC[AES256_GCM,data:k5IIH7YytDr93k3/52GrynFWBVnvuOiQsK5MNGmnZpuereHhgwSlWntvvG09vzJOcgdDtdSsLV7t3OoA,iv:dnuDFsXIXQ/MQ+YLu3BRC5Fa3qaE2G7gqzMnVvfP+ns=,tag:nl9qPXPibqMvlwPa2Wzwgw==,type:str]",
+      "password": "ENC[AES256_GCM,data:0ru0MJag02DEW3Jk2B5ZhsUmvecNU8JAx5/ZwP4xXU/xOxdfnizfeit1Du+veU4/uqOREAgfCHRjPpH1,iv:hfUDIAT5BMtsQVX3gMAkfIdJSRQbvcxBp5dOdH+ODYM=,tag:lv6OX05mGhmLzxhTcdUu1Q==,type:str]",
       "type": "admin"
     },
     {
@@ -75,6 +75,12 @@
       "clientId": "pypilot-18111839792",
       "permissions": "readwrite",
       "description": "pypilot"
+    },
+    {
+      "clientId": "signalk-grafana-r2",
+      "permissions": "readwrite",
+      "description": "Signal K Grafana plugin -- datasource auth for Explore and dashboards (rotated 2026-08-20, second attempt)",
+      "requestedPermissions": ""
     }
   ],
   "immutableConfig": false,
@@ -84,17 +90,17 @@
   "sops": {
     "age": [
       {
-        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBKOWtJc0VOSW5jRWp2VTlj\neWRsQU56bGVtTzhuQUxLMHlGVHY3aHRtL3h3CktiWWE0NmZQVmxiTmJwem9CVUcx\nZlkvMEIvRFRXT2o0aytlSkovRWlrdmMKLS0tIDVZR3FRN09VeTNob2lKVW1WTDdp\nNXJMVDhtOCt2Rk53MFRVOVR5QUp6RDQK3jYfl095ARY9Uwlb5goLmYAWwwqXcTJI\nA+jT+K60z39ryo4HytzEz/9JWasbS/uqGoJB2ZVZJIenQkYxlEhsKQ==\n-----END AGE ENCRYPTED FILE-----\n",
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBSQUFPK3RCcWxNY3M3L3cz\nK2pjZklxbHp0M0w0WEVyMnpSODc3SThXMmtNCkxsTTdVZlp4MUk2UWNkMGczYVAr\nUmdMa1I1ZE9Xb2F0WDFVa0dWVzFuL1EKLS0tIFJac3VqSVFkdVhtNFFUVEsxdXFW\nOTdTaUlDcnpENW5xbG9EdEJyTHgzQkUKYChGrTq5LVanhzumYDu0rnG12U5jgSUL\nvLTDJ5PwcypQWqhca4b89b9hmlAct95Y/x/spXuEtceOcrBaeh2GUw==\n-----END AGE ENCRYPTED FILE-----\n",
         "recipient": "age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk"
       },
       {
-        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB0YWo4aFozQmZZaFZiV2Nm\nSjFhZTgrSU00NFIrc2dCTFh6YS9iMEY2SXdRCk1Ick9zVjhKVVZTSzVpckRoVytF\naXJ5VHYxdmtmV2NxUmp3dGMwMmRLMDgKLS0tIFZ1ZlhLNS9nOVlkRjJwYTBCaUE4\ncmhJK3RWYWxoRXVRb2oycElKWGRHS1kKZ/jXYmdhfEbkqpoXdFb+Dj6QIizpRy9E\nLC3L1/6pBUdLojz/mXIN0NKcFaLap+kSa03Sg2Fwk2S0fNfPeGJ7SA==\n-----END AGE ENCRYPTED FILE-----\n",
+        "enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAzRDZKQWhkTjJQMEo1bkcx\nMzY5dmV6MjFNK1E1K205OElreXZFV2x0bHg0CmNNbXdXVHRwMzR0UUczQysvRkV2\nRXNmRXlOb1piUnZ3SFVjSEFMRW8yNk0KLS0tIGRVa2YxeFRlTFZKbHV2NjJFcm5G\nVTFiWnJBaG1rVjJ0VFQ5a2Zwc3orbkkKUZTb7pCWahLRVEqPki3uEp3wePrkQ9L1\npY8z8aKsYxkvsn66x3lQcFmRw4hoIuuZH2W6YUMlD5SalaYVVWXNiw==\n-----END AGE ENCRYPTED FILE-----\n",
         "recipient": "age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q"
       }
     ],
     "encrypted_regex": "^(secretKey|password|clientSecret)$",
-    "lastmodified": "2026-08-13T03:07:05Z",
-    "mac": "ENC[AES256_GCM,data:BT/XOLzgeLtMzWm8feMGbHuvnLDOw21CnYnjRnUO0ESVcf9GGJtt7U8SFqehDolT9dmI59jiygkRM4P7r8qIXaqJ7mR+d6s3tqsp0XGGGMRIAN/NON7x88thyx/ksjqRrZnAqffmzehDRE5urTgRYd+0awJ5+Y0J+PZ0KEeiZHA=,iv:kpD11xhv14lOM8PATqJCOfpvabW8VeljKgZUYywvh4I=,tag:8D2mwox4MI7klDbyKUa3CA==,type:str]",
+    "lastmodified": "2026-08-20T09:23:11Z",
+    "mac": "ENC[AES256_GCM,data:1wMinplBs2VsDPFonF9L1q171/UkQi8+MLWLh87ScYRjlBFQOeZSbrXQdIYvpfXhF2b1yrm5biRigJpfBbXI2pjrhMRq0IMi3cK24a+4KBSAaiGPXbOngxiz+8BvlDqBV81Di3i0MlPRWUVj3hyS2AGXh4hk2gwrOErTtELrXpU=,iv:gRgu99ukpTW8VjXFiECuaQiO3JuY2jtOUd0th2NIcLM=,tag:Lkpzi/oswNH0OI+3o1vBlQ==,type:str]",
     "version": "3.13.3"
   }
 }
