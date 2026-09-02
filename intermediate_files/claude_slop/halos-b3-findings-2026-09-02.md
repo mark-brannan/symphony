@@ -568,3 +568,54 @@ container. Both fixes are needed and only one is in.
 or be accepted explicitly as a known regression with the BME680 to be restored
 afterwards.** It is a one-line change with a one-line test, so blocking on it
 is cheap.
+
+### RESOLVED: i2c fix applied and verified, after breaking SignalK once
+
+Mark lifted the restart hold and authorised proceeding, 2026-09-02 ~09:55Z.
+
+**The fix works.** `group_add: ["988"]` in `symphony.override.yml`; merged
+result `["960","4","988"]`; and
+`docker exec signalk-server python3 -c "open('/dev/i2c-1')"` **passes**, where
+it raised `PermissionError` before. The BME680 / `i2c-reader` path is now open
+inside the container.
+
+**The first attempt took SignalK down for ~90 seconds, and the lesson is the
+opposite of what this file said earlier.** The staged version listed
+`group_add: ["4", "960", "988"]`, hedging that compose list-merge semantics
+"are not worth betting on". Compose **appends** `group_add` across `-f` files,
+it does not replace, so repeating HALOS's own gids produced a non-unique list
+and the unit refused to validate:
+
+    validating .../symphony.override.yml:
+      services.signalk-server.group_add array items[1,2] must be unique
+
+Container `Exited (137)`, systemd restart counter reached 5, "Start request
+repeated too quickly", unit `failed`. Recovered with `systemctl reset-failed`
+and the corrected one-element list.
+
+Two things worth keeping from that:
+
+- **The hedge caused the outage.** Spelling out all three gids was chosen to
+  avoid depending on merge semantics; it depended on them just as hard, in the
+  direction that fails. The cheap check — install it and read the error — was
+  available the whole time and was not taken until it broke.
+- Older copies of the fix carry the wrong three-gid line. Use `["988"]` alone.
+
+Backup of the PR #33 session's original override:
+`/root/symphony.override.yml.bak-<epoch>` on the bench card. Their healthcheck
+block was copied through verbatim and is unchanged.
+
+Tracked in **PR #35**, based on `claude/halos-boat-swap-trial-9e5d36`. It adds
+`host/halos/` — which did not exist in the repo at all, so that session's
+override and systemd drop-in were living only on the card and would have been
+lost to a reimage.
+
+### Still open
+
+- **`plugin-watchdog` running state.** Unproven. Needs 600 s of unbroken
+  uptime; the clock restarted at 09:57:18Z. Test: `ALERT: plugin
+  bt-sensors-plugin-sk ...` must appear in the container log ~10 min after a
+  start, since no BT sensors are in range at home.
+- **BME680 against real hardware.** The permission path is open, but nothing
+  has been tested against a sensor on the bus. Worth doing if Mark wires one
+  before the swap.

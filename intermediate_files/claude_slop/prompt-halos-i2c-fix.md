@@ -1,7 +1,15 @@
 # Handoff prompt — install the HALOS i2c fix and confirm the watchdog
 
-**Model: Sonnet 5. Effort: low.** Two mechanical changes with one-line tests.
-No design decisions. The analysis is done; this is execution.
+**Model: Sonnet 5. Effort: low.** One timed test, plus a transition path.
+
+**Task 1 was completed and verified on 2026-09-02** by session
+`handoff-halos-b3-62a913-a6`: `open('/dev/i2c-1')` passes inside the container
+and the change is tracked in PR #35. It is kept below only for a card that has
+not had it applied, e.g. after a reimage. Check first:
+
+    docker exec signalk-server python3 -c "open('/dev/i2c-1')"   # silence = already fixed
+
+**Task 2 is the live one.**
 
 ---
 
@@ -49,11 +57,14 @@ restart loop, do not alter it.
     # group_add: the host's i2c group is gid 988. The image has its own i2c group at
     # gid 990, so `id` inside the container looks correct while /dev/i2c-1 (root:988)
     # stays unreadable; privileged:true does not help because signalk runs as non-root
-    # `node`. 4 (adm) and 960 are HALOS's own grants, repeated here because compose
-    # list-merge semantics are not worth betting on.
+    # `node`.
+    #
+    # List ONLY 988. Compose *appends* group_add across -f files rather than
+    # replacing it, so repeating HALOS's own 4 and 960 makes the merged list
+    # non-unique and the unit refuses to start.
     services:
       signalk-server:
-        group_add: ["4", "960", "988"]
+        group_add: ["988"]
         healthcheck:
           test: ["CMD-SHELL", "curl -sf http://127.0.0.1:3000/signalk || exit 1"]
           interval: 30s
