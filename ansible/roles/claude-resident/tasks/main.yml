@@ -20,12 +20,16 @@
 
 # A systemd --user unit only runs while pi has a login session, unless
 # lingering is on. This is what lets the resident session come back after a
-# reboot with nobody aboard logged in. loginctl has no idempotent read this
-# can check first; harmless to repeat, same as install.sh's own unconditional
-# call.
+# reboot with nobody aboard logged in.
+- name: pi's linger state
+  ansible.builtin.command: loginctl show-user pi -p Linger --value
+  register: pi_linger
+  changed_when: false
+  check_mode: false
+
 - name: pi's session lingers after logout
   ansible.builtin.command: loginctl enable-linger pi
-  changed_when: true
+  when: pi_linger.stdout | trim != 'yes'
 
 # The --user calls below need a user bus to talk to, which needs this uid --
 # `become_user` alone does not set XDG_RUNTIME_DIR for a user with no active
