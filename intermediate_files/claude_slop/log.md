@@ -1893,3 +1893,52 @@ actually fixed — it now is, exercised end to end.
 
 Boat after: load average 1.31 (from 13.2 at session start), 869 MB available,
 swap draining, no compositor anywhere, SignalK/Caddy/dex/questdb/ntfy all up.
+
+### Same session, follow-up — stability sweep after the desktop change
+
+Mark asked what else was needed to stabilize the box. Swept it; three things,
+and two suspicions of mine that checking killed before they reached him.
+
+**Root cause of the greeter leak, found.** dbus was killed six times on
+2026-09-01 (`Main process exited, code=killed, status=9/KILL`), each kill
+taking lightdm with it (`lightdm.service: Main process exited,
+code=exited, status=1/FAILURE`) and orphaning one `labwc` compositor that
+then spun forever. A session at 13:09 that day had installed
+`/etc/systemd/system/dbus.service.d/99-test-restart.conf` with
+`Restart=always` to test restart behavior. I expected to find that drop-in
+still in place and was ready to report it as leftover scaffolding — it is
+gone, and `systemctl show dbus -p Restart` reads `no`. That session cleaned
+up after itself. Checked before reporting; would have been a false
+accusation.
+
+Second false positive caught the same way: `journalctl | grep -c oom-kill`
+returned 1, which was **my own grep command echoing into the journal** via
+tailscaled's ssh logging. Zero real OOM kills on this boot.
+
+**`pypilot_web` was the real find.** Serving nothing (`curl :8000` →
+`code=000`) while writing 720 lines/min — 324k/day, 60 % of all journal
+traffic — every line the same `TypeError: wrap_socket() got an unexpected
+keyword argument 'allow_unsafe_werkzeug'`. That is what drove journald to
+1.8 GB with no `SystemMaxUse` set and root fs at 77 %. Mark's call: disable
+now, fix as a high-priority item once stabilized. Disabled; `pypilot.service`
+stayed active throughout. Carded with the measured package versions.
+
+Incidental: `navigation/attitude` is currently sourced from `n2k-can0.35`
+PGN 127257, not from pypilot-sk, and `yaw` is null. Relevant to the open
+"decide pypilot for the trial" card — the attitude feed is not evidence
+that pypilot is carrying its weight.
+
+Vacuumed the journal with `--vacuum-time=7d` rather than by size: 1.8 → 1.4
+GB, root fs 77 → 76 %. Kept 7 days deliberately so the 2026-09-01 dbus
+crashes and the 2026-09-02 QuestDB wedge survive to swap day. The remaining
+1.4 GB is nearly all inside that window and will roll off now the flood has
+stopped; the `SystemMaxUse` cap is still Mark's open card.
+
+**Still unverified: nothing has rebooted since the box was made headless.**
+`multi-user.target` is set and `Linger=yes` is right, but that RPi Connect
+returns on a headless boot with nobody logged in is inferred, not observed.
+Offered a reboot; not approved this turn. Swap remains 199/199 and the stale
+utmp still makes `uptime` claim 13 users — both clear on reboot.
+
+QuestDB's wedge still has no root cause. No OOM, no throttle at the time; it
+stopped logging at 07:01:25Z and spun. It could recur on swap day.
