@@ -19,8 +19,8 @@ What this catches that a JSON syntax check does not:
 - a path the dev seeder has no values for, which would leave a panel blank in
   the local stack and send someone hunting a bug that is not there
 
-Live checks that need the real thing are in verify_dashboards_live.py
-(Grafana end-to-end) and audit_dashboard_paths.py (InfluxDB, on the boat).
+The live check that needs the real thing is verify_dashboards_live.py, which
+runs every panel's query through a running Grafana.
 """
 import json
 import os
@@ -88,16 +88,14 @@ def provisioned_datasource_uid():
 
 
 def check_datasource_uids():
-    # Until the QuestDB datasource is provisioned, the generator's own uid is
-    # the reference: every panel and target must agree with it, and with the
-    # provisioning file once that lands. A dashboard whose uid nothing
-    # creates comes up empty rather than erroring, which is why this is
-    # checked at all.
+    # A dashboard whose datasource uid nothing provisions comes up empty
+    # rather than erroring, so the provisioning file is the reference and its
+    # absence is a failure, not a reason to fall back to the generator.
     provisioned = provisioned_datasource_uid()
     if not provisioned:
-        print(f"note: {DATASOURCE_YAML} does not exist yet -- checking panel "
-              f"uids against build_dashboards.DS instead")
-        provisioned = bd.DS["uid"]
+        fail(f"{DATASOURCE_YAML} has no uid -- the dashboards name "
+             f"{bd.DS['uid']!r} and Grafana would have nothing to resolve it to")
+        return
     for _t, _u, filename, *_ in bd.DASHBOARDS:
         dashboard = load(filename)
         for panel in dashboard["panels"]:
@@ -159,6 +157,18 @@ TABLE_RE = re.compile(r"FROM (\w+)")
 SIGNALK_TABLES = {"signalk", "signalk_str", "signalk_position"}
 
 
+def signalk_paths(query):
+    """SignalK paths in a query, or [] if it reads a Telegraf table.
+
+    Telegraf's `disk` table has a tag column also called `path`, so the
+    `path = '...'` filter alone doesn't say which kind of query this is.
+    """
+    tables = TABLE_RE.findall(query)
+    if tables and tables[0] not in SIGNALK_TABLES:
+        return []
+    return MEASUREMENT_RE.findall(query)
+
+
 def check_unit_conversions():
     for _t, _u, filename, *_ in bd.DASHBOARDS:
         dashboard = load(filename)
@@ -170,7 +180,7 @@ def check_unit_conversions():
             needed = UNIT_REQUIRES[unit]
             for target in panel.get("targets", []):
                 query = target.get("rawSql", "")
-                measurements = MEASUREMENT_RE.findall(query)
+                measurements = signalk_paths(query)
                 if any(m in EXEMPT_MEASUREMENTS for m in measurements):
                     continue
                 if needed not in query:
@@ -183,7 +193,7 @@ def check_unit_conversions():
             if unit == bd.U_PCT:
                 for target in panel.get("targets", []):
                     query = target.get("rawSql", "")
-                    measurements = MEASUREMENT_RE.findall(query)
+                    measurements = signalk_paths(query)
                     if any(m in EXEMPT_MEASUREMENTS for m in measurements):
                         continue
                     if "* 100.0" not in query and "used_percent" not in query \
@@ -223,8 +233,9 @@ def check_table_routing():
     """
     A query either reads a SignalK path out of the signalk tables, filtered
     to this vessel, or it reads a Telegraf table named after the measurement.
-    Mixing the two silently returns nothing: `path` does not exist on a
-    Telegraf table, and a SignalK path is not a table name.
+    Mixing the two silently returns nothing. Telegraf's `disk` does have a
+    `path` tag, so a Telegraf query may filter on `path` legitimately -- what
+    it must never hold is a dotted SignalK path.
     """
     for _t, _u, filename, *_ in bd.DASHBOARDS:
         dashboard = load(filename)
@@ -235,7 +246,7 @@ def check_table_routing():
                 if not tables:
                     continue
                 table = tables[0]
-                paths = MEASUREMENT_RE.findall(query)
+                paths = signalk_paths(query)
                 where = (f"{filename}: panel {panel.get('title')!r} target "
                          f"{target.get('refId')}")
                 if table in SIGNALK_TABLES:
@@ -244,9 +255,12 @@ def check_table_routing():
                     if "context = 'self'" not in query:
                         fail(f"{where} reads {table} without the context "
                              "filter -- it would include other vessels")
-                elif paths:
-                    fail(f"{where} filters on path {paths[0]!r} but reads "
-                         f"table {table!r}, which has no path column")
+                else:
+                    dotted = [p for p in MEASUREMENT_RE.findall(query)
+                              if "." in p]
+                    if dotted:
+                        fail(f"{where} filters on SignalK path {dotted[0]!r} "
+                             f"but reads Telegraf table {table!r}")
 
 
 def check_seed_coverage():
@@ -259,12 +273,18 @@ def check_seed_coverage():
         for panel in dashboard["panels"]:
             for target in panel.get("targets", []):
                 query = target.get("rawSql", "")
-                paths = MEASUREMENT_RE.findall(query)
+                paths = signalk_paths(query)
                 if paths:
                     referenced.update(paths)
                     continue
                 tables = TABLE_RE.findall(query)
-                if tables and tables[0] not in SIGNALK_TABLES:
+                if not tables:
+                    continue
+                # signalk_position carries no path filter, so name it the way
+                # the seeder does or its seed range can be deleted unnoticed.
+                if tables[0] == "signalk_position":
+                    referenced.add("navigation.position")
+                elif tables[0] not in SIGNALK_TABLES:
                     referenced.add(tables[0])
     for measurement in sorted(referenced - known):
         fail(f"seed_dev_influx.py has no values for {measurement!r} -- it would "

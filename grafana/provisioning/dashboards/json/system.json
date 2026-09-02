@@ -1752,7 +1752,7 @@
           },
           "format": 0,
           "queryType": "sql",
-          "rawSql": "SELECT timestamp AS time, avg(used_percent) AS value\nFROM disk\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "rawSql": "SELECT timestamp AS time, avg(used_percent) AS value\nFROM disk\nWHERE $__timeFilter(timestamp) AND path = '/'\nSAMPLE BY $__sampleByInterval",
           "refId": "A",
           "selectedFormat": 0
         }
@@ -2206,7 +2206,7 @@
           },
           "format": 0,
           "queryType": "sql",
-          "rawSql": "SELECT timestamp AS time, max(bytes_recv) AS value\nFROM net\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "rawSql": "SELECT timestamp AS time, max(bytes_recv) AS value\nFROM net\nWHERE $__timeFilter(timestamp) AND interface = 'eth0'\nSAMPLE BY $__sampleByInterval",
           "refId": "A",
           "selectedFormat": 0
         },
@@ -2217,12 +2217,12 @@
           },
           "format": 0,
           "queryType": "sql",
-          "rawSql": "SELECT timestamp AS time, max(bytes_sent) AS value\nFROM net\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "rawSql": "SELECT timestamp AS time, max(bytes_sent) AS value\nFROM net\nWHERE $__timeFilter(timestamp) AND interface = 'eth0'\nSAMPLE BY $__sampleByInterval",
           "refId": "B",
           "selectedFormat": 0
         }
       ],
-      "title": "Network throughput",
+      "title": "Network throughput (eth0)",
       "type": "timeseries"
     },
     {

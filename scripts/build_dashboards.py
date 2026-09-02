@@ -1049,7 +1049,12 @@ SYSTEM = [
     ], U_SHORT, w=12, h=8, decimals=2, fill=0),
 
     ROW("Storage"),
-    TS("Disk used", [("Root %", "disk", None, _tg("used_percent"))],
+    # Telegraf writes one row per mount point into `disk` and one per block
+    # device into `diskio`, so an unfiltered avg()/max() blends them. Pin
+    # `disk` to the root filesystem; `diskio`'s max() picks the whole-device
+    # counter, which is >= any of its partitions, so it needs no filter.
+    TS("Disk used", [("Root %", "disk", None,
+                      _tg("used_percent", extra_filters=(("path", "/"),)))],
        U_PCT, w=8, h=8, decimals=1),
     TS("Disk write volume", [
         ("Write bytes", "diskio", None, _tg("write_bytes", fn="max")),
@@ -1064,9 +1069,13 @@ SYSTEM = [
         ("Write errors", "internal_write", None, _tg("write_errors")),
         ("Buffer size", "internal_write", None, _tg("buffer_size")),
     ], U_SHORT, w=8, h=8, decimals=0, fill=0),
-    TS("Network throughput", [
-        ("Bytes received", "net", None, _tg("bytes_recv", fn="max")),
-        ("Bytes sent", "net", None, _tg("bytes_sent", fn="max")),
+    # Pinned to eth0 -- telegraf.conf also collects wlan0 and can0, and an
+    # unfiltered max() would silently switch to whichever interface is busiest.
+    TS("Network throughput (eth0)", [
+        ("Bytes received", "net", None,
+         _tg("bytes_recv", fn="max", extra_filters=(("interface", "eth0"),))),
+        ("Bytes sent", "net", None,
+         _tg("bytes_sent", fn="max", extra_filters=(("interface", "eth0"),))),
     ], U_BYTES, w=8, h=8, decimals=0, fill=0),
 
     ROW("Per-service memory"),

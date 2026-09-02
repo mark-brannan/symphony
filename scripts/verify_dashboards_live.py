@@ -8,15 +8,13 @@ ones come back with data.
 
 Works against the local dev stack (scripts/dev_stack.sh) and against the
 boat's real Grafana. On the boat it is the honest end-to-end check: a panel
-that passes here has a working datasource uid, a valid token, a datasource in
-Flux mode pointed at the right org and bucket, and a path that is actually
+that passes here has a working datasource uid, working QuestDB credentials,
+the QuestDB datasource plugin installed, and a path that is actually
 publishing. Any one of those being wrong shows up as an empty panel in the
 browser and as a FAIL here.
 
-This complements scripts/audit_dashboard_paths.py rather than replacing it.
-The audit asks InfluxDB directly whether a measurement exists; this asks
-Grafana whether the panel can draw it. The audit can pass while this fails --
-that gap is exactly the datasource wiring.
+scripts/audit_dashboard_paths.py answers the narrower question of what the
+dashboards reference at all; this one answers whether they can draw it.
 
 Exit status:
     0  every panel returned at least one row

@@ -2084,15 +2084,21 @@ python3 scripts/verify_dashboards_live.py --grafana https://grafana.<DOMAIN> \
     --user <admin> --password <password>
 ```
 
-`audit_dashboard_paths.py` asks whether each referenced measurement exists
-and is fresh. Its liveness half still speaks InfluxDB and refuses to run
-against the QuestDB dashboards, so until it is ported, answer that question
-directly against QuestDB:
+`audit_dashboard_paths.py` lists what the dashboards reference, and which
+panel references it — no liveness. For freshness, ask QuestDB directly. The
+dashboards read four table families, so all four have to be checked:
 
 ```bash
+for t in signalk signalk_str; do curl -sG http://localhost:9000/exec \
+    --data-urlencode "query=SELECT path, max(ts) FROM $t GROUP BY path"; done
 curl -sG http://localhost:9000/exec --data-urlencode \
-    "query=SELECT path, max(ts) FROM signalk GROUP BY path"
+    "query=SELECT max(ts) FROM signalk_position"
+curl -sG http://localhost:9000/exec --data-urlencode \
+    "query=SELECT table_name FROM tables()"
 ```
+
+The last one lists the Telegraf tables (`cpu`, `mem`, `disk`, `net`,
+`procstat`, …); a table missing from it is a panel that cannot draw.
 
 `verify_dashboards_live.py` runs every panel's SQL through Grafana's own
 `/api/ds/query`. That is the end-to-end one: datasource uid, credentials, the
