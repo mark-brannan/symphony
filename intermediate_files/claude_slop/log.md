@@ -2031,3 +2031,77 @@ healthcheck + autoheal pattern rather than invent one.
 Trap noted on the card: `vcgencmd get_throttled` is sticky-since-boot, so it
 reports history, not current state — it read `0xe0000` before the reboot and
 `0x0` after, with no change to the hardware.
+
+## 2026-09-02 — container liveness on the boat Pi (session boat-pi-healthchecks-2ddb0b)
+
+`dex`, `questdb` and `ntfy` now carry healthchecks and an `autoheal`
+container restarts any that goes unhealthy. Landed on main in four commits,
+each deployed and verified on the boat before the next.
+
+**The deploy-tmp trap was a red herring, and the real one was worse.**
+`questdb`'s `com.docker.compose.project.config_files` label named
+`/home/pi/deploy-tmp/compose-questdb.yml`, which suggested a build step
+somewhere. There is none: `deploy-tmp/` is a hand-scp'd staging directory
+from 2026-08-20, five files, untouched since, and its `compose-questdb.yml`
+is byte-identical to the repo's. Nothing produces it and nothing reads it.
+The label was just a record of the `-f` list used the last time that
+container was created. It is gone now — all three containers name the repo's
+own files.
+
+The actual trap was that `/home/pi/symphony` was **89 commits behind
+`origin/main`**, so a repo edit genuinely would not have reached the boat.
+No compose file differed across those 89 commits, and nothing else in them
+touches a running process (`.env.j2` and `secrets/symphony.sops.yaml` only
+matter when `render.py` runs), so `git merge --ff-only origin/main` was
+inert. Checked before pulling rather than after.
+
+Second trap, now in the runbook: on the boat a bare `docker compose up -d`
+starts containers for SignalK, InfluxDB, Grafana and Caddy, which run there
+as native systemd units. It would collide on ports 3000, 8086, 3001 and 443.
+The existing runbook spelled this out for `dex` only. Every compose command
+on the boat names its services.
+
+**Tested, not assumed.** SIGSTOP on ntfy's PID 1 simulates the wedge — a
+process that never exits. First run: unhealthy after three failed probes,
+autoheal restarted it, healthy again 132 s after the freeze.
+
+That run also found a defect in my own config. Autoheal issues the restart
+as a curl call to the docker API and its `CURL_TIMEOUT` defaults to 30 s —
+the same as the `AUTOHEAL_DEFAULT_STOP_TIMEOUT` I had set. A wedged
+container by definition burns the full stop timeout before SIGKILL, so
+autoheal's curl always timed out first and logged `Restarting container
+<id> failed` for a restart docker went on to complete. Measured: logged
+failed at 22:38:14, actually killed at 22:38:44, healthy at 22:38:50.
+`CURL_TIMEOUT=60` fixes it. Worth catching — the autoheal log is the only
+record of what the watchdog did, and a watchdog that lies about its one job
+is worse than none.
+
+**Numbers, all measured on the boat rather than guessed.** Warm
+restart-to-answering: dex 4 s, ntfy 2 s, questdb 17 s. `start_period` is set
+far above those anyway — 300 s for questdb, 60 s for the other two — because
+the case that matters is a dirty-WAL replay on a contended cold boot, which
+is not the case that was measured, and because tight is the expensive
+direction: a 60 s window against SignalK's 3–4 min cold start had autoheal
+restarting it every ~3 min on the HALOS card.
+
+**Two deliberate divergences from HALOS's autoheal**, both commented in
+`compose-autoheal.yml`. Opt-in by label (`autoheal: "true"`) rather than
+HALOS's `AUTOHEAL_CONTAINER_LABEL=all`, because HALOS owns its whole host
+while here a hand-run container shares the same daemon and should not be
+restarted by the compose stack's watchdog — the cost is that a new service
+needs the label as well as the healthcheck, which is why they sit in the
+same block. And a 30 s stop timeout rather than 10 s, because 30 s is what
+the 2026-09-02 recovery needed by hand.
+
+`compose-autoheal.yml` has no `profiles:`, on purpose: a watchdog that
+silently did not start looks exactly like one that is working.
+
+Probes exercise the request path, not the port — QuestDB's wedge kept the
+listening socket open for all eleven hours. `select 1` through `/exec` for
+questdb, `/v1/health` for ntfy, `/dex/healthz` for dex (under the issuer's
+path prefix; there is no `telemetry:` block in `dex/config.yaml`, and adding
+one just to get a probe would have been a bigger change than the probe).
+Image tooling differs and was checked rather than assumed: questdb ships
+`curl` and no `wget`, dex and ntfy ship busybox `wget` and no `curl`.
+
+The nightly-reboot crontab line was left commented out, per Mark.
