@@ -535,3 +535,32 @@ branch.
 
 Three messages sent to that session (07:00, 07:10, 07:25 UTC approx); no reply
 to any of them as of this writing.
+
+### Severity of the i2c defect: it is a regression, not a gap
+
+Read alongside `halos-swap-execution-2026-09-02.md` (session
+`symphony-pr-33-review-601c06-0a`, commit 48d4b54), whose baseline
+`scripts/halos_swap_check.sh symphony-pi` at 07:16Z reports **`bme680 ok`** on
+the boat's *current* card.
+
+So the BME680 works today. It works because the boat's present install is
+OpenPlotter on bare metal, where SignalK runs as a host user in the host `i2c`
+group. Under HALOS the same plugin runs inside a container as `node`, and the
+gid mismatch recorded above breaks it.
+
+That reclassifies this. It is not "an untested path on the new card" — it is
+**a working boat function that the swap silently removes**, and the swap-check
+script would report it the same way B1a's missing `i2c-dev` module would have:
+`i2c-reader` logs only "devices config is missing", and the BME680 tree simply
+stays empty, which is also the normal appearance during the ~10 minute
+post-restart burn-in. There is no error to notice.
+
+Note that the same session's checkpoint records `/dev/i2c-1`: `i2c-dev`
+persisted in `/etc/modules-load.d/` as done — which it is. Loading the module
+creates the device node; it does not make the node reachable from inside the
+container. Both fixes are needed and only one is in.
+
+**Recommendation: this should block the swap until the `group_add` line is in,
+or be accepted explicitly as a known regression with the BME680 to be restored
+afterwards.** It is a one-line change with a one-line test, so blocking on it
+is cheap.
