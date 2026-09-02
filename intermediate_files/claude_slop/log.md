@@ -2072,9 +2072,28 @@ container by definition burns the full stop timeout before SIGKILL, so
 autoheal's curl always timed out first and logged `Restarting container
 <id> failed` for a restart docker went on to complete. Measured: logged
 failed at 22:38:14, actually killed at 22:38:44, healthy at 22:38:50.
-`CURL_TIMEOUT=60` fixes it. Worth catching — the autoheal log is the only
+`CURL_TIMEOUT=60` fixes it, confirmed by re-running the same wedge: second
+run, autoheal logged only `found to be unhealthy - Restarting container now
+with 30s timeout` at 22:44:16 and ntfy was healthy again by 22:44:47, with
+no `failed` line at all. Worth catching — the autoheal log is the only
 record of what the watchdog did, and a watchdog that lies about its one job
 is worse than none.
+
+QuestDB's probe was verified separately, without a full restart cycle, to
+avoid a history-write gap: SIGSTOP the process, run the probe by hand, curl
+exits **28** (its own timeout) after 15 s — the wedge signature — and exits
+0 again after SIGCONT. That is the leg worth checking on its own, since
+questdb is the only one of the three using `curl` rather than busybox
+`wget`, and the only one whose probe timeout and healthcheck timeout are
+tuned as a pair.
+
+**The one leg not tested is a full host reboot.** Every container went
+straight to `healthy` with a zero failing streak on recreate, and no
+`start_period` is anywhere near the measured cold starts, so flapping is
+unlikely — but a cold boot with SignalK's plugins, QuestDB and everything
+else contending at once is a different load than a recreate on a quiet box.
+It rides along with the reboot already pending on Mark's side from the
+headless-boot work earlier today; check `docker ps` after it.
 
 **Numbers, all measured on the boat rather than guessed.** Warm
 restart-to-answering: dex 4 s, ntfy 2 s, questdb 17 s. `start_period` is set
