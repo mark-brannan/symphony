@@ -3,18 +3,19 @@
 Read this before swapping cards. Evidence for every claim is in
 [halos-b3-findings-2026-09-02.md](halos-b3-findings-2026-09-02.md).
 
-## DO THIS FIRST: power-cycle the staging Pi
+## Staging-Pi status: power-cycled 2026-09-02 ~07:40 UTC, healthy
 
-`halos-pi4` (192.168.0.193) wedged itself at ~06:2x UTC and was still wedged
-45 minutes later. Ports 22/80/443/3000 accept TCP; nothing completes a
-request. It is thrashing on swap and cannot be reached to stop it.
+Mark bounced it. Clean boot, swap clear. Since then, on the staging box:
 
-**Pull its power and bring it back up.** It has been swapping hard for hours;
-sustained swap onto an SD card is the one thing here that can actually damage
-the media. This is the only action that needs hands, and it should happen
-before anything else.
+- `opencpn`, `avnav`, `homarr` and the databases are **stopped** — see
+  "The databases do not fit on the staging rig" below.
+- The stray inert `signalk-plugin-watchdog.json` has been **deleted**.
+- A real B1 defect was found and fixed — see "B1a is incomplete: i2c".
 
-Cause is understood and is not a HALOS fault — see "Is the card OK?" below.
+**Rule agreed with Mark:** any session may `systemctl stop` the heavy
+container units without asking (that is the memory release valve). **No
+session asks him for a power-cycle or issues a reboot without the other
+active session agreeing first.**
 
 ## What state the card is in
 
@@ -66,6 +67,42 @@ run this load; that says nothing about the boat.**
 Corollary, stated plainly: the card's *filesystem* can be built and checked at
 home, but HALOS *under load* cannot be rehearsed on this hardware at all. The
 swap is the test.
+
+## B1a is incomplete: i2c needs the `i2c-dev` module
+
+`dtparam=i2c_arm=on` alone does **not** give userspace i2c. After a clean
+boot: `i2c_bcm2835` loaded, but **no `/dev/i2c-*` node at all** — `i2c-dev`
+was never loaded. The BME680 plugin and `i2c-reader` would have found nothing
+at the boat.
+
+Fixed and persisted on the card: `modprobe i2c-dev` plus
+`/etc/modules-load.d/i2c-dev.conf` containing `i2c-dev`. `/dev/i2c-1` now
+exists and the fix travels with the card. **B1a in the plan should say this
+explicitly.**
+
+Expected, not a bug: only `/dev/spidev0.1` exists, because the
+`mcp2515-can0` overlay claims CS0.
+
+Still untested, and only testable with a sensor on the bus: whether the bus
+talks to hardware, and **whether the SignalK container can open
+`/dev/i2c-1`** — the container is granted `group_add` gids 960 and 4, and
+whether that covers the host `i2c` group is unverified. This is the same
+class of bug as the audio one, where the host `audio` gid 29 was not granted.
+
+## The databases do not fit on the staging rig
+
+Measured 2026-09-02: with `opencpn`, `avnav` **and** `homarr` all stopped,
+starting SignalK + QuestDB + Grafana exhausted all 1843 MB of swap in 90
+seconds (swap 722 -> 1843 full; available bottomed at 237 MB). Stopping
+QuestDB and Grafana recovered it to 518 MB available.
+
+So on 1844 MB you can have SignalK **or** the databases, not both. This is not
+tuning-away-able.
+
+On the boat's 3796 MB it should fit: 1246 (SignalK, measured) + ~600 (HALOS
+core) + 768 (QuestDB's now-enforced cap) + ~150 (Grafana) ~= 2760 MB, leaving
+~1 GB. **Mark wants the databases; the arithmetic says he gets them on the
+boat, just not on the staging rig.**
 
 ## What to watch for after the swap
 
