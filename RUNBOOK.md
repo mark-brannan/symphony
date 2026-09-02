@@ -24,8 +24,10 @@ logged in `maintenance/log.md`.
 - [Bringing up a host](#bringing-up-a-host)
 - [Installing host files](#installing-host-files)
 - [Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat)
+- [Container liveness — healthchecks and autoheal](#container-liveness--healthchecks-and-autoheal)
 - [Swapping the HALOS card onto the boat](#swapping-the-halos-card-onto-the-boat)
 - [Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi)
+- [Starting a desktop on the boat Pi on demand](#starting-a-desktop-on-the-boat-pi-on-demand)
 - [Upgrading the scanners](#upgrading-the-scanners)
 
 **Running the autopilot**
@@ -48,6 +50,7 @@ logged in `maintenance/log.md`.
 - [Upgrading Signalk on the boat Pi](#upgrading-signalk-on-the-boat-pi)
 - [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi)
 - [SignalK's NMEA 2000 input](#signalks-nmea-2000-input)
+- [A fake `can0` for testing off the boat](#a-fake-can0-for-testing-off-the-boat)
 - [Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
 - [Testing the DSC / AIS distress receive chain](#testing-the-dsc--ais-distress-receive-chain)
 
@@ -584,6 +587,120 @@ journalctl -t nightly-reboot --since yesterday
 
 ---
 
+## Container liveness — healthchecks and autoheal
+
+Every container in this stack carries a healthcheck, and `autoheal`
+(`compose-autoheal.yml`) restarts any that goes `unhealthy`. This exists
+because `restart: unless-stopped` fires only when a process *exits*: on
+2026-09-02 QuestDB spun at 250 % CPU for eleven hours, accepting the socket
+and never answering, while `docker ps` said `Up 12 days`.
+
+### Check the current state
+
+```bash
+ssh pi@symphony-pi 'docker ps --format "{{.Names}}\t{{.Status}}"'
+```
+
+Every line must read `(healthy)`. A container with no health word at all has
+no healthcheck — that is the failure this section exists to prevent, not a
+container that happens to be fine.
+
+If one is unhealthy, read the probe's own output before restarting anything:
+
+```bash
+ssh pi@symphony-pi 'docker inspect questdb --format "{{json .State.Health}}"' | python3 -m json.tool
+```
+
+`FailingStreak` and the last `Log` entry's `ExitCode`/`Output` say which
+probe failed and how. Curl exit 28 (timeout) against a container burning CPU
+is the wedge signature; exit 7 (refused) is an ordinary crash.
+
+What autoheal has restarted, and when:
+
+```bash
+ssh pi@symphony-pi 'docker logs autoheal --since 24h'
+```
+
+### Deploy a compose change to the boat
+
+```bash
+ssh pi@symphony-pi
+cd ~/symphony && git pull
+docker compose --profile tls up -d questdb ntfy dex autoheal
+```
+
+**Name the services explicitly.** The boat runs SignalK, InfluxDB, Grafana
+and Caddy as native systemd units, but `docker-compose.yml` `include`s a
+service for each of them. A bare `docker compose up -d` there starts
+containers that fight the native processes for ports 3000, 8086, 3001 and
+443. The same trap is spelled out for `dex` under
+[Deploy (on the boat)](#4--deploy-on-the-boat); it applies to every compose
+command run on the boat.
+
+*Verify:* the `docker ps` check above, ~90 s later, once each probe has run.
+
+### Add a healthcheck to a new service
+
+Two things, in the same block, or the service is only half covered:
+
+```yaml
+    healthcheck:
+      test: ["CMD-SHELL", "<probe>"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    labels:
+      autoheal: "true"
+```
+
+- **Probe the request path, not the port.** QuestDB's wedge kept the
+  listening socket open the whole time. `select 1` through `/exec` is what
+  catches it; `curl http://host:9000/` would not have.
+- **Check what the image actually has.** `questdb` ships `curl` and no
+  `wget`; `dex` and `ntfy` ship busybox `wget` and no `curl`.
+- **Without the `autoheal: "true"` label nothing restarts it.** Autoheal is
+  configured for label opt-in, so a healthcheck alone gets you a red word in
+  `docker ps` and no action.
+- **Set `start_period` from a measured cold start, then multiply.** Too
+  tight is the expensive mistake: a 60 s window against SignalK's 3–4 min
+  cold start had autoheal restarting it every ~3 min on the HALOS card
+  (`host/halos/signalk-healthcheck-override.yml`). Measure with:
+
+  ```bash
+  ssh pi@symphony-pi 'c=questdb; s=$(date +%s); docker restart $c >/dev/null
+    until docker exec $c curl -sf -o /dev/null "http://127.0.0.1:9000/exec?query=select%201"; do sleep 1; done
+    echo "ready after $(( $(date +%s) - s ))s"'
+  ```
+
+### Test that it actually restarts
+
+A healthcheck that has never failed is untested. Simulate the wedge —
+a spinning process that never exits — by freezing the container's process:
+
+```bash
+ssh pi@symphony-pi 'pid=$(docker inspect -f "{{.State.Pid}}" ntfy); sudo kill -STOP $pid'
+```
+
+Then watch `docker ps`. Expect `(healthy)` → `(unhealthy)` after
+`retries × interval`, then a restart by autoheal within one
+`AUTOHEAL_INTERVAL`. Measured on the boat 2026-09-02: **132 s** from the
+SIGSTOP to a healthy ntfy again. The restart clears the SIGSTOP, so there
+is nothing to undo. If you abort early, `sudo kill -CONT $pid` unfreezes it.
+
+A wedged container burns the whole stop timeout before SIGKILL, so expect
+roughly 30 s of dead air between autoheal's log line and the container
+actually coming back. That is the wait working, not a hang.
+
+Use `ntfy` for this. It is the cheapest container to interrupt; QuestDB
+loses history writes and Dex logs everyone out.
+
+### If a container flaps
+
+Repeated restarts in `docker logs autoheal` mean the probe is losing a race,
+not that the service is broken. Do not tighten anything — raise
+`start_period` on that service, redeploy, and only then look for a fault.
+
 ## Turning on the off-boat heartbeat
 
 Armed on the boat Pi as of 2026-08-13; this is how to change it or set it up
@@ -822,6 +939,56 @@ If the count is climbing, find what's driving the GPU and stop it — the
 desktop by itself doesn't touch v3d. The Freeboard entry now sits in
 `~/.config/autostart-disabled/`; its Desktop launcher still works when
 someone is actually at a screen.
+
+---
+
+## Starting a desktop on the boat Pi on demand
+
+The Pi boots to `multi-user.target` with no desktop. `labwc` busy-loops at
+~100% of a core when no display is attached, so a desktop left running costs
+a quarter of the board's CPU continuously — measured 6d7h of CPU across 12
+days uptime on 2026-09-02, and it is not wayvnc driving it: stopping wayvnc
+left labwc at 98%.
+
+RPi Connect **remote shell** works headless and needs nothing below. Only
+**screen sharing** needs a desktop, because wayvnc attaches to a live
+Wayland session. `rpi-connect-wayvnc` is therefore disabled — left enabled it
+restart-loops against a display that isn't there.
+
+To bring a desktop up:
+
+```bash
+sudo systemctl start lightdm
+sleep 20
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user start rpi-connect-wayvnc
+```
+
+Verify before reaching for the RPi Connect web UI — `screen sharing:
+allowed` alone does not mean a session exists to share:
+
+```bash
+pgrep -a -x labwc                                              # want a `labwc -m` line
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active rpi-connect-wayvnc   # want active
+```
+
+To put it away again:
+
+```bash
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop rpi-connect-wayvnc
+sudo systemctl stop lightdm
+pkill -u pi -x labwc
+pgrep -a -x labwc                                              # want no output
+```
+
+`systemctl stop lightdm` does **not** stop the autologin session's compositor
+— it is reparented away from lightdm at boot and survives — which is why the
+`pkill` line is there. Match on `-x labwc`, never `pkill -f '/usr/bin/labwc
+-m'`: the `-f` form matches your own ssh command line and kills your session
+before it reaches labwc.
+
+Persistence: `Linger=yes` is set for `pi`, so RPi Connect's user services
+come back on a headless boot with nobody logged in. Don't clear it — remote
+access to the boat depends on it.
 
 ---
 
@@ -2182,6 +2349,18 @@ timeout 5 candump -n 20 can0           # want frames
 `subOptions`. It forms part of the NAME this box claims on the bus; left
 unset, SignalK generates a random one on save, and the Pi shows up as a
 brand-new device to every other instrument each time.
+
+### A fake `can0` for testing off the boat
+
+On any Linux host (bench Pi, WSL) — SignalK can't tell this from a real CAN hat:
+
+```bash
+sudo modprobe vcan && sudo ip link add dev can0 type vcan && sudo ip link set up can0
+```
+
+Verify with `ip -d link show can0` — it prints `vcan`. Gone on reboot; re-run it.
+Replay traffic with `canplayer -I <candump.log>` (`can-utils`). macOS has no
+SocketCAN: use a Linux VM or container, with `--cap-add=NET_ADMIN`.
 
 ### A fallback that has become the primary looks exactly like success
 

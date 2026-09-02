@@ -8,10 +8,49 @@ session can pick up and execute. Full working detail behind a card lives in
 `kanban-detail.md`, or at an existing reference doc / open PR when one
 already carries enough context.
 
+## Standing context — not cards, not decisions to make
+
+**The test before carding a decision for Mark: does anything on a session's
+side actually hinge on the answer?** If the work proceeds either way and a
+session just updates the docs afterwards to match what he chose, it is not a
+card — it is context, and it belongs in this section. Carding a decision
+Mark will reach independently, on his own timeline, spends his judgment on a
+question that was never blocking. Established 2026-09-02 after three such
+cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
+
+- **HALOS is an experiment; its output is learning, not a commitment.**
+  Whether the boat ends up on HALOS or on a hardened OpenPlotter install is
+  deliberately unsettled and stays that way. Sessions carry that ambiguity
+  rather than resolving it: don't card it, don't ask Mark to settle it, and
+  don't treat the swap plan, the bench card or any PR as evidence the fork
+  is closed. Work the trial on its merits and let the long-run answer come
+  from what the trial teaches. The evidence on both sides, which is still
+  worth reading before touching this track, is in
+  [kanban-detail.md](kanban-detail.md#the-rebuild-fork--strategic-context).
+
+- **The cellular WAN is a working constraint, not a task.** Every rebuild
+  failure on this boat is a network timeout, not a logic error: `docker pull
+  signalk/signalk-server` died on a TLS handshake timeout and `apt install
+  grafana` (343 MB) timed out on 2026-08-23; the SignalK reinstall ran 27
+  minutes and died on `EIDLETIMEOUT` from registry.npmjs.org on 2026-08-25,
+  with single tarballs taking 54 s. `symphony-pi`'s tailscale endpoint is a
+  T-Mobile range. The practical consequence is permanent: **the boat cannot
+  be rebuilt in place over its own link.** A card staged and fully populated
+  at home, then carried down, is the only reliable path — and large data
+  moves off the boat go by physical card, not over the wire. Assume this in
+  every plan; it does not need re-deciding or re-discovering.
+
+- **The HALPI2 is a probable maybe.** It is in the cart, Mark will decide
+  independently, and nothing on a session's side is blocked either way. If it
+  arrives, add it to the hardware list in the reference docs; if it doesn't,
+  don't. The only thing worth knowing is why it keeps coming up: the bench box
+  is a 2 GB Pi 4 sitting at ~358 MB available under load, so anything
+  container-heavy on that hardware is memory-bound.
+
 ## Yours
 
 ### Repo & tooling
-- [ ] **Pick the swap day and launch [dispatch-halos-swap-day.md](dispatch-halos-swap-day.md)** — PR #33 is merged, the bench card passes every preflight line after a reboot; the two open calls (pypilot, Cerbo) are below.
+- [ ] **When you are next at the boat with the new card, launch [dispatch-halos-swap-day.md](dispatch-halos-swap-day.md)** — a ready-to-paste prompt, no date to pick and nothing scheduled against it. PR #33 is merged and the bench card passes every preflight line after a reboot; the open items that want doing first are the Cerbo power-cycle below and pypilot on Claude's side.
 - [ ] Decide the critical-path list and age thresholds for Role 4's off-boat freshness check ([reference/monitoring_decisions.md](../../reference/monitoring_decisions.md) Role 4) — it's the designated owner of data-staleness and is unbuilt, so `signalk-healthcheck`'s single `n2k-can0` watch is holding the role while only alarming when the Pi is healthy enough to complain. Scoped at one script, reuses the live heartbeat + healthchecks.io plumbing; blocked only on which paths count as critical.
 - [ ] [Purchase itemizations in maintenance/log.md](kanban-detail.md#purchase-itemizations-in-maintenancelogmd) — trim to one-line totals with detail moved to a purchases file, or keep as-is.
 - [ ] Resume the live dashboard walkthrough — Navstation done, 5 to go (Electricity, System health, Navigation, Weather, Life support). [PR #25](https://github.com/mark-brannan/symphony/pull/25) landed on main 2026-09-02, so this now continues **on main**, not on that branch. State and what's still open: [log.md#2026-09-01/02 — PR #25 live walkthrough, session 1 of N](log.md#2026-09-0102--pr-25-live-walkthrough-session-1-of-n-navstation-only). Demo stack is left running at localhost:3100 (admin/devadmin) in worktree `grafana-dashboards-pr25-89c9f8`.
@@ -32,28 +71,23 @@ already carries enough context.
 - [ ] [Hand over Symphony Plumbing Library.xml](kanban-detail.md#symphony-plumbing-libraryxml) when plumbing diagramming starts (Google Drive only, not fetchable).
 
 ### Boat Pi / hardware
-- [ ] **Look at the Cerbo GX** — the boat's MQTT link to it has been in SYN-SENT since 2026-09-01 21:06Z and it answers on no port (80, 443, 1883, 8883, 22) while still answering ARP and mDNS; Venus OS services off, or a wedged Cerbo. Victron data is dead on both cards until then ([execution file](halos-swap-execution-2026-09-02.md)).
-- [ ] **Decide pypilot for the trial** — not on the HALOS card (plan B4d, native install untested); the boat card runs it and `pypilot-sk` publishes attitude. Trial without, or a session installs it before the swap.
-- [ ] **Decide the boat Pi's desktop session** — PID 986 `labwc -m` (user `pi`, tty1, started at the 2026-08-21 boot) spins at 100 % of a core and has burned 6d7h of CPU in 12 days uptime; it is the last hot process after the 2026-09-02 cleanup and it is your physical desktop on the boat's screen, so a session will not kill it. Same labwc spin as the six leaked greeters that were killed. Options: kill it and log back in when aboard, `systemctl set-default multi-user.target` to stop the boat booting to a desktop at all, or leave it and accept ~50 % of one core. Swap is also 199/199 MB full and will not drain without a reboot.
-- [ ] After the swap: copy `~/influx-export`, `~/keep-before-purge/` and the `symphony_questdb-data` volume off the old boat card before it is reused (plan S3 / P7).
-- [ ] **Decide the rebuild fork: HALOS on a fresh 64 GB card, or keep hardening the current OpenPlotter install.** Grafana's return, the dockerization track and the SD-card strategy are all downstream of this one call. Evidence on 2026-08-25: a Node runtime swap silently removed `signalk-server`, the boat ran dark for 2 days, and OpenPlotter's own installer is what did it (`signalkPostInstall.py:45` runs `apt autoremove -y nodejs npm`). Against: HALOS undoes real work already done. Survey of `halos-pi4` (reachable as `ssh pi@halos-pi4`): Traefik + Authelia + Homarr core, containerised SignalK/QuestDB/Grafana/OpenCPN/AvNav, all systemd-managed, declarative config under `/etc/halos/` — architecturally where this repo was already heading, and it retires the "move off hand-rolled bash wrappers" item in `priorities.md` outright. Caveat: that box is a 2 GB Pi 4 with ~358 MB available under load, so HALOS implies the HALPI2.
-- [ ] **The cellular WAN is the binding constraint — decide the staging plan around it.** Every rebuild failure on this boat is a network timeout, not a logic error. 2026-08-23: `docker pull signalk/signalk-server` died on TLS handshake timeout, `apt install grafana` (343 MB) timed out, `npm install` hit ETIMEDOUT. 2026-08-25: the SignalK reinstall ran 27 minutes and died on `EIDLETIMEOUT` from registry.npmjs.org, with single tarballs taking 54 s. `symphony-pi`'s tailscale endpoint is `172.56.x`, a T-Mobile range. Practical consequence: **the boat cannot be rebuilt in place over its own link** — a card staged and fully populated at home, then carried down, is the only reliable path.
-- [ ] **Decide whether the current 32 GB card comes home after the swap.** It holds the only copies of `~/influx-export` (1.4 GB) and `~/keep-before-purge/grafana.db` — neither can cross the WAN without throttling risk, so a physical card swap is the only way to recover them.
-- [ ] [Confirm the HALPI2 purchase](kanban-detail.md#halpi2-purchase-sd-card-boot-media-strategy) — already in cart; ends the SD-card/boot-media decision outright.
+- [ ] **Power-cycle the Cerbo GX at the panel** (DC feed off ~30 s), then confirm Settings → Services → MQTT on LAN (SSL) is still on; if it stays dark it is a failed unit, not a config problem. Re-checked from the boat 2026-09-02: no ICMP reply and 80/443/1883/8883/22 all closed, but ARP for `5c:c5:63:0a:df:52` is `REACHABLE` — the NIC answers, nothing above it does. SignalK's Victron client is still in SYN-SENT to 192.168.8.107:8883 since 2026-09-01 21:06Z; Victron data is dead on both cards until then ([execution file](halos-swap-execution-2026-09-02.md)).
+- [ ] **Bring the 32 GB card home once the swap succeeds** (decided 2026-09-02; conditional on a successful swap — if it fails the card goes back in the boat). It holds the only copies of `~/influx-export` (1.4 GB) and `~/keep-before-purge/grafana.db`, neither of which can cross the WAN. Copy those and the `symphony_questdb-data` volume off before the card is reused (plan S3 / P7).
 - [ ] [Decide whether to track openplotter.conf in git](kanban-detail.md#track-openplotteropenplotterconf-in-git-or-not) — its `soundignore` key is load-bearing and lives only on the boat.
 - [ ] [Decide whether to pursue a read-only root filesystem](kanban-detail.md#read-only-root-filesystem-for-the-boat-pi) — real workflow change, not a config toggle.
-- [ ] [Pick a journald SystemMaxUse size](kanban-detail.md#journald-cap-on-the-boat-pi) — measured 1.6 GB on 2026-09-02, already regrown past the 200 MB one-time vacuum; no `SystemMaxUse` set anywhere. Root fs 76% full.
 
 ## Claude's
 
 ### Infrastructure
+- [ ] **`docker-compose.override.yml` is deployed to the boat, where its own header says it must not be.** It is the dev-box-only file that mounts `dev/plugin-config-overrides/` over SignalK's plugin configs. Compose loads it automatically with no `-f` flag, so it is now in all three boat containers' `com.docker.compose.project.config_files`. Inert today — it defines only the `signalk` service and the boat runs SignalK natively — but it arms itself the day anyone containerises SignalK there, and it would mount dev plugin configs over the real ones with nothing to say why. Found 2026-09-02 while adding container healthchecks; pre-existing and out of that change's scope, so left alone. Fix is probably to move its contents into a `dev`-profiled file or an explicitly-named `-f`, not to delete it.
 - [ ] **`host/install.sh` overwrites the HALOS card's `/etc/boat-heartbeat.json` with the boat card's check URL** — the card pings a second healthchecks.io check (`SignalK Symphony (halos card)`) whose UUID is recorded nowhere in the repo; add a per-host value (`.hostvars.yaml` / sops) or skip the file when one is already installed. Found in the repeatability audit 2026-09-02, alongside nine hand changes with no recorded command: native-module rebuild recipe, `node_modules` reinstall, zram config, the four `"enabled": false` edits, final `hostnames.conf` body, ntfy `.env` values, repo clone/filter path on the card ([halos-b3-findings-2026-09-02.md](halos-b3-findings-2026-09-02.md), [halos-swap-plan.md](halos-swap-plan.md)).
 - [ ] Delete the stray file on main whose name is a mangled Python heredoc (`", d[enabled])\nw=os.path.join(...` — one tracked file at the repo root, from a session's broken `python3 - <<EOF`). Confirm with `git ls-files | grep 'd\[enabled\]'` before removing; nothing references it.
 - [ ] Run `scripts/dev_stack.sh up` end to end once, on a box where 3001/8086/9000/9009/8812 are free. PR #25's QuestDB wait and panel-check guards were verified in isolation (a throwaway QuestDB on 19000, and cmd_up with a stubbed failing verify), but the Grafana-through-PGWire leg — 171 panels actually drawing off the seeded QuestDB — has never been exercised. On this WSL box those five ports are held by `influxdb` and `sk-signalk-questdb`, so bringing the compose project up would have collided with them and `down -v` would have aimed at their volumes.
-- [ ] **Bench-test the containerized pypilot on arm64** — `pypilot/Dockerfile` + `compose-pypilot.yml` build and run verified only on the amd64 dev box (no IMU). Open on the Pi: does the image build there and how long, does `/dev/i2c-1` reach the MPU9250 from inside the container, and does pypilot master (0.71) read the boat's 0.56 `~/.pypilot` state. Procedure and verification lines: `RUNBOOK.md` § pypilot in a container; design and unknowns: [reference/pypilot_containerization.md](../../reference/pypilot_containerization.md). Coordinate before touching the bench card — other sessions use it.
+- [ ] **Bench-test the containerized pypilot on arm64** — `pypilot/Dockerfile` + `compose-pypilot.yml` build and run verified only on the amd64 dev box (no IMU). Open on the Pi: does the image build there and how long, does `/dev/i2c-1` reach the MPU9250 from inside the container, and does pypilot master (0.71) read the boat's 0.56 `~/.pypilot` state. Procedure and verification lines: `RUNBOOK.md` § pypilot in a container; design and unknowns: [reference/pypilot_containerization.md](../../reference/pypilot_containerization.md). Supersedes the native-install card that stood here: Mark decided 2026-09-02 that pypilot goes in a container on HALOS, and [plan B4d](halos-swap-plan.md) now says so. Coordinate before touching the bench card — other sessions use it, and it runs with swap full.
 - [ ] Teach `host/install.sh` to place `host/halos/*` on a HALOS card (container unit detected per PR #34's `signalk-unit.sh`) — today they are installed by hand per `host/halos/README.md`.
 - [ ] File Mark's recovered physical-task list into Evernote and drop the boat stash — the connector is re-authorized and answering; `search_tasks "freshwater pump"` still returns nothing, and `stash@{0}: WIP on main: 54ef0e7` is still in place.
 - [ ] Confirm after the swap that SignalK stays `healthy` in `docker ps` on the boat — on the bench the container healthcheck (60 s start window, 10 s timeout) lost the race against a 3–4 min cold start and `autoheal` restarted it every ~3 min. Fixed 2026-09-02 without touching the package-owned compose file: `/etc/container-apps/marine-signalk-server-container/symphony.override.yml` (start_period 900 s, timeout 30 s, 127.0.0.1) added via a systemd drop-in `marine-signalk-server-container.service.d/symphony.conf`; survives `apt upgrade`. Source of truth: `host/halos/` on PR #33 ([findings](halos-b3-findings-2026-09-02.md)).
+- [ ] [Bench-test the containerized pypilot on the HALOS Pi](kanban-detail.md#bench-test-containerized-pypilot-on-halos) — blocked: PR #37 not yet merged. Run the exact prompt at the link, verbatim, once unblocked.
 - [ ] [Uninstall `signalk-to-influxdb2` on the boat](kanban-detail.md#uninstall-signalk-to-influxdb2-blocked-on-an-npm-tree-quirk) — still installed (`^2.2.0`) and erroring ~876 times/day. Card premise was wrong: InfluxDB was NOT purged — `influxdb2 2.9.1-1` is installed and active (boot-disabled); only `/var/lib/grafana` went. WAN is no longer the blocker (confirmed healthy 2026-08-26); a real `npm uninstall` now aborts on an unrelated tree quirk involving `signalk-plugin-watchdog`'s self-referencing `file:` dependency. No functional loss from the attempt, but the uninstall itself didn't land.
 - [ ] Document the boat Pi's non-standard Node/npm state in `RUNBOOK.md` — `/usr/bin/node` is nsolid 22.23.2 (apt), the shadowing standalone 22.17.0 is parked at `/usr/local/bin/node.disabled-20260825`, `signalk-server` now lives in `/home/pi/.npm-global`, and `~/.signalk/signalk-server` was rewritten to match. None of this matches what the runbook currently describes.
 - [ ] [Re-run the secret-tooling suite on a keyed machine (NucBoxK12) after pulling latest main](kanban-detail.md#confirm-secret-tooling-suite-on-a-keyed-machine) — closes the last leg of PR #19's TASK.

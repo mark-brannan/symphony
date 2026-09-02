@@ -379,13 +379,6 @@ decision to drop it:
   has rate settings but no MMSI or endpoint — never fully configured.
   Decide whether to finish configuring it or drop it.
 
-## Journald cap on the boat Pi
-
-Journald reached 639 MB on 2026-08-13 (largely `user-1000` files fed by the
-pypilot crash loop), then self-rotated back to 192 MB. A `SystemMaxUse` cap
-would bound both size and SD-card writes, but the right number isn't
-obvious yet — deferred deliberately, not forgotten.
-
 ## Subscribe the phone to ntfy
 
 `signalk-ntfy` has been installed and delivering on both the boat Pi
@@ -1304,3 +1297,34 @@ the repro, harness, diagnosis and timestamps. Boat left on
 `verify-reconnect-logging` at `f1c9cb8`, all scaffolding removed (no dbus
 drop-in, `Restart=no`, no healer timer, no `/tmp` files), services
 active, data flowing.
+
+## The rebuild fork — strategic context
+
+Not a card and not a decision waiting on Mark; see the standing-context note
+at the top of [kanban.md](kanban.md). Kept here because the evidence is real
+and a session picking up HALOS work should have it.
+
+For HALOS: on 2026-08-25 a Node runtime swap silently removed
+`signalk-server` and the boat ran dark for two days — OpenPlotter's own
+installer did it (`signalkPostInstall.py:45` runs `apt autoremove -y nodejs
+npm`). The survey of `halos-pi4` (`ssh pi@halos-pi4`) found Traefik +
+Authelia + Homarr core with containerised SignalK/QuestDB/Grafana/OpenCPN/
+AvNav, all systemd-managed and declaratively configured under `/etc/halos/`
+— architecturally where this repo was already heading, and it would retire
+the "move off hand-rolled bash wrappers" item in `priorities.md` outright.
+
+Against: HALOS undoes real work already done. And the bench box is a 2 GB
+Pi 4 sitting at ~358 MB available under load, so HALOS in practice implies
+the HALPI2.
+
+Downstream of the fork, but not blocked on it: Grafana's return, the
+dockerization track, and the SD-card/boot-media strategy.
+
+## Bench-test containerized pypilot on HALOS
+
+Blocked on PR #37 merging. Run this prompt exactly as written, no
+improvising around it:
+
+```
+Bench-test the containerized pypilot on the HALOS Pi. Follow RUNBOOK.md § "pypilot in a container" → "Run it on a Pi with the IMU" verbatim; do not improvise around it. Record: image build time and peak memory on arm64, whether `docker exec pypilot i2cdetect -y 1` shows 0x68, whether imu.heading moves when the Pi is tilted, and whether pypilot 0.71 reads a copy of the boat's 0.56 ~/.pypilot without complaint. Copy the boat's state, never move it. Update reference/pypilot_containerization.md § "Not yet verified" with what you measured and close the board card.
+```

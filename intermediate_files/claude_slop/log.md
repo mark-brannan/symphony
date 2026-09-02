@@ -1859,6 +1859,352 @@ tty1, spins at 100 % of a core with 6d7h of CPU in 12 days uptime — the same
 labwc spin as the greeters, but it is the physical screen so a session won't
 kill it. Swap is still 199/199 MB full and won't drain without a reboot.
 
+### Same session, follow-up — the boat Pi now boots headless
+
+Mark asked whether the GUI was earning its keep. Measured first: with
+`rpi-connect-wayvnc` stopped, `labwc` still burned 98 % of a core, so the
+spin is labwc's own on a display-less Pi, not wayvnc pulling frames. Same bug
+explains the six leaked greeters — one spinning compositor per orphaned
+session.
+
+Checked what would break before changing anything. RPi Connect was signed in
+and healthy the whole time (the earlier "not running" was a missing
+`XDG_RUNTIME_DIR`, not a fault); remote shell needs no display, screen
+sharing does, because wayvnc attaches to a live Wayland session. `Linger=yes`
+is set for `pi`, so RPi Connect's user services survive a headless boot with
+nobody logged in — that was the one thing that could have cost Mark remote
+access, and it was already right.
+
+Mark chose on-demand. Executed: `systemctl set-default multi-user.target`,
+lightdm stopped, `rpi-connect-wayvnc` disabled (it restart-loops against a
+display that isn't there). `systemctl stop lightdm` did not stop the tty1
+autologin compositor — PID 986 under PID 920, reparented away at boot — so
+both were killed by PID. Procedure is in `RUNBOOK.md` § Starting a desktop on the
+boat Pi on demand, and both halves have now been run verbatim from it:
+`start lightdm` + `--user start rpi-connect-wayvnc` gives `814691
+/usr/bin/labwc -m` and an active wayvnc; the reverse plus `pkill -u pi -x
+labwc` leaves `pgrep -a -x labwc` empty with the ssh session intact.
+
+Self-correction worth keeping: the first tear-down used `pkill -u pi -f
+"/usr/bin/labwc -m"` and killed the ssh session running it, because `-f`
+matched its own command line. `-x labwc` is the correct form, is what the
+runbook says, and was left untested until Mark asked whether the scar was
+actually fixed — it now is, exercised end to end.
+
+Boat after: load average 1.31 (from 13.2 at session start), 869 MB available,
+swap draining, no compositor anywhere, SignalK/Caddy/dex/questdb/ntfy all up.
+
+### Same session, follow-up — stability sweep after the desktop change
+
+Mark asked what else was needed to stabilize the box. Swept it; three things,
+and two suspicions of mine that checking killed before they reached him.
+
+**Root cause of the greeter leak, found.** dbus was killed six times on
+2026-09-01 (`Main process exited, code=killed, status=9/KILL`), each kill
+taking lightdm with it (`lightdm.service: Main process exited,
+code=exited, status=1/FAILURE`) and orphaning one `labwc` compositor that
+then spun forever. A session at 13:09 that day had installed
+`/etc/systemd/system/dbus.service.d/99-test-restart.conf` with
+`Restart=always` to test restart behavior. I expected to find that drop-in
+still in place and was ready to report it as leftover scaffolding — it is
+gone, and `systemctl show dbus -p Restart` reads `no`. That session cleaned
+up after itself. Checked before reporting; would have been a false
+accusation.
+
+Second false positive caught the same way: `journalctl | grep -c oom-kill`
+returned 1, which was **my own grep command echoing into the journal** via
+tailscaled's ssh logging. Zero real OOM kills on this boot.
+
+**`pypilot_web` was the real find.** Serving nothing (`curl :8000` →
+`code=000`) while writing 720 lines/min — 324k/day, 60 % of all journal
+traffic — every line the same `TypeError: wrap_socket() got an unexpected
+keyword argument 'allow_unsafe_werkzeug'`. That is what drove journald to
+1.8 GB with no `SystemMaxUse` set and root fs at 77 %. Mark's call: disable
+now, fix as a high-priority item once stabilized. Disabled; `pypilot.service`
+stayed active throughout. Carded with the measured package versions.
+
+Incidental: `navigation/attitude` is currently sourced from `n2k-can0.35`
+PGN 127257, not from pypilot-sk, and `yaw` is null. Relevant to the open
+"decide pypilot for the trial" card — the attitude feed is not evidence
+that pypilot is carrying its weight.
+
+Vacuumed the journal with `--vacuum-time=7d` rather than by size: 1.8 → 1.4
+GB, root fs 77 → 76 %. Kept 7 days deliberately so the 2026-09-01 dbus
+crashes and the 2026-09-02 QuestDB wedge survive to swap day. The remaining
+1.4 GB is nearly all inside that window and will roll off now the flood has
+stopped; the `SystemMaxUse` cap is still Mark's open card.
+
+**Still unverified: nothing has rebooted since the box was made headless.**
+`multi-user.target` is set and `Linger=yes` is right, but that RPi Connect
+returns on a headless boot with nobody logged in is inferred, not observed.
+Offered a reboot; not approved this turn. Swap remains 199/199 and the stale
+utmp still makes `uptime` claim 13 users — both clear on reboot.
+
+QuestDB's wedge still has no root cause. No OOM, no throttle at the time; it
+stopped logging at 07:01:25Z and spun. It could recur on swap day.
+
+### Same session — where the remaining journal traffic comes from
+
+After disabling `pypilot_web`, a clean per-unit count over 80 s reads
+**146 lines/min**, down from 543k/day (≈377/min average, with pypilot_web
+peaking at 720/min on its own). A first attempt via `journalctl --no-pager |
+wc -l` gave 435/min and was wrong — tailscaled logs every ssh command
+verbatim, so that method counts the measuring session's own traffic. Use a
+`--since` window with a per-unit breakdown, not a whole-journal line count.
+
+88 % of what is left is one thing, and it is **by design, not a fault**:
+`openplotter-i2c-read.service` is `Restart=always` / `RestartSec=3` around a
+program that reads the sensors once and exits cleanly (`Result=success`,
+`ExecMainStatus=0`). OpenPlotter implements its i2c polling loop as a systemd
+restart loop — 240,833 restarts in 12 days uptime, ≈13.9/min, each cycle also
+opening a `sudo` session for root. That produces five `init.scope` lines plus
+its own output every three seconds forever. Do not "fix" it by disabling it:
+it is how the BME680 and the other i2c sensors get read.
+
+It does mean the journal will keep growing at a fixed floor no matter what
+else is tidied, which is an argument for Mark's open `SystemMaxUse` card
+rather than for touching the service. If the dedicated BME680 plugin ever
+takes over (the open "BME680 sensor ownership" card), this service and its
+traffic go with it.
+
+### Same session — post-reboot verification
+
+The Pi rebooted (up 33 min at 15:04 local). Not by this session: the reboot
+command was never issued — Mark's approval arrived, the Windows dev box then
+restarted mid-turn, and the boat was already back up on the next check.
+Whoever or whatever did it, it answered the open question.
+
+**The headless config survived a boot with nobody logged in.** That was the
+one thing standing between this work and swap day, and it is now observed
+rather than inferred:
+
+- `rpi-connect status`: signed in, subscribed to events, screen sharing
+  allowed, remote shell allowed. `rpi-connect.service` active,
+  `rpi-connect-wayvnc` inactive — correct, it is on-demand now. `Linger=yes`
+  held.
+- `systemctl get-default` → `multi-user.target`; `pgrep -x labwc` empty.
+- `pypilot_web` still `disabled` / `inactive`.
+- SignalK, Caddy, dex, questdb, ntfy all up.
+
+Everything the reboot was supposed to clear, cleared: swap 199/199 → 3 MB
+used of 199 (`pswpout` 763 since boot), available memory 409 MB at session
+start → 1433 MB, `uptime` back to 2 users from the stale-utmp 13, and
+`vcgencmd get_throttled` → `0x0` (it read `0xe0000` before — frequency-cap,
+throttle and soft-temp-limit events had all occurred over the previous 12
+days). Temp 60.3 °C.
+
+`scripts/halos_swap_check.sh symphony-pi` passes every line. The only FAIL
+is the carded Cerbo MQTT SYN-SENT, unchanged and not ours. Note `n2k` now
+reports `/navigation/attitude` as its newest value — attitude is coming off
+the N2K bus, consistent with the pypilot observation above.
+
+Card status: "calm the boat before the baseline" is closed on its own terms —
+load 13.2 → ~1.6, and the baseline can be taken on a quiet, freshly booted
+box.
+
+### Same session — nightly reboot rejected; the actual gap is liveness detection
+
+Mark: "I don't like the nightly-reboot unless we really need it. Are there
+other ways to address these problems besides a bounce?" Checked rather than
+argued. He is right — a nightly reboot would have addressed almost nothing
+that 12 days of uptime actually cost:
+
+- Six spinning compositors: gone structurally, the box is headless now.
+- Swap exhaustion: those compositors caused it. `swapoff -a && swapon -a`
+  reclaims it live if it ever recurs; no reboot needed.
+- journald growth: wants a `SystemMaxUse` cap, already carded.
+- SignalK memory: **not** a leak. 1,334,180 KB RSS at 49 minutes uptime — a
+  baseline, not a growth curve, so a reboot recovers nothing.
+- Total hang: the hardware watchdog already covers it
+  (`RuntimeWatchdogSec=30`, `RebootWatchdogSec=2min`).
+
+The one thing a nightly reboot genuinely bought was bounding the QuestDB
+wedge — and it bought it badly, at up to 24 h of dead ingest.
+
+Measured the real gap: `dex`, `questdb` and `ntfy` all have **no
+healthcheck** (`.Config.Healthcheck` empty, health state `-`) and there is no
+autoheal container on the boat. All three are `unless-stopped`, which only
+fires on process *exit*. QuestDB never exited. Nothing on the box could have
+detected it. Carded, with the instruction to reuse `host/halos/`'s existing
+healthcheck + autoheal pattern rather than invent one.
+
+Trap noted on the card: `vcgencmd get_throttled` is sticky-since-boot, so it
+reports history, not current state — it read `0xe0000` before the reboot and
+`0x0` after, with no change to the hardware.
+
+## 2026-09-02 — container liveness on the boat Pi (session boat-pi-healthchecks-2ddb0b)
+
+`dex`, `questdb` and `ntfy` now carry healthchecks and an `autoheal`
+container restarts any that goes unhealthy. Landed on main in four commits,
+each deployed and verified on the boat before the next.
+
+**The deploy-tmp trap was a red herring, and the real one was worse.**
+`questdb`'s `com.docker.compose.project.config_files` label named
+`/home/pi/deploy-tmp/compose-questdb.yml`, which suggested a build step
+somewhere. There is none: `deploy-tmp/` is a hand-scp'd staging directory
+from 2026-08-20, five files, untouched since, and its `compose-questdb.yml`
+is byte-identical to the repo's. Nothing produces it and nothing reads it.
+The label was just a record of the `-f` list used the last time that
+container was created. It is gone now — all three containers name the repo's
+own files.
+
+The actual trap was that `/home/pi/symphony` was **89 commits behind
+`origin/main`**, so a repo edit genuinely would not have reached the boat.
+No compose file differed across those 89 commits, and nothing else in them
+touches a running process (`.env.j2` and `secrets/symphony.sops.yaml` only
+matter when `render.py` runs), so `git merge --ff-only origin/main` was
+inert. Checked before pulling rather than after.
+
+Second trap, now in the runbook: on the boat a bare `docker compose up -d`
+starts containers for SignalK, InfluxDB, Grafana and Caddy, which run there
+as native systemd units. It would collide on ports 3000, 8086, 3001 and 443.
+The existing runbook spelled this out for `dex` only. Every compose command
+on the boat names its services.
+
+**Tested, not assumed.** SIGSTOP on ntfy's PID 1 simulates the wedge — a
+process that never exits. First run: unhealthy after three failed probes,
+autoheal restarted it, healthy again 132 s after the freeze.
+
+That run also found a defect in my own config. Autoheal issues the restart
+as a curl call to the docker API and its `CURL_TIMEOUT` defaults to 30 s —
+the same as the `AUTOHEAL_DEFAULT_STOP_TIMEOUT` I had set. A wedged
+container by definition burns the full stop timeout before SIGKILL, so
+autoheal's curl always timed out first and logged `Restarting container
+<id> failed` for a restart docker went on to complete. Measured: logged
+failed at 22:38:14, actually killed at 22:38:44, healthy at 22:38:50.
+`CURL_TIMEOUT=60` fixes it, confirmed by re-running the same wedge: second
+run, autoheal logged only `found to be unhealthy - Restarting container now
+with 30s timeout` at 22:44:16 and ntfy was healthy again by 22:44:47, with
+no `failed` line at all. Worth catching — the autoheal log is the only
+record of what the watchdog did, and a watchdog that lies about its one job
+is worse than none.
+
+QuestDB's probe was verified separately, without a full restart cycle, to
+avoid a history-write gap: SIGSTOP the process, run the probe by hand, curl
+exits **28** (its own timeout) after 15 s — the wedge signature — and exits
+0 again after SIGCONT. That is the leg worth checking on its own, since
+questdb is the only one of the three using `curl` rather than busybox
+`wget`, and the only one whose probe timeout and healthcheck timeout are
+tuned as a pair.
+
+**The one leg not tested is a full host reboot.** Every container went
+straight to `healthy` with a zero failing streak on recreate, and no
+`start_period` is anywhere near the measured cold starts, so flapping is
+unlikely — but a cold boot with SignalK's plugins, QuestDB and everything
+else contending at once is a different load than a recreate on a quiet box.
+It rides along with the reboot already pending on Mark's side from the
+headless-boot work earlier today; check `docker ps` after it.
+
+**Numbers, all measured on the boat rather than guessed.** Warm
+restart-to-answering: dex 4 s, ntfy 2 s, questdb 17 s. `start_period` is set
+far above those anyway — 300 s for questdb, 60 s for the other two — because
+the case that matters is a dirty-WAL replay on a contended cold boot, which
+is not the case that was measured, and because tight is the expensive
+direction: a 60 s window against SignalK's 3–4 min cold start had autoheal
+restarting it every ~3 min on the HALOS card.
+
+**Two deliberate divergences from HALOS's autoheal**, both commented in
+`compose-autoheal.yml`. Opt-in by label (`autoheal: "true"`) rather than
+HALOS's `AUTOHEAL_CONTAINER_LABEL=all`, because HALOS owns its whole host
+while here a hand-run container shares the same daemon and should not be
+restarted by the compose stack's watchdog — the cost is that a new service
+needs the label as well as the healthcheck, which is why they sit in the
+same block. And a 30 s stop timeout rather than 10 s, because 30 s is what
+the 2026-09-02 recovery needed by hand.
+
+`compose-autoheal.yml` has no `profiles:`, on purpose: a watchdog that
+silently did not start looks exactly like one that is working.
+
+Probes exercise the request path, not the port — QuestDB's wedge kept the
+listening socket open for all eleven hours. `select 1` through `/exec` for
+questdb, `/v1/health` for ntfy, `/dex/healthz` for dex (under the issuer's
+path prefix; there is no `telemetry:` block in `dex/config.yaml`, and adding
+one just to get a probe would have been a bigger change than the probe).
+Image tooling differs and was checked rather than assumed: questdb ships
+`curl` and no `wget`, dex and ntfy ship busybox `wget` and no `curl`.
+
+The nightly-reboot crontab line was left commented out, per Mark.
+
+## 2026-09-02 — pypilot_web fixed and re-enabled; journal capped at 1G (session boat-pi-stability-6d614e)
+
+Two stability cards, both closed. A second session was on the same box adding
+container healthchecks and autoheal to dex/questdb/ntfy; nothing collided, and
+all four containers were still healthy after the journald restart below.
+
+### pypilot_web — root cause found by reading, not by installing
+
+The card's prime suspect was right in outline and wrong in the fix. The kwarg
+is not "leaking" from a Flask-SocketIO version bump that needs pinning away —
+it is pypilot passing a kwarg that only one of Flask-SocketIO's three server
+branches consumes:
+
+- `pypilot/web/web.py:229` calls
+  `socketio.run(app, debug=False, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)`
+  unconditionally.
+- `flask_socketio/__init__.py:637` pops `allow_unsafe_werkzeug` **inside the
+  `async_mode == 'threading'` branch only**. The boat has gevent 22.10.2
+  installed, so `async_mode` is `gevent` and control never reaches that pop.
+- The gevent branch forwards the surviving `**kwargs` into
+  `gevent.pywsgi.WSGIServer`, which stuffs anything it doesn't recognise into
+  `self.ssl_args`. Every accepted connection then calls
+  `wrap_socket(client_socket, **self.ssl_args)` and dies with the TypeError.
+  That is why the port accepted and then produced `code=000`: the socket is
+  real, the handshake is not.
+
+So pinning Flask-SocketIO below 5.3.0 would have been the wrong lever, and
+upgrading pypilot would have meant a pip install over the cellular WAN with
+`pypilot.service` — currently healthy — in the blast radius. Neither was
+needed. **The fix is a launcher, not a package change**: `host/pypilot-web` is
+`pypilot.web.web.main()` with the one kwarg dropped, and
+`host/pypilot-web-launcher.conf` is a drop-in that repoints `ExecStart` at it.
+Both are in `host/install.sh`'s INSTALL array, and `pypilot_web.service` is now
+in ENABLE. No network, no risk to pypilot itself.
+
+Tested before installing: ran the launcher by hand as `pi` on port 8000 while
+the unit was still disabled, got 200, then removed the test copy. After
+install — `curl -s -o /dev/null -w %{http_code} http://127.0.0.1:8000/` → 200,
+`NRestarts=0`, 8 journal lines in 20 minutes against the old 720/min, and
+`pypilot.service` still active since boot. Both done-criteria met.
+
+One version oddity worth knowing: `/usr/local/bin/pypilot_web` is an
+entry-point script for `pypilot==0.70` while `pip list` reports 0.56, and both
+`pypilot-0.56.egg-info` and `pypilot-0.70.egg-info` are present. The code that
+actually runs is the 0.56 tree. Not touched.
+
+### Journal growth, measured properly
+
+The pypilot_web flood was logging under **uid 1000** (the unit runs
+`User=pi`), so it went to `user-1000.journal`, not the system journal. That is
+why user-1000 files were 1.22 GB against system's 607 MB, and it means the
+system-journal rate was never contaminated by it.
+
+Rates taken byte-exact from `journalctl --file … --header` on consecutive
+archived files rather than sampled:
+
+- system: 71,751,304 B over 17h54m34s = **96.2 MB/day**; 72,684,120 B over
+  17h43m58s = **98.4 MB/day**.
+- user-1000, pre-fix: 134.2 MB over the same 17h44m window = **181.6 MB/day**,
+  now gone (78 user entries in the first hour of this boot).
+- Pre-fix total ≈ 278 MB/day; post-fix ≈ 96–98 MB/day.
+
+A 300 s per-unit line count agrees on the shape: 204 lines/min, of which
+`openplotter-i2c-read.service` plus the `init.scope` lines from its restart
+loop are 66%, `tailscaled` 12% (that is the measuring ssh session logging its
+own commands — the known trap), and `pypilot_web` does not appear at all.
+
+Mark picked **1G** from 256M/500M/1G/2G priced in days of retained history.
+`host/journald-symphony.conf` → `/etc/systemd/journald.conf.d/symphony.conf`,
+with `systemd-journald` added to install.sh's RESTART list because journald
+rereads that file only on restart. Applied: `journalctl --disk-usage` 1.4G →
+991.7M, root fs 76% → 74%, and signalk/caddy/pypilot/pypilot_web plus all four
+containers still up across the bounce.
+
+The floor is structural. `openplotter-i2c-read.service` is `Restart=always` /
+`RestartSec=3` around a program that exits cleanly — OpenPlotter's i2c polling
+loop implemented as a systemd restart loop, ~13.9/min forever. It is how the
+BME680 and the other i2c sensors are read, so the cap is the only lever
+available. If the open "BME680 sensor ownership" card ever moves that job to
+the dedicated plugin, the rate drops ~88% and 1G buys months instead of days.
 ## 2026-09-02 — pypilot containerization PoC (PR #37)
 
 Asked for a docker-compose file for pypilot as a HALOS-migration proof of
@@ -1885,4 +2231,3 @@ the real-IMU path are a separate bench session, carded on the board.
 Open call for Mark, put to him at wrap-up: whether the bench Pi has an IMU
 wired for that test, and whether the containerized pypilot is meant to be
 part of the swap-day trial or stays a PoC until after it.
-

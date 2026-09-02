@@ -356,19 +356,43 @@ only ntfy. Port 8090 on all interfaces, same as the boat, so
 `curl -s -o /dev/null -w '%{http_code}\n' localhost:8090/v1/health` is 200
 and `curl -d test localhost:8090/symphony-alarms` reaches a subscribed phone.
 
-**B4d. pypilot, IMU and web UI only.** HALOS ships nothing for pypilot
-(checked `halos-marine-containers/apps` and the SignalK image's plugin list).
-Install it natively on the host the way OpenPlotter does, without the servo:
-`git clone https://github.com/pypilot/pypilot && cd pypilot && sudo pip install '.[optimize,ui,hat,web]' --break-system-packages`,
-then enable services for `pypilot`, `pypilot_boatimu` and `pypilot_web`
-(port 8000). The SignalK container is host-network and mounts `/dev`, so
-`pypilot-autopilot-provider.json` reaches `localhost:8000` unchanged and
-there is no port clash. Unverified: whether the `pypilot` daemon runs clean
-with no servo device at all; test on the bench with the IMU before the
-swap. Findings with sources were captured in the 2026-09-01 planning
-session; the OpenPlotter recipe is in `reference/legacy_openplotter_stack.md`.
-*Verify:* `curl -s -o /dev/null -w '%{http_code}\n' localhost:8000` is 200
-and the web UI shows heading and pitch/roll moving when the Pi is tilted.
+**B4d. pypilot, IMU and web UI only — containerized.** Mark's call,
+2026-09-02: pypilot goes in a container on HALOS, not a native host install.
+This supersedes the native `pip install` recipe this step carried until then,
+which was written before [PR #37](https://github.com/mark-brannan/symphony/pull/37)
+existed and assumed nothing was available. HALOS still ships nothing for
+pypilot (checked `halos-marine-containers/apps` and the SignalK image's plugin
+list) — the image is ours, built from `pypilot/Dockerfile` on that PR against a
+pinned upstream commit, with the `optimize`, `signalk` and `web` extras and
+without `hat` or `ui`. There is no servo aboard (`servo.controller = none`, no
+serial devices), so this is the IMU and the web UI only.
+
+Bring the image with the card rather than building on the boat: the build
+compiles pypilot's SWIG extensions and RTIMULib2 from source, which is exactly
+the kind of work the cellular WAN cannot carry. From `/home/pi/symphony`,
+`sudo docker compose -p symphony -f docker-compose.yml --profile pypilot up -d`;
+the service is profile-gated so a bare `docker compose up` never starts it.
+Host network and `/dev/i2c-1` passthrough, plus `cap_add: SYS_NICE` and
+`ulimits: rtprio: 99` — without those two the daemon silently runs at ordinary
+priority instead of SCHED_FIFO. `pypilot-autopilot-provider.json` reaches
+`localhost:8000` unchanged, and the SignalK container is host-network too, so
+there is no port clash.
+
+Native pypilot and the container cannot run at once — same ports. On any card
+that already has OpenPlotter's units, disable `pypilot`, `pypilot_boatimu` and
+`pypilot_web` before starting the container.
+
+Still unverified, and the reason B4d needs a bench session before swap day:
+the arm64 build, whether `/dev/i2c-1` reaches the MPU9250 from inside the
+container, and whether pypilot master (0.71) reads the boat's 0.56
+`~/.pypilot` state — a calibration-format mismatch would silently lose the
+compass calibration. Build, run and verification lines are in `RUNBOOK.md`
+§ pypilot in a container; the design and the full unknowns list are in
+`reference/pypilot_containerization.md`.
+
+*Verify:* `curl -s -o /dev/null -w '%{http_code}\n' localhost:8000` is 200,
+`i2cdetect -y 1` from inside the container shows the IMU at 0x68, and the web
+UI shows heading and pitch/roll moving when the Pi is tilted.
 
 ### B5 — front door polish (needs B2c; optional)
 
