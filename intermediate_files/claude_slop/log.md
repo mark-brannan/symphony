@@ -1819,3 +1819,42 @@ recorded in `host/halos/README.md`. `pi` cannot run docker on HALOS, so the
 prompt for swap day in `dispatch-halos-swap-day.md`; the handoff file is
 deleted, its results are in `halos-swap-execution-2026-09-02.md`. Left for
 Mark: pypilot, the Cerbo, the swap day itself (cards).
+
+## 2026-09-02 — PR #34 already merged; boat calmed for the baseline (session pr-34-merge-baseline-091553)
+
+PR #34 needed nothing: merged 10:22:17Z as 364ad2a, and `origin/main` carries
+`host/signalk-unit.sh` with `install.sh` sourcing it at line 54 and installing
+it to `/usr/local/lib/symphony/`. Card retired unworked.
+
+Calming the boat found a different problem than the card described. The "13
+logged-in users" is a utmp artifact — `who -a` lists 16 entries, most of them
+dead pts records with exit codes, and only 5 live sessions, two of which are
+tmux panes from 21 and 23 August. Nothing to kill there.
+
+The real load was **six orphaned lightdm greeter sessions**: `lightdm
+--session-child` processes reparented to PID 1 by lightdm restarts on 26
+August and 1 September, each still running a `labwc -C
+/etc/xdg/labwc-greeter/` compositor spinning at 20-55 % of a core. Killed all
+six (458186, 461611, 505317, 507218, 509660, 2091034); the one live greeter
+under the running `/usr/sbin/lightdm` sits at 0.0 %. Available memory went
+409 → 675 MB immediately.
+
+There was no QuestDB *query* to find. QuestDB had **wedged at
+2026-09-02T07:01:25Z** and spun for eleven hours: no log line after that
+timestamp, `/exec` accepting the socket in 0.5 ms then never answering inside
+30 s, docker's NET and BLOCK I/O counters frozen across successive samples,
+all while the container burned 180-250 % CPU. `jcmd` isn't in the image so no
+thread dump was possible. `docker restart -t 30 questdb` fixed it — it came
+back logging, and `/exec` now answers `select 1` in 51 ms. Cause unknown; the
+last healthy log lines show `ApplyWal2TableJob` committing 50 rows in 5074 ms
+(9 rows/s) against ~284k-row partitions, so it was already struggling before
+it stopped.
+
+Net: load average 13.2 → 2.67, QuestDB 250 % → 21 %. `scripts/halos_swap_check.sh
+symphony-pi` now passes every line including `questdb` (newest history row 6 s
+old); the only FAIL is the already-carded Cerbo MQTT SYN-SENT.
+
+Left for Mark as a new card: PID 986 `labwc -m`, his own desktop session on
+tty1, spins at 100 % of a core with 6d7h of CPU in 12 days uptime — the same
+labwc spin as the greeters, but it is the physical screen so a session won't
+kill it. Swap is still 199/199 MB full and won't drain without a reboot.
