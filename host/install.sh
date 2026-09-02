@@ -18,14 +18,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # units are installed and enabled below.
 BOAT_USER=pi
 
-# SignalK's own unit varies by host shape: native SignalK (signalk.service)
-# on the boat card, or SignalK in a container
-# (marine-signalk-server-container.service) on a HALOS card. Drop-ins for
-# whichever is present go in its .d directory.
-if systemctl cat signalk.service >/dev/null 2>&1; then
-	SIGNALK_UNIT=signalk.service
-else
+# Native SignalK on the boat card, containerised SignalK on a HALOS card;
+# the drop-in goes in whichever unit's .d directory. Fall back to the native
+# name so a fresh card, where neither unit exists yet, still gets it.
+if systemctl cat marine-signalk-server-container.service >/dev/null 2>&1 &&
+	! systemctl cat signalk.service >/dev/null 2>&1; then
 	SIGNALK_UNIT=marine-signalk-server-container.service
+else
+	SIGNALK_UNIT=signalk.service
 fi
 
 # <source in host/>:<destination>:<mode>:<owner>:<group>

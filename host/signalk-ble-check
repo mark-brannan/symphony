@@ -26,17 +26,14 @@
 #
 # Expected source names come from the plugin's own config rather than being
 # hardcoded here, so renaming a sensor doesn't quietly disable the check.
-#
-# Serves two host shapes: native SignalK (signalk.service, with
-# signalk.socket) and a HALOS card running SignalK in a container
-# (marine-signalk-server-container.service, no socket unit). The unit is
-# detected at runtime; CONFIG and the restart path follow from it.
 set -eu
 
 TAG=signalk-ble-check
 STATE=/run/signalk-ble-check.state
 API=http://localhost:3000/signalk/v1/api/vessels/self
 
+# Native SignalK has a socket unit; the HALOS container unit does not, so the
+# restart path below differs. Config path differs too.
 if systemctl cat signalk.service >/dev/null 2>&1; then
 	UNIT=signalk.service
 	CONFIG=/home/pi/.signalk/plugin-config-data/bt-sensors-plugin-sk.json
