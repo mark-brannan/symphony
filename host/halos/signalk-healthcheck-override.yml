@@ -2,8 +2,20 @@
 # Stock HALOS healthcheck: 60 s start period, then 3 probes 30 s apart (150 s
 # in all). A 120-plugin config takes 3–4 min, and autoheal restarts the
 # container before it finishes starting.
+#
+# group_add: the host's i2c group is gid 988 and /dev/i2c-1 is crw-rw---- root:988.
+# The image has its own i2c group at gid 990, so `id` inside the container reads as
+# correct while the device stays unreadable, and privileged:true does not help
+# because signalk runs as non-root `node` and so holds no CAP_DAC_OVERRIDE. Without
+# 988 the BME680 plugin and i2c-reader silently publish nothing.
+#
+# List ONLY 988. Compose *appends* group_add across -f files rather than replacing
+# it, so repeating HALOS's own 4 and 960 makes the merged list non-unique and the
+# unit refuses to start with
+#   "services.signalk-server.group_add array items[1,2] must be unique".
 services:
   signalk-server:
+    group_add: ["988"]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:3000/signalk || exit 1"]
       interval: 30s

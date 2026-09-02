@@ -724,7 +724,17 @@ record's 300 s TTL. Off-boat access is on the bench card for that window.
 
    Same lines as the baseline, with `up=` small and `front` on `:4430`.
    `ble` and `bme680` can take ten minutes after boot; rerun. A `ble` FAIL
-   after that is "BLE sensors go silent after a reboot". Don't move on to
+   after that is "BLE sensors go silent after a reboot". A `bme680` FAIL that
+   survives the ten minutes is usually not the sensor: check that the container
+   can reach the bus at all, because it cannot without the `group_add` line in
+   `host/halos/signalk-healthcheck-override.yml` being installed on the card.
+
+   ```bash
+   ssh pi@symphony-halos "docker exec signalk-server python3 -c \"open('/dev/i2c-1')\""
+   ```
+
+   Silence is a pass. `PermissionError` means the override is missing or was
+   reverted; install it per `host/halos/README.md` and restart the unit. Don't move on to
    DNS until every line that was `ok` in the baseline is `ok` here — a slow
    boot otherwise moves public traffic to a node that isn't ready yet.
 
