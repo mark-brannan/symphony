@@ -21,7 +21,6 @@ already carries enough context.
 - [ ] [Re-authorize the Evernote connector](kanban-detail.md#evernote-connector-needs-re-authorization) — token expired mid-session; once it's back, a session files your recovered physical-task list and drops the boat stash.
 
 ### Boat systems / SignalK
-- [ ] Rotate the Victron VRM password — it was printed into a local session transcript on 2026-09-01 (see [log.md](log.md)); nothing reached the repo.
 - [ ] [Pick a moment for Claude to reconcile the boat's Dex onto its pin](kanban-detail.md#dex-is-running-latest-instead-of-its-pin) — recreates the container and drops every OIDC session/refresh token; fine dockside, bad offshore.
 - [ ] [Decide BME680 sensor ownership](kanban-detail.md#bme680-sensor-ownership) — enable the dedicated plugin and retire the OpenPlotter i2c entries, or keep OpenPlotter and give up the airquality index.
 - [ ] [Confirm PostgSail is receiving voyages](kanban-detail.md#confirm-postgsail-is-receiving) — needs Mark's own PostgSail account to check.
@@ -49,7 +48,6 @@ already carries enough context.
 ## Claude's
 
 ### Infrastructure
-- [ ] Address the 14 CodeRabbit inline findings on [PR #33](https://github.com/mark-brannan/symphony/pull/33) — triage in [log.md](log.md) under 2026-09-01 "PR #33 review triage"; reply and resolve each thread, push once. Blocks the merge.
 - [ ] Build the HALOS card for the boat swap — items P1–P6 in [halos-swap-plan.md](halos-swap-plan.md#parallel-work-breakdown), one session each, dependencies marked there; P3 (SignalK state) and P1 (boot config) can start now.
 - [ ] Run [PR #34](https://github.com/mark-brannan/symphony/pull/34) (`signalk-ble-check` on both cards) on the halos card once B3 lands, then merge it.
 - [ ] [Uninstall `signalk-to-influxdb2` on the boat](kanban-detail.md#uninstall-signalk-to-influxdb2-blocked-on-an-npm-tree-quirk) — confirmed dead (InfluxDB purged 2026-08-25), plugin still erroring every cycle. WAN is no longer the blocker (confirmed healthy 2026-08-26); a real `npm uninstall` now aborts on an unrelated tree quirk involving `signalk-plugin-watchdog`'s self-referencing `file:` dependency. No functional loss from the attempt, but the uninstall itself didn't land.

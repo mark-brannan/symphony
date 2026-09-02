@@ -63,10 +63,11 @@ while [ -n "$zone_name" ]; do
 done
 [ -n "$zone_id" ] || { echo "no Cloudflare zone found for ${DOMAIN}" >&2; exit 1; }
 
+# Exactly one apex A record, or there is no single record to move and
+# patching an arbitrary one would half-cut-over the domain.
 record=$(cf GET "/zones/${zone_id}/dns_records?type=A&name=${DOMAIN}")
-record_id=$(echo "$record" | python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; print(r[0]["id"] if r else "")')
-current_ip=$(echo "$record" | python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; print(r[0]["content"] if r else "")')
-[ -n "$record_id" ] || { echo "no A record named ${DOMAIN} in zone ${zone_name}" >&2; exit 1; }
+read -r n record_id current_ip <<<"$(echo "$record" | python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; print(len(r), r[0]["id"] if r else "-", r[0]["content"] if r else "-")')"
+[ "$n" = 1 ] || { echo "want exactly one A record named ${DOMAIN} in zone ${zone_name}, found ${n}" >&2; exit 1; }
 
 # tailnet name -> IPv4, from this machine's view of the tailnet
 node_ip() {

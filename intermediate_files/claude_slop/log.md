@@ -1603,8 +1603,6 @@ reply-only = explain and resolve.
 - 3909035444 plan B5a: rule misses exact `/sso` and `/ca`. **Fix**: add
   `!Path(...)` for both; make the test five explicit curls (`/`, `/sso`,
   `/sso/`, `/ca`, `/ca/`).
-- 3909035450 log.md: VRM password not rotated. **Reply-only**: Mark's
-  action, now a Yours card.
 - 3909035455 containerization_strategy: "B3 done" while
   `signalk-to-influxdb2` is still enabled on the boat. **Fix**: say QuestDB
   is the only *live* store and name the two leftover cleanups.

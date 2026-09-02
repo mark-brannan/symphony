@@ -43,7 +43,7 @@ if [ "${n:-0}" -ge 5 ] && [ "$age" -ge 0 ] && [ "$age" -lt 600 ]; then say ok bl
 out=$(r 'journalctl -t boat-heartbeat -n 1 --no-pager -o cat')
 case "$out" in *"ping ok"*) say ok heartbeat "$out" ;; *) say FAIL heartbeat "${out:-no heartbeat log}" ;; esac
 
-code=$(r "curl -s -o /dev/null -w '%{http_code}' -d 'swap check from \$(hostname)' localhost:8090/symphony-alarms")
+code=$(r "curl -s -o /dev/null -w '%{http_code}' -d 'swap check on ${HOST}' localhost:8090/symphony-alarms")
 [ "$code" = 200 ] && say ok ntfy "sent to symphony-alarms; check the phone" || say FAIL ntfy "http $code"
 
 rows=$(r "curl -s 'localhost:9000/exec?query=select%20count()%20from%20%27navigation.position%27'" | python3 -c 'import json,sys; print(json.load(sys.stdin)["dataset"][0][0])' 2>/dev/null)
