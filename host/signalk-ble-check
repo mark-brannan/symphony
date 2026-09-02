@@ -33,15 +33,17 @@ STATE=/run/signalk-ble-check.state
 API=http://localhost:3000/signalk/v1/api/vessels/self
 
 # Native SignalK has a socket unit; the HALOS container unit does not, so the
-# restart path below differs. Config path differs too.
-if systemctl cat signalk.service >/dev/null 2>&1; then
-	UNIT=signalk.service
-	CONFIG=/home/pi/.signalk/plugin-config-data/bt-sensors-plugin-sk.json
-	HAS_SOCKET=1
-else
+# restart path below differs. Config path differs too. Same fallback order as
+# install.sh: native unless the container unit is the one actually present.
+if systemctl cat marine-signalk-server-container.service >/dev/null 2>&1 &&
+	! systemctl cat signalk.service >/dev/null 2>&1; then
 	UNIT=marine-signalk-server-container.service
 	CONFIG=/var/lib/container-apps/marine-signalk-server-container/data/data/plugin-config-data/bt-sensors-plugin-sk.json
 	HAS_SOCKET=0
+else
+	UNIT=signalk.service
+	CONFIG=/home/pi/.signalk/plugin-config-data/bt-sensors-plugin-sk.json
+	HAS_SOCKET=1
 fi
 
 # SignalK needs roughly 100s to reach its plugins and longer for BLE sensors to
