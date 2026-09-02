@@ -1966,3 +1966,38 @@ else is tidied, which is an argument for Mark's open `SystemMaxUse` card
 rather than for touching the service. If the dedicated BME680 plugin ever
 takes over (the open "BME680 sensor ownership" card), this service and its
 traffic go with it.
+
+### Same session — post-reboot verification
+
+The Pi rebooted (up 33 min at 15:04 local). Not by this session: the reboot
+command was never issued — Mark's approval arrived, the Windows dev box then
+restarted mid-turn, and the boat was already back up on the next check.
+Whoever or whatever did it, it answered the open question.
+
+**The headless config survived a boot with nobody logged in.** That was the
+one thing standing between this work and swap day, and it is now observed
+rather than inferred:
+
+- `rpi-connect status`: signed in, subscribed to events, screen sharing
+  allowed, remote shell allowed. `rpi-connect.service` active,
+  `rpi-connect-wayvnc` inactive — correct, it is on-demand now. `Linger=yes`
+  held.
+- `systemctl get-default` → `multi-user.target`; `pgrep -x labwc` empty.
+- `pypilot_web` still `disabled` / `inactive`.
+- SignalK, Caddy, dex, questdb, ntfy all up.
+
+Everything the reboot was supposed to clear, cleared: swap 199/199 → 3 MB
+used of 199 (`pswpout` 763 since boot), available memory 409 MB at session
+start → 1433 MB, `uptime` back to 2 users from the stale-utmp 13, and
+`vcgencmd get_throttled` → `0x0` (it read `0xe0000` before — frequency-cap,
+throttle and soft-temp-limit events had all occurred over the previous 12
+days). Temp 60.3 °C.
+
+`scripts/halos_swap_check.sh symphony-pi` passes every line. The only FAIL
+is the carded Cerbo MQTT SYN-SENT, unchanged and not ours. Note `n2k` now
+reports `/navigation/attitude` as its newest value — attitude is coming off
+the N2K bus, consistent with the pypilot observation above.
+
+Card status: "calm the boat before the baseline" is closed on its own terms —
+load 13.2 → ~1.6, and the baseline can be taken on a quiet, freshly booted
+box.
