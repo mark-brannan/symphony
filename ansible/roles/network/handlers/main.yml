@@ -1,0 +1,5 @@
+- name: reload NetworkManager profiles
+  ansible.builtin.command: nmcli connection reload
+  # Reload, not restart: NetworkManager rereads the keyfiles without dropping
+  # the wifi association the play is running over.
+  changed_when: true

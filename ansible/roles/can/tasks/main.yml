@@ -1,0 +1,48 @@
+# as-built v1 steps 5-7: the NMEA 2000 CAN interface, and the one networkd unit
+# that has to be switched off to go with it.
+
+- name: step 5 | can0 comes up at 250 kbit/s
+  ansible.builtin.copy:
+    src: 80-can.network
+    dest: /etc/systemd/network/80-can.network
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart systemd-networkd
+  # 250k is the NMEA 2000 bus rate; RestartSec brings the interface back after
+  # a bus-off event rather than leaving it down until someone notices.
+
+- name: step 6 | networkd runs, for can* only
+  ansible.builtin.systemd_service:
+    name: systemd-networkd
+    enabled: true
+    state: started
+  # NetworkManager keeps ethernet and wifi. networkd is here purely because it
+  # is the only thing on the box that can configure a CAN link.
+
+- name: step 7 | networkd's wait-online is disabled
+  ansible.builtin.systemd_service:
+    name: systemd-networkd-wait-online
+    enabled: false
+    state: stopped
+  # HALOS satisfies network-online.target through NetworkManager. networkd only
+  # manages can*, which never becomes routable, so wait-online times out after
+  # two minutes on EVERY boot and leaves a failed unit -- which the heartbeat
+  # then reports as a fault on a perfectly healthy card.
+
+- name: step 5 | can0 is configured as expected
+  ansible.builtin.command: ip -details link show can0
+  register: can_link
+  changed_when: false
+  failed_when: false
+  tags: [verify]
+  # The PiCAN-M HAT is on the boat, not the bench, so a missing can0 here is
+  # expected on a bench card and is reported rather than fatal.
+
+- name: step 5 | report can0
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'can0: ' ~ (can_link.stdout_lines | select('search', 'bitrate') | first | default('present, bitrate not reported'))
+         if can_link.rc == 0
+         else 'can0 absent -- expected without the PiCAN-M HAT fitted' }}
+  tags: [verify]

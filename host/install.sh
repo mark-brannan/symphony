@@ -54,7 +54,11 @@ fi
 . "$HERE/signalk-unit.sh"
 signalk_unit_detect
 
-# <source in host/>:<destination>:<mode>:<owner>:<group>
+# <source in host/>:<destination>:<mode>:<owner>:<group>[:keep]
+#
+# A trailing `keep` means "install it only if it is not already there." Use it
+# for a file whose correct contents differ per card, where the copy in host/ is
+# one card's version and overwriting the other card's is a silent regression.
 INSTALL=(
 	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755:root:root"
 	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
@@ -64,7 +68,14 @@ INSTALL=(
 	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
 	"telegraf-rpi-health:/usr/local/bin/telegraf-rpi-health:0755:root:root"
 	"boat-heartbeat:/usr/local/sbin/boat-heartbeat:0755:root:root"
-	"boat-heartbeat.json:/etc/boat-heartbeat.json:0600:root:root"
+	# keep: the two cards ping two DIFFERENT healthchecks.io checks, and this
+	# file has room for one URL. Copying it unconditionally meant whichever
+	# card ran the installer last took over the other's check -- so the card
+	# that lost it went quiet and nothing alarmed, because the check itself
+	# was still being pinged. ansible/roles/monitoring writes this file per
+	# host from sops; here it is a fallback for a card Ansible has not
+	# reached yet.
+	"boat-heartbeat.json:/etc/boat-heartbeat.json:0600:root:root:keep"
 	"boat-heartbeat.service:/etc/systemd/system/boat-heartbeat.service:0644:root:root"
 	"boat-heartbeat.timer:/etc/systemd/system/boat-heartbeat.timer:0644:root:root"
 	"signalk-unit.sh:/usr/local/lib/symphony/signalk-unit.sh:0644:root:root"
@@ -117,10 +128,14 @@ fi
 
 echo "== files =="
 for spec in "${INSTALL[@]}"; do
-	IFS=: read -r src dest mode owner group <<<"$spec"
+	IFS=: read -r src dest mode owner group keep <<<"$spec"
 	if [ ! -f "$HERE/$src" ]; then
 		echo "  MISSING in repo: $src" >&2
 		exit 1
+	fi
+	if [ "${keep:-}" = keep ] && [ -e "$dest" ]; then
+		echo "  $dest  (kept, already installed)"
+		continue
 	fi
 	install -D -o "$owner" -g "$group" -m "$mode" "$HERE/$src" "$dest"
 	echo "  $dest  ($mode $owner:$group)"
