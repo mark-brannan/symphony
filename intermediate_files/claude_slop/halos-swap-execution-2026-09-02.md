@@ -89,3 +89,22 @@ Done tonight, in order:
 - Swap check re-run on the boat at 07:34Z after the fixes: every line ok
   except `victron` (Cerbo) and `questdb` (boat QuestDB does not answer in
   30 s) — both pre-existing, both now explained in the line itself.
+
+## Session pr33-comments-merge-33902c (Fable), from 10:00Z
+
+- PR #33 review threads all answered and resolved; #35 (i2c `group_add`)
+  merged into the PR branch by Mark at 10:16Z.
+- Step 1: `signalk-server` `(healthy)` after the 07:40Z reboot. Step 2:
+  `/sso/` confirmed Authelia; router file stays.
+- First end-to-end `halos_preflight.sh` run. Script side: ssh to a renamed
+  tailnet node needs the host key accepted, so both scripts now pass
+  `StrictHostKeyChecking=accept-new`. Card side, fixed on the card:
+  `systemd-networkd-wait-online` enabled at 03:18 today by a session (not
+  stock), failing every boot → disabled; InfluxDB unit left behind by
+  `remove` → package purged; `reset-failed`; heartbeat back to `ping ok`.
+  Plugin diffs were three image-only packages, now allow-listed (plan).
+- The `signalk` preflight line now also checks gid 988 in the container's
+  node process via `/proc` (`pi` cannot run docker on HALOS).
+- Soak (B6) with zram (`/dev/zram0` is 1.8 GB, not 1 GB): QuestDB and
+  Grafana started 10:17Z; five minutes in, 310–345 MB available, ~1.15 GB
+  of zram in use, load back to 1.1 from a 6.4 startup peak.
