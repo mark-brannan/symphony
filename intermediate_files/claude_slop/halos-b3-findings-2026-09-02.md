@@ -225,3 +225,48 @@ them onto HALOS unchanged, so the trial will reproduce the same gap.
 anchor alarm should be enabled and configured, and whether mob-notifier and
 dsc should be installed on the boat to match the repo. All three are his
 calls about what the boat should do, not config drift to silently reconcile.
+
+## Why the staging box fails and the boat should not — measured arithmetic
+
+Measured 2026-09-02:
+
+- **SignalK with this plugin set needs ~1246 MB RSS.** Boat `signalk` node
+  process: RSS 1246 MB, uptime 9h28m, `NRestarts=0`, `is-active` = active.
+  The same ~118 plugins the halos card now carries.
+- **HALOS's own container stack plus OS costs ~1000 MB.** Derived from the
+  staging box with everything up: 1844 MB total, 845 MB available, SignalK
+  not yet loaded.
+
+So a HALOS box running this plugin set needs roughly **1000 + 1246 ≈ 2250 MB**.
+
+| host | RAM | need | verdict |
+|---|---|---|---|
+| `halos-pi4` staging rig | 1844 MB | ~2250 MB | **cannot fit — thrashes, as observed** |
+| `symphony-pi` boat (swap target) | 3796 MB | ~2250 MB | fits, ~1.5 GB headroom |
+
+This explains every failure recorded above without appealing to anything
+about HALOS itself, and it predicts the restart loop: SignalK cannot reach a
+steady state on the staging box, so the healthcheck overruns its 10 s
+timeout and `autoheal` restarts it, forever.
+
+**Observed end state of the staging box, 2026-09-02 ~06:4x UTC:** ports 22,
+80, 443 and 3000 all still accept TCP, but nothing completes a request — no
+SSH banner, no HTTP response — for 25+ minutes. The kernel is queueing
+connections userspace cannot serve. That is memory exhaustion, and it is the
+predicted outcome of the table above.
+
+**Caveats, stated rather than hidden.** The ~1000 MB figure is derived from
+one `free -m` reading, not from per-container accounting; `opencpn` and
+`avnav` are GUI apps whose idle footprint was not measured separately. The
+boat also currently runs its own services (InfluxDB, QuestDB, Dex, Caddy,
+Grafana) which HALOS replaces rather than adds to, so the comparison is
+HALOS-stack-vs-native-stack, not additive. The headroom figure is therefore
+approximate. It is not approximate enough to change the verdict: 2250 MB does
+not fit in 1844 MB, and does fit in 3796 MB.
+
+**What this means for the swap decision.** The staging box is not a valid
+predictor of swap success, and its failures should not be read as HALOS
+failures. Conversely, staging cannot fully rehearse the running system on
+this hardware — the card can be *built* and its filesystem verified at home,
+but HALOS-under-load can only be observed once the card is in the 4 GB boat
+Pi. That is an argument for doing the swap, not against it.
