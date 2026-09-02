@@ -17,7 +17,11 @@
     # Matched by key, so a commented-out or differently-valued line is REPLACED
     # rather than duplicated. config.txt takes the last value it sees, so a
     # duplicate is not untidy, it is the setting that wins.
-    regexp: "^#?\\s*{{ item.split('=')[0] | regex_escape }}\\s*="
+    #
+    # rsplit, not split: `dtparam` is a namespace, not a key -- splitting on the
+    # FIRST `=` makes all three dtparam lines look like the same setting, and
+    # each loop item then overwrites the previous one's line.
+    regexp: "^#?\\s*{{ item.rsplit('=', 1)[0] | regex_escape }}\\s*="
     line: "{{ item }}"
     insertafter: '^\[all\]'
   loop:
@@ -86,6 +90,9 @@
     grep -qw memory /sys/fs/cgroup/cgroup.controllers
     grep -q 'cfg80211.ieee80211_regdom=US' /proc/cmdline
   changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
   # Deliberately reads /proc and /dev, not the files written above: those are
   # what the NEXT boot will use, these are what this one got. Running with
   # symphony_allow_reboot=false after a firmware change fails here, correctly.

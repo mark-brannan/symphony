@@ -35,8 +35,9 @@
   #   identity decides the certificate SANs, so it precedes the front door
   #   base installs the packages monitoring and host_files then configure
   #   repo must exist before the telegraf symlink points into it
-  #   monitoring precedes host_files so install.sh restarts telegraf with a
-  #     live symlink and finds the heartbeat config already correct
+  #   monitoring runs LAST of the host-services roles so that Ansible, not
+  #     host/install.sh, is the final writer of /etc/boat-heartbeat.json --
+  #     true even against a checkout predating install.sh's `keep` flag
   roles:
     - role: boot
       tags: [boot, base_os]
@@ -50,10 +51,10 @@
       tags: [base, host_services]
     - role: repo
       tags: [repo, host_services]
-    - role: monitoring
-      tags: [monitoring, host_services]
     - role: host_files
       tags: [host_files, host_services]
+    - role: monitoring
+      tags: [monitoring, host_services]
     - role: signalk_container
       tags: [signalk_container]
 
@@ -62,6 +63,7 @@
       ansible.builtin.command: free -m
       register: mem
       changed_when: false
+      check_mode: false
       tags: [verify]
 
     - name: report memory headroom
