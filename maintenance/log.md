@@ -381,3 +381,8 @@
 - Landed the HALOS card-swap procedure, its check scripts and the host
   override files (PR #33). The bench card passed every preflight check
   after a reboot with the full stack running.
+- Fixed the pypilot web UI on the boat Pi and re-enabled it; it had been
+  serving nothing while flooding the journal at 720 lines/min since before
+  it was disabled earlier the same day.
+- Capped the boat Pi's journal at 1 GB, about ten days of history at its
+  measured rate. Journal 1.4 GB to 992 MB, root filesystem 76% to 74%.
