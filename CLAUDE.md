@@ -6,6 +6,14 @@ infrastructure. Conventions below cover the maintenance side
 (`RUNBOOK.md`, `reference/software_stack.md`). Ansible practices aren't
 covered here.
 
+## Changes made on a host
+A change made on a host is not done until its literal command or file
+content is captured in `host/`, `ansible/`, a `RUNBOOK.md` step, or the
+current plan's as-built file — in the same commit as the session that made
+it. Narrative in `intermediate_files/claude_slop/` doesn't count: it records
+what a session did, not what the host now runs, and nobody reads it to
+rebuild the box.
+
 ## Files
 - `maintenance/log.md` — chronological ship's-log record of work done.
 - `maintenance/priorities.md` — current backlog and triage.
