@@ -62,3 +62,40 @@ no `process.exit`; it only raises notifications. Open.
 B1 (boot config, PiCAN-M overlays, `can0`) is untouched, so `can0` does not
 exist and the `n2k-can0` provider errors continuously. That is expected at
 this stage, not a B3 defect.
+
+## Update — native bindings and audio, 2026-09-02
+
+**The `allowScripts` warning was a red herring.** The real blocker is that
+`ghcr.io/halos-org/signalk-server-docker:v2.31.1-halos.3` ships **no
+compiler** — only `python3`; no `make`, `gcc`, `g++` or `cc`. Enabling
+install scripts could not have helped. The boat compiles these natively
+(node 22, ABI 127, gcc/make/g++ present); the HALOS container is node 24,
+ABI 137, toolchain-free.
+
+**Fix applied:** build the native modules in a toolchain image at the *same*
+node ABI, writing into the shared data volume, then let the HALOS container
+load them. `node:24-bookworm` reports ABI 137, matching. Targets:
+`i2c-bus`, `epoll`, `sqlite3`, `serialport`, `lzma-native` — between them
+they cover `signalk-i2c-reader`, the BME680 plugin (`bme680-sensor`),
+`sk-propulsion-state` (`onoff`), `signalk-instrument-light-plugin`
+(`serialport`), `signalk-notifications` (`sqlite3`) and `signalk-speedtest`.
+
+Do **not** run bare `npm rebuild`: it hits `signalk-victron-ble`, whose
+build script needs `python3-venv` (absent), fails, and aborts the whole run
+before reaching anything useful. Rebuild the named packages only.
+
+**Audio: HALOS has no server-side sound and does not intend one.** Its docs
+never mention audio; `signalk-server-docker`'s Dockerfile has no `apt-get`
+at all. HALOS's actual alarm mechanism is browser-side — `@halos-org/skip`
+ships `sound.service.ts` (Web Audio) with `alarm/alert/warn/emergency` mp3
+assets and a notifications settings UI. The container also lacks audio-group
+access (`group_add` grants gids 960 and 4; the host's `audio` gid is 29), so
+a player inside it could not open `/dev/snd` even if installed.
+`signalk-notification-player` therefore disabled on the halos card; the
+boat's existing self-hosted ntfy + `signalk-ntfy` remains the off-box path.
+Host-side playback is possible if ever wanted (`mpg123`, `aplay`,
+`speaker-test` are all on the host and `pi` is in `audio`) but is blocked on
+an unverified precondition: whether any speaker is physically connected.
+
+**`signalk-plugin-watchdog` enabled** — it had no `plugin-config-data` entry
+so it never started. Schema has no required fields; created with defaults.
