@@ -340,6 +340,11 @@
   been re-run there. Re-rendered and recreated the `dex` container (the only
   one on that host consuming a rotated secret); native SignalK and the
   desktop's grafana/influxdb were unaffected.
+- Boat Pi rebooted with `cgroup_enable=memory cgroup_memory=1` on the kernel
+  command line, so container memory limits are enforced. QuestDB now holds to
+  its 768 MB cap.
+- Grafana's provisioned dashboards ported from InfluxDB Flux to QuestDB SQL,
+  and a true-heading panel added.
 
 ## 2026-08-21
 - Redeployed signalk-plugin-watchdog to the boat; the code had been silently

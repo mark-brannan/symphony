@@ -3,14 +3,14 @@ apiVersion: 1
 datasources:
   - name: InfluxDB
     type: influxdb
-    # Every provisioned dashboard names this uid. Without it Grafana assigns a
-    # random one at startup and the dashboards come up empty, which reads as
-    # "no data" rather than as a wiring fault.
+    # Fixed rather than assigned at startup so anything that names this uid
+    # keeps working across restarts.
     #
-    # `version: Flux` below is load-bearing: the dashboards are generated with
-    # Flux queries (scripts/build_dashboards.py). A datasource left in the
-    # default InfluxQL mode renders every panel blank against this InfluxDB 2.x
-    # bucket, with no error anywhere.
+    # The provisioned dashboards no longer read this datasource -- they are
+    # QuestDB SQL now (scripts/build_dashboards.py) and name the QuestDB
+    # datasource's uid. `version: Flux` stays because ad-hoc exploration of
+    # this InfluxDB 2.x bucket needs it: left in the default InfluxQL mode,
+    # a Flux query returns nothing, with no error anywhere.
     uid: influxdb-symphony
     access: proxy
     # Not hardcoded to the compose service name, because during the move off

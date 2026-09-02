@@ -1,0 +1,25 @@
+apiVersion: 1
+
+datasources:
+  - name: QuestDB
+    type: questdb-questdb-datasource
+    # Fixed rather than assigned at startup, same reasoning as influxdb.yaml:
+    # every panel scripts/build_dashboards.py emits names this uid, so it has
+    # to survive restarts and re-provisioning.
+    uid: questdb-symphony
+    # PGWire, not the 9000 HTTP port -- the datasource plugin speaks the
+    # Postgres wire protocol. Same native-vs-container split as INFLUX_URL:
+    # host.docker.internal:8812 while Grafana-in-a-container reaches a QuestDB
+    # it does not share a network with, questdb:8812 once both are compose
+    # services on symphony-net. Set QUESTDB_HOST in .env to whichever is true.
+    jsonData:
+      server: $QUESTDB_HOST
+      port: $QUESTDB_PORT
+      username: $QUESTDB_USER
+      # QuestDB's PGWire listener does not do TLS on its own; the port is
+      # bound to loopback in compose-questdb.yml and is not reachable off the
+      # box, which is the control here.
+      tlsMode: disable
+    secureJsonData:
+      password: $QUESTDB_PASSWORD
+    editable: true

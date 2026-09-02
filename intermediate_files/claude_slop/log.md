@@ -1070,6 +1070,67 @@ which was the original bullet's claim all along. Recorded the `merged_at`
 trap in CLAUDE.md next to the branch rule so the next session doesn't
 repeat it.
 
+## 2026-08-20 — QuestDB migration: closing the four loose ends
+
+Orchestration session. Took the four items the previous migration session
+left open and either finished them or handed them off deliberately.
+
+**cgroup / memory limit — done.** `cgroup_enable=memory cgroup_memory=1`
+appended to `/boot/firmware/cmdline.txt`, backup at
+`cmdline.txt.bak-precgroup`, rebooted with Mark's in-chat authorization.
+Verified after: `memory` in `/sys/fs/cgroup/cgroup.controllers`,
+`docker stats` 443 MiB / 768 MiB. The running container was updated in place
+(`docker update --memory 768m --memory-swap 1536m`) rather than recreated,
+to avoid touching the boat's shared checkout while another session is
+reconciling its git state. All six services and all three containers came
+back unattended; SignalK→QuestDB writes resumed ~4 min after boot, so the
+soak continued rather than restarting. Worth remembering: the firmware still
+injects `cgroup_disable=memory` ahead of our flag and `cgroup_enable=`
+overrides it, so both show in `/proc/cmdline` — that looks like a failed
+edit and is not one.
+
+**The BLE commits — already done by someone else.** Checked with
+`git ls-remote` before touching anything: both tips
+(`claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122,
+`claude/symphony-pushover-setup-ce12i0` @3f08bd3) were already on origin at
+the boat's exact SHAs. The reconciliation session got there first. Verifying
+before acting cost one command and saved a redundant push.
+
+Attempted to message that session as Mark asked. **Confirmed again that no
+channel exists between two cloud sessions**: `ListAgents` returns "No
+reachable agents" and `SendMessage` to a session id fails outright. The
+kanban already recorded this on 2026-08-19; this is a second measurement of
+the same limit, so treat it as settled rather than re-testing it a third
+time. `list_sessions` on the Claude Code Remote MCP surface *does* show
+other sessions and their pending questions, which is how the session was
+identified — read-only visibility exists, delivery does not.
+
+**Off-boat backup — handed to Mark, which is the honest resolution.**
+Nothing a session can finish: this sandbox's tailnet path is the slow DERP
+relay and the sandbox is ephemeral. Generated `SHA256SUMS` next to the
+artifacts on the boat so the copy can be *checked* rather than assumed, and
+wrote the `scp` + `sha256sum -c` pair into the kanban.
+
+**B4 — unblocked by reframing it.** It had been sitting on "open both
+dashboard sets in Grafana side by side," which needs a dedicated session.
+A programmatic diff of what every panel actually queries answered it instead,
+and answered it decisively: 4 of the boat's 76 imported panels render today.
+Mark's instruction was "1 and 2 — I'll maybe look at the diff but probably
+not. Don't wait for me," so the analysis ran and the port followed
+immediately without waiting on him to read it. Lesson worth keeping: a
+question parked as "needs a human in front of a GUI" is worth re-examining
+for a measurable proxy before it gets deferred again.
+
+**Scope discipline.** Chased one finding beyond the four items and stopped:
+79 of the 171 ported queries return empty, and the cause is that SignalK
+publishes no `electrical.batteries.*` at all —
+`bt-sensors-plugin-sk` dies on a D-Bus `write EPIPE` at every start, and it
+survived the reboot, so it is not the wedged-controller fault in the
+RUNBOOK. Boarded it, did not diagnose it. That is the next session's work
+and it matters, since power monitoring is the stated point of this stack.
+
+Left as a draft PR (#25), CI green, per the repo's own convention.
+
 ## 2026-08-21 (bt-sensors verification, branch/PR cleanup)
 
 Continuation session. Four of the five open items closed.
@@ -1661,6 +1722,71 @@ Rebooted, ran the B1 verification block:
 - `can0` not present — plan says that verifies at the boat only.
 
 P2–P7 of the swap plan are unstarted.
+
+## 2026-09-01/02 — PR #25 live walkthrough, session 1 of N (Navstation only)
+
+Worktree: `grafana-dashboards-pr25-89c9f8`, branch
+`claude/influxdb-questdb-migration-t3lkra` (PR #25 itself). Demo stack
+(`questdb-demo`, `grafana-demo` on `symphony-demo-net`, localhost:3100
+admin/devadmin) reused from an earlier session rather than rebuilt — still
+up, left running for the next session. `verify_dashboards_live.py`
+confirmed 196/196 before and after tonight's change.
+
+**Navstation redesigned and shipped.** Was a flat grid of 18 identical
+`w=4 h=5` stat tiles; compared side-by-side against
+`meri-imperiumi/lille-oe`'s Navstation (same six-dashboard structure,
+public repo) and found panel *count* was nearly identical (21 vs 22) — the
+"busy" feeling was panel-type/size uniformity, not density. Regrouped into
+Navigation/Power/Weather-and-tide rows with gauges on primary values (SOG,
+heading, house SOC, wind) and varied stat sizing for the rest. Committed
+`7ff9d48`, pushed to the PR branch. Mark reviewed live and approved.
+
+**Verified against real boat data, once, carefully.** Boat's real QuestDB
+(on symphony-pi) is 11 days up with SignalK actively writing — confirmed
+fresh (`max(ts)` ~now) and confirmed real row volume
+(`environment.outside.pressure`: 4,271 rows/6h, ~1 sample/5s) before
+touching anything, so the bandwidth estimate for the boat's constrained
+uplink is measured, not guessed. No Grafana currently runs on the boat at
+all (compose `grafana` crash-looped, `sk-signalk-grafana` lost its port
+race, `grafana-server` systemd unit is `failed`) — so there was nothing to
+deploy to or risk breaking; the move was a read-only SSH tunnel
+(`127.0.0.1:18812` on this box → boat's `127.0.0.1:8812`, never exposed
+past loopback) into the *demo* Grafana's existing QuestDB datasource,
+one-shot, then reverted and torn down. Confirmed real values came back:
+Heel 0.6°, Barometer 1010.3 hPa, Outside 61.6°F, Fridge 69.6°F, Trip log
+0.0 nm. Nav/wind/power panels reading "No data" against real data matched
+what the row-count query predicted (those paths have zero rows right
+now — boat's at dock, sensors quiet) — not a bug. `Vessel state` /
+`Tendency` "No data" is the pre-existing text-mode-stat bug, unrelated to
+tonight, not fixed.
+
+Two Playwright screenshot attempts against the live tunnel came back
+empty — a genuine bug in my own capture script (the dashboard's saved 10s
+refresh never actually turned off, so screenshots raced the refresh
+cycle), not a data problem. Didn't retry a third time against the boat to
+chase a client-side timing bug — burning more of the boat's measured
+bandwidth to fix a screenshot script isn't a good trade. Mark asked to cut
+the boat connection; confirmed torn down (no process on 18812, datasource
+reverted). Noted but did not touch: two unrelated pre-existing
+`ssh pi@symphony-pi` sessions on this box (since Aug 22 and today
+13:43) — not mine to kill.
+
+**PR #25 review scope, for whenever Mark reads the diff himself:** 3051+/
+1852- across 23 files, but only `scripts/build_dashboards.py` (348 lines,
+the actual panel/unit/threshold decisions),
+`grafana/provisioning/datasources/questdb.yaml` + `.env.j2` (what the boat
+will point at once deployed), and `RUNBOOK.md` are worth a human read. The
+six dashboard JSON files (3600+ of the diff) are pure `build_dashboards.py`
+output verified by `test_dashboards.py`; `intermediate_files/claude_slop/*`
+and the test/verify scripts are mechanical/session-state. Not yet decided:
+whether/when to actually deploy PR #25 (the InfluxDB→QuestDB cutover) to
+the boat — nothing tonight implied or executed that; it's still open.
+
+**Not yet walked:** Electricity, System health, Navigation, Weather, Life
+support — five dashboards, same process (show, take comments, fix small
+ones in `build_dashboards.py`, regenerate, commit; anything bigger gets a
+card). Demo stack is up and ready; PR #25 branch is the working branch, no
+new branch needed to keep committing to it.
 
 ## 2026-09-02 — HALOS swap prep executed overnight (Fable, PR #33)
 
