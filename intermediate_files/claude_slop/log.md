@@ -1554,6 +1554,76 @@ repro in order on the boat: pre-PR code logs one uncaught EPIPE and 404s;
 PR code retries with backoff and reconnects by itself once the file is
 removed. Scaffolding removed, data flowing 21:08Z.
 
+## 2026-09-01 — HALOS boat-swap plan (Fable planning session)
+
+Planned the accelerated trial: the HALOS card built at home goes into the
+boat Pi; the boat card is the rollback. Measured both boxes live and read
+the halos-org sources through a subagent. Landed: `reference/system_map.md`
+(both cards, containers, SSH strings, diff table, three decisions),
+`RUNBOOK.md` → "Swapping the HALOS card onto the boat" (verification per
+step, rollback), `scripts/dns_cutover.sh` (read path tested against the live
+zone; `set` untested), `intermediate_files/claude_slop/halos-swap-plan.md`
+(ordered build plan B1–B6, parallel items P1–P7 with prompts), and a plan
+shift note at the top of `containerization_strategy.md`.
+
+Findings that changed the plan: the HALOS SignalK container is privileged,
+host-network, mounts `/dev` and `/run` (BlueZ D-Bus reachable) but its
+`nsswitch` has no mDNS (Victron's `venus.local` must become the Cerbo's IP,
+192.168.8.107); its `package.json` lists one plugin against ~80 loose
+installs (prune trap); the halos card lacks every PiCAN-M overlay, `can0`
+bring-up, the memory cgroup (container limits unenforced) and has regdom
+GB; the spare Pi is 2 GB and swapping 1.5 GB. InfluxDB is already gone from
+the boat (purged 08-25, export only on the boat card), so QuestDB-only is
+the decision, not a migration. healthchecks.io is pinged by
+`boat-heartbeat.timer`, not a plugin. Pushover = the heartbeat's escalation.
+
+### PR #33 review triage (same session, handed off unstarted)
+
+Mark asked for a wrap-up before the CodeRabbit round was addressed. Triage,
+so the next session fixes rather than re-reads. Fix = change the file;
+reply-only = explain and resolve.
+
+- 3909035421 plan B2a/B2b: PSK on `nmcli` argv. **Fix**: write an NM keyfile
+  (`/etc/NetworkManager/system-connections/<name>.nmconnection`, 0600) built
+  locally from sops, scp'd, `nmcli con reload`; no PSK in any argv.
+- 3909035427 plan B3a: rsync of live state. **Reply-only**: SignalK rewrites
+  config only on admin saves; run rsync twice, second pass must transfer
+  nothing. Don't stop the boat's SignalK for a copy.
+- 3909035432 plan B3a: `$D` undefined. **Fix**: define it in the block.
+- 3909035436 plan B3c: `package.json.halos` backup happens after rsync
+  overwrote it. **Fix**: move the backup before B3a, to `/home/pi/`.
+- 3909035437 plan B3c: Cerbo IP without a reservation. **Fix**: make the
+  router DHCP reservation for the Cerbo (192.168.8.107) a precondition,
+  verify with `ssh root@192.168.8.1 'uci show dhcp | grep -i cerbo'` or the
+  MAC.
+- 3909035441 plan B3c + RUNBOOK: parity by counts. **Fix**: add a diff of
+  `<config> <enabled>` pairs from plugin-config-data on both cards; list the
+  three expected differences (signalk-container, signalk-to-influxdb2,
+  signalk-to-influxdb-v2-buffer disabled on HALOS).
+- 3909035444 plan B5a: rule misses exact `/sso` and `/ca`. **Fix**: add
+  `!Path(...)` for both; make the test five explicit curls (`/`, `/sso`,
+  `/sso/`, `/ca`, `/ca/`).
+- 3909035455 containerization_strategy: "B3 done" while
+  `signalk-to-influxdb2` is still enabled on the boat. **Fix**: say QuestDB
+  is the only *live* store and name the two leftover cleanups.
+- 3909035460 system_map: `NODE_TLS_REJECT_UNAUTHORIZED=0`. **Fix (one
+  sentence)**: it's HALOS's package-owned compose, not ours; name the
+  affected traffic (every plugin's outbound HTTPS and the MQTT-TLS link to
+  the Cerbo) and that the trial accepts it.
+- 3909035465 system_map + plan: directory copy "merges" history. **Fix**:
+  a stopped copy *replaces*; merging needs an ILP re-export
+  (`Table2Ilp` or REST export). Reword both.
+- 3909035472 RUNBOOK: `;`-chained checks. **Reply-only**: read-by-eye
+  checks with stated expected output are the RUNBOOK convention.
+- 3909035477 RUNBOOK: DNS before readiness. **Fix**: move the DNS cutover
+  after the local checks (step 6 before step 5); same order in rollback.
+- 3909035482 RUNBOOK: `set` untested. **Fix**: add to "Before leaving
+  home": `set symphony-halos` then `set symphony-pi` from home, both
+  verified with dig; costs about ten minutes of off-boat access.
+- Minor, quick: `dns_cutover.sh` exit unless exactly one apex A record;
+  ntfy curl `-f`; "Keep the runbook procedural" at RUNBOOK 708 (the
+  pocket/only-copy sentence — move to system_map); system_map 48 and 89
+  wording nits.
 ## 2026-09-01 — B1a–c on halos (P1 of the swap plan), and a credential leak
 
 Executed `intermediate_files/claude_slop/halos-swap-plan.md` items B1a–c on
@@ -1591,3 +1661,17 @@ Rebooted, ran the B1 verification block:
 - `can0` not present — plan says that verifies at the boat only.
 
 P2–P7 of the swap plan are unstarted.
+
+## 2026-09-02 — HALOS swap prep executed overnight (Fable, PR #33)
+
+Mark asked for PR #33 fixed, tested and executed unattended. Did B2, B4a–c,
+B5a and a healthcheck fix on the bench card, verified the DNS write path both
+ways, took the real boat baseline and rewrote the two check scripts from it;
+the runbook section now carries measured output. Facts and times in
+`halos-swap-execution-2026-09-02.md`; what is left in
+`handoff-pr33-swap-prep.md`. Two sessions shared the 2 GB bench box for a
+while and it hard-reset once under swap thrash after AvNav/OpenCPN were
+stopped; one session on that box at a time from now on. The boat's heartbeat
+had been pinging `/fail` for a week on two dead units; cleared. Pre-existing
+boat issues found and left for Mark: Cerbo MQTT dead, position from a fixed
+plugin, QuestDB pegged with load ~12.
