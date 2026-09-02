@@ -1,0 +1,82 @@
+# Symphony's HALOS boat card, from a blank Raspberry Pi OS image to a running
+# host. Ported step for step from
+# intermediate_files/claude_slop/halos-build-v2-asbuilt.md, which numbers the
+# same steps and records what each one is for.
+#
+#   cd ansible && ansible-playbook site.yml
+#   ansible-playbook site.yml --check --diff        # what would change
+#   ansible-playbook site.yml --tags verify         # check a card, change nothing
+#   ansible-playbook site.yml -e symphony_allow_reboot=false
+#
+# Needs, on the CONTROL machine: ansible-core, the `sops` binary, the age key at
+# ~/.config/sops/age/keys.txt, and Tailscale up. Nothing is installed on the
+# card to support Ansible beyond the python that Raspberry Pi OS already ships.
+#
+# What this playbook does NOT own, deliberately:
+#
+#   SignalK's plugin tree      ~/.signalk/node_modules belongs to npm and the
+#                              app store. A third writer is how that tree got
+#                              wrecked before. Steps 31-42 of the as-built stay
+#                              a documented procedure, not tasks.
+#   Container application      compose plus scripts/render.py.
+#     config
+#   The age key and git        Bootstrap: the key arrives out of band and git
+#     filters                  filters live in .git/config, which is unversioned.
+#                              Ansible runs after those, never instead of them.
+#
+# See reference/host_provisioning.md for why the line is drawn there.
+
+- name: Symphony HALOS card
+  hosts: halos_cards
+  gather_facts: true
+
+  # Ordered by dependency, not by the as-built's section headings:
+  #   boot must land and reboot before anything reads /dev/i2c-1
+  #   identity decides the certificate SANs, so it precedes the front door
+  #   base installs the packages monitoring and host_files then configure
+  #   repo must exist before the telegraf symlink points into it
+  #   monitoring precedes host_files so install.sh restarts telegraf with a
+  #     live symlink and finds the heartbeat config already correct
+  roles:
+    - role: boot
+      tags: [boot, base_os]
+    - role: can
+      tags: [can, base_os]
+    - role: network
+      tags: [network]
+    - role: identity
+      tags: [identity, network]
+    - role: base
+      tags: [base, host_services]
+    - role: repo
+      tags: [repo, host_services]
+    - role: monitoring
+      tags: [monitoring, host_services]
+    - role: host_files
+      tags: [host_files, host_services]
+    - role: signalk_container
+      tags: [signalk_container]
+
+  post_tasks:
+    - name: memory headroom
+      ansible.builtin.command: free -m
+      register: mem
+      changed_when: false
+      tags: [verify]
+
+    - name: report memory headroom
+      ansible.builtin.debug:
+        msg: "{{ mem.stdout_lines[1] }}"
+      tags: [verify]
+      # A 2 GB bench card cannot hold QuestDB and Grafana alongside this plugin
+      # set; the 4 GB boat card can. Real pressure is available memory under
+      # ~400 MB or swap activity, not load average.
+
+    - name: next steps
+      ansible.builtin.debug:
+        msg:
+          - "Host layer converged. Still outside Ansible, in order:"
+          - "  1. SignalK state -- as-built steps 31-42 (rsync from the boat, plugin forks, npm install, plugin config)."
+          - "  2. Front door and ntfy -- as-built steps 43-46."
+          - "  3. scripts/halos_preflight.sh from a tailnet machine with sops access: every line must read ok."
+      tags: [verify]

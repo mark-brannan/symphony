@@ -1,0 +1,60 @@
+# as-built v1 steps 19 and 24: telegraf's wiring, and the heartbeat's per-card
+# configuration. Runs BEFORE host_files so that host/install.sh restarts
+# telegraf with the symlink already pointing somewhere real, and finds a
+# heartbeat config already in place.
+
+- name: step 19 | telegraf reads the repo's config
+  ansible.builtin.file:
+    src: "{{ symphony_repo_dir }}/telegraf/telegraf.conf"
+    dest: /etc/telegraf/telegraf.conf
+    state: link
+    force: true
+  notify: restart telegraf
+  # A symlink rather than a copy so the config is whatever the checkout says,
+  # with no third copy to drift. The package's own telegraf.conf is replaced;
+  # dpkg keeps its version as .ucf-dist.
+
+- name: step 19 | telegraf runs as pi
+  ansible.builtin.copy:
+    content: |
+      [Service]
+      User=pi
+      Group=pi
+      Type=simple
+    dest: /etc/systemd/system/telegraf.service.d/override.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart telegraf
+  # As root, telegraf's exec inputs run as root; as `pi` they run as the user
+  # that owns the repo and the SignalK data, which is what the rpi-health
+  # script and the QuestDB writer both assume.
+
+- name: step 24 | heartbeat configuration for THIS card
+  ansible.builtin.template:
+    src: boat-heartbeat.json.j2
+    dest: /etc/boat-heartbeat.json
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  # The whole reason this file is templated rather than copied from
+  # host/boat-heartbeat.json: the two cards ping two DIFFERENT healthchecks.io
+  # checks, and host/install.sh's unconditional copy meant whichever card ran
+  # the installer last silently took over the other's check -- so the card that
+  # lost it went quiet and nothing alarmed, because the check was still being
+  # pinged. host/install.sh now leaves an existing file alone; Ansible is
+  # authoritative for the contents, per host_provisioning.md's "whichever one
+  # is authoritative for a given path should be the only one that writes it".
+
+- name: step 26 | the heartbeat has run
+  ansible.builtin.command: journalctl -t boat-heartbeat -n 1 --no-pager
+  register: heartbeat_log
+  changed_when: false
+  failed_when: false
+  tags: [verify]
+
+- name: step 26 | report the last heartbeat
+  ansible.builtin.debug:
+    msg: "{{ heartbeat_log.stdout_lines | last | default('no boat-heartbeat entry in the journal yet') }}"
+  tags: [verify]

@@ -1,0 +1,79 @@
+# as-built v1 steps 9-11, 16: the wifi profiles the card needs to find the boat,
+# the access point it offers when there is no boat wifi, and the tailnet name.
+
+- name: step 9 | boat wifi profiles
+  ansible.builtin.copy:
+    content: "{{ symphony_secrets[item.key] }}"
+    dest: "/etc/NetworkManager/system-connections/{{ item.name }}.nmconnection"
+    owner: root
+    group: root
+    mode: "0600"
+  loop:
+    - {name: Symphony, key: nm_symphony_nmconnection}
+    - {name: Symphony_5G, key: nm_symphony_5g_nmconnection}
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+  notify: reload NetworkManager profiles
+  # 0600 is not cosmetic: NetworkManager refuses to load a keyfile that is
+  # group- or world-readable, and says so only in the journal.
+
+# HALOS ships its own AP profile and owns the file; Symphony changes two fields
+# in it rather than replacing it, so a HALOS update that adds a setting to the
+# profile is not silently reverted on the next converge.
+- name: step 10 | the card's own access point advertises SignalK
+  community.general.ini_file:
+    path: /etc/NetworkManager/system-connections/Halos-AP.nmconnection
+    section: wifi
+    option: ssid
+    value: SignalK
+    owner: root
+    group: root
+    mode: "0600"
+    no_extra_spaces: true
+  notify: reload NetworkManager profiles
+
+- name: step 10 | the access point uses the boat's hotspot key
+  community.general.ini_file:
+    path: /etc/NetworkManager/system-connections/Halos-AP.nmconnection
+    section: wifi-security
+    option: psk
+    # The sops key holds the boat card's whole SignalK-Hotspot keyfile; the
+    # only field that transfers is the pre-shared key, because everything else
+    # in it describes the boat card's radio, not this one's.
+    value: "{{ symphony_secrets.nm_signalk_hotspot_nmconnection | regex_search('(?m)^psk=(.*)$', '\\1') | first }}"
+    owner: root
+    group: root
+    mode: "0600"
+    no_extra_spaces: true
+  no_log: true
+  notify: reload NetworkManager profiles
+  # Same SSID and key as the boat card's hotspot, so anything already paired
+  # with SignalK keeps working across the swap without being re-paired.
+
+- name: step 16 | current tailnet node name
+  ansible.builtin.command: tailscale status --json
+  register: ts_status
+  changed_when: false
+  check_mode: false
+
+- name: step 16 | rename the tailnet node
+  ansible.builtin.command: "tailscale set --hostname={{ tailscale_hostname }}"
+  when: (ts_status.stdout | from_json).Self.HostName != tailscale_hostname
+  # Renaming keeps the node key and the tailnet IP; it is a display name, so
+  # this does not re-authenticate the card or disturb an open ssh session.
+
+- name: step 9 | wifi profiles are loaded
+  ansible.builtin.command: nmcli -t -f NAME connection show
+  register: nm_conns
+  changed_when: false
+  tags: [verify]
+
+- name: step 9 | the three expected profiles exist
+  ansible.builtin.assert:
+    that:
+      - "'Symphony' in nm_conns.stdout_lines"
+      - "'Symphony_5G' in nm_conns.stdout_lines"
+      - "'Halos-AP' in nm_conns.stdout_lines"
+    success_msg: Symphony, Symphony_5G and Halos-AP are all known to NetworkManager
+  tags: [verify]

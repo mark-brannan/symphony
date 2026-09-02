@@ -1,0 +1,15 @@
+# The HALOS bench/trial card. Hostname on the box is `signalk`; `symphony-halos`
+# is only the tailnet node name (as-built v1 step 16).
+symphony_hostname: signalk
+tailscale_hostname: symphony-halos
+
+# `pi` is the only account and is not in the `docker` group on HALOS, so every
+# privileged step -- docker included -- goes through sudo with this password.
+ansible_become: true
+ansible_become_password: "{{ symphony_secrets.symphony_halos_pi_password }}"
+
+# This card pings its OWN healthchecks.io check, `SignalK Symphony (halos card)`,
+# not the boat card's. Sharing one URL is what made host/install.sh's
+# unconditional copy of host/boat-heartbeat.json a bug: whichever card ran the
+# installer last silently took over the other's check.
+heartbeat_url: "{{ symphony_secrets.heartbeat_url_symphony_halos }}"

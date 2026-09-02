@@ -1,0 +1,40 @@
+# as-built v1 step 22 (first half): the repo checkout every later role reads
+# from -- host/install.sh, the telegraf config symlink, the compose files and
+# the local plugin forks all live in it.
+
+- name: step 22 | symphony repo is checked out
+  ansible.builtin.git:
+    repo: https://github.com/mark-brannan/symphony.git
+    dest: "{{ symphony_repo_dir }}"
+    version: main
+    update: true
+    # Never force. A checkout on a card is not disposable: sops- and
+    # hostvars-filtered files read as modified whenever the filters are not
+    # wired up, and a reset --hard would delete whatever a session left there.
+    force: false
+  become_user: pi
+  become: true
+  register: repo_checkout
+
+- name: step 22 | git filters are configured on this checkout
+  ansible.builtin.command: git config --get filter.sops.smudge
+  args:
+    chdir: "{{ symphony_repo_dir }}"
+  become_user: pi
+  become: true
+  register: sops_filter
+  changed_when: false
+  failed_when: false
+  tags: [verify]
+
+- name: step 22 | warn when the checkout has no sops filter
+  ansible.builtin.debug:
+    msg: >-
+      {{ symphony_repo_dir }} has no sops clean/smudge filter. Encrypted files
+      are ciphertext on disk and hostvars files still hold {{ '{{' }} placeholders {{ '}}' }}.
+      This is bootstrap, deliberately outside Ansible's remit
+      (reference/host_provisioning.md): the age key has to arrive out of band
+      and git filters live in .git/config, which is unversioned. Run
+      `bash scripts/setup-git-filters.sh` on the card.
+  when: sops_filter.rc != 0
+  tags: [verify]

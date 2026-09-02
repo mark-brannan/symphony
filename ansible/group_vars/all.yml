@@ -1,0 +1,29 @@
+# The repo's one secret store, decrypted on the CONTROL machine at run time.
+# Needs `sops` on PATH and the age key at ~/.config/sops/age/keys.txt; the
+# lookup is lazy, so a play that touches no secret does not need either.
+#
+# Referenced as `symphony_secrets.<key>` everywhere below. Nothing unpacks it
+# into named top-level variables: a flat name is one `debug` task away from
+# ending up in a log, and the whole point of the indirection is that every
+# use site is greppable.
+symphony_secrets: >-
+  {{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/symphony.sops.yaml') | from_yaml }}
+
+# Pushover is one account for the whole boat; only the healthchecks.io check
+# differs per card (see host_vars).
+pushover_api_token: "{{ symphony_secrets.pushover_api_token }}"
+pushover_user_key: "{{ symphony_secrets.pushover_user_key }}"
+
+# The apex the boat's names hang off. Used for /etc/hosts, the device
+# certificate SANs and the Traefik router rule.
+boat_domain: "{{ symphony_secrets.boat_domain }}"
+
+# Where the repo is checked out on the card. host/install.sh, the telegraf
+# symlink and the local plugin forks all assume this path.
+symphony_repo_dir: /home/pi/symphony
+
+# Reboot when a change needs one (boot firmware config, kernel cmdline).
+# True is right for a fresh card, which is the acceptance test; set false on
+# the command line when converging a card that is carrying live data:
+#   ansible-playbook site.yml -e symphony_allow_reboot=false
+symphony_allow_reboot: true

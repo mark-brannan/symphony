@@ -1,0 +1,92 @@
+# as-built v1 steps 18, 20, 21, 25: packages, the two HALOS apps that must stay
+# down, and swap. Everything a later role needs installed is installed here.
+
+- name: step 18 | InfluxData package signing key
+  ansible.builtin.copy:
+    src: influxdata-archive.gpg
+    dest: /etc/apt/keyrings/influxdata-archive.gpg
+    owner: root
+    group: root
+    mode: "0644"
+  # Carried in the repo rather than fetched at run time so a card can be built
+  # on the boat's cellular link, which is where every rebuild has failed before
+  # (see priorities.md). Fingerprint, checked against InfluxData's published
+  # value: 24C9 75CB A61A 024E E1B6 3178 7C3D 5715 9FC2 F927.
+
+- name: step 18 | InfluxData apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/influxdata-archive.gpg] https://repos.influxdata.com/debian stable main"
+    filename: influxdata
+    state: present
+    update_cache: true
+
+- name: step 18 | telegraf and chrony
+  ansible.builtin.apt:
+    name:
+      - telegraf
+      - chrony
+    state: present
+  # chrony's install removes systemd-timesyncd. That is wanted: timesyncd
+  # cannot step a clock that is hours out, which is exactly the state a card
+  # with no RTC boots into after a week on the hard.
+
+- name: step 25 | zram swap
+  ansible.builtin.apt:
+    name: systemd-zram-generator
+    state: present
+
+- name: step 25 | 1 GB of zstd-compressed swap at priority 100
+  ansible.builtin.copy:
+    src: zram-generator.conf
+    dest: /etc/systemd/zram-generator.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: regenerate zram devices
+  # `min(ram/2, 1024)` gives the 2 GB bench card 1 GB and the 4 GB boat card
+  # the same 1 GB, so the two behave alike under memory pressure. Priority 100
+  # puts it ahead of any disk swap, which on an SD card is the point.
+
+- name: step 20 | the HALOS InfluxDB app is purged, not merely removed
+  ansible.builtin.apt:
+    name: marine-influxdb-container
+    state: absent
+    purge: true
+  # `remove` leaves the unit file behind. It still starts at boot, still fails,
+  # and the heartbeat still reports it. Only purge takes the unit.
+
+- name: step 21 | AvNav and OpenCPN stay down
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop:
+    - marine-avnav-container
+    - marine-opencpn-container
+  failed_when: false
+  # Not used on this boat, and on a 2 GB card they are the difference between
+  # SignalK cold-starting in 4 minutes and being killed for memory. `false`
+  # because a card that never had them installed is not a failure.
+
+- name: step 26 | host services are running
+  ansible.builtin.command: systemctl is-active telegraf chrony
+  register: base_services
+  changed_when: false
+  failed_when: false
+  tags: [verify]
+
+- name: step 26 | report host services
+  ansible.builtin.debug:
+    msg: "telegraf/chrony: {{ base_services.stdout_lines | join(' ') }}"
+  tags: [verify]
+
+- name: step 26 | chrony has a source and is tracking
+  ansible.builtin.command: chronyc tracking
+  register: chrony_tracking
+  changed_when: false
+  tags: [verify]
+
+- name: step 26 | report the clock
+  ansible.builtin.debug:
+    msg: "{{ chrony_tracking.stdout_lines[:3] }}"
+  tags: [verify]
