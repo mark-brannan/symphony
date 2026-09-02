@@ -505,3 +505,33 @@ Two consequences:
   this continues.** The test is that the watchdog must log
   `ALERT: plugin bt-sensors-plugin-sk ...` 600 s after startup; every restart
   resets that clock, and nothing has stayed up for 600 s.
+
+### i2c fix: staged, NOT installed, NOT restarted
+
+Mark's instruction, 2026-09-02: **do not restart the SignalK unit without the
+consent of `symphony-pr-33-review-601c06-0a`.** Standing until he or that
+session lifts it.
+
+The corrected override is written to **`/tmp/symphony.override.yml` on the
+staging Pi** and validated (`yaml.safe_load` returns
+`group_add == ['4','960','988']`). It has deliberately **not** been copied to
+`/etc/container-apps/marine-signalk-server-container/`: installing it is inert
+until a restart, but it would silently change the behaviour of that session's
+*next* restart in the middle of their healthcheck verification, which is the
+same surprise arriving more slowly.
+
+To install it, once consent is given:
+
+    sudo cp /tmp/symphony.override.yml \
+       /etc/container-apps/marine-signalk-server-container/symphony.override.yml
+    sudo systemctl restart marine-signalk-server-container.service
+    docker exec signalk-server python3 -c "open('/dev/i2c-1')"   # silence = pass
+
+The staged file preserves the PR #33 session's healthcheck block verbatim and
+adds only `group_add`, with a comment recording why gid 988 is listed and why
+all three gids are spelled out. **`host/halos/` on PR #33 needs the same
+change** — that copy is the source of truth and this session cannot edit their
+branch.
+
+Three messages sent to that session (07:00, 07:10, 07:25 UTC approx); no reply
+to any of them as of this writing.
