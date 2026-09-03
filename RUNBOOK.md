@@ -25,6 +25,7 @@ logged in `maintenance/log.md`.
 - [Provisioning a HALOS card with Ansible](#provisioning-a-halos-card-with-ansible)
 - [Installing host files](#installing-host-files)
 - [Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat)
+- [Silencing the alarms for planned work](#silencing-the-alarms-for-planned-work)
 - [Keeping the boat's checkouts fresh](#keeping-the-boats-checkouts-fresh)
 - [Container liveness — healthchecks and autoheal](#container-liveness--healthchecks-and-autoheal)
 - [Swapping the HALOS card onto the boat](#swapping-the-halos-card-onto-the-boat)
@@ -867,6 +868,31 @@ to accept a POST body, or ignore it.
 To turn it off, delete `/etc/boat-heartbeat.json`. Don't disable the timer —
 leaving it running means re-enabling is one file away, and the check on the
 other end is what tells you the boat went quiet.
+
+---
+
+## Silencing the alarms for planned work
+
+Silence is the alarm, so a shutdown, a card swap or pulling power at the panel
+pages you for work you meant to do. Pause the check first:
+
+```bash
+scripts/monitoring_snooze.sh status          # both checks
+scripts/monitoring_snooze.sh pause pi        # silence the boat card's check
+```
+
+Run it from a laptop on the tailnet, not the boat — it suppresses at
+healthchecks.io, which is the only thing that works when the Pi is off or its
+card has been swapped for another rootfs.
+
+Don't resume by hand. A paused check leaves the paused state on the next ping,
+so the boat un-silences itself when it comes back; `resume` also works but
+resets the check to `new` and throws away its ping history.
+
+*Verify:* after the box is back, `scripts/monitoring_snooze.sh status` shows
+that check `up` with a recent last ping. Still `paused` ten minutes after
+boot means `boat-heartbeat.timer` isn't running aboard — see § Turning on the
+off-boat heartbeat.
 
 ---
 

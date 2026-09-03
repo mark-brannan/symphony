@@ -24,27 +24,35 @@ decision on the numbers, and a paragraph in `maintenance/log.md` at the end.
    record back on `symphony-pi`. Any FAIL here ends the day at home.
 2. At the boat, baseline (session): `scripts/halos_swap_check.sh symphony-pi`.
    Paste the output into the session log verbatim; it is the comparison for
-   step 5. Expected FAILs: `victron` if the Cerbo is still not answering,
+   step 6. Expected FAILs: `victron` if the Cerbo is still not answering,
    `questdb` if the boat card's QuestDB is still overloaded.
-3. Shutdown (session then Mark): `ssh pi@symphony-pi 'sudo shutdown -h now'`;
+3. Silence the alarms (session): `scripts/monitoring_snooze.sh pause pi` —
+   the boat's heartbeat check alarms on silence, so a planned outage pages
+   Mark for doing the swap on purpose. It self-clears: the first heartbeat
+   from whichever card ends up aboard returns the check to `up` with its
+   history intact (measured 2026-09-03). Don't run `resume` unless the day is
+   abandoned before anything boots.
+4. Shutdown (session then Mark): `ssh pi@symphony-pi 'sudo shutdown -h now'`;
    Mark unplugs the Micro-C when the green LED stops, swaps the cards, plugs
    back in. The boat card goes in a pocket.
-4. Wait five minutes (both). Nothing to do; SignalK cold-starts in 3–4 min.
-5. Post-swap check (session): `scripts/halos_swap_check.sh`. Rerun at ten
+5. Wait five minutes (both). Nothing to do; SignalK cold-starts in 3–4 min.
+6. Post-swap check (session): `scripts/halos_swap_check.sh`. Rerun at ten
    minutes if `ble` or `bme680` FAIL. Go/no-go rule: every line that was `ok`
    in step 2 is `ok` here. A line that FAILed in both is a boat problem and
-   does not block.
-6. DNS (session): `scripts/dns_cutover.sh set symphony-halos`, then
+   does not block. Also `scripts/monitoring_snooze.sh status` — the `pi`
+   check reads `up` again once the new card has pinged; if it still reads
+   `paused` after ten minutes, the heartbeat isn't running aboard.
+7. DNS (session): `scripts/dns_cutover.sh set symphony-halos`, then
    `dig +short symphony.dark-star-llc.com @1.1.1.1` until it shows the halos
    tailnet IP. Tell Mark the healthchecks.io `SignalK Symphony` notice will
    arrive within about 35 min and is expected.
-7. Phone (Mark): on the boat WiFi (`SignalK`), install the certificate from
+8. Phone (Mark): on the boat WiFi (`SignalK`), install the certificate from
    `https://signalk.symphony.dark-star-llc.com/ca/`, then open
    `https://signalk.symphony.dark-star-llc.com/` — SignalK admin, no warning.
-8. Log (session): one dated entry in `maintenance/log.md`, past tense, what
+9. Log (session): one dated entry in `maintenance/log.md`, past tense, what
    was swapped and what was FAILing before and after. Push to main.
 
-## Rollback (any step from 5 on)
+## Rollback (any step from 6 on)
 
 Mark: unplug, swap the boat card back, plug in. Session, after three
 minutes: `scripts/halos_swap_check.sh symphony-pi`, then
