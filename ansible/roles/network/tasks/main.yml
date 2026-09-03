@@ -81,6 +81,13 @@
       access); the rename above was skipped.
   when: not ts_bin.stat.exists
 
+# The verify below reads what NetworkManager has loaded, so the reload has to
+# happen first. On a card that already had the profiles this was invisible;
+# on a fresh card the assertion failed with the keyfiles sitting on disk
+# unread (2026-09-03).
+- name: step 9 | apply pending profile reloads
+  ansible.builtin.meta: flush_handlers
+
 - name: step 9 | wifi profiles are loaded
   ansible.builtin.command: nmcli -t -f NAME connection show
   register: nm_conns

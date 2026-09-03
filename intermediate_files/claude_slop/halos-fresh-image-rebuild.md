@@ -104,6 +104,25 @@ first step of a rebuild, before anything in this repo, is one of:
 Unrelated to that: unpowered HDMI monitors were cabled to the bench Pi during
 the first boot and were removed as a variable.
 
+## Ansible against the fresh card, 2026-09-03 — what broke, what was fixed
+
+Run with a scratch inventory pointing `symphony-halos` at the card's LAN IP
+(`ansible_host`, `ansible_user: pi`, host-key checking off), after
+`ssh-copy-id` with the image's default password and `chpasswd` to the sops
+value. Each run stopped at the first fatal; each fatal became a role fix:
+
+1. **Boot role: a staged-but-not-rebooted card can never pass.** Run 1 was
+   deliberately `symphony_allow_reboot=false` (image pulls in flight); run 2
+   then found `changed=0`, notified no handler, and failed the running-kernel
+   verify. Fixed: the verify registers its result and reboots the card
+   itself when the files are right and the kernel is not. Run 3 rebooted and
+   passed the boot role.
+2. **Network role verified before its reload handler ran.** Keyfiles on
+   disk, `nmcli` unaware, assertion failed. Fixed: `flush_handlers` before
+   the verify.
+3. **Network role assumed tailscale.** Fixed earlier today: the rename is
+   skipped with a message when `/usr/bin/tailscale` is absent.
+
 ## Order for the fresh-card test, when the card is in a Pi
 
 0. Wired Ethernet with internet. Nothing works before this — see
