@@ -58,6 +58,14 @@ if [ "${n:-0}" -ge 1 ] && [ "$age" -ge 0 ] && [ "$age" -lt 600 ]; then say ok bl
 out=$(r 'journalctl -t boat-heartbeat -n 1 --no-pager -o cat')
 case "$out" in *"ping ok"*) say ok heartbeat "$out" ;; *) say FAIL heartbeat "${out:-no heartbeat log}" ;; esac
 
+# Every container should carry and report a health status; one with none is
+# the exact silent-flap failure autoheal exists to prevent (2026-09-02).
+out=$(r 'docker ps --format "{{.Names}} {{.Status}}"' | grep -v '(healthy)' | tr '\n' ';')
+[ -z "$out" ] && say ok containers "all report (healthy)" || say FAIL containers "no/bad health: ${out%;}"
+
+out=$(r 'curl -s -o /dev/null -w "%{http_code}" -m 10 localhost:8000')
+[ "$out" = 200 ] && say ok pypilot "web ui 200" || say FAIL pypilot "web ui returned ${out:-no answer} (allow 30s after up)"
+
 code=$(r "curl -s -m 10 -o /dev/null -w '%{http_code}' -d 'swap check on ${HOST}' 127.0.0.1:8090/symphony-alarms")
 [ "$code" = 200 ] && say ok ntfy "sent to symphony-alarms; check the phone" || say FAIL ntfy "http ${code:-none}"
 

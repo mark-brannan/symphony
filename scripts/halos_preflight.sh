@@ -78,6 +78,11 @@ out=$(r "$HOST" 'echo $(systemctl is-enabled marine-avnav-container marine-openc
 out=$(r "$HOST" 'journalctl -t boat-heartbeat -n 1 --no-pager -o cat')
 case "$out" in *"ping ok"*) say ok heartbeat "$out" ;; *) say FAIL heartbeat "${out:-no heartbeat log yet}" ;; esac
 
+# A container with no (healthy)/(unhealthy) word never gets watched by
+# autoheal at all — that gap is the whole reason this line exists.
+out=$(r "$HOST" 'docker ps --format "{{.Names}} {{.Status}}"' | grep -v '(healthy)' | tr '\n' ';')
+[ -z "$out" ] && say ok containers "all report (healthy)" || say FAIL containers "no/bad health: ${out%;}"
+
 out=$(r "$HOST" 'curl -s -m 10 "127.0.0.1:9000/exec?query=select%20count()%20from%20cpu" | python3 -c "import json,sys; print(json.load(sys.stdin)[\"dataset\"][0][0])" 2>/dev/null; curl -s -m 10 "127.0.0.1:9000/exec?query=select%20max(ts)%20from%20signalk" | python3 -c "
 import json,sys,datetime; t=json.load(sys.stdin)[\"dataset\"][0][0]
 print(int((datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(t.replace(\"Z\",\"+00:00\"))).total_seconds()))" 2>/dev/null' | paste -sd" ")

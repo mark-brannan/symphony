@@ -63,5 +63,13 @@ Nothing on the boat card was changed by the trial.
   HALOS card has its own. What the swap has to carry, including why the
   "QuestDB may not answer in 30 s" line above is now a liveness input:
   [halos-swap-container-liveness-2026-09-02.md](halos-swap-container-liveness-2026-09-02.md).
-- pypilot is not on the HALOS card (plan B4d). The trial runs without it
-  unless Mark decides otherwise before the day.
+- **pypilot rides along, containerized** (plan B4d, decided 2026-09-02,
+  since validated live on the boat's own card 6+ hours against the real
+  MPU9250 and the real 0.56 `~/.pypilot` state — no calibration-format
+  errors, gyro bias writing normally). Before the day: copy the boat's
+  `pypilot/data/` onto the HALOS card's checkout (same path the boat itself
+  runs from) so the trial carries the real calibration, not a fresh one.
+  After the post-swap check in step 5: `sudo docker compose -p symphony -f
+  docker-compose.yml --profile pypilot up -d`, then confirm
+  `curl -s -o /dev/null -w '%{http_code}\n' localhost:8000` is 200 and
+  `docker ps` shows both `pypilot` and `pypilot-web` healthy.

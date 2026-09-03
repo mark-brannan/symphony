@@ -29,11 +29,9 @@ compose stack shares a daemon with hand-run containers.
   runs one. Two would both act on the same unhealthy container and race on
   the restart. If `compose-autoheal.yml` is ever brought up there, give the
   HALOS one the job and leave ours down.
-- **Add `docker ps` health to the preflight.** `scripts/halos_swap_check.sh`
-  and `halos_preflight.sh` check that services answer; neither reads the
-  health column. Every container line should read `(healthy)`, and a
-  container with *no* health word is the failure this whole change exists to
-  prevent.
+- **`docker ps` health is now in the preflight** — done 2026-09-03. Both
+  `scripts/halos_swap_check.sh` and `halos_preflight.sh` FAIL if any
+  container isn't reporting `(healthy)`.
 
 ## The risk this introduces, named
 
