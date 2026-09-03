@@ -386,7 +386,11 @@ Still unverified, and the reason B4d needs a bench session before swap day:
 the arm64 build, whether `/dev/i2c-1` reaches the MPU9250 from inside the
 container, and whether pypilot master (0.71) reads the boat's 0.56
 `~/.pypilot` state — a calibration-format mismatch would silently lose the
-compass calibration. Build, run and verification lines are in `RUNBOOK.md`
+compass calibration. That is a curiosity, not a gate: recalibrating pypilot's
+compass is a from-the-boat procedure with no unrecoverable state, so if the
+carried calibration is off — or just for good measure — we recalibrate rather
+than block or roll back the swap (Mark, 2026-09-03).
+Build, run and verification lines are in `RUNBOOK.md`
 § pypilot in a container; the design and the full unknowns list are in
 `reference/pypilot_containerization.md`.
 

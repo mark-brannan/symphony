@@ -69,6 +69,9 @@ Nothing on the boat card was changed by the trial.
   errors, gyro bias writing normally). Before the day: copy the boat's
   `pypilot/data/` onto the HALOS card's checkout (same path the boat itself
   runs from) so the trial carries the real calibration, not a fresh one.
+  Carrying it across is worth measuring but is not a gate — if the
+  calibration comes over wrong, recalibrate on the boat and carry on
+  (Mark, 2026-09-03).
   After the post-swap check in step 5: `sudo docker compose -p symphony -f
   docker-compose.yml --profile pypilot up -d`, then confirm
   `curl -s -o /dev/null -w '%{http_code}\n' localhost:8000` is 200 and
