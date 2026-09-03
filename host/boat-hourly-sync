@@ -1,0 +1,76 @@
+#!/bin/sh
+# Hourly refresh of the boat's checkouts. Runs as `pi` under
+# boat-hourly-sync.timer; see RUNBOOK -> "Keeping the boat's checkouts fresh".
+#
+# Why this exists: the boat's /home/pi/symphony had drifted 89 commits behind
+# origin/main on 2026-09-02, found only because a compose edit had to reach a
+# running container. Nothing on the box was watching. Measured at the same
+# time: dotfiles was 36 behind.
+#
+# Each step is independent and none of them is allowed to fail the unit. The
+# boat's uplink drops routinely, so a failed step is the expected case, not a
+# fault -- and a failed unit would land in boat-heartbeat's failed-units field
+# and ping /fail on a boat behaving exactly as designed. Steps log instead;
+# boat-heartbeat reports the resulting distances and the age of the last
+# successful fetch, so a step that has been failing quietly still shows up.
+#
+# Add a step by writing another function and calling it at the bottom. Keep
+# each one self-contained and exit-0.
+set -u
+
+log() { logger -t boat-hourly-sync "$*"; }
+
+# --- symphony: fetch only ------------------------------------------------
+#
+# Deliberately never merges or checks out. What the boat actually runs changes
+# when a person runs `git pull` and names the compose services to recreate
+# (RUNBOOK -> "Deploy a compose change to the boat"); an unattended pull would
+# move deployed config out from under running containers. This makes the drift
+# visible and nothing more.
+sync_symphony() {
+	repo=/home/pi/symphony
+	[ -d "$repo/.git" ] || { log "symphony: no checkout at $repo, skipped"; return 0; }
+	if git -C "$repo" fetch --quiet --prune origin 2>/dev/null; then
+		n=$(git -C "$repo" rev-list --count HEAD..origin/main 2>/dev/null || echo '?')
+		log "symphony: fetched, ${n} behind origin/main"
+	else
+		log "symphony: fetch failed (offline, or check the deploy key)"
+	fi
+}
+
+# --- dotfiles: the `dotsync` alias, expanded ------------------------------
+#
+# `dotsync` is a shell alias (~/.bashrc), so it does not exist in a systemd
+# context; this is its expansion, --autostash included.
+#
+# --autostash is load-bearing here, not incidental. The boat's $HOME is
+# permanently dirty by design: the resident Claude session rewrites
+# .claude/settings.json (measured 2026-09-02, 143 insertions / 104 deletions,
+# key reordering plus a deniedMcpServers block), so a "sync only when clean"
+# rule would mean this never runs on the boat at all.
+#
+# The cost of autostash unattended is that a conflicting rebase rolls back and
+# leaves the stash behind, silently. That is not left silent: boat-heartbeat
+# reports the yadm stash count, so a stash that appears and stays is visible
+# off the boat. If it appears, resolve it by hand -- do not add a step here
+# that pops it, because the case where it exists is exactly the case where a
+# machine should not be guessing.
+sync_dotfiles() {
+	command -v yadm >/dev/null 2>&1 || { log "dotfiles: no yadm, skipped"; return 0; }
+	yadm fetch --quiet 2>/dev/null || { log "dotfiles: fetch failed (offline)"; return 0; }
+	n=$(yadm rev-list --count 'HEAD..@{u}' 2>/dev/null || echo '?')
+	[ "$n" = 0 ] && { log "dotfiles: current"; return 0; }
+	if yadm pull --rebase --autostash --quiet 2>/dev/null && yadm alt >/dev/null 2>&1; then
+		log "dotfiles: synced ${n} commits"
+	else
+		log "dotfiles: pull --rebase --autostash failed, left alone for a human"
+	fi
+	s=$(yadm stash list 2>/dev/null | wc -l)
+	[ "${s:-0}" -gt 0 ] && log "dotfiles: ${s} stash entr(y/ies) left behind, resolve by hand"
+	return 0
+}
+
+sync_symphony
+sync_dotfiles
+
+exit 0
