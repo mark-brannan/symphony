@@ -24,12 +24,18 @@ Anything worth keeping comes back here.
 
 ## The write schema this targets
 
-signalk-to-influxdb2 writes one InfluxDB measurement per SignalK path, with
-the path as the measurement name verbatim:
+signalk-questdb-history-provider writes every SignalK path into one of three
+QuestDB tables, with the path in a `path` column rather than as a table name:
 
-    _measurement = "electrical.batteries.house.voltage"
-    _field       = "value"          (lat/lon for positions)
-    tags         = context, source, self="true", s2_cell_id for positions
+    signalk           ts, path, context, source, value        (numeric)
+    signalk_str       ts, path, context, source, value_str, value_kind
+    signalk_position  ts, context, source, lat, lon
+
+`context` is `self` for this vessel's own data -- there is no `self` tag as
+there was in InfluxDB. Telegraf writes host metrics as its own tables (`cpu`,
+`mem`, `disk`, `procstat`, ...) with one column per field and `timestamp` as
+the designated timestamp, which is why non-SignalK panels pass
+self_only=False: that flag picks the table shape, not just a filter.
 
 Values are stored in SignalK's canonical SI units -- m/s, radians, Kelvin,
 Pascals, ratios 0..1. Nothing converts them on the way in, so every panel
@@ -40,7 +46,7 @@ gauge reading 3.6 instead of 7 knots looks like slow going, not a bug.
 ## Path selection
 
 Every measurement referenced here was confirmed present in the boat's
-InfluxDB. Paths the reference dashboards used but this boat does not publish
+history store. Paths the reference dashboards used but this boat does not publish
 (depth, apparent wind, tanks, propulsion, solar, LTE) are deliberately absent
 rather than left in as empty panels -- see reference/signalk_paths.md.
 """
@@ -50,7 +56,17 @@ import os
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(REPO_ROOT, "grafana", "provisioning", "dashboards", "json")
 
-DS = {"type": "influxdb", "uid": "influxdb-symphony"}
+# The QuestDB datasource plugin (questdb-questdb-datasource, Postgres wire
+# on 8812). The uid is fixed here and must match the uid in
+# grafana/provisioning/datasources/questdb.yaml -- Grafana otherwise assigns
+# a random one at startup and every panel comes up empty rather than erroring.
+DS = {"type": "questdb-questdb-datasource", "uid": "questdb-symphony"}
+
+# Grafana frame format, as the plugin's Format enum: 0 timeseries, 1 table.
+# String-valued panels (state timelines, text stats) and the position query
+# come back as tables; numeric series and stats as time series.
+FORMAT_TIMESERIES = 0
+FORMAT_TABLE = 1
 
 # Set to True once 0146 is wired in parallel with 5C90 and the two packs are
 # actually a bank. Until then they are not peers: 5C90 carries the load (it
@@ -79,46 +95,21 @@ def pack_label(pack, what):
 
 
 # --------------------------------------------------------------------------
-# Buckets, named after whoever writes them.
+# Tables.
 #
-# Retention is a per-bucket property, which is the whole reason these are
-# split: one bucket cannot express "years of state-of-charge, two weeks of
-# CPU". Splitting also lets Telegraf hold a token scoped to its own bucket
-# instead of the all-access one it borrows today.
-#
-# The bucket is named in the Flux query, not in the datasource -- the
-# datasource's defaultBucket is only a UI convenience. So one datasource and
-# one read token still reach all of these, and a panel can union across them.
-#
-# BUCKET_ARCHIVE is the same vessel paths at reduced resolution, written by a
-# second `influxes` entry in signalk-to-influxdb2 rather than by a
-# downsampling task. It is a superset of BUCKET_SIGNALK at lower rate, so no
-# panel has to know which bucket a path "belongs" to: long-range panels read
-# the archive, live ones read the raw bucket.
+# QuestDB has no bucket concept: retention is a per-table TTL, and everything
+# the history provider writes lands in these three tables, split by value type
+# rather than by writer. Telegraf's tables are named after its input plugins
+# and are addressed by the measurement name itself (see sql() below).
 # --------------------------------------------------------------------------
-BUCKET_SIGNALK = "signalk"
-BUCKET_ARCHIVE = "signalk_archive"
-BUCKET_TELEGRAF = "telegraf"
-BUCKET_INFLUXDB = "influxdb"
-
-# InfluxDB's own scraped metrics. Everything else without a `self` tag is
-# Telegraf's.
-INFLUX_INTERNAL_PREFIXES = (
-    "storage_", "task_", "qc_", "http_", "service_", "influxdb_", "go_",
-    "boltdb_", "query_", "influxql_",
-)
-
-
-def bucket_for(measurement, self_only):
-    """Which bucket a measurement lives in, from how it is written."""
-    if measurement.startswith(INFLUX_INTERNAL_PREFIXES):
-        return BUCKET_INFLUXDB
-    if self_only:
-        return BUCKET_SIGNALK
-    return BUCKET_TELEGRAF
+TABLE_SIGNALK = "signalk"
+TABLE_SIGNALK_STR = "signalk_str"
+TABLE_POSITION = "signalk_position"
 
 # --------------------------------------------------------------------------
-# Unit conversions: SignalK SI -> what a person reads.
+# Unit conversions: SignalK SI -> what a person reads. Each is a SQL
+# expression template; `{v}` is substituted with the column or aggregate the
+# query selects, so the same constant works for a raw value and for avg(value).
 #
 # The vessel's own unit preset is nautical-imperial-us (the captain's
 # applicationData), while the server default is nautical-metric. These follow
@@ -126,16 +117,16 @@ def bucket_for(measurement, self_only):
 # because the barometer-trend plugin's own Beaufort and front predictions are
 # computed in hPa and would be inconsistent read alongside inHg.
 # --------------------------------------------------------------------------
-CONV_MS_TO_KN = "r._value * 1.9438444924406"
-CONV_RAD_TO_DEG = "r._value * 57.29577951308232"
-CONV_K_TO_F = "(r._value - 273.15) * 9.0 / 5.0 + 32.0"
-CONV_RATIO_TO_PCT = "r._value * 100.0"
-CONV_PA_TO_HPA = "r._value / 100.0"
-CONV_M_TO_NM = "r._value / 1852.0"
-CONV_M_TO_FT = "r._value * 3.280839895"
-CONV_COULOMB_TO_AH = "r._value / 3600.0"
-CONV_JOULE_TO_WH = "r._value / 3600.0"
-CONV_NEGATE = "r._value * -1.0"
+CONV_MS_TO_KN = "{v} * 1.9438444924406"
+CONV_RAD_TO_DEG = "{v} * 57.29577951308232"
+CONV_K_TO_F = "({v} - 273.15) * 9.0 / 5.0 + 32.0"
+CONV_RATIO_TO_PCT = "{v} * 100.0"
+CONV_PA_TO_HPA = "{v} / 100.0"
+CONV_M_TO_NM = "{v} / 1852.0"
+CONV_M_TO_FT = "{v} * 3.280839895"
+CONV_COULOMB_TO_AH = "{v} / 3600.0"
+CONV_JOULE_TO_WH = "{v} / 3600.0"
+CONV_NEGATE = "{v} * -1.0"
 
 U_KNOT = "velocityknot"
 U_DEG = "degree"
@@ -172,67 +163,73 @@ BASE = steps((None, TEXT))
 
 
 # --------------------------------------------------------------------------
-# Flux query construction
+# QuestDB SQL query construction
+#
+# Macros are the QuestDB Grafana plugin's, not Grafana's generic SQL ones:
+#   $__timeFilter(col)     -> col >= cast(<from> as timestamp) AND col <= ...
+#   $__sampleByInterval    -> the panel interval as 1d / 5h / 20s / 500T
+# $__interval is deliberately not used with SAMPLE BY: it renders as `1ms`,
+# which QuestDB does not accept as a sample unit.
 # --------------------------------------------------------------------------
-def flux(measurement, conv=None, mode="series", field="value", self_only=True,
-         extra_filters=(), fn="mean", bucket=None):
+AGG = {"mean": "avg", "max": "max", "min": "min", "sum": "sum", "last": "last"}
+
+
+def sql(measurement, conv=None, mode="series", field="value", self_only=True,
+        extra_filters=(), fn="mean", table=None):
     """
-    Build a Flux query for one SignalK path.
+    Build a QuestDB SQL query for one SignalK path or Telegraf field.
 
     mode:
-      "series" -- downsampled time series (numeric)
+      "series" -- downsampled numeric time series
       "last"   -- single most recent point (stat/gauge)
-      "state"  -- downsampled by last(), for string/boolean state panels
+      "state"  -- string values downsampled by last(), for state timelines
+      "text"   -- single most recent string value
 
-    self_only filters on the self="true" tag that signalk-to-influxdb2 stamps
-    on this vessel's own data. Telegraf and InfluxDB's internal metrics carry
-    no such tag, so anything not written by SignalK must pass self_only=False
-    or the query silently returns nothing. That same flag picks the bucket,
-    since it is the writer that determines both.
+    self_only says the data was written by the SignalK history provider, which
+    means the `signalk`/`signalk_str` tables keyed by `path` and filtered to
+    context 'self'. Telegraf's metrics are not written that way: each input
+    plugin gets its own table, the measurement name IS the table name, and the
+    field is a column. Anything not written by SignalK must pass
+    self_only=False or the query is nonsense, not merely empty.
     """
-    bucket = bucket or bucket_for(measurement, self_only)
-    lines = [
-        f'from(bucket: "{bucket}")',
-        "  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)",
-        f'  |> filter(fn: (r) => r["_measurement"] == "{measurement}")',
-        f'  |> filter(fn: (r) => r["_field"] == "{field}")',
-    ]
+    string_mode = mode in ("state", "text")
     if self_only:
-        lines.append('  |> filter(fn: (r) => r["self"] == "true")')
+        table = table or (TABLE_SIGNALK_STR if string_mode else TABLE_SIGNALK)
+        time_col = "ts"
+        value_col = "value_str" if table == TABLE_SIGNALK_STR else "value"
+        where = [f"path = '{measurement}'", "context = 'self'"]
+    else:
+        table = table or measurement
+        time_col = "timestamp"
+        value_col = field
+        where = []
+    where.append(f"$__timeFilter({time_col})")
     for key, value in extra_filters:
-        lines.append(f'  |> filter(fn: (r) => r["{key}"] == "{value}")')
+        where.append(f"{key} = '{value}'")
 
-    if mode == "series":
-        lines.append(
-            f"  |> aggregateWindow(every: v.windowPeriod, fn: {fn}, createEmpty: false)"
-        )
-    elif mode == "state":
-        lines.append(
-            "  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)"
-        )
-    elif mode == "last":
-        lines.append("  |> last()")
+    if mode in ("series", "state"):
+        expr = f"{AGG['last' if mode == 'state' else fn]}({value_col})"
+        if conv:
+            expr = conv.format(v=expr)
+        tail = ["SAMPLE BY $__sampleByInterval"]
+    else:
+        expr = conv.format(v=value_col) if conv else value_col
+        tail = [f"ORDER BY {time_col} DESC", "LIMIT 1"]
 
-    if conv:
-        lines.append(f"  |> map(fn: (r) => ({{ r with _value: {conv} }}))")
-
-    # Dropping every tag column collapses the per-source tables into one, so a
-    # panel shows a single line rather than one per source ref.
-    lines.append('  |> keep(columns: ["_time", "_value"])')
-    return "\n".join(lines)
-
-
-def flux_position(measurement="navigation.position"):
-    """Positions are the one path written as two fields rather than one."""
     return "\n".join([
-        f'from(bucket: "{BUCKET_SIGNALK}")',
-        "  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)",
-        f'  |> filter(fn: (r) => r["_measurement"] == "{measurement}")',
-        '  |> filter(fn: (r) => r["_field"] == "lat" or r["_field"] == "lon")',
-        '  |> filter(fn: (r) => r["self"] == "true")',
-        "  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
-        '  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")',
-        '  |> keep(columns: ["_time", "lat", "lon"])',
+        f"SELECT {time_col} AS time, {expr} AS value",
+        f"FROM {table}",
+        "WHERE " + " AND ".join(where),
+    ] + tail)
+
+
+def sql_position():
+    """Positions are their own table, with lat and lon as separate columns."""
+    return "\n".join([
+        "SELECT ts AS time, last(lat) AS lat, last(lon) AS lon",
+        f"FROM {TABLE_POSITION}",
+        "WHERE context = 'self' AND $__timeFilter(ts)",
+        "SAMPLE BY $__sampleByInterval",
     ])
 
 
@@ -285,10 +282,16 @@ def GEOMAP(title, w=12, h=10):
     return Panel("geomap", title, w, h)
 
 
-def TEXTVAL(title, measurement, w=6, h=4, self_only=True):
-    """A stat panel showing a string path's latest value as text."""
+def TEXTVAL(title, measurement, w=6, h=4, self_only=True, string=True):
+    """
+    A stat panel showing a path's latest value as text.
+
+    string=False for the handful of paths a plugin publishes as a numeric
+    code rather than a word -- they live in `signalk`, not `signalk_str`,
+    and a query against the wrong table returns nothing at all.
+    """
     return Panel("textval", title, w, h, measurement=measurement,
-                 self_only=self_only)
+                 self_only=self_only, string=string)
 
 
 # --------------------------------------------------------------------------
@@ -324,8 +327,13 @@ def _field_config(unit, decimals, thresholds, vmin=None, vmax=None,
     return {"defaults": defaults, "overrides": []}
 
 
-def _target(query, ref="A"):
-    return {"datasource": DS, "query": query, "refId": ref}
+def _target(query, ref="A", fmt=FORMAT_TIMESERIES):
+    # The plugin reads `rawSql` and `format`; `selectedFormat` is what the
+    # query editor shows, and leaving it unset makes an edit in the UI flip
+    # the panel back to Auto. queryType "sql" keeps the editor in raw-SQL
+    # mode rather than its visual builder.
+    return {"datasource": DS, "format": fmt, "queryType": "sql",
+            "rawSql": query, "refId": ref, "selectedFormat": fmt}
 
 
 def _render(panel, x, y):
@@ -339,7 +347,7 @@ def _render(panel, x, y):
         }
 
     if panel.kind == "stat":
-        q = flux(k["measurement"], k["conv"], "last", k["field"], k["self_only"])
+        q = sql(k["measurement"], k["conv"], "last", k["field"], k["self_only"])
         return {
             "type": "stat", "title": panel.title, "id": _pid(),
             "gridPos": grid, "datasource": DS, "targets": [_target(q)],
@@ -357,10 +365,13 @@ def _render(panel, x, y):
         }
 
     if panel.kind == "textval":
-        q = flux(k["measurement"], None, "last", "value", k["self_only"])
+        mode = "text" if k["string"] else "last"
+        q = sql(k["measurement"], None, mode, "value", k["self_only"])
         return {
             "type": "stat", "title": panel.title, "id": _pid(),
-            "gridPos": grid, "datasource": DS, "targets": [_target(q)],
+            "gridPos": grid, "datasource": DS,
+            "targets": [_target(q, fmt=FORMAT_TABLE if k["string"]
+                                  else FORMAT_TIMESERIES)],
             "fieldConfig": _field_config(U_NONE, None, None),
             "options": {
                 "colorMode": "none",
@@ -374,7 +385,7 @@ def _render(panel, x, y):
         }
 
     if panel.kind == "gauge":
-        q = flux(k["measurement"], k["conv"], "last", k["field"], k["self_only"])
+        q = sql(k["measurement"], k["conv"], "last", k["field"], k["self_only"])
         return {
             "type": "gauge", "title": panel.title, "id": _pid(),
             "gridPos": grid, "datasource": DS, "targets": [_target(q)],
@@ -396,12 +407,12 @@ def _render(panel, x, y):
             opts = entry[3] if len(entry) > 3 else {}
             ref = chr(ord("A") + i)
             targets.append(_target(
-                flux(measurement, conv, "series",
-                     self_only=opts.get("self_only", True),
-                     field=opts.get("field", "value"),
-                     extra_filters=opts.get("extra_filters", ()),
-                     fn=opts.get("fn", "mean"),
-                     bucket=opts.get("bucket")),
+                sql(measurement, conv, "series",
+                    self_only=opts.get("self_only", True),
+                    field=opts.get("field", "value"),
+                    extra_filters=opts.get("extra_filters", ()),
+                    fn=opts.get("fn", "mean"),
+                    table=opts.get("table")),
                 ref))
             overrides.append({
                 "matcher": {"id": "byFrameRefID", "options": ref},
@@ -435,7 +446,8 @@ def _render(panel, x, y):
         targets, overrides = [], []
         for i, (legend, measurement) in enumerate(k["series"]):
             ref = chr(ord("A") + i)
-            targets.append(_target(flux(measurement, None, "state"), ref))
+            targets.append(_target(sql(measurement, None, "state"), ref,
+                                   fmt=FORMAT_TABLE))
             overrides.append({
                 "matcher": {"id": "byFrameRefID", "options": ref},
                 "properties": [{"id": "displayName", "value": legend}],
@@ -463,7 +475,7 @@ def _render(panel, x, y):
         return {
             "type": "geomap", "title": panel.title, "id": _pid(),
             "gridPos": grid, "datasource": DS,
-            "targets": [_target(flux_position())],
+            "targets": [_target(sql_position(), fmt=FORMAT_TABLE)],
             "fieldConfig": _field_config(U_NONE, None, None),
             "options": {
                 "basemap": {"name": "Basemap", "type": "default"},
@@ -672,6 +684,8 @@ NAVIGATION = [
           thresholds=steps((None, BLUE), (4, GREEN), (7, ORANGE))),
     GAUGE("COG (true)", "navigation.courseOverGroundTrue", CONV_RAD_TO_DEG,
           U_DEG, w=4, h=6, decimals=0, vmin=0, vmax=360),
+    GAUGE("Heading (true)", "navigation.headingTrue", CONV_RAD_TO_DEG,
+          U_DEG, w=4, h=6, decimals=0, vmin=0, vmax=360),
     GAUGE("Heading (magnetic)", "navigation.headingMagnetic", CONV_RAD_TO_DEG,
           U_DEG, w=4, h=6, decimals=0, vmin=0, vmax=360),
     GAUGE("Heel", "navigation.attitude.roll", CONV_RAD_TO_DEG, U_DEG,
@@ -693,6 +707,7 @@ NAVIGATION = [
     GEOMAP("Position", w=12, h=10),
     TS("Course over ground", [
         ("COG true", "navigation.courseOverGroundTrue", CONV_RAD_TO_DEG),
+        ("Heading true", "navigation.headingTrue", CONV_RAD_TO_DEG),
         ("Heading magnetic", "navigation.headingMagnetic", CONV_RAD_TO_DEG),
     ], U_DEG, w=12, h=10, decimals=0, fill=0),
 
@@ -754,7 +769,8 @@ WEATHER = [
          CONV_PA_TO_HPA, U_HPA, w=3, h=5, decimals=2,
          thresholds=steps((None, RED), (-3.5, ORANGE), (-1.0, TEXT), (1.0, GREEN))),
     TEXTVAL("Tendency", "environment.outside.pressure.trend.tendency", w=3, h=5),
-    TEXTVAL("Severity", "environment.outside.pressure.trend.severity", w=3, h=5),
+    TEXTVAL("Severity", "environment.outside.pressure.trend.severity", w=3, h=5,
+            string=False),
     TEXTVAL("System", "environment.outside.pressure.system", w=3, h=5),
     TEXTVAL("Predicted front", "environment.outside.pressure.prediction.front.prognose",
             w=4, h=5),
@@ -893,45 +909,55 @@ LIFE_SUPPORT = [
 
 # ==========================================================================
 # NAVSTATION -- the at-a-glance screen
+#
+# Grouped into function rows (nav / power / weather) with gauges on the
+# primary numbers and stats sized down for the rest, rather than one
+# uniform grid of same-size tiles -- a flat grid of 18 identical stats
+# reads as noise even at a modest panel count. 2026-09-01, on comparison
+# against meri-imperiumi/lille-oe's Navstation, which uses the same mix.
 # ==========================================================================
 NAVSTATION = [
-    STAT("SOG", "navigation.speedOverGround", CONV_MS_TO_KN, U_KNOT,
-         w=4, h=5, decimals=1),
+    ROW("Navigation"),
+    GAUGE("SOG", "navigation.speedOverGround", CONV_MS_TO_KN, U_KNOT,
+          w=6, h=7, decimals=1, vmin=0, vmax=12),
+    GAUGE("Heading (M)", "navigation.headingMagnetic", CONV_RAD_TO_DEG, U_DEG,
+          w=6, h=7, decimals=0, vmin=0, vmax=360),
     STAT("COG", "navigation.courseOverGroundTrue", CONV_RAD_TO_DEG, U_DEG,
-         w=4, h=5, decimals=0),
-    STAT("Heading (M)", "navigation.headingMagnetic", CONV_RAD_TO_DEG, U_DEG,
-         w=4, h=5, decimals=0),
+         w=6, h=7, decimals=0),
     STAT("Heel", "navigation.attitude.roll", CONV_RAD_TO_DEG, U_DEG,
-         w=4, h=5, decimals=1),
+         w=6, h=7, decimals=1),
     STAT("Trip log", "navigation.trip.log", CONV_M_TO_NM, U_NM,
-         w=4, h=5, decimals=1),
-    TEXTVAL("Vessel state", "navigation.state", w=4, h=5),
+         w=12, h=4, decimals=1),
+    TEXTVAL("Vessel state", "navigation.state", w=12, h=4),
 
-    STAT("House SOC", "electrical.batteries.house.capacity.stateOfCharge",
-         CONV_RATIO_TO_PCT, U_PCT, w=4, h=5, decimals=0, thresholds=SOC_STEPS),
+    ROW("Power"),
+    GAUGE("House SOC", "electrical.batteries.house.capacity.stateOfCharge",
+          CONV_RATIO_TO_PCT, U_PCT, w=6, h=7, decimals=0, vmin=0, vmax=100,
+          thresholds=SOC_STEPS),
     STAT("House volts", "electrical.batteries.house.voltage", None, U_VOLT,
-         w=4, h=5, decimals=2, thresholds=LIFEPO4_V_STEPS),
+         w=6, h=7, decimals=2, thresholds=LIFEPO4_V_STEPS),
     STAT("DC power", "electrical.venus.dcPower", None, U_WATT,
-         w=4, h=5, decimals=0),
+         w=6, h=7, decimals=0),
     STAT("Time remaining",
          "electrical.batteries.house.capacity.timeRemaining", None, U_SECONDS,
-         w=4, h=5, decimals=0),
-    STAT("Barometer", "environment.outside.pressure", CONV_PA_TO_HPA, U_HPA,
-         w=4, h=5, decimals=1),
-    TEXTVAL("Tendency", "environment.outside.pressure.trend.tendency", w=4, h=5),
+         w=6, h=7, decimals=0),
 
-    STAT("Wind speed", "environment.wind.speedTrue", CONV_MS_TO_KN, U_KNOT,
-         w=4, h=5, decimals=1),
-    STAT("Wind direction", "environment.wind.directionTrue", CONV_RAD_TO_DEG,
-         U_DEG, w=4, h=5, decimals=0),
+    ROW("Weather and tide"),
+    GAUGE("Wind speed", "environment.wind.speedTrue", CONV_MS_TO_KN, U_KNOT,
+          w=6, h=7, decimals=1, vmin=0, vmax=40),
+    GAUGE("Wind direction", "environment.wind.directionTrue", CONV_RAD_TO_DEG,
+          U_DEG, w=6, h=7, decimals=0, vmin=0, vmax=360),
+    STAT("Barometer", "environment.outside.pressure", CONV_PA_TO_HPA, U_HPA,
+         w=6, h=7, decimals=1),
     STAT("Outside", "environment.outside.temperature", CONV_K_TO_F, U_F,
-         w=4, h=5, decimals=1),
+         w=6, h=7, decimals=1),
     STAT("Feels like", "environment.outside.feelsLikeTemperature", CONV_K_TO_F,
-         U_F, w=4, h=5, decimals=1),
+         U_F, w=6, h=4, decimals=1),
     STAT("Fridge", "environment.inside.refrigerator.temperature", CONV_K_TO_F,
-         U_F, w=4, h=5, decimals=1, thresholds=FRIDGE_STEPS),
+         U_F, w=6, h=4, decimals=1, thresholds=FRIDGE_STEPS),
+    TEXTVAL("Tendency", "environment.outside.pressure.trend.tendency", w=6, h=4),
     STAT("Tide now", "environment.tide.heightNow", CONV_M_TO_FT, U_FT,
-         w=4, h=5, decimals=1),
+         w=6, h=4, decimals=1),
 
     TS("Speed over ground", [("SOG", "navigation.speedOverGround", CONV_MS_TO_KN)],
        U_KNOT, w=8, h=8, decimals=1),
@@ -953,8 +979,11 @@ NAVSTATION = [
 # (memory pressure, SD write volume, a GPU hang, an unsynced clock, bus
 # brownout), and none of those are visible on a vessel-data dashboard.
 #
-# Telegraf and InfluxDB's internal metrics carry no `self` tag, hence
-# self_only=False throughout this section.
+# Telegraf's metrics are not written by SignalK, hence self_only=False
+# throughout this section: the measurement names here are Telegraf table
+# names, not SignalK paths. InfluxDB's own scraped metrics (series
+# cardinality and friends) have no counterpart in QuestDB -- nothing
+# collects them -- so no panel here reads them.
 # ==========================================================================
 NOSELF = {"self_only": False}
 
@@ -1030,16 +1059,17 @@ SYSTEM = [
     ], U_SHORT, w=12, h=8, decimals=2, fill=0),
 
     ROW("Storage"),
-    TS("Disk used", [("Root %", "disk", None, _tg("used_percent"))],
+    # Telegraf writes one row per mount point into `disk` and one per block
+    # device into `diskio`, so an unfiltered avg()/max() blends them. Pin
+    # `disk` to the root filesystem; `diskio`'s max() picks the whole-device
+    # counter, which is >= any of its partitions, so it needs no filter.
+    TS("Disk used", [("Root %", "disk", None,
+                      _tg("used_percent", extra_filters=(("path", "/"),)))],
        U_PCT, w=8, h=8, decimals=1),
     TS("Disk write volume", [
         ("Write bytes", "diskio", None, _tg("write_bytes", fn="max")),
         ("Read bytes", "diskio", None, _tg("read_bytes", fn="max")),
     ], U_BYTES, w=8, h=8, decimals=0, fill=0),
-    TS("InfluxDB series cardinality", [
-        ("Series", "storage_bucket_series_num", None, NOSELF),
-    ], U_SHORT, w=8, h=8, decimals=0),
-
     ROW("Clock and recording"),
     TS("chrony offset", [
         ("Last offset (s)", "chrony", None, _tg("last_offset")),
@@ -1049,9 +1079,13 @@ SYSTEM = [
         ("Write errors", "internal_write", None, _tg("write_errors")),
         ("Buffer size", "internal_write", None, _tg("buffer_size")),
     ], U_SHORT, w=8, h=8, decimals=0, fill=0),
-    TS("Network throughput", [
-        ("Bytes received", "net", None, _tg("bytes_recv", fn="max")),
-        ("Bytes sent", "net", None, _tg("bytes_sent", fn="max")),
+    # Pinned to eth0 -- telegraf.conf also collects wlan0 and can0, and an
+    # unfiltered max() would silently switch to whichever interface is busiest.
+    TS("Network throughput (eth0)", [
+        ("Bytes received", "net", None,
+         _tg("bytes_recv", fn="max", extra_filters=(("interface", "eth0"),))),
+        ("Bytes sent", "net", None,
+         _tg("bytes_sent", fn="max", extra_filters=(("interface", "eth0"),))),
     ], U_BYTES, w=8, h=8, decimals=0, fill=0),
 
     ROW("Per-service memory"),

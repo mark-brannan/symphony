@@ -9,6 +9,14 @@
 #
 # Adding a file: drop it in host/, then add a line to INSTALL and (if it
 # needs scheduling) to CRON below.
+#
+# Run anywhere but a boat card -- a Mac, WSL, a desktop container -- this
+# refuses and does nothing. It has no notion of a target host: it writes
+# root-owned files into /usr/local/sbin, /etc/systemd, /etc/apt and
+# /home/pi, enables timers, and rewrites the root crontab, all on whatever
+# machine it happens to be on. The three checks below are what stand between
+# a mistyped `sudo host/install.sh` and a dev box with a boat's cron in it.
+# SYMPHONY_INSTALL_FORCE=1 skips them if you know better.
 
 set -euo pipefail
 
@@ -18,22 +26,65 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # units are installed and enabled below.
 BOAT_USER=pi
 
-# <source in host/>:<destination>:<mode>:<owner>:<group>
+# Is this a boat card? Three questions, each answered once and by name, so
+# the refusal below can say which one failed.
+have_systemd=no
+have_boat_user=no
+is_arm=no
+[ -d /run/systemd/system ] && have_systemd=yes
+id "$BOAT_USER" >/dev/null 2>&1 && have_boat_user=yes
+case "$(uname -m)" in aarch64 | armv7l | armv6l) is_arm=yes ;; esac
+
+if [ "${SYMPHONY_INSTALL_FORCE:-}" != 1 ]; then
+	refuse=
+	[ "$have_systemd" = yes ] || refuse="$refuse systemd(not booted with it)"
+	[ "$have_boat_user" = yes ] || refuse="$refuse user-$BOAT_USER(absent)"
+	[ "$is_arm" = yes ] || refuse="$refuse arch($(uname -m), not a Pi)"
+	if [ -n "$refuse" ]; then
+		echo "install.sh: this does not look like a boat card --$refuse" >&2
+		echo "install.sh: refusing. SYMPHONY_INSTALL_FORCE=1 to override." >&2
+		exit 1
+	fi
+fi
+
+# Native SignalK on the boat card, containerised SignalK on a HALOS card; the
+# drop-in goes in whichever unit's .d directory, and on a card with neither
+# yet, the native one. Shared with host/signalk-ble-check so the two agree.
+# shellcheck source=host/signalk-unit.sh
+. "$HERE/signalk-unit.sh"
+signalk_unit_detect
+
+# <source in host/>:<destination>:<mode>:<owner>:<group>[:keep]
+#
+# A trailing `keep` means "install it only if it is not already there." Use it
+# for a file whose correct contents differ per card, where the copy in host/ is
+# one card's version and overwriting the other card's is a silent regression.
 INSTALL=(
 	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755:root:root"
 	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
-	"signalk-after-bluetooth.conf:/etc/systemd/system/signalk.service.d/after-bluetooth.conf:0644:root:root"
+	"signalk-after-bluetooth.conf:/etc/systemd/system/$SIGNALK_UNIT.d/after-bluetooth.conf:0644:root:root"
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
 	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
 	"telegraf-rpi-health:/usr/local/bin/telegraf-rpi-health:0755:root:root"
 	"boat-heartbeat:/usr/local/sbin/boat-heartbeat:0755:root:root"
-	"boat-heartbeat.json:/etc/boat-heartbeat.json:0600:root:root"
+	# keep: the two cards ping two DIFFERENT healthchecks.io checks, and this
+	# file has room for one URL. Copying it unconditionally meant whichever
+	# card ran the installer last took over the other's check -- so the card
+	# that lost it went quiet and nothing alarmed, because the check itself
+	# was still being pinged. ansible/roles/monitoring writes this file per
+	# host from sops; here it is a fallback for a card Ansible has not
+	# reached yet.
+	"boat-heartbeat.json:/etc/boat-heartbeat.json:0600:root:root:keep"
 	"boat-heartbeat.service:/etc/systemd/system/boat-heartbeat.service:0644:root:root"
 	"boat-heartbeat.timer:/etc/systemd/system/boat-heartbeat.timer:0644:root:root"
+	"signalk-unit.sh:/usr/local/lib/symphony/signalk-unit.sh:0644:root:root"
 	"signalk-ble-check:/usr/local/sbin/signalk-ble-check:0755:root:root"
 	"signalk-ble-check.service:/etc/systemd/system/signalk-ble-check.service:0644:root:root"
 	"signalk-ble-check.timer:/etc/systemd/system/signalk-ble-check.timer:0644:root:root"
+	"journald-symphony.conf:/etc/systemd/journald.conf.d/symphony.conf:0644:root:root"
+	"pypilot-web:/usr/local/bin/pypilot-web:0755:root:root"
+	"pypilot-web-launcher.conf:/etc/systemd/system/pypilot_web.service.d/symphony.conf:0644:root:root"
 	"apt-auto-upgrades.conf:/etc/apt/apt.conf.d/20auto-upgrades:0644:root:root"
 	"apt-unattended-boat.conf:/etc/apt/apt.conf.d/52unattended-upgrades-boat:0644:root:root"
 )
@@ -44,6 +95,10 @@ INSTALL=(
 RESTART=(
 	"chrony"
 	"telegraf"
+	# journald rereads journald.conf only on restart, and vacuums to the new
+	# SystemMaxUse as it starts. Safe on systemd 252: services keep their
+	# stdout/stderr across the bounce.
+	"systemd-journald"
 )
 
 # System services that reread their config on reload. Same purpose as RESTART,
@@ -59,6 +114,9 @@ RELOAD=(
 ENABLE=(
 	"boat-heartbeat.timer"
 	"signalk-ble-check.timer"
+	# Skipped with a warning on a card where pypilot isn't installed; the
+	# unit file is pypilot's own, not one this installer places.
+	"pypilot_web.service"
 )
 
 # Root cron entries this installer owns. Matched for removal by the command
@@ -80,10 +138,14 @@ fi
 
 echo "== files =="
 for spec in "${INSTALL[@]}"; do
-	IFS=: read -r src dest mode owner group <<<"$spec"
+	IFS=: read -r src dest mode owner group keep <<<"$spec"
 	if [ ! -f "$HERE/$src" ]; then
 		echo "  MISSING in repo: $src" >&2
 		exit 1
+	fi
+	if [ "${keep:-}" = keep ] && [ -e "$dest" ]; then
+		echo "  $dest  (kept, already installed)"
+		continue
 	fi
 	install -D -o "$owner" -g "$group" -m "$mode" "$HERE/$src" "$dest"
 	echo "  $dest  ($mode $owner:$group)"

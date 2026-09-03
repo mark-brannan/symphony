@@ -1,0 +1,70 @@
+# as-built v1 step 22 (first half): the repo checkout every later role reads
+# from -- host/install.sh, the telegraf config symlink, the compose files and
+# the local plugin forks all live in it.
+
+- name: step 22 | anything in the checkout not owned by pi
+  ansible.builtin.command:
+    argv: [find, "{{ symphony_repo_dir }}", "!", "-user", "pi", "-printf", "%p\n"]
+  register: repo_not_pi
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: step 22 | give the checkout back to pi
+  ansible.builtin.file:
+    path: "{{ symphony_repo_dir }}"
+    owner: pi
+    group: pi
+    recurse: true
+  when: repo_not_pi.stdout | default('') | length > 0
+  # A `sudo git` on the card leaves root-owned refs behind, and git's failure
+  # then names a lock file rather than the ownership:
+  #   cannot lock ref ...: Unable to create '.../refs/heads/claude/x.lock':
+  #   Permission denied
+  # Found on symphony-halos 2026-09-02: `.git/refs/heads/claude/`, the pack
+  # files and `.git/config` were all root:root, so `pi` could not create any
+  # branch under claude/. Repaired here rather than by hand, because a hand
+  # repair is not in the build and the next root git command recreates it.
+
+- name: step 22 | symphony repo is checked out
+  ansible.builtin.git:
+    repo: https://github.com/mark-brannan/symphony.git
+    dest: "{{ symphony_repo_dir }}"
+    version: "{{ symphony_repo_version }}"
+    update: true
+    # Never force. A checkout on a card is not disposable: sops- and
+    # hostvars-filtered files read as modified whenever the filters are not
+    # wired up, and a reset --hard would delete whatever a session left there.
+    force: false
+  # --diff on this task prints the whole pending repo diff -- eleven thousand
+  # lines of it -- which buries every other line of the run.
+  diff: false
+  become_user: pi
+  become: true
+  register: repo_checkout
+
+- name: step 22 | git filters are configured on this checkout
+  ansible.builtin.command: git config --get filter.sops.smudge
+  args:
+    chdir: "{{ symphony_repo_dir }}"
+  become_user: pi
+  become: true
+  register: sops_filter
+  changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
+  failed_when: false
+  tags: [verify]
+
+- name: step 22 | warn when the checkout has no sops filter
+  ansible.builtin.debug:
+    msg: >-
+      {{ symphony_repo_dir }} has no sops clean/smudge filter. Encrypted files
+      are ciphertext on disk and hostvars files still hold {{ '{{' }} placeholders {{ '}}' }}.
+      This is bootstrap, deliberately outside Ansible's remit
+      (reference/host_provisioning.md): the age key has to arrive out of band
+      and git filters live in .git/config, which is unversioned. Run
+      `bash scripts/setup-git-filters.sh` on the card.
+  when: sops_filter.rc != 0
+  tags: [verify]

@@ -1070,6 +1070,67 @@ which was the original bullet's claim all along. Recorded the `merged_at`
 trap in CLAUDE.md next to the branch rule so the next session doesn't
 repeat it.
 
+## 2026-08-20 — QuestDB migration: closing the four loose ends
+
+Orchestration session. Took the four items the previous migration session
+left open and either finished them or handed them off deliberately.
+
+**cgroup / memory limit — done.** `cgroup_enable=memory cgroup_memory=1`
+appended to `/boot/firmware/cmdline.txt`, backup at
+`cmdline.txt.bak-precgroup`, rebooted with Mark's in-chat authorization.
+Verified after: `memory` in `/sys/fs/cgroup/cgroup.controllers`,
+`docker stats` 443 MiB / 768 MiB. The running container was updated in place
+(`docker update --memory 768m --memory-swap 1536m`) rather than recreated,
+to avoid touching the boat's shared checkout while another session is
+reconciling its git state. All six services and all three containers came
+back unattended; SignalK→QuestDB writes resumed ~4 min after boot, so the
+soak continued rather than restarting. Worth remembering: the firmware still
+injects `cgroup_disable=memory` ahead of our flag and `cgroup_enable=`
+overrides it, so both show in `/proc/cmdline` — that looks like a failed
+edit and is not one.
+
+**The BLE commits — already done by someone else.** Checked with
+`git ls-remote` before touching anything: both tips
+(`claude/ecoworthy-signalk-telemetry-vy82ta` @48f3122,
+`claude/symphony-pushover-setup-ce12i0` @3f08bd3) were already on origin at
+the boat's exact SHAs. The reconciliation session got there first. Verifying
+before acting cost one command and saved a redundant push.
+
+Attempted to message that session as Mark asked. **Confirmed again that no
+channel exists between two cloud sessions**: `ListAgents` returns "No
+reachable agents" and `SendMessage` to a session id fails outright. The
+kanban already recorded this on 2026-08-19; this is a second measurement of
+the same limit, so treat it as settled rather than re-testing it a third
+time. `list_sessions` on the Claude Code Remote MCP surface *does* show
+other sessions and their pending questions, which is how the session was
+identified — read-only visibility exists, delivery does not.
+
+**Off-boat backup — handed to Mark, which is the honest resolution.**
+Nothing a session can finish: this sandbox's tailnet path is the slow DERP
+relay and the sandbox is ephemeral. Generated `SHA256SUMS` next to the
+artifacts on the boat so the copy can be *checked* rather than assumed, and
+wrote the `scp` + `sha256sum -c` pair into the kanban.
+
+**B4 — unblocked by reframing it.** It had been sitting on "open both
+dashboard sets in Grafana side by side," which needs a dedicated session.
+A programmatic diff of what every panel actually queries answered it instead,
+and answered it decisively: 4 of the boat's 76 imported panels render today.
+Mark's instruction was "1 and 2 — I'll maybe look at the diff but probably
+not. Don't wait for me," so the analysis ran and the port followed
+immediately without waiting on him to read it. Lesson worth keeping: a
+question parked as "needs a human in front of a GUI" is worth re-examining
+for a measurable proxy before it gets deferred again.
+
+**Scope discipline.** Chased one finding beyond the four items and stopped:
+79 of the 171 ported queries return empty, and the cause is that SignalK
+publishes no `electrical.batteries.*` at all —
+`bt-sensors-plugin-sk` dies on a D-Bus `write EPIPE` at every start, and it
+survived the reboot, so it is not the wedged-controller fault in the
+RUNBOOK. Boarded it, did not diagnose it. That is the next session's work
+and it matters, since power monitoring is the stated point of this stack.
+
+Left as a draft PR (#25), CI green, per the repo's own convention.
+
 ## 2026-08-21 (bt-sensors verification, branch/PR cleanup)
 
 Continuation session. Four of the five open items closed.
@@ -1554,6 +1615,76 @@ repro in order on the boat: pre-PR code logs one uncaught EPIPE and 404s;
 PR code retries with backoff and reconnects by itself once the file is
 removed. Scaffolding removed, data flowing 21:08Z.
 
+## 2026-09-01 — HALOS boat-swap plan (Fable planning session)
+
+Planned the accelerated trial: the HALOS card built at home goes into the
+boat Pi; the boat card is the rollback. Measured both boxes live and read
+the halos-org sources through a subagent. Landed: `reference/system_map.md`
+(both cards, containers, SSH strings, diff table, three decisions),
+`RUNBOOK.md` → "Swapping the HALOS card onto the boat" (verification per
+step, rollback), `scripts/dns_cutover.sh` (read path tested against the live
+zone; `set` untested), `intermediate_files/claude_slop/halos-swap-plan.md`
+(ordered build plan B1–B6, parallel items P1–P7 with prompts), and a plan
+shift note at the top of `containerization_strategy.md`.
+
+Findings that changed the plan: the HALOS SignalK container is privileged,
+host-network, mounts `/dev` and `/run` (BlueZ D-Bus reachable) but its
+`nsswitch` has no mDNS (Victron's `venus.local` must become the Cerbo's IP,
+192.168.8.107); its `package.json` lists one plugin against ~80 loose
+installs (prune trap); the halos card lacks every PiCAN-M overlay, `can0`
+bring-up, the memory cgroup (container limits unenforced) and has regdom
+GB; the spare Pi is 2 GB and swapping 1.5 GB. InfluxDB is already gone from
+the boat (purged 08-25, export only on the boat card), so QuestDB-only is
+the decision, not a migration. healthchecks.io is pinged by
+`boat-heartbeat.timer`, not a plugin. Pushover = the heartbeat's escalation.
+
+### PR #33 review triage (same session, handed off unstarted)
+
+Mark asked for a wrap-up before the CodeRabbit round was addressed. Triage,
+so the next session fixes rather than re-reads. Fix = change the file;
+reply-only = explain and resolve.
+
+- 3909035421 plan B2a/B2b: PSK on `nmcli` argv. **Fix**: write an NM keyfile
+  (`/etc/NetworkManager/system-connections/<name>.nmconnection`, 0600) built
+  locally from sops, scp'd, `nmcli con reload`; no PSK in any argv.
+- 3909035427 plan B3a: rsync of live state. **Reply-only**: SignalK rewrites
+  config only on admin saves; run rsync twice, second pass must transfer
+  nothing. Don't stop the boat's SignalK for a copy.
+- 3909035432 plan B3a: `$D` undefined. **Fix**: define it in the block.
+- 3909035436 plan B3c: `package.json.halos` backup happens after rsync
+  overwrote it. **Fix**: move the backup before B3a, to `/home/pi/`.
+- 3909035437 plan B3c: Cerbo IP without a reservation. **Fix**: make the
+  router DHCP reservation for the Cerbo (192.168.8.107) a precondition,
+  verify with `ssh root@192.168.8.1 'uci show dhcp | grep -i cerbo'` or the
+  MAC.
+- 3909035441 plan B3c + RUNBOOK: parity by counts. **Fix**: add a diff of
+  `<config> <enabled>` pairs from plugin-config-data on both cards; list the
+  three expected differences (signalk-container, signalk-to-influxdb2,
+  signalk-to-influxdb-v2-buffer disabled on HALOS).
+- 3909035444 plan B5a: rule misses exact `/sso` and `/ca`. **Fix**: add
+  `!Path(...)` for both; make the test five explicit curls (`/`, `/sso`,
+  `/sso/`, `/ca`, `/ca/`).
+- 3909035455 containerization_strategy: "B3 done" while
+  `signalk-to-influxdb2` is still enabled on the boat. **Fix**: say QuestDB
+  is the only *live* store and name the two leftover cleanups.
+- 3909035460 system_map: `NODE_TLS_REJECT_UNAUTHORIZED=0`. **Fix (one
+  sentence)**: it's HALOS's package-owned compose, not ours; name the
+  affected traffic (every plugin's outbound HTTPS and the MQTT-TLS link to
+  the Cerbo) and that the trial accepts it.
+- 3909035465 system_map + plan: directory copy "merges" history. **Fix**:
+  a stopped copy *replaces*; merging needs an ILP re-export
+  (`Table2Ilp` or REST export). Reword both.
+- 3909035472 RUNBOOK: `;`-chained checks. **Reply-only**: read-by-eye
+  checks with stated expected output are the RUNBOOK convention.
+- 3909035477 RUNBOOK: DNS before readiness. **Fix**: move the DNS cutover
+  after the local checks (step 6 before step 5); same order in rollback.
+- 3909035482 RUNBOOK: `set` untested. **Fix**: add to "Before leaving
+  home": `set symphony-halos` then `set symphony-pi` from home, both
+  verified with dig; costs about ten minutes of off-boat access.
+- Minor, quick: `dns_cutover.sh` exit unless exactly one apex A record;
+  ntfy curl `-f`; "Keep the runbook procedural" at RUNBOOK 708 (the
+  pocket/only-copy sentence — move to system_map); system_map 48 and 89
+  wording nits.
 ## 2026-09-01 — B1a–c on halos (P1 of the swap plan), and a credential leak
 
 Executed `intermediate_files/claude_slop/halos-swap-plan.md` items B1a–c on
@@ -1591,3 +1722,618 @@ Rebooted, ran the B1 verification block:
 - `can0` not present — plan says that verifies at the boat only.
 
 P2–P7 of the swap plan are unstarted.
+
+## 2026-09-01/02 — PR #25 live walkthrough, session 1 of N (Navstation only)
+
+Worktree: `grafana-dashboards-pr25-89c9f8`, branch
+`claude/influxdb-questdb-migration-t3lkra` (PR #25 itself). Demo stack
+(`questdb-demo`, `grafana-demo` on `symphony-demo-net`, localhost:3100
+admin/devadmin) reused from an earlier session rather than rebuilt — still
+up, left running for the next session. `verify_dashboards_live.py`
+confirmed 196/196 before and after tonight's change.
+
+**Navstation redesigned and shipped.** Was a flat grid of 18 identical
+`w=4 h=5` stat tiles; compared side-by-side against
+`meri-imperiumi/lille-oe`'s Navstation (same six-dashboard structure,
+public repo) and found panel *count* was nearly identical (21 vs 22) — the
+"busy" feeling was panel-type/size uniformity, not density. Regrouped into
+Navigation/Power/Weather-and-tide rows with gauges on primary values (SOG,
+heading, house SOC, wind) and varied stat sizing for the rest. Committed
+`7ff9d48`, pushed to the PR branch. Mark reviewed live and approved.
+
+**Verified against real boat data, once, carefully.** Boat's real QuestDB
+(on symphony-pi) is 11 days up with SignalK actively writing — confirmed
+fresh (`max(ts)` ~now) and confirmed real row volume
+(`environment.outside.pressure`: 4,271 rows/6h, ~1 sample/5s) before
+touching anything, so the bandwidth estimate for the boat's constrained
+uplink is measured, not guessed. No Grafana currently runs on the boat at
+all (compose `grafana` crash-looped, `sk-signalk-grafana` lost its port
+race, `grafana-server` systemd unit is `failed`) — so there was nothing to
+deploy to or risk breaking; the move was a read-only SSH tunnel
+(`127.0.0.1:18812` on this box → boat's `127.0.0.1:8812`, never exposed
+past loopback) into the *demo* Grafana's existing QuestDB datasource,
+one-shot, then reverted and torn down. Confirmed real values came back:
+Heel 0.6°, Barometer 1010.3 hPa, Outside 61.6°F, Fridge 69.6°F, Trip log
+0.0 nm. Nav/wind/power panels reading "No data" against real data matched
+what the row-count query predicted (those paths have zero rows right
+now — boat's at dock, sensors quiet) — not a bug. `Vessel state` /
+`Tendency` "No data" is the pre-existing text-mode-stat bug, unrelated to
+tonight, not fixed.
+
+Two Playwright screenshot attempts against the live tunnel came back
+empty — a genuine bug in my own capture script (the dashboard's saved 10s
+refresh never actually turned off, so screenshots raced the refresh
+cycle), not a data problem. Didn't retry a third time against the boat to
+chase a client-side timing bug — burning more of the boat's measured
+bandwidth to fix a screenshot script isn't a good trade. Mark asked to cut
+the boat connection; confirmed torn down (no process on 18812, datasource
+reverted). Noted but did not touch: two unrelated pre-existing
+`ssh pi@symphony-pi` sessions on this box (since Aug 22 and today
+13:43) — not mine to kill.
+
+**PR #25 review scope, for whenever Mark reads the diff himself:** 3051+/
+1852- across 23 files, but only `scripts/build_dashboards.py` (348 lines,
+the actual panel/unit/threshold decisions),
+`grafana/provisioning/datasources/questdb.yaml` + `.env.j2` (what the boat
+will point at once deployed), and `RUNBOOK.md` are worth a human read. The
+six dashboard JSON files (3600+ of the diff) are pure `build_dashboards.py`
+output verified by `test_dashboards.py`; `intermediate_files/claude_slop/*`
+and the test/verify scripts are mechanical/session-state. Not yet decided:
+whether/when to actually deploy PR #25 (the InfluxDB→QuestDB cutover) to
+the boat — nothing tonight implied or executed that; it's still open.
+
+**Not yet walked:** Electricity, System health, Navigation, Weather, Life
+support — five dashboards, same process (show, take comments, fix small
+ones in `build_dashboards.py`, regenerate, commit; anything bigger gets a
+card). Demo stack is up and ready; PR #25 branch is the working branch, no
+new branch needed to keep committing to it.
+
+## 2026-09-02 — HALOS swap prep executed overnight (Fable, PR #33)
+
+Mark asked for PR #33 fixed, tested and executed unattended. Did B2, B4a–c,
+B5a and a healthcheck fix on the bench card, verified the DNS write path both
+ways, took the real boat baseline and rewrote the two check scripts from it;
+the runbook section now carries measured output. Facts and times in
+`halos-swap-execution-2026-09-02.md`; what is left in
+`handoff-pr33-swap-prep.md`. Two sessions shared the 2 GB bench box for a
+while and it hard-reset once under swap thrash after AvNav/OpenCPN were
+stopped; one session on that box at a time from now on. The boat's heartbeat
+had been pinging `/fail` for a week on two dead units; cleared. Pre-existing
+boat issues found and left for Mark: Cerbo MQTT dead, position from a fixed
+plugin, QuestDB pegged with load ~12.
+
+## 2026-09-02 — PR #33 landed; bench card preflight green (session pr33-comments-merge-33902c)
+
+Answered and resolved all 13 review threads on PR #33 (shellcheck, the ble
+ok-line, the 60 s vs 150 s healthcheck numbers, the two verbatim-block
+threads), then squash-merged it as c8bbbb5. #35 landed into the branch
+mid-session; rebased onto it. First end-to-end preflight against the bench
+card found three card-side problems, none of them script bugs:
+`systemd-networkd-wait-online` enabled that morning by a session and failing
+every boot, the removed InfluxDB app's unit still starting and failing, and
+three plugin diffs that are image facts (allow-listed). Fixed on the card,
+recorded in `host/halos/README.md`. `pi` cannot run docker on HALOS, so the
+#35 runbook check now says `sudo`, and the preflight reads gid 988 from
+`/proc`. Soak with QuestDB and Grafana held on zram (load 1.1, paging
+~250 MB/min); rebooted once, every preflight line ok at 10:26Z. Dispatch
+prompt for swap day in `dispatch-halos-swap-day.md`; the handoff file is
+deleted, its results are in `halos-swap-execution-2026-09-02.md`. Left for
+Mark: pypilot, the Cerbo, the swap day itself (cards).
+
+## 2026-09-02 — PR #34 already merged; boat calmed for the baseline (session pr-34-merge-baseline-091553)
+
+PR #34 needed nothing: merged 10:22:17Z as 364ad2a, and `origin/main` carries
+`host/signalk-unit.sh` with `install.sh` sourcing it at line 54 and installing
+it to `/usr/local/lib/symphony/`. Card retired unworked.
+
+Calming the boat found a different problem than the card described. The "13
+logged-in users" is a utmp artifact — `who -a` lists 16 entries, most of them
+dead pts records with exit codes, and only 5 live sessions, two of which are
+tmux panes from 21 and 23 August. Nothing to kill there.
+
+The real load was **six orphaned lightdm greeter sessions**: `lightdm
+--session-child` processes reparented to PID 1 by lightdm restarts on 26
+August and 1 September, each still running a `labwc -C
+/etc/xdg/labwc-greeter/` compositor spinning at 20-55 % of a core. Killed all
+six (458186, 461611, 505317, 507218, 509660, 2091034); the one live greeter
+under the running `/usr/sbin/lightdm` sits at 0.0 %. Available memory went
+409 → 675 MB immediately.
+
+There was no QuestDB *query* to find. QuestDB had **wedged at
+2026-09-02T07:01:25Z** and spun for eleven hours: no log line after that
+timestamp, `/exec` accepting the socket in 0.5 ms then never answering inside
+30 s, docker's NET and BLOCK I/O counters frozen across successive samples,
+all while the container burned 180-250 % CPU. `jcmd` isn't in the image so no
+thread dump was possible. `docker restart -t 30 questdb` fixed it — it came
+back logging, and `/exec` now answers `select 1` in 51 ms. Cause unknown; the
+last healthy log lines show `ApplyWal2TableJob` committing 50 rows in 5074 ms
+(9 rows/s) against ~284k-row partitions, so it was already struggling before
+it stopped.
+
+Net: load average 13.2 → 2.67, QuestDB 250 % → 21 %. `scripts/halos_swap_check.sh
+symphony-pi` now passes every line including `questdb` (newest history row 6 s
+old); the only FAIL is the already-carded Cerbo MQTT SYN-SENT.
+
+Left for Mark as a new card: PID 986 `labwc -m`, his own desktop session on
+tty1, spins at 100 % of a core with 6d7h of CPU in 12 days uptime — the same
+labwc spin as the greeters, but it is the physical screen so a session won't
+kill it. Swap is still 199/199 MB full and won't drain without a reboot.
+
+### Same session, follow-up — the boat Pi now boots headless
+
+Mark asked whether the GUI was earning its keep. Measured first: with
+`rpi-connect-wayvnc` stopped, `labwc` still burned 98 % of a core, so the
+spin is labwc's own on a display-less Pi, not wayvnc pulling frames. Same bug
+explains the six leaked greeters — one spinning compositor per orphaned
+session.
+
+Checked what would break before changing anything. RPi Connect was signed in
+and healthy the whole time (the earlier "not running" was a missing
+`XDG_RUNTIME_DIR`, not a fault); remote shell needs no display, screen
+sharing does, because wayvnc attaches to a live Wayland session. `Linger=yes`
+is set for `pi`, so RPi Connect's user services survive a headless boot with
+nobody logged in — that was the one thing that could have cost Mark remote
+access, and it was already right.
+
+Mark chose on-demand. Executed: `systemctl set-default multi-user.target`,
+lightdm stopped, `rpi-connect-wayvnc` disabled (it restart-loops against a
+display that isn't there). `systemctl stop lightdm` did not stop the tty1
+autologin compositor — PID 986 under PID 920, reparented away at boot — so
+both were killed by PID. Procedure is in `RUNBOOK.md` § Starting a desktop on the
+boat Pi on demand, and both halves have now been run verbatim from it:
+`start lightdm` + `--user start rpi-connect-wayvnc` gives `814691
+/usr/bin/labwc -m` and an active wayvnc; the reverse plus `pkill -u pi -x
+labwc` leaves `pgrep -a -x labwc` empty with the ssh session intact.
+
+Self-correction worth keeping: the first tear-down used `pkill -u pi -f
+"/usr/bin/labwc -m"` and killed the ssh session running it, because `-f`
+matched its own command line. `-x labwc` is the correct form, is what the
+runbook says, and was left untested until Mark asked whether the scar was
+actually fixed — it now is, exercised end to end.
+
+Boat after: load average 1.31 (from 13.2 at session start), 869 MB available,
+swap draining, no compositor anywhere, SignalK/Caddy/dex/questdb/ntfy all up.
+
+### Same session, follow-up — stability sweep after the desktop change
+
+Mark asked what else was needed to stabilize the box. Swept it; three things,
+and two suspicions of mine that checking killed before they reached him.
+
+**Root cause of the greeter leak, found.** dbus was killed six times on
+2026-09-01 (`Main process exited, code=killed, status=9/KILL`), each kill
+taking lightdm with it (`lightdm.service: Main process exited,
+code=exited, status=1/FAILURE`) and orphaning one `labwc` compositor that
+then spun forever. A session at 13:09 that day had installed
+`/etc/systemd/system/dbus.service.d/99-test-restart.conf` with
+`Restart=always` to test restart behavior. I expected to find that drop-in
+still in place and was ready to report it as leftover scaffolding — it is
+gone, and `systemctl show dbus -p Restart` reads `no`. That session cleaned
+up after itself. Checked before reporting; would have been a false
+accusation.
+
+Second false positive caught the same way: `journalctl | grep -c oom-kill`
+returned 1, which was **my own grep command echoing into the journal** via
+tailscaled's ssh logging. Zero real OOM kills on this boot.
+
+**`pypilot_web` was the real find.** Serving nothing (`curl :8000` →
+`code=000`) while writing 720 lines/min — 324k/day, 60 % of all journal
+traffic — every line the same `TypeError: wrap_socket() got an unexpected
+keyword argument 'allow_unsafe_werkzeug'`. That is what drove journald to
+1.8 GB with no `SystemMaxUse` set and root fs at 77 %. Mark's call: disable
+now, fix as a high-priority item once stabilized. Disabled; `pypilot.service`
+stayed active throughout. Carded with the measured package versions.
+
+Incidental: `navigation/attitude` is currently sourced from `n2k-can0.35`
+PGN 127257, not from pypilot-sk, and `yaw` is null. Relevant to the open
+"decide pypilot for the trial" card — the attitude feed is not evidence
+that pypilot is carrying its weight.
+
+Vacuumed the journal with `--vacuum-time=7d` rather than by size: 1.8 → 1.4
+GB, root fs 77 → 76 %. Kept 7 days deliberately so the 2026-09-01 dbus
+crashes and the 2026-09-02 QuestDB wedge survive to swap day. The remaining
+1.4 GB is nearly all inside that window and will roll off now the flood has
+stopped; the `SystemMaxUse` cap is still Mark's open card.
+
+**Still unverified: nothing has rebooted since the box was made headless.**
+`multi-user.target` is set and `Linger=yes` is right, but that RPi Connect
+returns on a headless boot with nobody logged in is inferred, not observed.
+Offered a reboot; not approved this turn. Swap remains 199/199 and the stale
+utmp still makes `uptime` claim 13 users — both clear on reboot.
+
+QuestDB's wedge still has no root cause. No OOM, no throttle at the time; it
+stopped logging at 07:01:25Z and spun. It could recur on swap day.
+
+### Same session — where the remaining journal traffic comes from
+
+After disabling `pypilot_web`, a clean per-unit count over 80 s reads
+**146 lines/min**, down from 543k/day (≈377/min average, with pypilot_web
+peaking at 720/min on its own). A first attempt via `journalctl --no-pager |
+wc -l` gave 435/min and was wrong — tailscaled logs every ssh command
+verbatim, so that method counts the measuring session's own traffic. Use a
+`--since` window with a per-unit breakdown, not a whole-journal line count.
+
+88 % of what is left is one thing, and it is **by design, not a fault**:
+`openplotter-i2c-read.service` is `Restart=always` / `RestartSec=3` around a
+program that reads the sensors once and exits cleanly (`Result=success`,
+`ExecMainStatus=0`). OpenPlotter implements its i2c polling loop as a systemd
+restart loop — 240,833 restarts in 12 days uptime, ≈13.9/min, each cycle also
+opening a `sudo` session for root. That produces five `init.scope` lines plus
+its own output every three seconds forever. Do not "fix" it by disabling it:
+it is how the BME680 and the other i2c sensors get read.
+
+It does mean the journal will keep growing at a fixed floor no matter what
+else is tidied, which is an argument for Mark's open `SystemMaxUse` card
+rather than for touching the service. If the dedicated BME680 plugin ever
+takes over (the open "BME680 sensor ownership" card), this service and its
+traffic go with it.
+
+### Same session — post-reboot verification
+
+The Pi rebooted (up 33 min at 15:04 local). Not by this session: the reboot
+command was never issued — Mark's approval arrived, the Windows dev box then
+restarted mid-turn, and the boat was already back up on the next check.
+Whoever or whatever did it, it answered the open question.
+
+**The headless config survived a boot with nobody logged in.** That was the
+one thing standing between this work and swap day, and it is now observed
+rather than inferred:
+
+- `rpi-connect status`: signed in, subscribed to events, screen sharing
+  allowed, remote shell allowed. `rpi-connect.service` active,
+  `rpi-connect-wayvnc` inactive — correct, it is on-demand now. `Linger=yes`
+  held.
+- `systemctl get-default` → `multi-user.target`; `pgrep -x labwc` empty.
+- `pypilot_web` still `disabled` / `inactive`.
+- SignalK, Caddy, dex, questdb, ntfy all up.
+
+Everything the reboot was supposed to clear, cleared: swap 199/199 → 3 MB
+used of 199 (`pswpout` 763 since boot), available memory 409 MB at session
+start → 1433 MB, `uptime` back to 2 users from the stale-utmp 13, and
+`vcgencmd get_throttled` → `0x0` (it read `0xe0000` before — frequency-cap,
+throttle and soft-temp-limit events had all occurred over the previous 12
+days). Temp 60.3 °C.
+
+`scripts/halos_swap_check.sh symphony-pi` passes every line. The only FAIL
+is the carded Cerbo MQTT SYN-SENT, unchanged and not ours. Note `n2k` now
+reports `/navigation/attitude` as its newest value — attitude is coming off
+the N2K bus, consistent with the pypilot observation above.
+
+Card status: "calm the boat before the baseline" is closed on its own terms —
+load 13.2 → ~1.6, and the baseline can be taken on a quiet, freshly booted
+box.
+
+### Same session — nightly reboot rejected; the actual gap is liveness detection
+
+Mark: "I don't like the nightly-reboot unless we really need it. Are there
+other ways to address these problems besides a bounce?" Checked rather than
+argued. He is right — a nightly reboot would have addressed almost nothing
+that 12 days of uptime actually cost:
+
+- Six spinning compositors: gone structurally, the box is headless now.
+- Swap exhaustion: those compositors caused it. `swapoff -a && swapon -a`
+  reclaims it live if it ever recurs; no reboot needed.
+- journald growth: wants a `SystemMaxUse` cap, already carded.
+- SignalK memory: **not** a leak. 1,334,180 KB RSS at 49 minutes uptime — a
+  baseline, not a growth curve, so a reboot recovers nothing.
+- Total hang: the hardware watchdog already covers it
+  (`RuntimeWatchdogSec=30`, `RebootWatchdogSec=2min`).
+
+The one thing a nightly reboot genuinely bought was bounding the QuestDB
+wedge — and it bought it badly, at up to 24 h of dead ingest.
+
+Measured the real gap: `dex`, `questdb` and `ntfy` all have **no
+healthcheck** (`.Config.Healthcheck` empty, health state `-`) and there is no
+autoheal container on the boat. All three are `unless-stopped`, which only
+fires on process *exit*. QuestDB never exited. Nothing on the box could have
+detected it. Carded, with the instruction to reuse `host/halos/`'s existing
+healthcheck + autoheal pattern rather than invent one.
+
+Trap noted on the card: `vcgencmd get_throttled` is sticky-since-boot, so it
+reports history, not current state — it read `0xe0000` before the reboot and
+`0x0` after, with no change to the hardware.
+
+## 2026-09-02 — container liveness on the boat Pi (session boat-pi-healthchecks-2ddb0b)
+
+`dex`, `questdb` and `ntfy` now carry healthchecks and an `autoheal`
+container restarts any that goes unhealthy. Landed on main in four commits,
+each deployed and verified on the boat before the next.
+
+**The deploy-tmp trap was a red herring, and the real one was worse.**
+`questdb`'s `com.docker.compose.project.config_files` label named
+`/home/pi/deploy-tmp/compose-questdb.yml`, which suggested a build step
+somewhere. There is none: `deploy-tmp/` is a hand-scp'd staging directory
+from 2026-08-20, five files, untouched since, and its `compose-questdb.yml`
+is byte-identical to the repo's. Nothing produces it and nothing reads it.
+The label was just a record of the `-f` list used the last time that
+container was created. It is gone now — all three containers name the repo's
+own files.
+
+The actual trap was that `/home/pi/symphony` was **89 commits behind
+`origin/main`**, so a repo edit genuinely would not have reached the boat.
+No compose file differed across those 89 commits, and nothing else in them
+touches a running process (`.env.j2` and `secrets/symphony.sops.yaml` only
+matter when `render.py` runs), so `git merge --ff-only origin/main` was
+inert. Checked before pulling rather than after.
+
+Second trap, now in the runbook: on the boat a bare `docker compose up -d`
+starts containers for SignalK, InfluxDB, Grafana and Caddy, which run there
+as native systemd units. It would collide on ports 3000, 8086, 3001 and 443.
+The existing runbook spelled this out for `dex` only. Every compose command
+on the boat names its services.
+
+**Tested, not assumed.** SIGSTOP on ntfy's PID 1 simulates the wedge — a
+process that never exits. First run: unhealthy after three failed probes,
+autoheal restarted it, healthy again 132 s after the freeze.
+
+That run also found a defect in my own config. Autoheal issues the restart
+as a curl call to the docker API and its `CURL_TIMEOUT` defaults to 30 s —
+the same as the `AUTOHEAL_DEFAULT_STOP_TIMEOUT` I had set. A wedged
+container by definition burns the full stop timeout before SIGKILL, so
+autoheal's curl always timed out first and logged `Restarting container
+<id> failed` for a restart docker went on to complete. Measured: logged
+failed at 22:38:14, actually killed at 22:38:44, healthy at 22:38:50.
+`CURL_TIMEOUT=60` fixes it, confirmed by re-running the same wedge: second
+run, autoheal logged only `found to be unhealthy - Restarting container now
+with 30s timeout` at 22:44:16 and ntfy was healthy again by 22:44:47, with
+no `failed` line at all. Worth catching — the autoheal log is the only
+record of what the watchdog did, and a watchdog that lies about its one job
+is worse than none.
+
+QuestDB's probe was verified separately, without a full restart cycle, to
+avoid a history-write gap: SIGSTOP the process, run the probe by hand, curl
+exits **28** (its own timeout) after 15 s — the wedge signature — and exits
+0 again after SIGCONT. That is the leg worth checking on its own, since
+questdb is the only one of the three using `curl` rather than busybox
+`wget`, and the only one whose probe timeout and healthcheck timeout are
+tuned as a pair.
+
+**The one leg not tested is a full host reboot.** Every container went
+straight to `healthy` with a zero failing streak on recreate, and no
+`start_period` is anywhere near the measured cold starts, so flapping is
+unlikely — but a cold boot with SignalK's plugins, QuestDB and everything
+else contending at once is a different load than a recreate on a quiet box.
+It rides along with the reboot already pending on Mark's side from the
+headless-boot work earlier today; check `docker ps` after it.
+
+**Numbers, all measured on the boat rather than guessed.** Warm
+restart-to-answering: dex 4 s, ntfy 2 s, questdb 17 s. `start_period` is set
+far above those anyway — 300 s for questdb, 60 s for the other two — because
+the case that matters is a dirty-WAL replay on a contended cold boot, which
+is not the case that was measured, and because tight is the expensive
+direction: a 60 s window against SignalK's 3–4 min cold start had autoheal
+restarting it every ~3 min on the HALOS card.
+
+**Two deliberate divergences from HALOS's autoheal**, both commented in
+`compose-autoheal.yml`. Opt-in by label (`autoheal: "true"`) rather than
+HALOS's `AUTOHEAL_CONTAINER_LABEL=all`, because HALOS owns its whole host
+while here a hand-run container shares the same daemon and should not be
+restarted by the compose stack's watchdog — the cost is that a new service
+needs the label as well as the healthcheck, which is why they sit in the
+same block. And a 30 s stop timeout rather than 10 s, because 30 s is what
+the 2026-09-02 recovery needed by hand.
+
+`compose-autoheal.yml` has no `profiles:`, on purpose: a watchdog that
+silently did not start looks exactly like one that is working.
+
+Probes exercise the request path, not the port — QuestDB's wedge kept the
+listening socket open for all eleven hours. `select 1` through `/exec` for
+questdb, `/v1/health` for ntfy, `/dex/healthz` for dex (under the issuer's
+path prefix; there is no `telemetry:` block in `dex/config.yaml`, and adding
+one just to get a probe would have been a bigger change than the probe).
+Image tooling differs and was checked rather than assumed: questdb ships
+`curl` and no `wget`, dex and ntfy ship busybox `wget` and no `curl`.
+
+The nightly-reboot crontab line was left commented out, per Mark.
+
+## 2026-09-02 — pypilot_web fixed and re-enabled; journal capped at 1G (session boat-pi-stability-6d614e)
+
+Two stability cards, both closed. A second session was on the same box adding
+container healthchecks and autoheal to dex/questdb/ntfy; nothing collided, and
+all four containers were still healthy after the journald restart below.
+
+### pypilot_web — root cause found by reading, not by installing
+
+The card's prime suspect was right in outline and wrong in the fix. The kwarg
+is not "leaking" from a Flask-SocketIO version bump that needs pinning away —
+it is pypilot passing a kwarg that only one of Flask-SocketIO's three server
+branches consumes:
+
+- `pypilot/web/web.py:229` calls
+  `socketio.run(app, debug=False, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)`
+  unconditionally.
+- `flask_socketio/__init__.py:637` pops `allow_unsafe_werkzeug` **inside the
+  `async_mode == 'threading'` branch only**. The boat has gevent 22.10.2
+  installed, so `async_mode` is `gevent` and control never reaches that pop.
+- The gevent branch forwards the surviving `**kwargs` into
+  `gevent.pywsgi.WSGIServer`, which stuffs anything it doesn't recognise into
+  `self.ssl_args`. Every accepted connection then calls
+  `wrap_socket(client_socket, **self.ssl_args)` and dies with the TypeError.
+  That is why the port accepted and then produced `code=000`: the socket is
+  real, the handshake is not.
+
+So pinning Flask-SocketIO below 5.3.0 would have been the wrong lever, and
+upgrading pypilot would have meant a pip install over the cellular WAN with
+`pypilot.service` — currently healthy — in the blast radius. Neither was
+needed. **The fix is a launcher, not a package change**: `host/pypilot-web` is
+`pypilot.web.web.main()` with the one kwarg dropped, and
+`host/pypilot-web-launcher.conf` is a drop-in that repoints `ExecStart` at it.
+Both are in `host/install.sh`'s INSTALL array, and `pypilot_web.service` is now
+in ENABLE. No network, no risk to pypilot itself.
+
+Tested before installing: ran the launcher by hand as `pi` on port 8000 while
+the unit was still disabled, got 200, then removed the test copy. After
+install — `curl -s -o /dev/null -w %{http_code} http://127.0.0.1:8000/` → 200,
+`NRestarts=0`, 8 journal lines in 20 minutes against the old 720/min, and
+`pypilot.service` still active since boot. Both done-criteria met.
+
+One version oddity worth knowing: `/usr/local/bin/pypilot_web` is an
+entry-point script for `pypilot==0.70` while `pip list` reports 0.56, and both
+`pypilot-0.56.egg-info` and `pypilot-0.70.egg-info` are present. The code that
+actually runs is the 0.56 tree. Not touched.
+
+### Journal growth, measured properly
+
+The pypilot_web flood was logging under **uid 1000** (the unit runs
+`User=pi`), so it went to `user-1000.journal`, not the system journal. That is
+why user-1000 files were 1.22 GB against system's 607 MB, and it means the
+system-journal rate was never contaminated by it.
+
+Rates taken byte-exact from `journalctl --file … --header` on consecutive
+archived files rather than sampled:
+
+- system: 71,751,304 B over 17h54m34s = **96.2 MB/day**; 72,684,120 B over
+  17h43m58s = **98.4 MB/day**.
+- user-1000, pre-fix: 134.2 MB over the same 17h44m window = **181.6 MB/day**,
+  now gone (78 user entries in the first hour of this boot).
+- Pre-fix total ≈ 278 MB/day; post-fix ≈ 96–98 MB/day.
+
+A 300 s per-unit line count agrees on the shape: 204 lines/min, of which
+`openplotter-i2c-read.service` plus the `init.scope` lines from its restart
+loop are 66%, `tailscaled` 12% (that is the measuring ssh session logging its
+own commands — the known trap), and `pypilot_web` does not appear at all.
+
+Mark picked **1G** from 256M/500M/1G/2G priced in days of retained history.
+`host/journald-symphony.conf` → `/etc/systemd/journald.conf.d/symphony.conf`,
+with `systemd-journald` added to install.sh's RESTART list because journald
+rereads that file only on restart. Applied: `journalctl --disk-usage` 1.4G →
+991.7M, root fs 76% → 74%, and signalk/caddy/pypilot/pypilot_web plus all four
+containers still up across the bounce.
+
+The floor is structural. `openplotter-i2c-read.service` is `Restart=always` /
+`RestartSec=3` around a program that exits cleanly — OpenPlotter's i2c polling
+loop implemented as a systemd restart loop, ~13.9/min forever. It is how the
+BME680 and the other i2c sensors are read, so the cap is the only lever
+available. If the open "BME680 sensor ownership" card ever moves that job to
+the dedicated plugin, the rate drops ~88% and 1G buys months instead of days.
+
+## 2026-09-02 — pypilot containerization PoC (PR #37)
+
+Asked for a docker-compose file for pypilot as a HALOS-migration proof of
+concept, with research first and repeatability steps.
+
+Research was done against the running boat rather than from memory: read-only
+ssh established that the autopilot aboard is an MPU9250 on I2C bus 1 with a
+live heading, no motor controller and no serial devices at all, seven
+processes at ~130 MB RSS, and that the SignalK plugin talks to it at
+`localhost:8000`. That narrowed the container problem to one device node and
+one state directory.
+
+Built and verified on the amd64 dev box only. Three traps were found by
+running it, not by reading about it: the git-URL install ships the SWIG `.so`
+without its Python wrapper (daemon dies immediately), `RTIMULib.ini` is read
+from the working directory rather than `~/.pypilot`, and `SCHED_FIFO` needs
+`cap_add: SYS_NICE` *and* an `rtprio` ulimit — verified both ways, by log line
+and by `chrt -p` inside the container.
+
+Did not touch the bench HALOS card: `halo-card-swap-repeatability` and
+`ansible-symphony-halos` sessions were both active, and the arm64 build plus
+the real-IMU path are a separate bench session, carded on the board.
+
+Open call for Mark, put to him at wrap-up: whether the bench Pi has an IMU
+wired for that test, and whether the containerized pypilot is meant to be
+part of the swap-day trial or stays a PoC until after it.
+
+## 2026-09-02 — ansible/ built from the HALOS plan-v1 as-built
+
+Ported the Base OS, Network, Host services and SignalK container layers of
+`halos-build-v1-asbuilt.md` into nine Ansible roles and converged them against
+`symphony-halos` over Tailscale. Step-by-step record in
+[halos-build-v2-asbuilt.md](halos-build-v2-asbuilt.md); this file carries only
+what that one does not.
+
+**The acceptance evidence.** Two `--check --diff` passes, then four converges.
+Runs 3 and 4 both came back `ok=60 changed=0 failed=0`, and
+`scripts/halos_preflight.sh` returned every line `ok` afterwards — 337 MB
+available, the same twelve `ok` lines as before the session started. Nothing
+about the pre-swap baseline moved.
+
+Mark chose "full converge now" over the recommended check-only when asked up
+front. That was the right call in hindsight: three of the four defects below
+were only reachable by actually writing to the card.
+
+**Four defects, and where each was caught.**
+
+1. `--check` pass 1: `lineinfile` keyed on `item.split('=')[0]` made all three
+   `dtparam=` lines in `config.txt` look like one setting, so each loop item
+   overwrote the previous item's line. `dtparam` is a namespace, not a key.
+   A check-mode diff showed it directly; nothing else would have, because the
+   end state after a full loop is still *a* valid config.txt.
+2. `--check` pass 1: read-only verification commands are skipped in check mode,
+   so the assertions downstream of them had nothing to read. Fixed with
+   `check_mode: false`, which also makes `--check` usable as a card audit.
+3. Converge 3: `.git/refs/heads/claude/`, the pack files and `.git/config` on
+   the card were root-owned, left by a `sudo git` during the v1 build, so `pi`
+   could not create a branch. Git reports this as a lock file it cannot create,
+   which reads like a stale lock. Cost most of an hour before the ownership was
+   visible. Now repaired by `roles/repo` rather than by hand.
+4. Converge 2: one task still changed on every run — `/etc/boat-heartbeat.json`,
+   because `host/install.sh` on the card (from `main`) predated the `keep` flag
+   and rewrote it each time for Ansible to rewrite back. Visible only because
+   the run was repeated; a single converge looks clean.
+
+**Self-correction.** The first attempt at converge 3 left the card's index
+partially staged. `git reset --hard` on it was denied by the user-scope hook —
+correctly; the redirect was better. The staged tree was preserved as a commit on
+a local branch `salvage/ansible-partial-checkout` rather than discarded, and the
+card is back on a clean `main`. That branch is carded for deletion.
+
+**One deliberate deviation from the card's current bytes.**
+`roles/identity/files/halos-hostnames.conf` carries HALOS's vendor comment
+header verbatim, so a HALOS update to that header gets re-asserted away on the
+next converge. The alternative was markers inside a file HALOS parses. The
+header is entirely comments, so the cost is cosmetic — but it is a pin, and it
+is worth knowing it is there.
+
+**Scope held.** Steps 31–42 (SignalK state) stayed a documented procedure, per
+the brief and per `reference/host_provisioning.md`. Steps 43–47 were left out
+because the brief named four layers; the one `[artifact]` among them, the
+Traefik router file, is carded.
+### Same session, follow-up — containerized pypilot proven on arm64
+
+Mark decided pypilot goes in a container on HALOS, superseding plan B4d's
+native `pip install` recipe. He then wired an IMU to the bench Pi, which made
+three of PR #37's four unknowns testable at home in one sitting.
+
+Sequence on `symphony-halos`, with `grafana`, `questdb`, `homarr` and
+`signalk-server` stopped to free memory (1029 MB available at the start of the
+build) and all four restarted and healthy afterwards:
+
+- **arm64 build: 416 s, exit 0** on the 2 GB Pi 4. Not marginal — it did not
+  OOM and did not need the swap headroom I expected it to.
+- **i2c passthrough: closed.** Host probe of `/dev/i2c-1` returned
+  `['0x48','0x68']`; the same probe inside a container run with
+  `--device /dev/i2c-1` returned the same two addresses. Device mapping works
+  on arm64 against real hardware.
+- **pypilot drives the IMU from inside the container.** `ICM-20948 init
+  complete`, `IMU all sensor axes verified`, `imu rate set to rate 20`,
+  `calibration loaded`, and the calibration written into the mounted volume.
+  zeroconf enumerated the host's interfaces including the docker bridges,
+  exactly as PR #37's compose comments describe.
+- **`pypilot_web` returns 200** in the container.
+
+**A correction to what I told Mark earlier this session.** I predicted the
+container would avoid the `allow_unsafe_werkzeug` crash by not having gevent
+installed, so Flask-SocketIO would fall to its `threading` branch — the one
+branch that consumes the kwarg. Wrong. The container logs `async mode gevent`
+and has gevent 26.8.0; it works because **Flask-SocketIO 5.6.1 fixed the bug**,
+where the boat's Debian-packaged 5.3.2 has it. The conclusion (the container is
+unaffected, `host/pypilot-web` is native-only) held, but the mechanism I gave
+was not the real one.
+
+**The gap that remains is a hardware mismatch, and it is worth being precise
+about.** The bench IMU is an **ICM-20948**; the boat's is an **MPU9250**. Both
+answer at 0x68 and RTIMULib supports both, so this is likely fine — but it is
+not the same chip, and "pypilot initialized the bench IMU" is not evidence
+about the boat's. Untested alongside it: whether pypilot master (0.71) reads
+the boat's 0.56 `~/.pypilot` state. That is the one with teeth, because a
+format mismatch loses the compass calibration silently rather than loudly.
+
+Left on the bench card deliberately: image `symphony/pypilot:test` and
+`/home/pi/pypilot-build/` (Dockerfile plus a `data/` volume). Rebuilding is
+seven minutes if a future session finds them gone.
+
+Also this session: PR #37 was `CONFLICTING`; merged main into it rather than
+rebasing, so no history was rewritten on another session's branch. Its kanban
+hunk now nets to zero and the card lives on main as its own commit — Mark's
+rule, no code mixed with kanban. Both log files were unioned, not chosen
+between. PR is `MERGEABLE` with twelve checks green.

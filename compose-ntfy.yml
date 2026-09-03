@@ -12,6 +12,18 @@ services:
       - NTFY_AUTH_DEFAULT_ACCESS=read-write   # LAN is the trust boundary, same posture as the rest of the stack -- see reference/security_posture.md
     volumes:
       - ntfy-data:/var/lib/ntfy
+    # See the long note in compose-questdb.yml: `unless-stopped` catches an
+    # exit, not a hang. `/v1/health` is ntfy's own readiness endpoint and
+    # answers from the request path, so a wedged server fails it.
+    # busybox wget is what the image has; there is no curl.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -T 8 -O /dev/null http://127.0.0.1/v1/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    labels:
+      autoheal: "true"
     ports:
       - "8090:80"
     networks:

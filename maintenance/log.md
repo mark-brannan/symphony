@@ -340,6 +340,11 @@
   been re-run there. Re-rendered and recreated the `dex` container (the only
   one on that host consuming a rotated secret); native SignalK and the
   desktop's grafana/influxdb were unaffected.
+- Boat Pi rebooted with `cgroup_enable=memory cgroup_memory=1` on the kernel
+  command line, so container memory limits are enforced. QuestDB now holds to
+  its 768 MB cap.
+- Grafana's provisioned dashboards ported from InfluxDB Flux to QuestDB SQL,
+  and a true-heading panel added.
 
 ## 2026-08-21
 - Redeployed signalk-plugin-watchdog to the boat; the code had been silently
@@ -371,3 +376,33 @@
 - Fixed bt-sensors-plugin-sk so sensor data resumes after a D-Bus drop
   without a SignalK restart; verified on the boat, pushed to the fork and
   upstream PR #189.
+
+## 2026-09-02
+- Landed the HALOS card-swap procedure, its check scripts and the host
+  override files (PR #33). The bench card passed every preflight check
+  after a reboot with the full stack running.
+- Fixed the pypilot web UI on the boat Pi and re-enabled it; it had been
+  serving nothing while flooding the journal at 720 lines/min since before
+  it was disabled earlier the same day.
+- Capped the boat Pi's journal at 1 GB, about ten days of history at its
+  measured rate. Journal 1.4 GB to 992 MB, root filesystem 76% to 74%.
+- Added a containerized pypilot proof of concept: an image built from
+  pinned upstream source, compose files for the boat and the dev box, and a
+  runbook procedure. Built and run on the dev box only; the boat still runs
+  pypilot natively.
+- Built `ansible/` for the HALOS card: nine roles covering boot config, `can0`,
+  wifi and hostname identity, packages, host files and the SignalK container
+  overrides. Converged against `symphony-halos`; two consecutive runs at zero
+  changes, preflight all `ok`. Each card now writes its own heartbeat check
+  URL, which `host/install.sh` used to overwrite.
+- Proved the containerized pypilot on the bench Pi: builds on arm64 in seven
+  minutes, reaches the i2c bus from inside the container, drives a real IMU
+  and serves its web UI. Still to check against the boat's own IMU and its
+  existing autopilot settings.
+- Confirmed the containerized pypilot against the boat's own hardware and
+  settings: it read the boat's autopilot state and IMU calibration without
+  changes and drove the boat's actual compass sensor correctly. The boat
+  still runs pypilot natively; nothing has switched over.
+- Cut the boat over from native to containerized pypilot. Native disabled;
+  the container uses well under half the memory (134 MB vs. 321 MB,
+  measured on the same host back to back).

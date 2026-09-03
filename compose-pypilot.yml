@@ -1,0 +1,72 @@
+# pypilot -- autopilot daemon (:23322, NMEA :20220) and its web UI (:8000).
+#
+# Profile-gated: `docker compose up` never starts these. Bring them up with
+#   docker compose --profile pypilot up -d --build pypilot pypilot-web
+# Host networking and /dev/i2c-1 make this file boat-shaped; the dev box has
+# neither an IMU nor a reason to run it. For a bridge-networked build/run on a
+# laptop see dev/compose-pypilot-dev.yml.
+#
+# Why host networking, not a bridge:
+#   - pypilot finds SignalK by browsing mDNS (_http._tcp) and advertises
+#     itself the same way for OpenCPN et al. Neither crosses a bridge.
+#   - The SignalK autopilot-provider plugin is configured with host
+#     "localhost", port 8000 (verified on the boat). SignalK is host-network
+#     under HALOS, so host-network pypilot keeps that config working
+#     unchanged.
+#   - pypilot's zeroconf registration enumerates /sys/class/net and would
+#     advertise the bridge address, which nothing on the LAN can reach.
+# The bridge alternative is workable but needs both sides re-pointed: set the
+# pypilot property signalk.host to the SignalK host:port, and change the
+# plugin's host from localhost to the container/host address.
+
+services:
+  pypilot:
+    profiles: ["pypilot"]
+    build: ./pypilot
+    image: symphony/pypilot:local
+    container_name: pypilot
+    restart: unless-stopped
+    network_mode: host
+    # The IMU. Bus 1 is the Pi's user I2C header; override the host side for
+    # other hardware. The container side stays /dev/i2c-1 — that's what
+    # RTIMULib.ini's I2CBus=1 actually opens inside the container, regardless
+    # of which host device it's bound from.
+    devices:
+      - "${PYPILOT_I2C_DEV:-/dev/i2c-1}:/dev/i2c-1"
+    # Runs as root so it can open the i2c device without matching the host's
+    # i2c gid, which differs per image (988 on HALOS, per host/halos/README.md).
+    # Consequence: files in ./pypilot/data are root-owned on the host.
+    volumes:
+      - ./pypilot/data:/root/.pypilot
+    # pypilot puts its control loop on SCHED_FIFO via `sudo -n chrt -f`.
+    # Both of these are needed: the capability to change policy, and an
+    # rtprio ulimit above 0, which Docker otherwise leaves at 0 and which
+    # blocks SCHED_FIFO even for root. Verified: with both, the daemon logs
+    # "made imu process realtime" and its two processes show SCHED_FIFO
+    # priority 1 and 2; with neither, "failed to make autopilot process
+    # realtime" and everything stays SCHED_OTHER.
+    cap_add:
+      - SYS_NICE
+    ulimits:
+      rtprio: 99
+
+  pypilot-web:
+    profiles: ["pypilot"]
+    build: ./pypilot
+    image: symphony/pypilot:local
+    container_name: pypilot-web
+    restart: unless-stopped
+    network_mode: host
+    command: ["pypilot_web", "8000"]
+    # Same volume: pypilot_web reads pypilot_client.conf and web.conf from it.
+    volumes:
+      - ./pypilot/data:/root/.pypilot
+    depends_on:
+      - pypilot
+    healthcheck:
+      # No curl in the image on purpose; python is already there.
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000',timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3

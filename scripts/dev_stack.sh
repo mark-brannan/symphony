@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Brings up InfluxDB and Grafana locally, seeds synthetic vessel data, and
-# checks that every provisioned panel draws something. One command to see the
-# dashboards without being aboard.
+# Brings up QuestDB, InfluxDB and Grafana locally, seeds synthetic vessel
+# data into both, and checks that every provisioned panel draws something.
+# One command to see the dashboards without being aboard.
+#
+# The dashboards read QuestDB; InfluxDB is still seeded because the boat's
+# own bucket is still there for ad-hoc Flux exploration, and the two seeders
+# share their value ranges.
 #
 #   scripts/dev_stack.sh up       # start, seed, verify
 #   scripts/dev_stack.sh verify   # re-run the panel check only
@@ -14,15 +18,16 @@
 # If .env already exists this script leaves it alone and assumes it is
 # already pointed somewhere sensible.
 #
-# Only starts influxdb and grafana. The signalk, caddy and dex services in
-# docker-compose.yml are not needed to look at a dashboard, and signalk in
-# particular wants hardware this machine does not have.
+# Only starts questdb, influxdb and grafana. The signalk, caddy and dex
+# services in docker-compose.yml are not needed to look at a dashboard, and
+# signalk in particular wants hardware this machine does not have.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 GRAFANA_URL="${GRAFANA_URL:-http://localhost:3001}"
 INFLUX_URL_LOCAL="${INFLUX_URL_LOCAL:-http://localhost:8086}"
+QUESTDB_URL_LOCAL="${QUESTDB_URL_LOCAL:-http://localhost:9000}"
 DEV_TOKEN="dev-token-not-a-secret-0123456789"
 DEV_ADMIN_PASSWORD="devadmin"
 
@@ -52,6 +57,14 @@ write_env_if_absent() {
 		TELEGRAF_INFLUX_TOKEN=${DEV_TOKEN}
 		TELEGRAF_INFLUX_ORG=symphony
 		TELEGRAF_INFLUX_BUCKET=telegraf
+
+		# QuestDB's shipped PGWire defaults; compose-questdb.yml overrides
+		# neither. Grafana reaches it over symphony-net, not the published
+		# loopback port.
+		QUESTDB_HOST=questdb
+		QUESTDB_PORT=8812
+		QUESTDB_USER=admin
+		QUESTDB_PASSWORD=quest
 
 		GF_SECURITY_ADMIN_USER=admin
 		GF_SECURITY_ADMIN_PASSWORD=${DEV_ADMIN_PASSWORD}
@@ -92,14 +105,28 @@ password_from_env() {
 cmd_up() {
 	write_env_if_absent
 	python3 scripts/build_dashboards.py
-	docker compose up -d influxdb grafana
-	wait_for InfluxDB "${INFLUX_URL_LOCAL}/health"
-	wait_for Grafana "${GRAFANA_URL}/api/health"
-	cmd_seed
-	cmd_verify
+	docker compose up -d questdb influxdb grafana
+
+	# Every step below reports its own failure and then carries on, so that
+	# the Grafana URL still gets printed: a stack that is up with one panel
+	# empty is worth opening, and the exit status carries the bad news.
+	local failed=0
+
+	# /exec, not /status: QuestDB serves /status, /health and /metrics only
+	# on its separate "min" server (9003), which compose-questdb.yml does not
+	# publish. Measured on the pinned digest (QuestDB 10.0.0) -- /status on
+	# 9000 is a 404, which curl -f treats as down, so this waited out the
+	# full timeout and then aborted `up`.
+	wait_for QuestDB "${QUESTDB_URL_LOCAL}/exec?query=select+1" || failed=1
+	wait_for InfluxDB "${INFLUX_URL_LOCAL}/health" || failed=1
+	wait_for Grafana "${GRAFANA_URL}/api/health" || failed=1
+	cmd_seed || { echo "seeding did not complete -- see above"; failed=1; }
+	cmd_verify || { echo "panel check did not pass -- see above"; failed=1; }
+
 	echo
 	echo "Grafana:  ${GRAFANA_URL}   admin / $(password_from_env)"
 	echo "Dashboards are in the 'Marine' folder."
+	return "$failed"
 }
 
 cmd_seed() {
@@ -110,6 +137,7 @@ cmd_seed() {
 		--url "${INFLUX_URL_LOCAL}" \
 		--token "$(token_from_env)" \
 		--org symphony
+	python3 scripts/seed_dev_questdb.py --url "${QUESTDB_URL_LOCAL}"
 }
 
 cmd_verify() {

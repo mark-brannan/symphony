@@ -1,0 +1,76 @@
+# as-built v1 steps 12-15, 17: what the card calls itself, which decides the
+# device certificate's SANs and the OIDC issuer, so nothing here is cosmetic.
+
+- name: step 12 | hostname
+  ansible.builtin.hostname:
+    name: "{{ symphony_hostname }}"
+  notify: re-derive the HALOS domain
+
+- name: step 13 | the 127.0.1.1 line carries the FQDN first, then the short name
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\b'
+    line: "127.0.1.1 {{ symphony_hostname }}.{{ boat_domain }} {{ symphony_hostname }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: re-derive the HALOS domain
+  # FQDN first is what makes `hostname -d` answer, which is step 1 of HALOS's
+  # domain resolution chain and therefore where ${domain} and ${fqdn} below
+  # get their values. Short name first and the whole chain falls through to
+  # DHCP option 15.
+
+- name: step 14 | HALOS hostname list
+  ansible.builtin.copy:
+    src: halos-hostnames.conf
+    dest: /etc/halos/hostnames.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: re-derive the HALOS domain
+  # Copied whole, vendor comment header included, because the file is a dpkg
+  # conffile: owning only the active lines would mean either markers in a file
+  # HALOS parses or a rewrite that drops its documentation. The active tail is
+  # ${fqdn} / ${hostname}.local / ${domain}, in that order -- the first entry
+  # is canonical and becomes the OIDC issuer.
+
+- name: step 15 | apply the identity change before verifying it
+  ansible.builtin.meta: flush_handlers
+
+- name: step 17 | HALOS resolved the domain
+  ansible.builtin.slurp:
+    src: /run/halos/domain.env
+  register: halos_domain_env
+  tags: [verify]
+
+- name: step 17 | the resolved domain is this card's FQDN
+  ansible.builtin.assert:
+    that:
+      - "'HALOS_DOMAIN=' ~ symphony_hostname ~ '.' ~ boat_domain in (halos_domain_env.content | b64decode)"
+    fail_msg: >-
+      /run/halos/domain.env does not name this card. The certificate will carry
+      the wrong SANs and SSO will fail on the name people actually type.
+  tags: [verify]
+
+- name: step 17 | device certificate SANs
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    openssl s_client -connect 127.0.0.1:443 </dev/null 2>/dev/null
+    | openssl x509 -noout -ext subjectAltName
+  args:
+    executable: /bin/bash
+  register: cert_sans
+  changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
+  tags: [verify]
+
+- name: step 17 | the certificate covers all three names
+  ansible.builtin.assert:
+    that:
+      - "symphony_hostname ~ '.local' in cert_sans.stdout"
+      - "symphony_hostname ~ '.' ~ boat_domain in cert_sans.stdout"
+      - "boat_domain in cert_sans.stdout"
+    success_msg: "device cert SANs cover .local, the FQDN and the apex"
+  tags: [verify]

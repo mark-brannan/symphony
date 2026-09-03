@@ -1,0 +1,84 @@
+# as-built v1 steps 27-30: the two override files that make the containerised
+# SignalK survive its own cold start and see the i2c bus.
+#
+# Both source files stay in host/halos/ rather than being copied into this
+# role: they are the documented hand-install artefacts (host/halos/README.md)
+# and duplicating them here would give the repo two versions of a file whose
+# failure mode is silence. This role is now the thing that places them --
+# replacing "place them by hand" in that README.
+
+- name: step 27 | compose override -- healthcheck window and the i2c group
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/halos/signalk-healthcheck-override.yml"
+    dest: /etc/container-apps/marine-signalk-server-container/symphony.override.yml
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart the SignalK container unit
+  # HALOS owns and rewrites its own compose file on `apt upgrade`; Symphony's
+  # changes live in an override it never touches. Two settings, both of which
+  # fail silently when absent: a 900 s start window (stock is 60 s, this plugin
+  # set cold-starts in 3-4 min, and autoheal was restarting it every ~3 min in
+  # an unbreakable loop), and host gid 988, without which the container cannot
+  # open /dev/i2c-1 and the BME680 tree just stays empty.
+
+- name: step 28 | systemd drop-in that puts the override on the compose command line
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/halos/signalk-unit-override.conf"
+    dest: /etc/systemd/system/marine-signalk-server-container.service.d/symphony.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart the SignalK container unit
+  # The override file above does nothing on its own -- HALOS's unit does not
+  # know about it. This is the half that wires it in.
+
+- name: step 29 | apply the overrides before verifying them
+  ansible.builtin.meta: flush_handlers
+
+- name: step 30 | the container can open the i2c bus
+  ansible.builtin.command:
+    argv: [docker, exec, signalk-server, python3, -c, "open('/dev/i2c-1')"]
+  register: i2c_open
+  changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
+  failed_when: false
+  tags: [verify]
+
+- name: step 30 | group_add that actually took effect
+  ansible.builtin.command: >-
+    docker inspect signalk-server --format {% raw %}'{{json .HostConfig.GroupAdd}}'{% endraw %}
+  register: sk_group_add
+  changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
+  tags: [verify]
+
+- name: step 30 | healthcheck that actually took effect
+  ansible.builtin.command: >-
+    docker inspect signalk-server --format {% raw %}'{{json .Config.Healthcheck}}'{% endraw %}
+  register: sk_healthcheck
+  changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
+  tags: [verify]
+
+- name: step 30 | both overrides are live
+  ansible.builtin.assert:
+    that:
+      - i2c_open.rc == 0
+      - "'988' in sk_group_add.stdout"
+      - "'900000000000' in sk_healthcheck.stdout"
+    fail_msg: >-
+      i2c open rc={{ i2c_open.rc }}; GroupAdd={{ sk_group_add.stdout }};
+      Healthcheck={{ sk_healthcheck.stdout }}. Expected a silent open,
+      gid 988 in GroupAdd, and StartPeriod 900s.
+    success_msg: "i2c reachable in-container; gid 988 present; 900 s start window"
+  tags: [verify]
+  # Checked explicitly because both settings fail silently: without gid 988 the
+  # sensor tree is empty, which is indistinguishable from the normal ~10 minute
+  # post-restart burn-in, and the only log line is "devices config is missing".

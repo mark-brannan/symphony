@@ -1,0 +1,99 @@
+# as-built v1 steps 2-4, 8: firmware config, kernel cmdline, kernel modules.
+# Everything here needs a reboot to take effect, so the role runs first, flushes
+# its own reboot handler, and only then checks the running kernel.
+
+- name: "step 2 | firmware config has the [all] section"
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    line: "[all]"
+    regexp: '^\[all\]\s*$'
+    state: present
+  # Raspberry Pi OS ships [all] already; a card that somehow lacks it would
+  # otherwise get every setting below appended under whatever section is last.
+
+- name: step 2 | firmware parameters
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    # Matched by key, so a commented-out or differently-valued line is REPLACED
+    # rather than duplicated. config.txt takes the last value it sees, so a
+    # duplicate is not untidy, it is the setting that wins.
+    #
+    # rsplit, not split: `dtparam` is a namespace, not a key -- splitting on the
+    # FIRST `=` makes all three dtparam lines look like the same setting, and
+    # each loop item then overwrites the previous one's line.
+    regexp: "^#?\\s*{{ item.rsplit('=', 1)[0] | regex_escape }}\\s*="
+    line: "{{ item }}"
+    insertafter: '^\[all\]'
+  loop:
+    - dtparam=i2c_arm=on
+    - dtparam=spi=on
+    - enable_uart=1
+  notify: reboot the card
+
+- name: step 2 | device tree overlays
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    # Two dtoverlay lines are two different overlays, not one setting written
+    # twice, so these anchor on the overlay NAME rather than on `dtoverlay`.
+    regexp: "^#?\\s*dtoverlay={{ item.split('=')[1].split(',')[0] | regex_escape }}\\b"
+    line: "{{ item }}"
+    insertafter: '^\[all\]'
+  loop:
+    - dtoverlay=mcp2515-can0,oscillator=16000000,interrupt=25
+    - dtoverlay=spi-bcm2835-overlay
+  notify: reboot the card
+
+- name: step 3 | wifi regulatory domain is US, not the image default
+  ansible.builtin.replace:
+    path: /boot/firmware/cmdline.txt
+    regexp: 'cfg80211\.ieee80211_regdom=\S+'
+    replace: cfg80211.ieee80211_regdom=US
+  notify: reboot the card
+
+# cmdline.txt is ONE line: a parameter is added by appending to that line, never
+# by adding a line. The negative lookahead is what makes each append idempotent.
+- name: step 3 | kernel cmdline carries the memory cgroup and the regdom
+  ansible.builtin.replace:
+    path: /boot/firmware/cmdline.txt
+    regexp: "^(?!.*{{ item | regex_escape }})(.+?)[ \\t]*$"
+    replace: '\1 {{ item }}'
+  loop:
+    - cgroup_enable=memory
+    - cgroup_memory=1
+    - cfg80211.ieee80211_regdom=US
+  notify: reboot the card
+  # Without cgroup_enable=memory the kernel has no memory controller: docker
+  # runs every container without its mem_limit and QuestDB's 768m cap is a
+  # comment rather than a limit. It fails quietly -- nothing warns.
+
+- name: step 4 | i2c-dev loads at boot
+  ansible.builtin.copy:
+    content: "i2c-dev\n"
+    dest: /etc/modules-load.d/i2c-dev.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reboot the card
+  # /dev/i2c-1 does not exist without this, and its absence is indistinguishable
+  # from a sensor that has stopped answering.
+
+# Take the reboot now rather than at the end of the play: every later role
+# assumes /dev/i2c-1, /dev/serial0 and the memory cgroup exist.
+- name: step 8 | apply pending boot changes
+  ansible.builtin.meta: flush_handlers
+
+- name: step 8 | the RUNNING kernel has the devices and settings
+  ansible.builtin.shell: |
+    set -e
+    test -e /dev/serial0
+    test -e /dev/i2c-1
+    grep -qw memory /sys/fs/cgroup/cgroup.controllers
+    grep -q 'cfg80211.ieee80211_regdom=US' /proc/cmdline
+  changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
+  # Deliberately reads /proc and /dev, not the files written above: those are
+  # what the NEXT boot will use, these are what this one got. Running with
+  # symphony_allow_reboot=false after a firmware change fails here, correctly.
+  tags: [verify]

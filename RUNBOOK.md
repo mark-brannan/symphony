@@ -22,10 +22,17 @@ logged in `maintenance/log.md`.
 
 **Building and maintaining the host**
 - [Bringing up a host](#bringing-up-a-host)
+- [Provisioning a HALOS card with Ansible](#provisioning-a-halos-card-with-ansible)
 - [Installing host files](#installing-host-files)
 - [Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat)
+- [Container liveness — healthchecks and autoheal](#container-liveness--healthchecks-and-autoheal)
+- [Swapping the HALOS card onto the boat](#swapping-the-halos-card-onto-the-boat)
 - [Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi)
+- [Starting a desktop on the boat Pi on demand](#starting-a-desktop-on-the-boat-pi-on-demand)
 - [Upgrading the scanners](#upgrading-the-scanners)
+
+**Running the autopilot**
+- [pypilot in a container](#pypilot-in-a-container)
 
 **Secrets and encryption**
 - [Adding a secret](#adding-a-secret)
@@ -44,6 +51,7 @@ logged in `maintenance/log.md`.
 - [Upgrading Signalk on the boat Pi](#upgrading-signalk-on-the-boat-pi)
 - [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi)
 - [SignalK's NMEA 2000 input](#signalks-nmea-2000-input)
+- [A fake `can0` for testing off the boat](#a-fake-can0-for-testing-off-the-boat)
 - [Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
 - [Testing the DSC / AIS distress receive chain](#testing-the-dsc--ais-distress-receive-chain)
 
@@ -135,7 +143,8 @@ ssh pi@halos-pi4
 ```
 
 *Verify:* `tailscale status` lists `halos-pi4`, and the command above
-connects.
+connects. The swap procedure below renames the node `symphony-halos`; after
+that step use `ssh pi@symphony-halos` instead, at home or aboard.
 
 Its apps sit behind HaLOS's own Traefik reverse proxy rather than bare ports
 — check `/etc/halos/port-registry` on the box for the current map (SignalK
@@ -455,6 +464,103 @@ before running it:
 
 ---
 
+## Provisioning a HALOS card with Ansible
+
+Builds a HALOS card's host layer: boot config, `can0`, wifi and hostname,
+packages, host files, and the SignalK container overrides. Not SignalK's plugin
+tree, not container application config, not the age key or the git filters — see
+[reference/host_provisioning.md](reference/host_provisioning.md) for where the
+line is and why.
+
+Run from a laptop over Tailscale, not from the card.
+
+### Before the first run
+
+On the control machine:
+
+```bash
+sudo apt install ansible
+ansible-galaxy collection list community.sops community.general
+```
+
+You also need `sops` on `PATH`, the age key at `~/.config/sops/age/keys.txt`,
+Tailscale up, and ssh to `pi@symphony-halos` on a key. The playbook reads
+`secrets/symphony.sops.yaml` on the *control* machine; nothing is installed on
+the card.
+
+On the card, wire the git filters once — Ansible warns about their absence but
+will not fix it, because the age key has to arrive out of band:
+
+```bash
+ssh pi@symphony-halos 'cd /home/pi/symphony && bash scripts/setup-git-filters.sh'
+```
+
+### Run it
+
+```bash
+cd ansible && ansible-playbook site.yml
+```
+
+Useful variants:
+
+```bash
+ansible-playbook site.yml --check --diff
+```
+
+```bash
+ansible-playbook site.yml --tags verify
+```
+
+```bash
+ansible-playbook site.yml -e symphony_allow_reboot=false
+```
+
+`--check --diff` changes nothing and prints every drift line; the read-only
+verification tasks still run under it. `--tags verify` audits a card without
+touching it. `symphony_allow_reboot=false` turns a needed reboot into a warning
+— use it on a card carrying live data, and reboot it yourself afterwards, or the
+running kernel stays behind `/boot/firmware`.
+
+To converge a card against work that has not landed yet:
+
+```bash
+ansible-playbook site.yml -e symphony_repo_version=claude/some-branch
+```
+
+### Verify
+
+Run it twice. The second run is the test:
+
+```bash
+cd ansible && ansible-playbook site.yml
+```
+
+`changed=0 failed=0` is the pass. Anything still changing on a second run is a
+task that is not idempotent, not a card that keeps drifting.
+
+Then, from a tailnet machine with sops access:
+
+```bash
+scripts/halos_preflight.sh
+```
+
+Every line must read `ok`.
+
+### Existing cards
+
+The card is never a fresh clone. Two traps on a card built before this playbook:
+
+- **A `sudo git` in its past.** Root-owned refs under
+  `/home/pi/symphony/.git/refs/` stop `pi` creating branches, and git reports it
+  as a lock file it cannot create rather than as an ownership problem. The
+  playbook repairs this; nothing else does.
+- **`/etc/boat-heartbeat.json` may hold the *other* card's check URL,** if that
+  card ran `host/install.sh` more recently. The playbook rewrites it from
+  `heartbeat_url` in that host's vars. Confirm which check a card pings before
+  assuming its silence means it is down.
+
+---
+
 ## Installing host files
 
 `host/` holds files that live on the machine rather than in a container —
@@ -470,6 +576,31 @@ It's idempotent, and it prints what it installed plus the resulting root
 crontab. Re-run it after any change under `host/`; it rewrites only the cron
 entries pointing at paths it installs and leaves everything else in that
 crontab alone.
+
+It only runs on a boat card. It checks three things — systemd is booted, the
+`pi` user exists, `uname -m` is `aarch64`/`armv7l`/`armv6l` — and if any fails
+it names every one that failed, installs nothing, and exits 1. From an x86_64
+WSL2 box with systemd enabled and no `pi` user, two of the three:
+
+```
+install.sh: this does not look like a boat card -- user-pi(absent) arch(x86_64, not a Pi)
+install.sh: refusing. SYMPHONY_INSTALL_FORCE=1 to override.
+```
+
+Expect a longer list elsewhere — a Mac or a container without systemd as PID 1
+adds `systemd(not booted with it)`, and an Apple Silicon Mac still fails the
+arch check, since `uname -m` there is `arm64` rather than `aarch64`. Refusing
+is the right answer on all of them. Don't reach for the override to get past
+it: this writes root-owned files into `/usr/local/sbin`, `/etc/systemd`,
+`/etc/apt` and `/home/pi`, enables timers, and rewrites the root crontab of
+whatever machine it is run on.
+
+```bash
+sudo SYMPHONY_INSTALL_FORCE=1 host/install.sh
+```
+
+is for a host that really is a target but fails a check — a card whose
+`pi` user has been renamed, say.
 
 To add a file, drop it in `host/` and add a line to `INSTALL` (and `CRON` if
 it needs scheduling) at the top of `host/install.sh`.
@@ -554,6 +685,120 @@ journalctl -t nightly-reboot --since yesterday
 
 ---
 
+## Container liveness — healthchecks and autoheal
+
+Every container in this stack carries a healthcheck, and `autoheal`
+(`compose-autoheal.yml`) restarts any that goes `unhealthy`. This exists
+because `restart: unless-stopped` fires only when a process *exits*: on
+2026-09-02 QuestDB spun at 250 % CPU for eleven hours, accepting the socket
+and never answering, while `docker ps` said `Up 12 days`.
+
+### Check the current state
+
+```bash
+ssh pi@symphony-pi 'docker ps --format "{{.Names}}\t{{.Status}}"'
+```
+
+Every line must read `(healthy)`. A container with no health word at all has
+no healthcheck — that is the failure this section exists to prevent, not a
+container that happens to be fine.
+
+If one is unhealthy, read the probe's own output before restarting anything:
+
+```bash
+ssh pi@symphony-pi 'docker inspect questdb --format "{{json .State.Health}}"' | python3 -m json.tool
+```
+
+`FailingStreak` and the last `Log` entry's `ExitCode`/`Output` say which
+probe failed and how. Curl exit 28 (timeout) against a container burning CPU
+is the wedge signature; exit 7 (refused) is an ordinary crash.
+
+What autoheal has restarted, and when:
+
+```bash
+ssh pi@symphony-pi 'docker logs autoheal --since 24h'
+```
+
+### Deploy a compose change to the boat
+
+```bash
+ssh pi@symphony-pi
+cd ~/symphony && git pull
+docker compose --profile tls up -d questdb ntfy dex autoheal
+```
+
+**Name the services explicitly.** The boat runs SignalK, InfluxDB, Grafana
+and Caddy as native systemd units, but `docker-compose.yml` `include`s a
+service for each of them. A bare `docker compose up -d` there starts
+containers that fight the native processes for ports 3000, 8086, 3001 and
+443. The same trap is spelled out for `dex` under
+[Deploy (on the boat)](#4--deploy-on-the-boat); it applies to every compose
+command run on the boat.
+
+*Verify:* the `docker ps` check above, ~90 s later, once each probe has run.
+
+### Add a healthcheck to a new service
+
+Two things, in the same block, or the service is only half covered:
+
+```yaml
+    healthcheck:
+      test: ["CMD-SHELL", "<probe>"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    labels:
+      autoheal: "true"
+```
+
+- **Probe the request path, not the port.** QuestDB's wedge kept the
+  listening socket open the whole time. `select 1` through `/exec` is what
+  catches it; `curl http://host:9000/` would not have.
+- **Check what the image actually has.** `questdb` ships `curl` and no
+  `wget`; `dex` and `ntfy` ship busybox `wget` and no `curl`.
+- **Without the `autoheal: "true"` label nothing restarts it.** Autoheal is
+  configured for label opt-in, so a healthcheck alone gets you a red word in
+  `docker ps` and no action.
+- **Set `start_period` from a measured cold start, then multiply.** Too
+  tight is the expensive mistake: a 60 s window against SignalK's 3–4 min
+  cold start had autoheal restarting it every ~3 min on the HALOS card
+  (`host/halos/signalk-healthcheck-override.yml`). Measure with:
+
+  ```bash
+  ssh pi@symphony-pi 'c=questdb; s=$(date +%s); docker restart $c >/dev/null
+    until docker exec $c curl -sf -o /dev/null "http://127.0.0.1:9000/exec?query=select%201"; do sleep 1; done
+    echo "ready after $(( $(date +%s) - s ))s"'
+  ```
+
+### Test that it actually restarts
+
+A healthcheck that has never failed is untested. Simulate the wedge —
+a spinning process that never exits — by freezing the container's process:
+
+```bash
+ssh pi@symphony-pi 'pid=$(docker inspect -f "{{.State.Pid}}" ntfy); sudo kill -STOP $pid'
+```
+
+Then watch `docker ps`. Expect `(healthy)` → `(unhealthy)` after
+`retries × interval`, then a restart by autoheal within one
+`AUTOHEAL_INTERVAL`. Measured on the boat 2026-09-02: **132 s** from the
+SIGSTOP to a healthy ntfy again. The restart clears the SIGSTOP, so there
+is nothing to undo. If you abort early, `sudo kill -CONT $pid` unfreezes it.
+
+A wedged container burns the whole stop timeout before SIGKILL, so expect
+roughly 30 s of dead air between autoheal's log line and the container
+actually coming back. That is the wait working, not a hang.
+
+Use `ntfy` for this. It is the cheapest container to interrupt; QuestDB
+loses history writes and Dex logs everyone out.
+
+### If a container flaps
+
+Repeated restarts in `docker logs autoheal` mean the probe is losing a race,
+not that the service is broken. Do not tighten anything — raise
+`start_period` on that service, redeploy, and only then look for a fault.
+
 ## Turning on the off-boat heartbeat
 
 Armed on the boat Pi as of 2026-08-13; this is how to change it or set it up
@@ -624,6 +869,154 @@ other end is what tells you the boat went quiet.
 
 ---
 
+## Swapping the HALOS card onto the boat
+
+Puts the HALOS card into the boat Pi for a live trial; the boat card comes
+home as the rollback. The card is built per
+`intermediate_files/claude_slop/halos-swap-plan.md`; what was actually done
+and measured is in `halos-swap-execution-2026-09-02.md` next to it. The Pi is
+powered from the NMEA 2000 bus, so "power off" means unplugging its Micro-C.
+
+Both check scripts print one `ok`/`FAIL` line per function and exit non-zero
+on any `FAIL`. **A line that FAILs on the boat card before the swap and FAILs
+on the HALOS card after it is a boat problem, not a card problem** — the
+baseline in step 1 exists to tell those apart.
+
+### Before leaving home
+
+```bash
+scripts/halos_preflight.sh
+```
+
+Every line must be `ok`. Nothing can be fetched at the boat. The `services`
+line needs QuestDB and Grafana running on the bench Pi; on the 2 GB bench they
+run only on the zram swap and page continuously, so run the preflight and stop
+them after (`sudo systemctl stop marine-questdb-container marine-grafana-container`).
+
+```
+ok    host       signalk symphony.dark-star-llc.com signalk.symphony.dark-star-llc.com symphony-halos
+ok    boot       overlays cgroup regdom i2c-dev serial0 i2c-1
+ok    wifi       profile Symphony; hotspot Halos-AP ssid SignalK
+ok    plugins    120 loaded, 63 on; same set and states as the boat except the 4 expected-off and 3 image-only; forks pinned, D-Bus fix present
+ok    signalk    active 2.31.1 override gid988 (healthcheck override installed, i2c gid in the SignalK process)
+ok    services   8 active
+ok    staydown   avnav opencpn disabled+inactive; influxdb app absent
+ok    heartbeat  ping ok
+ok    questdb    telegraf cpu rows 53; newest signalk row 1 s old
+ok    ntfy       health 200
+ok    front      Traefik :4430 -> SignalK 200; device cert has signalk.symphony.dark-star-llc.com
+ok    mem        401 MB available, 1118 MB swap used (2 GB bench cannot hold the databases; the 4 GB boat can)
+ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x   (zone dark-star-llc.com, public answer: 100.x.x.x)   symphony-pi      100.x.x.x   <- current   symphony-halos   100.x.x.x
+```
+
+`dns_cutover.sh`'s read path (`status`) runs on every preflight. Exercise the
+write path once from home the day you go, so a dead token is found at home:
+
+```bash
+scripts/dns_cutover.sh set symphony-halos -y
+dig +short symphony.dark-star-llc.com @1.1.1.1    # the halos tailnet IP
+scripts/dns_cutover.sh set symphony-pi -y
+dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card's IP
+```
+
+Public resolvers followed within 30 s each way when this was run; allow the
+record's 300 s TTL. Off-boat access is on the bench card for that window.
+
+### At the boat
+
+1. Baseline the boat card:
+
+   ```bash
+   scripts/halos_swap_check.sh symphony-pi
+   ```
+
+   ```
+   ok    signalk    signalk 2.31.1 up=1000844s
+   ok    lan        eth0 192.168.8.240/24 can0 UP
+   ok    n2k        newest n2k-can0 value 0 s old (/navigation/attitude)
+   ok    victron    ESTAB 192.168.8.107:8883; electrical: batteries chargers inverters solar
+   ok    ble        1 of 5 configured sensors publishing voltage, newest 123 s
+   ok    heartbeat  ping ok
+   ok    ntfy       sent to symphony-alarms; check the phone
+   ok    questdb    newest signalk history row 4 s old
+   ok    devices    /dev/serial0 /dev/i2c-1
+   ok    bme680     inside: airquality gas humidity refrigerator relativeHumidity temperature
+   ok    front      https signalk.symphony.dark-star-llc.com :443 200 -> SignalK
+   ```
+
+   Keep this output. `victron` FAILs while the Cerbo is not answering on
+   port 8883, and `questdb` FAILs when the boat card's QuestDB is too loaded
+   to answer in 30 s; both are boat-side and carry over to the new card.
+
+2. Shut it down; unplug the Micro-C when the green LED stops:
+
+   ```bash
+   ssh pi@symphony-pi 'sudo shutdown -h now'
+   ```
+
+3. Swap the cards. The boat card goes in your pocket; it is the only copy of
+   the QuestDB history and `~/influx-export`.
+4. Reconnect the Micro-C. Wait five minutes: SignalK cold-starts in 3–4 min
+   with this plugin set, and the container healthcheck allows 15.
+5. Check every core function over Tailscale — this doesn't touch public DNS,
+   so it's safe to run before traffic moves:
+
+   ```bash
+   scripts/halos_swap_check.sh
+   ```
+
+   Same lines as the baseline, with `up=` small and `front` on `:4430`.
+   `ble` and `bme680` can take ten minutes after boot; rerun. A `ble` FAIL
+   after that is "BLE sensors go silent after a reboot". A `bme680` FAIL that
+   survives the ten minutes is usually not the sensor: check that the container
+   can reach the bus at all, because it cannot without the `group_add` line in
+   `host/halos/signalk-healthcheck-override.yml` being installed on the card.
+
+   ```bash
+   ssh -t pi@symphony-halos "sudo docker exec signalk-server python3 -c \"open('/dev/i2c-1')\""
+   ```
+
+   Silence is a pass. `PermissionError` means the override is missing or was
+   reverted; install it per `host/halos/README.md` and restart the unit. Don't move on to
+   DNS until every line that was `ok` in the baseline is `ok` here — a slow
+   boot otherwise moves public traffic to a node that isn't ready yet.
+
+6. Cut public DNS over (on-boat devices need nothing; the router override
+   follows the Pi's MAC):
+
+   ```bash
+   scripts/dns_cutover.sh set symphony-halos
+   ```
+
+   ```
+   A symphony.dark-star-llc.com -> 100.x.x.x. Public resolvers follow within 300 s
+   ```
+
+   Within about 35 minutes healthchecks.io reports `SignalK Symphony` late:
+   that is the boat card no longer pinging. The HALOS card pings its own
+   check, `SignalK Symphony (halos card)`. Pause the old check in the
+   healthchecks.io app, or accept the one notification.
+
+7. Phone on the boat WiFi: install the certificate from
+   `https://signalk.symphony.dark-star-llc.com/ca/`, then open
+   `https://signalk.symphony.dark-star-llc.com/`. SignalK admin at the root,
+   no certificate warning, `SignalK` in the WiFi list.
+
+### Rolling back
+
+Unplug the Micro-C, swap the boat card in, plug in, wait three minutes, then
+check readiness before moving DNS back — same order as the swap itself:
+
+```bash
+scripts/halos_swap_check.sh symphony-pi
+scripts/dns_cutover.sh set symphony-pi
+```
+
+The `(halos card)` check goes late instead of the boat one. Nothing on the
+boat card is changed by the trial.
+
+---
+
 ## Don't autostart a browser on the boat Pi
 
 > 🔴 **Critical:** Chromium started from `~/.config/autostart` renders with
@@ -644,6 +1037,56 @@ If the count is climbing, find what's driving the GPU and stop it — the
 desktop by itself doesn't touch v3d. The Freeboard entry now sits in
 `~/.config/autostart-disabled/`; its Desktop launcher still works when
 someone is actually at a screen.
+
+---
+
+## Starting a desktop on the boat Pi on demand
+
+The Pi boots to `multi-user.target` with no desktop. `labwc` busy-loops at
+~100% of a core when no display is attached, so a desktop left running costs
+a quarter of the board's CPU continuously — measured 6d7h of CPU across 12
+days uptime on 2026-09-02, and it is not wayvnc driving it: stopping wayvnc
+left labwc at 98%.
+
+RPi Connect **remote shell** works headless and needs nothing below. Only
+**screen sharing** needs a desktop, because wayvnc attaches to a live
+Wayland session. `rpi-connect-wayvnc` is therefore disabled — left enabled it
+restart-loops against a display that isn't there.
+
+To bring a desktop up:
+
+```bash
+sudo systemctl start lightdm
+sleep 20
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user start rpi-connect-wayvnc
+```
+
+Verify before reaching for the RPi Connect web UI — `screen sharing:
+allowed` alone does not mean a session exists to share:
+
+```bash
+pgrep -a -x labwc                                              # want a `labwc -m` line
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active rpi-connect-wayvnc   # want active
+```
+
+To put it away again:
+
+```bash
+XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop rpi-connect-wayvnc
+sudo systemctl stop lightdm
+pkill -u pi -x labwc
+pgrep -a -x labwc                                              # want no output
+```
+
+`systemctl stop lightdm` does **not** stop the autologin session's compositor
+— it is reparented away from lightdm at boot and survives — which is why the
+`pkill` line is there. Match on `-x labwc`, never `pkill -f '/usr/bin/labwc
+-m'`: the `-f` form matches your own ssh command line and kills your session
+before it reaches labwc.
+
+Persistence: `Linger=yes` is set for `pi`, so RPi Connect's user services
+come back on a headless boot with nobody logged in. Don't clear it — remote
+access to the boat depends on it.
 
 ---
 
@@ -669,6 +1112,143 @@ The scanners live in `secret-scan.yml`, not `validate.yml`. Nothing in
 `validate.yml` is version-pinned this way.
 
 ---
+
+## pypilot in a container
+
+Design notes and what is still unverified: `reference/pypilot_containerization.md`.
+Don't run this alongside the native pypilot install — both bind the same
+ports (8000, 20220, 23322).
+
+### Build and run it on a laptop
+
+No IMU needed. This is the check that the image still builds.
+
+```bash
+docker compose -f dev/compose-pypilot-dev.yml up -d --build
+sleep 30
+```
+
+*Verify:* `curl -s -o /dev/null -w '%{http_code}\n' localhost:18000` is 200,
+and both containers are up:
+
+```bash
+docker compose -f dev/compose-pypilot-dev.yml ps
+docker compose -f dev/compose-pypilot-dev.yml logs pypilot | grep realtime
+```
+
+The log line must read `made imu process realtime`. If it reads `failed to
+make ... realtime`, the `cap_add`/`ulimits` pair in the compose file did not
+take effect and the control loop is running at ordinary priority — the
+failure is otherwise silent. `imu.heading = False` is expected here: there is
+no IMU on a laptop.
+
+Tear down, including its data volume:
+
+```bash
+docker compose -f dev/compose-pypilot-dev.yml down -v
+```
+
+### Run it on a Pi with the IMU
+
+Only on a machine where pypilot is *not* already running natively. Stop the
+native one first if it is (`sudo systemctl stop pypilot pypilot_web`), and
+remember it will come back at the next reboot unless disabled.
+
+From the repo checkout on the Pi:
+
+```bash
+docker compose --profile pypilot up -d --build pypilot pypilot-web
+```
+
+Seed the calibration and the SignalK token before trusting anything it says —
+`RTIMULib.ini` holds the compass calibration, which is expensive to redo:
+
+```bash
+# run on the Pi, from the repo checkout
+cp ~/.pypilot/RTIMULib.ini ~/.pypilot/signalk-token pypilot/data/
+sudo chown root:root pypilot/data/RTIMULib.ini pypilot/data/signalk-token
+docker compose --profile pypilot restart pypilot
+```
+
+*Verify,* in this order — each line distinguishes a different silent failure:
+
+```bash
+# the container can reach the bus at all (0x68 present = the MPU9250 answers)
+docker exec pypilot i2cdetect -y 1
+
+# realtime scheduling took effect
+docker logs pypilot 2>&1 | grep -i realtime
+
+# the IMU is actually producing a heading; tilt the Pi and run it again
+docker exec pypilot pypilot_client imu.heading imu.pitch imu.error
+
+# the web UI, which is also what the SignalK plugin talks to
+curl -s -o /dev/null -w '%{http_code}\n' localhost:8000
+```
+
+`imu.heading = False` with an empty `imu.error` means the daemon started but
+never got a reading — check `i2cdetect` first, then whether the native pypilot
+is still holding the bus.
+
+### Cut the boat over from native to containerized
+
+Done on `symphony-pi` 2026-09-03. This makes the container the live
+service, not a side-by-side test — the native units are disabled, not just
+stopped, and `pypilot/data/` (not `~/.pypilot`) becomes the state directory
+going forward.
+
+```bash
+# from the repo checkout on the Pi
+sudo systemctl stop pypilot pypilot_web
+sudo cp -a ~/.pypilot/. pypilot/data/
+sudo chown -R root:root pypilot/data
+docker compose --profile pypilot up -d pypilot pypilot-web
+```
+
+Run the four verification lines above, then disable the native units so
+they don't come back and fight the container for the bus and ports:
+
+```bash
+sudo systemctl disable pypilot pypilot_web
+```
+
+*Verify:* `systemctl is-enabled pypilot pypilot_web` prints `disabled` for
+both, and `docker inspect pypilot pypilot-web --format '{{.HostConfig.RestartPolicy.Name}}'`
+prints `unless-stopped` for both — that's what brings them back after a
+Docker or host restart with no systemd unit of their own. **This has not
+been tested through an actual reboot** — confirm `docker ps` shows both
+`Up` after the next one the boat takes for another reason.
+
+Leave `~/.pypilot` in place, untouched, as the rollback: to revert,
+`docker compose --profile pypilot down` then
+`sudo systemctl enable --now pypilot pypilot_web`.
+
+### Back up the state that matters
+
+Everything pypilot persists is in `pypilot/data/`, and none of it is tracked
+(it holds a SignalK token). Back it up off the box before rebuilding or
+re-imaging:
+
+```bash
+tar czf ~/pypilot-data-$(date +%Y%m%d).tgz -C pypilot data
+```
+
+*Verify:* `tar tzf ~/pypilot-data-*.tgz | grep RTIMULib.ini` prints a match.
+Without that file the compass calibration is gone and has to be redone by
+swinging the boat.
+
+### Rebuild after an upstream bump
+
+`PYPILOT_REF` in `pypilot/Dockerfile` pins one upstream commit. To move it,
+edit the ARG, then:
+
+```bash
+docker compose --profile pypilot up -d --build pypilot pypilot-web
+```
+
+*Verify:* `docker exec pypilot pip show pypilot | head -2` reports the version
+you expect, then re-run the four verification commands above. Do not bump it
+on the boat first.
 
 ## Adding a secret
 
@@ -1899,6 +2479,18 @@ timeout 5 candump -n 20 can0           # want frames
 unset, SignalK generates a random one on save, and the Pi shows up as a
 brand-new device to every other instrument each time.
 
+### A fake `can0` for testing off the boat
+
+On any Linux host (bench Pi, WSL) — SignalK can't tell this from a real CAN hat:
+
+```bash
+sudo modprobe vcan && sudo ip link add dev can0 type vcan && sudo ip link set up can0
+```
+
+Verify with `ip -d link show can0` — it prints `vcan`. Gone on reboot; re-run it.
+Replay traffic with `canplayer -I <candump.log>` (`can-utils`). macOS has no
+SocketCAN: use a Linux VM or container, with `--cap-add=NET_ADMIN`.
+
 ### A fallback that has become the primary looks exactly like success
 
 `signalk-fixed-position` (Position Keeper) stores the last known fix and
@@ -2043,8 +2635,9 @@ python3 scripts/test_dashboards.py
 
 The second one is not optional. It asserts the committed JSON still matches
 the spec, that every unit label is backed by the matching conversion in its
-query, that panels do not overlap, and that each query reads the bucket its
-measurement is actually written to. A dashboard is wrong silently -- nothing
+query, that panels do not overlap, and that each query reads the QuestDB
+table its measurement is actually written to -- a SignalK path filtered out
+of `signalk`/`signalk_str`, or a Telegraf table named after the measurement. A dashboard is wrong silently -- nothing
 about a blank or mis-scaled panel raises an error at runtime -- so this check
 is the only thing standing between a typo and a gauge that confidently reads
 3.6 knots when the boat is doing 7.
@@ -2060,14 +2653,22 @@ into the spec.
 scripts/dev_stack.sh up
 ```
 
-Starts InfluxDB and Grafana, creates the buckets, seeds synthetic vessel data
-in SignalK's SI units, checks every panel draws, and prints the URL. Only
-`influxdb` and `grafana` come up -- SignalK wants hardware a laptop does not
-have. `scripts/dev_stack.sh down` removes the volumes.
+Starts QuestDB, InfluxDB and Grafana, seeds synthetic vessel data into both
+stores, checks that every panel draws, and prints the URL. SignalK does not
+come up -- it wants hardware a laptop does not have. `scripts/dev_stack.sh
+down` removes the volumes.
 
 The seed values are invented but the *shape* is real: same measurement names,
-same `_field`, same tags, same SI units. Seeding in display units would make a
+same fields, same tags, same SI units. Seeding in display units would make a
 broken conversion look correct, which is the one thing this has to not do.
+What gets seeded is read out of the generated dashboards themselves, so a
+panel added to the spec is covered on the next run without anyone remembering
+to add it here.
+
+If you have a dev `.env` from before the QuestDB port, delete it first — the
+script only writes one when absent, and the `QUESTDB_*` variables are new.
+Symptom of a stale one: every panel empty and the QuestDB datasource failing
+to connect.
 
 ### Checking the real thing
 
@@ -2079,13 +2680,26 @@ python3 scripts/verify_dashboards_live.py --grafana https://grafana.<DOMAIN> \
     --user <admin> --password <password>
 ```
 
-`audit_dashboard_paths.py` asks InfluxDB directly whether each referenced
-measurement exists and is fresh, per bucket. It has to run on the boat -- it
-reads the token out of the live plugin config.
+`audit_dashboard_paths.py` lists what the dashboards reference, and which
+panel references it — no liveness. For freshness, ask QuestDB directly. The
+dashboards read four table families, so all four have to be checked:
 
-`verify_dashboards_live.py` runs every panel's query through Grafana's own
-`/api/ds/query`. That is the end-to-end one: datasource uid, token, Flux mode,
-org, bucket and a publishing path all have to be right for a panel to pass.
+```bash
+for t in signalk signalk_str; do curl -sG http://localhost:9000/exec \
+    --data-urlencode "query=SELECT path, max(ts) FROM $t GROUP BY path"; done
+curl -sG http://localhost:9000/exec --data-urlencode \
+    "query=SELECT max(ts) FROM signalk_position"
+curl -sG http://localhost:9000/exec --data-urlencode \
+    "query=SELECT table_name FROM tables()"
+```
+
+The last one lists the Telegraf tables (`cpu`, `mem`, `disk`, `net`,
+`procstat`, …); a table missing from it is a panel that cannot draw.
+
+`verify_dashboards_live.py` runs every panel's SQL through Grafana's own
+`/api/ds/query`. That is the end-to-end one: datasource uid, credentials, the
+QuestDB datasource plugin and a publishing path all have to be right for a
+panel to pass.
 The audit can pass while this fails, and that gap is exactly the datasource
 wiring.
 

@@ -8,15 +8,13 @@ ones come back with data.
 
 Works against the local dev stack (scripts/dev_stack.sh) and against the
 boat's real Grafana. On the boat it is the honest end-to-end check: a panel
-that passes here has a working datasource uid, a valid token, a datasource in
-Flux mode pointed at the right org and bucket, and a path that is actually
+that passes here has a working datasource uid, working QuestDB credentials,
+the QuestDB datasource plugin installed, and a path that is actually
 publishing. Any one of those being wrong shows up as an empty panel in the
 browser and as a FAIL here.
 
-This complements scripts/audit_dashboard_paths.py rather than replacing it.
-The audit asks InfluxDB directly whether a measurement exists; this asks
-Grafana whether the panel can draw it. The audit can pass while this fails --
-that gap is exactly the datasource wiring.
+scripts/audit_dashboard_paths.py answers the narrower question of what the
+dashboards reference at all; this one answers whether they can draw it.
 
 Exit status:
     0  every panel returned at least one row
@@ -36,7 +34,7 @@ DASH_DIR = os.path.join(REPO_ROOT, "grafana", "provisioning", "dashboards", "jso
 
 
 def panels_with_targets():
-    """Yield (dashboard file, panel title, refId, datasource uid, query)."""
+    """Yield (dashboard file, panel title, refId, target) per non-empty target."""
     for path in sorted(glob.glob(os.path.join(DASH_DIR, "*.json"))):
         with open(path) as handle:
             dashboard = json.load(handle)
@@ -44,11 +42,9 @@ def panels_with_targets():
         for panel in dashboard.get("panels", []):
             title = panel.get("title") or panel["type"]
             for target in panel.get("targets", []):
-                query = target.get("query", "")
-                if not query.strip():
+                if not target.get("rawSql", "").strip():
                     continue
-                uid = (target.get("datasource") or {}).get("uid")
-                yield label, title, target.get("refId", "A"), uid, query
+                yield label, title, target.get("refId", "A"), target
 
 
 def make_caller(base_url, user, password, token):
@@ -110,8 +106,9 @@ def main():
               f"queryLanguage={version}")
 
     failures, empty, passed = [], [], 0
-    for label, title, ref, uid, query in panels_with_targets():
+    for label, title, ref, target in panels_with_targets():
         where = f"{label}: {title} [{ref}]"
+        uid = (target.get("datasource") or {}).get("uid")
         if uid not in datasources:
             failures.append((where, f"datasource uid {uid!r} is not provisioned"))
             continue
@@ -120,10 +117,14 @@ def main():
             "to": args.time_to,
             "queries": [{
                 "refId": ref,
-                "datasource": {"type": "influxdb", "uid": uid},
-                "query": query,
-                "rawQuery": True,
-                "resultFormat": "time_series",
+                "datasource": target["datasource"],
+                # The QuestDB datasource's own query model: raw SQL, plus the
+                # frame format the panel expects (0 time series, 1 table).
+                # The macros in the SQL are expanded by the plugin's backend
+                # from the from/to and intervalMs sent alongside.
+                "queryType": "sql",
+                "rawSql": target["rawSql"],
+                "format": target.get("format", 0),
                 "intervalMs": 60000,
                 "maxDataPoints": 500,
             }],
