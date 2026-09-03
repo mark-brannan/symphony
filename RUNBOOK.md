@@ -880,9 +880,10 @@ systemctl status boat-hourly-sync.timer
 journalctl -t boat-hourly-sync -n 5 --no-pager -o cat
 ```
 
-*Verify:* `sudo systemctl start boat-hourly-sync.service` prints
-`symphony: fetched, N behind origin/main`. On `fetch failed`, run
-`/usr/local/bin/boat-hourly-sync` as `pi` — the unit hides the real error.
+*Verify:* run `sudo systemctl start boat-hourly-sync.service`, then the
+`journalctl` command above. It prints `symphony: fetched, N behind
+origin/main`. On `fetch failed`, run `/usr/local/bin/boat-hourly-sync` as
+`pi` — the unit hides the real error.
 
 Each heartbeat also reports drift:
 
