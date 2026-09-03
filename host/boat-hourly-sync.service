@@ -1,0 +1,23 @@
+[Unit]
+Description=Fetch origin for the boat's symphony checkout
+# The only work here is network work. Without a route every step logs and
+# gives up; the timer tries again next hour.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as the checkouts' owner: both repos, the deploy key and known_hosts all
+# live under /home/pi. As root this would need safe.directory and a key path.
+User=pi
+# BatchMode so a changed host key or a passphrase prompt fails fast instead of
+# hanging a systemd job forever on stdin nobody is attached to.
+Environment=GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=20
+ExecStart=/usr/local/bin/boat-hourly-sync
+# The script logs its own results at notice. systemd's Starting/Finished pair
+# would be two more journal lines an hour on a box where journal size and
+# SD-card writes are both live concerns (RUNBOOK -> journal traffic).
+LogLevelMax=notice
+
+[Install]
+WantedBy=multi-user.target

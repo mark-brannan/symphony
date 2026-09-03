@@ -1,0 +1,67 @@
+#!/bin/sh
+# Hourly refresh of the boat's checkouts. Runs as `pi` under
+# boat-hourly-sync.timer; see RUNBOOK -> "Keeping the boat's checkouts fresh".
+#
+# Why this exists: the boat's /home/pi/symphony had drifted 89 commits behind
+# origin/main on 2026-09-02, found only because a compose edit had to reach a
+# running container. Nothing on the box was watching. Measured at the same
+# time: dotfiles was 36 behind.
+#
+# Each step is independent and none of them is allowed to fail the unit. The
+# boat's uplink drops routinely, so a failed step is the expected case, not a
+# fault -- and a failed unit would land in boat-heartbeat's failed-units field
+# and ping /fail on a boat behaving exactly as designed. Steps log instead;
+# boat-heartbeat reports the resulting distances and the age of the last
+# successful fetch, so a step that has been failing quietly still shows up.
+#
+# Add a step by writing another function and calling it at the bottom. Keep
+# each one self-contained and exit-0.
+set -u
+
+log() { logger -t boat-hourly-sync "$*"; }
+
+# --- symphony: fetch only ------------------------------------------------
+#
+# Deliberately never merges or checks out. What the boat actually runs changes
+# when a person runs `git pull` and names the compose services to recreate
+# (RUNBOOK -> "Deploy a compose change to the boat"); an unattended pull would
+# move deployed config out from under running containers. This makes the drift
+# visible and nothing more.
+sync_symphony() {
+	repo=/home/pi/symphony
+	[ -d "$repo/.git" ] || { log "symphony: no checkout at $repo, skipped"; return 0; }
+	if git -C "$repo" fetch --quiet --prune origin 2>/dev/null; then
+		n=$(git -C "$repo" rev-list --count HEAD..origin/main 2>/dev/null || echo '?')
+		log "symphony: fetched, ${n} behind origin/main"
+	else
+		log "symphony: fetch failed (offline, or check the deploy key)"
+	fi
+}
+
+# --- dotfiles: NOT here yet, on purpose ----------------------------------
+#
+# `dotsync` (yadm pull --rebase --autostash) belongs in this script and is
+# deliberately absent until one thing is fixed upstream of it.
+#
+# Claude Code rewrites ~/.claude/settings.json in its own key order whenever
+# it touches a setting, so a three-way merge sees a whole-file rewrite where
+# the real change is a handful of keys. Measured on the boat 2026-09-02: a
+# 143-insertion/104-deletion diff carrying five genuinely-changed keys. The
+# boat had been unsyncable since 2026-08-25 for exactly this reason, with a
+# stale autostash entry as the only trace, and running dotsync unattended here
+# reproduced it immediately: rebase applied, autostash re-apply conflicted,
+# `yadm pull` still exited 0, and $HOME was left with an invalid settings.json.
+#
+# So: no worktree-mutating step runs from this timer. Fetch and report only.
+# When the dotfiles repo canonicalizes that file's key order (a clean filter,
+# the same mechanism as symphony's scripts/sops_filter.py), the local diff
+# becomes the few keys that actually differ, merges cleanly, and dotsync can
+# come back as a sync_dotfiles() called below.
+#
+# boat-heartbeat reports dotfiles' distance from origin and its stash count in
+# the meantime, so drift and a stuck sync are both visible off the boat
+# without anything here touching $HOME.
+
+sync_symphony
+
+exit 0
