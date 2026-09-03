@@ -5,6 +5,9 @@ card, imperative, always linked; cards die when done, not archived here — see
 `log.md` and `git log` for history. `## Yours` is calls only Mark can make
 (decisions, purchases, physical/account access). `## Claude's` is work a
 
+- [ ] Decide unattended upgrades for the HALOS card: package absent, timer runs empty; if enabled, blacklist `marine-*` and `halos-*` so an image bump can't change the SignalK container's Node major under the rebuilt native modules ([review](halos-swap-review-2026-09-03.md) item 6).
+- [ ] Evaluate a swap-livelock guard for both cards (`earlyoom` or `systemd-oomd` with a swap threshold): the hardware watchdog does not fire when PID 1 keeps running but everything else is stuck in zram ([review](halos-swap-review-2026-09-03.md) item 1). Bench-only trigger today; the boat has never shown it.
+- [ ] Record the Node-24 npm build recipe as `scripts/halos_signalk_npm.sh` and prove it by updating `vhfinfo` 0.0.39→0.0.40 on the bench card; it is the one unrecorded step in [halos-fresh-image-rebuild.md](halos-fresh-image-rebuild.md).
 - [ ] Keep [halos-upstream-candidates.md](halos-upstream-candidates.md) current — add a line for every HALOS-side change the moment it is made, tagged core / add-on / ours; Mark's standing question from 2026-09-03 is answered from this file later, not now.
 session can pick up and execute. Full working detail behind a card lives in
 `kanban-detail.md`, or at an existing reference doc / open PR when one
@@ -52,6 +55,7 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 ## Yours
 
 ### Repo & tooling
+- [ ] Two answers for the swap prep, both one line ([review](halos-swap-review-2026-09-03.md) item 8 and ntfy): which URL does your phone's ntfy app subscribe to (LAN IP `:8090`, tailnet `symphony-pi:8090`, or something else — a tailnet *name* breaks after the swap), and did healthchecks.io alert you when the halos-card check went down at ~07:35 this morning?
 - [ ] **When you are next at the boat with the new card, launch [dispatch-halos-swap-day.md](dispatch-halos-swap-day.md)** — a ready-to-paste prompt, no date to pick and nothing scheduled against it. PR #33 is merged and the bench card passes every preflight line after a reboot, now including a `docker ps` health check on every container. pypilot rides along, containerized (decided 2026-09-02, validated live on the boat's own card). The remaining open item is the Cerbo power-cycle below; overnight validation of the last untested legs (container health across a real bench reboot, pypilot with the boat's real calibration data, i2c passthrough, stray-file/watchdog cleanup) is running 2026-09-03, findings in [halos-swap-validation-2026-09-03.md](halos-swap-validation-2026-09-03.md) once done.
 - [ ] Decide the critical-path list and age thresholds for Role 4's off-boat freshness check ([reference/monitoring_decisions.md](../../reference/monitoring_decisions.md) Role 4) — it's the designated owner of data-staleness and is unbuilt, so `signalk-healthcheck`'s single `n2k-can0` watch is holding the role while only alarming when the Pi is healthy enough to complain. Scoped at one script, reuses the live heartbeat + healthchecks.io plumbing; blocked only on which paths count as critical.
 - [ ] [Purchase itemizations in maintenance/log.md](kanban-detail.md#purchase-itemizations-in-maintenancelogmd) — trim to one-line totals with detail moved to a purchases file, or keep as-is.
