@@ -25,6 +25,7 @@ logged in `maintenance/log.md`.
 - [Provisioning a HALOS card with Ansible](#provisioning-a-halos-card-with-ansible)
 - [Installing host files](#installing-host-files)
 - [Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat)
+- [Keeping the boat's checkouts fresh](#keeping-the-boats-checkouts-fresh)
 - [Container liveness — healthchecks and autoheal](#container-liveness--healthchecks-and-autoheal)
 - [Swapping the HALOS card onto the boat](#swapping-the-halos-card-onto-the-boat)
 - [Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi)
@@ -868,6 +869,41 @@ leaving it running means re-enabling is one file away, and the check on the
 other end is what tells you the boat went quiet.
 
 ---
+
+## Keeping the boat's checkouts fresh
+
+`boat-hourly-sync.timer` fetches `/home/pi/symphony` hourly. It never merges —
+to deploy, see § Deploy a compose change to the boat.
+
+```bash
+systemctl status boat-hourly-sync.timer
+journalctl -t boat-hourly-sync -n 5 --no-pager -o cat
+```
+
+*Verify:* run `sudo systemctl start boat-hourly-sync.service`, then the
+`journalctl` command above. It prints `symphony: fetched, N behind
+origin/main`. On `fetch failed`, get the real error the unit swallows:
+
+```bash
+sudo -u pi GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=20' \
+  git -C /home/pi/symphony fetch origin
+```
+
+Each heartbeat also reports drift:
+
+```
+symphony: 15 behind, fetched 12m ago
+dotfiles: current, 2 stashed
+```
+
+Behind is normal and never alarms. A stale fetch age means no recent
+successful fetch — usually the boat was offline, so check the timer and
+journal before assuming it is broken. `ahead`/`diverged` means someone
+committed on the boat directly — a deploy checkout should never be ahead of
+origin, so this needs a person. Any `stashed` count above 0 needs a
+person: a `yadm` autostash rolled back, and `yadm` exits 0 when it does.
+
+dotfiles is reported but not synced here.
 
 ## Swapping the HALOS card onto the boat
 

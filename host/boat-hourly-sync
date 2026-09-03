@@ -1,0 +1,31 @@
+#!/bin/sh
+# Hourly fetch for the boat's checkouts. See RUNBOOK -> "Keeping the boat's
+# checkouts fresh". Add a step as another exit-0 function called at the bottom.
+set -u
+
+log() { logger -t boat-hourly-sync "$*"; }
+
+# Fetch only. Deploying is a person running `git pull` and naming the compose
+# services to recreate; an unattended pull would move config out from under
+# running containers.
+sync_symphony() {
+	repo=/home/pi/symphony
+	[ -d "$repo/.git" ] || { log "symphony: no checkout at $repo, skipped"; return 0; }
+	if git -C "$repo" fetch --quiet --prune origin 2>/dev/null; then
+		n=$(git -C "$repo" rev-list --count HEAD..origin/main 2>/dev/null || echo '?')
+		log "symphony: fetched, ${n} behind origin/main"
+	else
+		# Never fails the unit: an offline boat is the expected case, and a
+		# failed unit would ping the heartbeat's /fail path.
+		log "symphony: fetch failed (offline, or check the deploy key)"
+	fi
+}
+
+# No dotsync here yet. Claude Code rewrites ~/.claude/settings.json in its own
+# key order, so every merge is a whole-file conflict; run unattended it left
+# $HOME holding invalid JSON while `yadm pull` still exited 0. Returns once the
+# dotfiles repo canonicalizes that file. boat-heartbeat reports the drift.
+
+sync_symphony
+
+exit 0

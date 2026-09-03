@@ -1,0 +1,12 @@
+[Unit]
+Description=Fetch origin for the boat's checkouts, hourly
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+# Only the current distance matters; don't replay time spent powered off.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

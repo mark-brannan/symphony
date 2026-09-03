@@ -85,6 +85,9 @@ INSTALL=(
 	"journald-symphony.conf:/etc/systemd/journald.conf.d/symphony.conf:0644:root:root"
 	"pypilot-web:/usr/local/bin/pypilot-web:0755:root:root"
 	"pypilot-web-launcher.conf:/etc/systemd/system/pypilot_web.service.d/symphony.conf:0644:root:root"
+	"boat-hourly-sync:/usr/local/bin/boat-hourly-sync:0755:root:root"
+	"boat-hourly-sync.service:/etc/systemd/system/boat-hourly-sync.service:0644:root:root"
+	"boat-hourly-sync.timer:/etc/systemd/system/boat-hourly-sync.timer:0644:root:root"
 	"apt-auto-upgrades.conf:/etc/apt/apt.conf.d/20auto-upgrades:0644:root:root"
 	"apt-unattended-boat.conf:/etc/apt/apt.conf.d/52unattended-upgrades-boat:0644:root:root"
 )
@@ -114,6 +117,7 @@ RELOAD=(
 ENABLE=(
 	"boat-heartbeat.timer"
 	"signalk-ble-check.timer"
+	"boat-hourly-sync.timer"
 	# Skipped with a warning on a card where pypilot isn't installed; the
 	# unit file is pypilot's own, not one this installer places.
 	"pypilot_web.service"
