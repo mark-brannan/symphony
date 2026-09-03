@@ -68,7 +68,7 @@ repo_state() {
 	# safe.directory: this runs as root against pi's checkout. left=ahead,
 	# right=behind -- a deploy checkout should never be ahead, so say when it is.
 	_c=$(git -c safe.directory='*' --git-dir="$_dir" \
-		rev-list --left-right --count "HEAD...$_ref" 2>/dev/null)
+		rev-list --left-right --count "HEAD...$_ref" 2>/dev/null) || _c=
 	_a=${_c%%	*}; _n=${_c##*	}
 	case "$_a$_n" in ''|*[!0-9]*) printf 'unknown'; return ;; esac
 	_age=""

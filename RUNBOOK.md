@@ -898,7 +898,9 @@ dotfiles: current, 2 stashed
 
 Behind is normal and never alarms. A stale fetch age means no recent
 successful fetch — usually the boat was offline, so check the timer and
-journal before assuming it is broken. Any `stashed` count above 0 needs a
+journal before assuming it is broken. `ahead`/`diverged` means someone
+committed on the boat directly — a deploy checkout should never be ahead of
+origin, so this needs a person. Any `stashed` count above 0 needs a
 person: a `yadm` autostash rolled back, and `yadm` exits 0 when it does.
 
 dotfiles is reported but not synced here.
