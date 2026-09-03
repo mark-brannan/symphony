@@ -17,9 +17,8 @@ sops). Read first: [halos-swap-review-2026-09-03.md](halos-swap-review-2026-09-0
   `pi` password = sops `symphony_halos_pi_password`). Ansible `site.yml`
   converges on it (`ok=67 failed=0`) after eight role/installer fixes, all on
   main. Boat `.signalk` state, both forks, the four plugin disables and the
-  venus host edit are loaded. **`scripts/halos_signalk_npm.sh` is running on
-  it as transient unit `halos-npm`** (`journalctl -u halos-npm -f`); it
-  restarts the SignalK unit when done. ntfy is up. Heartbeat timer disabled
+  venus host edit are loaded. `scripts/halos_signalk_npm.sh` **finished on it** (18 min 52 s, exit 0,
+  `journalctl -u halos-npm` has the log) and restarted the SignalK unit. ntfy is up. Heartbeat timer disabled
   on purpose (it would ping the payload card's check).
 - Scratch inventory for the fresh card, if Ansible is needed again:
   `symphony-halos` with `ansible_host: 192.168.0.192`, `ansible_user: pi`,
@@ -27,7 +26,7 @@ sops). Read first: [halos-swap-review-2026-09-03.md](halos-swap-review-2026-09-0
 
 ## Do, in order
 
-1. Fresh card: when `halos-npm` is inactive, `scripts/halos_preflight.sh
+1. Fresh card: `scripts/halos_preflight.sh
    192.168.0.192`. Expect `plugins` and `state` to read ok now (forks pinned,
    D-Bus fix present, ~120 loaded). Record the result and the build time in
    `halos-fresh-image-rebuild.md`. If `plugins` FAILs, paste the

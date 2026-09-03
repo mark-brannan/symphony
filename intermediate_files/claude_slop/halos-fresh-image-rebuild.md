@@ -151,6 +151,16 @@ of what the play owns: host (no tailscale), state/plugins (SignalK state),
 services (no QuestDB/Grafana in the image), ntfy, questdb, journal (until the
 flush fix landed).
 
+## SignalK state layer on the fresh card, 2026-09-03
+
+Boat `.signalk` (rsync via the dev box, since the fresh card is not on the
+tailnet), both forks into `local-plugins/`, the two `file:` pins, four
+plugin disables, `venus.json` host edit — then the recipe as a script:
+`sudo scripts/halos_signalk_npm.sh` under `systemd-run`. **Install plus the
+named native rebuilds: 18 min 52 s, exit 0, SignalK unit restarted.** The
+recipe that was "not recorded" is now `scripts/halos_signalk_npm.sh` and has
+run once on a fresh card. Preflight against it is the next session's step 1.
+
 ## Order for the fresh-card test, when the card is in a Pi
 
 0. Wired Ethernet with internet. Nothing works before this — see
