@@ -21,10 +21,10 @@ sync_symphony() {
 	fi
 }
 
-# No dotsync here yet. Claude Code rewrites ~/.claude/settings.json in its own
-# key order, so every merge is a whole-file conflict; run unattended it left
-# $HOME holding invalid JSON while `yadm pull` still exited 0. Returns once the
-# dotfiles repo canonicalizes that file. boat-heartbeat reports the drift.
+# dotfiles is not synced here. The dotfiles repo ships its own cron line
+# (~/.local/bin/dotfiles-sync.sh, fast-forward only, every five minutes) that
+# `yadm bootstrap` installs on every machine, the boat included; two schedulers
+# on one checkout would only race. boat-heartbeat reports the drift.
 
 sync_symphony
 

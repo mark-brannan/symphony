@@ -903,7 +903,11 @@ committed on the boat directly — a deploy checkout should never be ahead of
 origin, so this needs a person. Any `stashed` count above 0 needs a
 person: a `yadm` autostash rolled back, and `yadm` exits 0 when it does.
 
-dotfiles is reported but not synced here.
+dotfiles is synced by its own cron line, not by this unit:
+`~/.local/bin/dotfiles-sync.sh` fast-forwards every five minutes and skips,
+naming the files, when a dirty `$HOME` blocks it. Check it with
+`~/.local/bin/dotfiles-sync.sh --status`; the dotfiles RUNBOOK § Keep
+machines in sync has the rest.
 
 ## Swapping the HALOS card onto the boat
 
