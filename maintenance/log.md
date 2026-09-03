@@ -403,3 +403,6 @@
   settings: it read the boat's autopilot state and IMU calibration without
   changes and drove the boat's actual compass sensor correctly. The boat
   still runs pypilot natively; nothing has switched over.
+- Cut the boat over from native to containerized pypilot. Native disabled;
+  the container uses well under half the memory (134 MB vs. 321 MB,
+  measured on the same host back to back).

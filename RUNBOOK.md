@@ -1190,6 +1190,39 @@ curl -s -o /dev/null -w '%{http_code}\n' localhost:8000
 never got a reading — check `i2cdetect` first, then whether the native pypilot
 is still holding the bus.
 
+### Cut the boat over from native to containerized
+
+Done on `symphony-pi` 2026-09-03. This makes the container the live
+service, not a side-by-side test — the native units are disabled, not just
+stopped, and `pypilot/data/` (not `~/.pypilot`) becomes the state directory
+going forward.
+
+```bash
+# from the repo checkout on the Pi
+sudo systemctl stop pypilot pypilot_web
+sudo cp -a ~/.pypilot/. pypilot/data/
+sudo chown -R root:root pypilot/data
+docker compose --profile pypilot up -d pypilot pypilot-web
+```
+
+Run the four verification lines above, then disable the native units so
+they don't come back and fight the container for the bus and ports:
+
+```bash
+sudo systemctl disable pypilot pypilot_web
+```
+
+*Verify:* `systemctl is-enabled pypilot pypilot_web` prints `disabled` for
+both, and `docker inspect pypilot pypilot-web --format '{{.HostConfig.RestartPolicy.Name}}'`
+prints `unless-stopped` for both — that's what brings them back after a
+Docker or host restart with no systemd unit of their own. **This has not
+been tested through an actual reboot** — confirm `docker ps` shows both
+`Up` after the next one the boat takes for another reason.
+
+Leave `~/.pypilot` in place, untouched, as the rollback: to revert,
+`docker compose --profile pypilot down` then
+`sudo systemctl enable --now pypilot pypilot_web`.
+
 ### Back up the state that matters
 
 Everything pypilot persists is in `pypilot/data/`, and none of it is tracked

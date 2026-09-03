@@ -16,8 +16,12 @@ source into one image and start clean in containers, with realtime scheduling
 intact. Two things make it easy: pypilot's only hardware dependency aboard
 today is the I2C IMU, and everything it persists lives in one directory.
 
-This is a proof of concept, not a migration. It has never driven a rudder,
-and nothing aboard has been switched over to it.
+It has never driven a rudder — no servo is aboard — but it is no longer just
+a proof of concept: `symphony-pi` was cut over 2026-09-03, native `pypilot`/
+`pypilot_web` disabled, the container the live service. Measured at cutover:
+95 MB + 39 MB (container) vs. 321 MB (native, same host, same moment) —
+containerized uses well under half the memory, not more. Procedure and
+rollback: `RUNBOOK.md` § "Cut the boat over from native to containerized".
 
 ## What pypilot actually is aboard Symphony
 
