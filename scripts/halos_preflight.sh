@@ -105,7 +105,8 @@ out=$(r "$HOST" 'systemctl is-active telegraf chrony boat-heartbeat.timer signal
 [ "$out" = "active active active active active active active active" ] && say ok services "8 active" || say FAIL services "telegraf chrony heartbeat.timer ble-check.timer signalk questdb grafana core: $out"
 
 out=$(r "$HOST" 'echo $(systemctl is-enabled marine-avnav-container marine-opencpn-container 2>&1 | paste -sd,) $(systemctl is-active marine-avnav-container marine-opencpn-container | paste -sd,) influxdb:$(dpkg-query -W -f="${db:Status-Status}" marine-influxdb-container 2>/dev/null || echo absent)')
-[ "$out" = "disabled,disabled inactive,inactive influxdb:absent" ] && say ok staydown "avnav opencpn disabled+inactive; influxdb app absent" || say FAIL staydown "$out"
+# A fresh Marine image never had AvNav or OpenCPN; not-found is as good as disabled.
+[[ "$out" =~ ^(disabled|not-found),(disabled|not-found)\ inactive,inactive\ influxdb:absent$ ]] && say ok staydown "avnav opencpn absent or disabled, inactive; influxdb app absent" || say FAIL staydown "$out"
 
 out=$(r "$HOST" 'journalctl -t boat-heartbeat -n 1 --no-pager -o cat')
 case "$out" in *"ping ok"*) say ok heartbeat "$out" ;; *) say FAIL heartbeat "${out:-no heartbeat log yet}" ;; esac

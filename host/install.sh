@@ -179,8 +179,15 @@ for unit in "${RESTART[@]:-}"; do
 		restart_header=done
 	fi
 	if systemctl cat "$unit" >/dev/null 2>&1; then
-		systemctl restart "$unit"
+		# A restart that fails must not abort the installer: the timers below
+		# are what keep the boat observable, and on a fresh HALOS card telegraf
+		# has no usable config until the Ansible monitoring role runs after
+		# this (2026-09-03: install.sh died here and nothing after it ran).
+		systemctl restart "$unit" || failed_restarts="${failed_restarts:-} $unit"
 		echo "  $unit  ($(systemctl is-active "$unit" || true))"
+		# Storage=persistent takes effect only when the runtime journal is
+		# flushed to /var/log/journal, which otherwise waits for the next boot.
+		[ "$unit" = systemd-journald ] && journalctl --flush 2>/dev/null || true
 	else
 		echo "  $unit  not installed, skipped"
 	fi
@@ -244,3 +251,7 @@ filtered="$(printf '%s\n' "$filtered" | grep -vE '^[^#]*/sbin/shutdown -r' || tr
 
 crontab -l | sed 's/^/  /'
 echo "== done =="
+if [ -n "${failed_restarts:-}" ]; then
+	echo "install.sh: these units failed to restart:${failed_restarts}" >&2
+	exit 1
+fi
