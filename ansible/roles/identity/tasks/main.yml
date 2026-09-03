@@ -61,8 +61,13 @@
     executable: /bin/bash
   register: cert_sans
   changed_when: false
-  # Read-only, so it must still run under --check; otherwise the assertions
-  # below have nothing to read and --check cannot be used to audit a card.
+  # Traefik was just restarted by the handler above and takes a few seconds
+  # to serve the new leaf; the first probe on a fresh card found no
+  # certificate at all (2026-09-03). Read-only, so it must still run under
+  # --check; otherwise the assertions below have nothing to read.
+  until: cert_sans.rc == 0
+  retries: 12
+  delay: 5
   check_mode: false
   tags: [verify]
 

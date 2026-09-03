@@ -130,6 +130,9 @@ value. Each run stopped at the first fatal; each fatal became a role fix:
    the bench Pi the `Symphony` profile loads but can never activate; same on
    a Pi 5 or HALPI2. Invisible on the boat, where the MAC matches. Fixed: the
    role strips the pin when it writes the file.
+6. **Identity role's SAN probe raced Traefik's restart** (six seconds after
+   the handler). The certificate was right moments later. Fixed: the probe
+   retries for a minute.
 
 ## Order for the fresh-card test, when the card is in a Pi
 
