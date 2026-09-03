@@ -62,7 +62,27 @@ image shipped it.
    with the boat's sensors in range. Vcan (`RUNBOOK.md` § A fake can0) covers
    the socket path; BLE only the D-Bus reachability.
 
+## First attempt, 2026-09-03 — stopped at step 0
+
+The fresh card booted (green activity, then idle) and never appeared on the
+LAN. The bench Pi reaches the house network over WiFi, through a profile that
+exists only on the payload card; a fresh HALOS image has no WiFi credentials
+and HALOS's README says not to use the imager's customisation. So the very
+first step of a rebuild, before anything in this repo, is one of:
+
+- **Wired Ethernet** from the Pi to the router for the first boot (the plan
+  assumes this and never says so), or
+- a laptop joined to HALOS's own default hotspot (`Halos-AP`, comes up on
+  `wlan0ap` by default) to add a WiFi profile through Cockpit, or
+- a deliberate test of the imager's WiFi/SSH customisation on a HALOS image,
+  to learn what "do not apply" actually protects against.
+
+Unrelated to that: unpowered HDMI monitors were cabled to the bench Pi during
+the first boot and were removed as a variable.
+
 ## Order for the fresh-card test, when the card is in a Pi
+
+0. Wired Ethernet, or the hotspot route above. Nothing works before this.
 
 1. Boot, `ssh pi@<dhcp-ip>` with the default password, change it to the
    sops value, `tailscale up --ssh --hostname=halos-fresh`, note the IP.
