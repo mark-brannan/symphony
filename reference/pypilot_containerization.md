@@ -102,9 +102,18 @@ serial-probe hints. Back that directory up and the container is disposable.
 3. **gpsd.** pypilot connects to gpsd on 2947 for position. Host networking
    keeps that; a bridge does not.
 4. **Version jump.** The image builds pypilot master (0.71 at the pinned
-   commit) against the boat's 0.56. Config format compatibility across that
-   gap is **[unverified]** — trial on a copy of `~/.pypilot`, never the
-   original.
+   commit) against the boat's 0.56. **[verified]** 2026-09-03, on a copy of
+   the boat's `~/.pypilot` run on the HALOS bench card: 0.71 loaded the 0.56
+   `RTIMULib.ini` byte-for-byte unchanged except one field — `IMUType`
+   flipped from 7 (MPU9250) to 14 (ICM-20948), because pypilot autodetects
+   the chip on the bus rather than trusting the stored type. The compass
+   ellipsoid calibration, accel calibration, and every other field carried
+   over untouched, and the log confirms both were actually applied ("Using
+   ellipsoid compass calibration", "Using accel calibration"), not silently
+   replaced with defaults. This result is IMU-agnostic — it holds for
+   whichever chip is physically on the bus — but it was exercised against
+   the bench's ICM-20948, not the boat's MPU9250; the MPU9250 driver path
+   itself is still **[unverified]** on 0.71.
 5. **A servo, when one is fitted.** A USB motor controller appearing after the
    container starts will not show up inside it: `devices:` is static. That
    needs either a restart after plugging in, or `device_cgroup_rules` plus a
@@ -120,7 +129,12 @@ serial-probe hints. Back that directory up and the container is disposable.
 - **A real IMU through the container.** On the dev box `imu.heading` is
   `False` and the loop logs "server/client is running too _slowly_" — expected
   with no IMU pacing it, but it means the I2C path itself is untested from
-  inside a container.
+  inside a container. **[verified]** 2026-09-03 on the HALOS bench card's
+  ICM-20948: `i2cdetect` shows `0x68`, the daemon logs "made imu process
+  realtime" and "IMU all sensor axes verified", and `pypilot_client` returns
+  a live, moving `imu.heading`/`imu.pitch`. The boat's MPU9250 is still
+  untested — same driver family (both InvenSense, both handled by
+  RTIMULib2), but not the same part.
 - **HALOS siting.** HALOS owns `/var/lib/container-apps/` and overwrites it on
   upgrade, so a Symphony-owned pypilot must be a separate compose project with
   its own systemd unit, alongside HALOS's apps rather than inside them. Which
