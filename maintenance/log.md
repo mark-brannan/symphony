@@ -406,3 +406,6 @@
 - Cut the boat over from native to containerized pypilot. Native disabled;
   the container uses well under half the memory (134 MB vs. 321 MB,
   measured on the same host back to back).
+- Added a suppress button for the off-boat alarms: one command pauses the
+  boat's healthchecks.io check before planned work, and the boat un-silences
+  itself on its first heartbeat afterwards.

@@ -2388,3 +2388,39 @@ commit for it.
 procedure. The cold-boot-storm reboot is worth knowing about for anyone
 doing further bench work, but it's the bench's own ceiling, already priced
 into the plan, and has no boat-side analog.
+
+
+## 2026-09-03 — pypilot calibration is not a gate; a suppress button for the alarms
+
+Two small things from Mark, both now in the repo rather than in scrollback.
+
+**pypilot calibration.** Mark's call: recalibrating pypilot's compass is an
+ordinary from-the-boat procedure with no unrecoverable state, so carrying the
+0.56 `~/.pypilot` calibration into the containerized 0.71 is worth qualifying
+but is not a gate. If it lands off, recalibrate; don't block or roll back the
+swap. Written into `halos-swap-plan.md` § B4d and the swap-day dispatch
+(ce8a3a3).
+
+**Suppress button.** Mark asked whether the pings and Pushover alarms can be
+silenced for the swap, the way an alarm panel's suppress button works.
+They can, server-side: `scripts/monitoring_snooze.sh {status,pause,resume}
+[pi|halos|all]` pauses the healthchecks.io check via the management API, using
+`healthchecks_api_key` already in sops. That end is the only one that works —
+during a swap the Pi is off and the new card is a different rootfs, so nothing
+stored aboard survives to un-suppress itself. Nothing else needs silencing:
+the heartbeat's own Pushover paths and SignalK's notification relay both run
+*on* the Pi.
+
+Measured against both live checks rather than taken from the docs:
+
+- `pause pi` held, and the next heartbeat (5 min later) returned the check to
+  `up` with `last_ping` intact — it self-clears when the boat comes back.
+- `resume halos` worked but put the check in `new` with `last ping never`.
+  Neither state alerts, so it's safe, but it throws away the history you'd
+  want if a swap went wrong. Documented as "let a ping clear it."
+- The halos bench card is powered off (tailscale: offline), so its check sits
+  at `new` until that card next boots. Expected, not a fault.
+
+Wired in as swap-day step 3 with the sequence renumbered, a `status` line in
+the post-swap check, and a RUNBOOK section "Silencing the alarms for planned
+work" (b2ca2e4).
