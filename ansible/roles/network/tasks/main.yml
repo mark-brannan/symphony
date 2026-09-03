@@ -51,17 +51,35 @@
   # Same SSID and key as the boat card's hotspot, so anything already paired
   # with SignalK keeps working across the swap without being re-paired.
 
+# Tailscale is bootstrap (RUNBOOK → Remote SSH access): the image does not
+# ship it and `tailscale up` needs Mark's browser login. A fresh card reaches
+# this step over the LAN with no tailscale at all, so rename only when it is
+# there and say so when it is not, rather than failing the whole play.
+- name: step 16 | is tailscale installed
+  ansible.builtin.stat:
+    path: /usr/bin/tailscale
+  register: ts_bin
+
 - name: step 16 | current tailnet node name
   ansible.builtin.command: tailscale status --json
   register: ts_status
   changed_when: false
   check_mode: false
+  when: ts_bin.stat.exists
 
 - name: step 16 | rename the tailnet node
   ansible.builtin.command: "tailscale set --hostname={{ tailscale_hostname }}"
-  when: (ts_status.stdout | from_json).Self.HostName != tailscale_hostname
+  when: ts_bin.stat.exists and (ts_status.stdout | from_json).Self.HostName != tailscale_hostname
   # Renaming keeps the node key and the tailnet IP; it is a display name, so
   # this does not re-authenticate the card or disturb an open ssh session.
+
+- name: step 16 | tailscale is not installed on this card
+  ansible.builtin.debug:
+    msg: >-
+      No /usr/bin/tailscale. Install it and `tailscale up --ssh
+      --hostname={{ tailscale_hostname }}` by hand (RUNBOOK → Remote SSH
+      access); the rename above was skipped.
+  when: not ts_bin.stat.exists
 
 - name: step 9 | wifi profiles are loaded
   ansible.builtin.command: nmcli -t -f NAME connection show

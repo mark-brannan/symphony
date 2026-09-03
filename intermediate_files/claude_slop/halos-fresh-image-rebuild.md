@@ -62,6 +62,30 @@ image shipped it.
    with the boat's sensors in range. Vcan (`RUNBOOK.md` § A fake can0) covers
    the socket path; BLE only the D-Bus reachability.
 
+## Requirements before the first boot
+
+- **Wired Ethernet to a network with internet, plugged in before power-on.**
+  Not optional. Two reasons, both measured 2026-09-03: a fresh image has no
+  WiFi credentials (and HALOS says not to use the imager's customisation),
+  and **the image ships no container images at all** — SignalK
+  (`ghcr.io`), Authelia, Traefik and Homarr (Docker Hub) are all pulled on
+  first boot. With no network, `halos-core-containers` and
+  `marine-signalk-server-container` fail, hit systemd's start limit, and the
+  card sits with nothing running. So a HALOS card can never be built at the
+  boat; the pull alone is several GB. Once the cable is in:
+  `sudo systemctl reset-failed && sudo systemctl restart --no-block halos-core-containers marine-signalk-server-container`.
+- The image's clock starts at its build date (2026-08-20) until NTP reaches
+  it; journal timestamps from the first minutes are wrong.
+- Image baseline (`Halos-Marine-RPI_2026-08-20.0`): apps shipped are
+  `marine-signalk-server-container` 2.31.1-5 and Homarr only — **no QuestDB,
+  Grafana, InfluxDB, AvNav or OpenCPN**; those on the bench card were
+  installed by hand. No tailscale, telegraf, chrony or unattended-upgrades;
+  `systemd-zram-generator` is present. sudo is passwordless for `pi` (the
+  bench card's password prompt was added later). `pi` is not in `docker`.
+  cmdline has `regdom=GB` and no memory cgroup; config.txt has no i2c/spi/
+  uart/CAN lines; networkd disabled; journal volatile; timezone
+  Europe/London; port registry `signalk-server=4430`.
+
 ## First attempt, 2026-09-03 — stopped at step 0
 
 The fresh card booted (green activity, then idle) and never appeared on the
@@ -82,7 +106,8 @@ the first boot and were removed as a variable.
 
 ## Order for the fresh-card test, when the card is in a Pi
 
-0. Wired Ethernet, or the hotspot route above. Nothing works before this.
+0. Wired Ethernet with internet. Nothing works before this — see
+   "Requirements" above.
 
 1. Boot, `ssh pi@<dhcp-ip>` with the default password, change it to the
    sops value, `tailscale up --ssh --hostname=halos-fresh`, note the IP.
