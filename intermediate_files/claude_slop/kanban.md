@@ -104,7 +104,6 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 - [ ] [Set up a private repo for Vaultwarden before building off-machine hosting](kanban-detail.md#set-up-a-private-repo-for-vaultwarden-hosting).
 
 ### SignalK data & plugins
-- [ ] [Assess PR #28's project-specific half](https://github.com/mark-brannan/symphony/pull/28) — the global part landed in dotfiles already; decide whether symphony needs its own `maintenance/stats.md`, `stats-data.json`, `.claude/hooks/measure-cherry-pick.sh` and the CLAUDE.md no-cherry-pick rule, or whether the dotfiles copy covers it. Keep the PR open either way — do not delete.
 - [ ] Carry [PR #29](https://github.com/mark-brannan/symphony/pull/29)'s OIDC identity-permissions work upstream — implementation is on [the fork branch](https://github.com/mark-brannan/signalk-server/tree/oidc-identity-permissions) behind [fork PR #1](https://github.com/mark-brannan/signalk-server/pull/1); next step is opening the conversation with Matti Airas (Hat Labs) on the SignalK Discord before an upstream PR. Mark intends to pursue this; not top priority.
 - [ ] [Deploy the openweather-signalk humidity-fix Node-RED flow](kanban-detail.md#deploy-the-openweather-signalk-humidity-fix-flow) — needs boat access; flow is built but unverified in the live editor.
 - [ ] [Add signalk-lint batch 2 (host-level rules)](kanban-detail.md#signalk-lint-batch-2-host-level-rules) — can0/gpsd/systemd/cron/journald faults this boat actually hit.

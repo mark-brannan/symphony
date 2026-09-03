@@ -303,9 +303,6 @@ cheap. Symphony-specific instances of those:
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
-- **Reaching for `git cherry-pick` means a commit landed in the wrong place.**
-  Fix that instead — rebase, amend, or redo it on the right branch. If a
-  cherry-pick really is the right tool, say why in the commit message.
 - **Work on main.** Default to committing straight to main in small,
   iterative commits, each one verified before the next. Push as soon as a
   commit is verified rather than batching. Don't create a branch because the
