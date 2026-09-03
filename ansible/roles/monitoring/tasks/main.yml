@@ -18,6 +18,17 @@
   # with no third copy to drift. The package's own telegraf.conf is replaced;
   # dpkg keeps its version as .ucf-dist.
 
+# The drop-in directory does not exist on a fresh card; the copy below failed
+# with "Destination directory does not exist" the first time the role ran
+# against one (2026-09-03).
+- name: step 19 | telegraf drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/telegraf.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: step 19 | telegraf runs as pi
   ansible.builtin.copy:
     content: |

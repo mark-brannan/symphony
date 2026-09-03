@@ -133,6 +133,10 @@ value. Each run stopped at the first fatal; each fatal became a role fix:
 6. **Identity role's SAN probe raced Traefik's restart** (six seconds after
    the handler). The certificate was right moments later. Fixed: the probe
    retries for a minute.
+7. **Monitoring role assumed `/etc/systemd/system/telegraf.service.d/`
+   exists.** It did on the bench card (v1 made it by hand). Fixed: the role
+   creates it. Base, repo and host_files roles passed on the fresh card
+   without change (`install.sh` accepted the card as a boat card).
 
 ## Order for the fresh-card test, when the card is in a Pi
 
