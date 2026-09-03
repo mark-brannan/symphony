@@ -159,7 +159,50 @@ plugin disables, `venus.json` host edit — then the recipe as a script:
 `sudo scripts/halos_signalk_npm.sh` under `systemd-run`. **Install plus the
 named native rebuilds: 18 min 52 s, exit 0, SignalK unit restarted.** The
 recipe that was "not recorded" is now `scripts/halos_signalk_npm.sh` and has
-run once on a fresh card. Preflight against it is the next session's step 1.
+run once on a fresh card.
+
+Preflight against it, same evening — the build did what it was meant to:
+
+```
+ok    plugins    120 loaded, 63 on; same set and states as the boat except the 4 expected-off and 3 image-only; forks pinned, D-Bus fix present
+ok    state      config files and installed plugin versions match the boat (forks, expected-off and venus skipped)
+ok    signalk    active 2.31.1 override gid988
+ok    boot / wifi / hotspot / can / staydown / heartbeat / containers / ntfy / front / mem / dns
+FAIL  host       no tailscale on this card (by design; it is not on the tailnet)
+FAIL  journal    staged(1 boot on disk; reboot to prove it) 30s dev
+FAIL  services   questdb grafana inactive (not in the image); heartbeat.timer off on purpose
+FAIL  questdb    no rows (no questdb)
+```
+
+Every FAIL is a known property of this card, not a defect in the build.
+`state` matching outright is the stronger result: the fresh card's `npm
+install` pulled the same plugin versions the boat is running, so the
+`vhfinfo` drift the payload card carries does not exist here.
+
+Two preflight bugs surfaced on this first real run of both checks, fixed in
+5a04053: `state` did not exclude the `plugin-config-data` files of the four
+expected-off plugins or `venus.json`, all of which differ by decision, so it
+would have FAILed on every card forever; and `journal` could not tell
+`Storage=volatile` from persistent-but-not-yet-rebooted.
+
+Of the five native modules the recipe rebuilds, four load under Node 24
+(`i2c-bus`, `epoll`, `sqlite3`, `lzma-native`). `serialport` does not — "Could
+not locate the bindings file" — which matches the already-known reason
+`signalk-instrument-light-plugin` never loads on HALOS. Not new, and not
+caused by the script.
+
+## The three app packages exist on apt.halos.fi
+
+Asked without installing (`apt-cache policy`, cheaper than an install on a
+2 GB card already 1.3 GB into swap), so the plan's "remove InfluxDB, disable
+AvNav/OpenCPN" steps have a forward equivalent on a fresh card:
+
+- `marine-questdb-container` 10.0.0-1
+- `marine-grafana-container` 13.1.3-2
+- `marine-influxdb-container` 2.9.1-5
+
+all from `apt.halos.fi trixie-stable/main`. What they pull on install is
+still unmeasured.
 
 ## Order for the fresh-card test, when the card is in a Pi
 
