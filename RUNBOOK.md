@@ -882,8 +882,12 @@ journalctl -t boat-hourly-sync -n 5 --no-pager -o cat
 
 *Verify:* run `sudo systemctl start boat-hourly-sync.service`, then the
 `journalctl` command above. It prints `symphony: fetched, N behind
-origin/main`. On `fetch failed`, run `/usr/local/bin/boat-hourly-sync` as
-`pi` — the unit hides the real error.
+origin/main`. On `fetch failed`, get the real error the unit swallows:
+
+```bash
+sudo -u pi GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=20' \
+  git -C /home/pi/symphony fetch origin
+```
 
 Each heartbeat also reports drift:
 
@@ -892,10 +896,10 @@ symphony: 15 behind, fetched 12m ago
 dotfiles: current, 2 stashed
 ```
 
-Behind is normal and never alarms. Read the fetch age with it: a stale age
-means the fetch is broken, not that a change is waiting. Any `stashed` count
-above 0 needs a person — a `yadm` autostash rolled back, and `yadm` exits 0
-when it does.
+Behind is normal and never alarms. A stale fetch age means no recent
+successful fetch — usually the boat was offline, so check the timer and
+journal before assuming it is broken. Any `stashed` count above 0 needs a
+person: a `yadm` autostash rolled back, and `yadm` exits 0 when it does.
 
 dotfiles is reported but not synced here.
 
