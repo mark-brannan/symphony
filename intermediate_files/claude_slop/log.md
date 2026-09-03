@@ -2337,3 +2337,54 @@ rebasing, so no history was rewritten on another session's branch. Its kanban
 hunk now nets to zero and the card lives on main as its own commit — Mark's
 rule, no code mixed with kanban. Both log files were unioned, not chosen
 between. PR is `MERGEABLE` with twelve checks green.
+
+## 2026-09-03 — swap-day dispatch validation (4 legs, bench card)
+
+Ran the four validation legs Mark asked for tonight against the real bench
+card, in `halos-swap-validation-2026-09-03.md`. All four passed. Detail:
+
+- **Leg 1** — copied the boat's real `pypilot/data/` (root-owned, 0600 on
+  the sensitive files) onto halos via a root-to-root tar relay through this
+  dev box, deleting the intermediate tarball both ends. halos's checkout was
+  stale (34 commits behind, on a leftover feature branch); switched to
+  `main` and fast-forwarded first. Brought up the pypilot containers against
+  the borrowed calibration: no format errors, pypilot autodetected the
+  bench's ICM-20948 and re-typed `RTIMULib.ini` in memory while still using
+  the file's ellipsoid/accel calibration — the documented cross-chip
+  behavior, not a bug. `curl :8000` 200, `i2cdetect` shows the IMU.
+- **Leg 2** — full `sudo reboot` of the bench card. First boot back: every
+  container but pypilot/pypilot-web/ntfy reached healthy; those three showed
+  `StartedAt` from a day earlier and hadn't restarted at all, unexplained.
+  Then, with no command from this session, **the box rebooted a second time
+  on its own** a few minutes later — memory pressure during the full
+  cold-boot storm (SignalK + QuestDB + Grafana + Homarr + Authelia + pypilot
+  all starting at once) hit 78 MB available / near-full swap / load 24.95,
+  OOM-killed grafana, and autoheal fired real restarts on grafana, questdb,
+  homarr and authelia. Stopped questdb+grafana under the standing
+  memory-pressure release valve, confirmed `halos_swap_check.sh` and
+  `halos_preflight.sh` both read `containers: ok, all report (healthy)`,
+  then restarted the databases. This is the known 2 GB-bench-can't-hold-
+  everything ceiling already documented in
+  `halos-swap-preflight-2026-09-02.md`, not a new problem — but a real cold
+  boot of the *complete* stack (pypilot included) pushing it hard enough to
+  actually OOM-kill something and force an unplanned second reboot is a new
+  data point that doc didn't have. Doesn't apply to the boat's 4 GB, which
+  was already arithmetic-checked to have headroom.
+- **Leg 3** — confirmed directly, not just via the preflight grep: host i2c
+  group is gid 988, the SignalK container's `GroupAdd` includes 988, the
+  live `node` process's `/proc/<pid>/status` Groups line includes 988, and
+  `docker exec signalk-server node -e "...openSync('/dev/i2c-1','r')..."`
+  opened the device with no `EACCES`.
+- **Leg 4** — both loose ends were already resolved before tonight: the
+  stray `signalk-plugin-watchdog.json` was deleted on 2026-09-02 (confirmed
+  gone, real `plugin-watchdog.json` untouched), and `plugin-watchdog`
+  answered the admin API as `0.1.0, enabled: true`.
+
+`pypilot/data/` is gitignored on purpose (runtime state, a credential in
+`signalk-token`); left uncommitted on the bench card as intended, nothing to
+commit for it.
+
+**Go/no-go: GO.** Nothing found blocks or changes tomorrow's dispatch
+procedure. The cold-boot-storm reboot is worth knowing about for anyone
+doing further bench work, but it's the bench's own ceiling, already priced
+into the plan, and has no boat-side analog.
