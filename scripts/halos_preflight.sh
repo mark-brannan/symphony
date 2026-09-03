@@ -29,6 +29,11 @@ for p in json.load(sys.stdin): print(p["id"], "on" if p.get("data",{}).get("enab
 }
 # Enabled on the boat, disabled on HALOS by decision (halos-swap-plan.md).
 EXPECT="signalk-container signalk-to-influxdb2 signalk-to-influxdb-v2-buffer signalk-notification-player"
+# Their plugin-config-data files differ for the same reason -- the disable is
+# written into the config -- as does venus.json, which carries the HALOS card's
+# own Venus host. Excluded by name: without this the state line FAILs on every
+# card forever, which teaches the operator to skip reading it.
+CONFIG_EXPECT="${EXPECT// /.json|}.json|venus.json"
 # Present on one card only, by the images rather than the build: app-dock is bundled
 # by the boat's npm server but not the HALOS image; polar-performance the reverse;
 # instrument-light is off on the boat and never loads on HALOS (serialport bindings).
@@ -60,7 +65,15 @@ out=$(r "$HOST" 'echo $(/usr/sbin/modinfo -n mcp251x >/dev/null 2>&1 && echo mcp
 
 # A hang at the boat is only diagnosable if the journal survives the reboot
 # and the hardware watchdog actually resets a wedged box (bench hung 3 h on 2026-09-03).
-out=$(r "$HOST" 'echo $([ -d /var/log/journal ] && [ "$(journalctl --list-boots -q 2>/dev/null | wc -l)" -gt 1 ] && echo persistent) $(systemctl show -p RuntimeWatchdogUSec --value) $([ -c /dev/watchdog ] && echo dev)')
+# Two boots on disk is the only proof persistence survives a reboot, so that is
+# what this asserts. A card configured correctly but not yet rebooted reads
+# 'staged' -- still a FAIL (it is unproven), but a different fix from a card
+# whose Storage= is wrong, and the two were indistinguishable before.
+out=$(r "$HOST" 'boots=$(journalctl --list-boots -q 2>/dev/null | wc -l)
+if [ -d /var/log/journal ] && [ "$boots" -gt 1 ]; then echo -n persistent
+elif [ -d /var/log/journal ]; then echo -n "staged(1 boot on disk; reboot to prove it)"
+else echo -n volatile; fi
+echo " $(systemctl show -p RuntimeWatchdogUSec --value) $([ -c /dev/watchdog ] && echo dev)"')
 [ "$out" = "persistent 30s dev" ] && say ok journal "journal persistent across boots; watchdog 30 s on /dev/watchdog" || say FAIL journal "got '$out' (want: persistent 30s dev)"
 
 # The SignalK state was copied from the boat on 2026-09-02 and the boat keeps
@@ -76,8 +89,8 @@ theirs=$(inventory "$BOAT" .signalk); mine=$(inventory "$HOST" "$D")
 if [ -z "$theirs" ] || [ -z "$mine" ]; then
   say FAIL state "could not inventory .signalk (boat $(echo "$theirs" | grep -c .) lines, $HOST $(echo "$mine" | grep -c .) lines)"
 else
-  out=$(diff <(echo "$theirs") <(echo "$mine") | grep '^[<>]' | sed 's/^\([<>]\) [0-9a-f]\{16\} /\1 /' | grep -vE "^[<>] (bt-sensors-plugin-sk|signalk-plugin-watchdog|${EXPECT// /|})@" | tr '\n' ' ')
-  [ -z "$out" ] && say ok state "config files and installed plugin versions match the boat (forks and expected-off skipped)" || say FAIL state "differs from the boat (< boat, > halos): $out-- RUNBOOK 'final state sync'"
+  out=$(diff <(echo "$theirs") <(echo "$mine") | grep '^[<>]' | sed 's/^\([<>]\) [0-9a-f]\{16\} /\1 /' | grep -vE "^[<>] (bt-sensors-plugin-sk|signalk-plugin-watchdog|${EXPECT// /|})@" | grep -vE "^[<>] plugin-config-data/(${CONFIG_EXPECT})$" | tr '\n' ' ')
+  [ -z "$out" ] && say ok state "config files and installed plugin versions match the boat (forks, expected-off and venus skipped)" || say FAIL state "differs from the boat (< boat, > halos): $out-- RUNBOOK 'final state sync'"
 fi
 
 boatp=$(plugins "$BOAT"); hostp=$(plugins "$HOST")
