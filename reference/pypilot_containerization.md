@@ -111,9 +111,17 @@ serial-probe hints. Back that directory up and the container is disposable.
    over untouched, and the log confirms both were actually applied ("Using
    ellipsoid compass calibration", "Using accel calibration"), not silently
    replaced with defaults. This result is IMU-agnostic — it holds for
-   whichever chip is physically on the bus — but it was exercised against
-   the bench's ICM-20948, not the boat's MPU9250; the MPU9250 driver path
-   itself is still **[unverified]** on 0.71.
+   whichever chip is physically on the bus.
+
+   **[verified]** 2026-09-03, against the boat's actual MPU9250 on
+   `symphony-pi` itself (native pypilot stopped, image built from source on
+   the boat, run against a copy of the live `~/.pypilot`): the log reads
+   "MPU-925x init complete" and "IMU all sensor axes verified",
+   `imu.heading`/`imu.pitch` came back live (52.35°/8.64°, matching the
+   boat's own documented native reading of 52.58° closely), and
+   `RTIMULib.ini` came back byte-for-byte identical — no field changed at
+   all, since the stored `IMUType=7` already matched the real chip. The
+   MPU9250 driver path is no longer a gap.
 5. **A servo, when one is fitted.** A USB motor controller appearing after the
    container starts will not show up inside it: `devices:` is static. That
    needs either a restart after plugging in, or `device_cgroup_rules` plus a
@@ -121,20 +129,24 @@ serial-probe hints. Back that directory up and the container is disposable.
 
 ## Not yet verified
 
-- **The arm64 build.** Built and run only on amd64 (WSL, 16 cores): about 90 s,
-  682 MB image. numpy and scipy have aarch64 wheels, but RTIMULib2 and
-  pypilot's four SWIG extensions compile from source on the Pi. Build time and
-  memory headroom on a 4 GB Pi are unmeasured; building on the bench HALOS
-  card and keeping the image is the cheap path.
+- **The arm64 build.** Built and run only on amd64 (WSL, 16 cores) originally:
+  about 90 s, 682 MB image. **[verified]** arm64: 416 s on the 2 GB HALOS
+  bench card (2026-09-02); 9m38s from scratch on `symphony-pi` itself
+  (2026-09-03, no docker layer cache, fresh clone of the boat's actual
+  cellular WAN — apt, PyPI wheels, and the RTIMULib2/pypilot SWIG compiles
+  all completed in one pass with no retries needed, network estimated at
+  ~190 MB total). numpy and scipy pulled aarch64 wheels on both; RTIMULib2
+  and pypilot's SWIG extensions compiled from source in both, at 35 s for
+  RTIMULib2 on the boat Pi.
 - **A real IMU through the container.** On the dev box `imu.heading` is
   `False` and the loop logs "server/client is running too _slowly_" — expected
   with no IMU pacing it, but it means the I2C path itself is untested from
-  inside a container. **[verified]** 2026-09-03 on the HALOS bench card's
-  ICM-20948: `i2cdetect` shows `0x68`, the daemon logs "made imu process
-  realtime" and "IMU all sensor axes verified", and `pypilot_client` returns
-  a live, moving `imu.heading`/`imu.pitch`. The boat's MPU9250 is still
-  untested — same driver family (both InvenSense, both handled by
-  RTIMULib2), but not the same part.
+  inside a container. **[verified]** 2026-09-03: the HALOS bench card's
+  ICM-20948 (`i2cdetect` shows `0x68`, "made imu process realtime", "IMU all
+  sensor axes verified", live moving `imu.heading`/`imu.pitch`) and then
+  the boat's own MPU9250 on `symphony-pi` itself — "MPU-925x init complete",
+  heading/pitch matching the boat's documented native reading. Both chips
+  confirmed; nothing left untested on this leg.
 - **HALOS siting.** HALOS owns `/var/lib/container-apps/` and overwrites it on
   upgrade, so a Symphony-owned pypilot must be a separate compose project with
   its own systemd unit, alongside HALOS's apps rather than inside them. Which

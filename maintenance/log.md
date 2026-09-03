@@ -399,3 +399,7 @@
   minutes, reaches the i2c bus from inside the container, drives a real IMU
   and serves its web UI. Still to check against the boat's own IMU and its
   existing autopilot settings.
+- Confirmed the containerized pypilot against the boat's own hardware and
+  settings: it read the boat's autopilot state and IMU calibration without
+  changes and drove the boat's actual compass sensor correctly. The boat
+  still runs pypilot natively; nothing has switched over.
