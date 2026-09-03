@@ -873,9 +873,8 @@ other end is what tells you the boat went quiet.
 ## Keeping the boat's checkouts fresh
 
 `boat-hourly-sync.timer` fetches `/home/pi/symphony` hourly. It never merges
-or checks out — deploying is § Deploy a compose change to the boat.
-`boat-heartbeat` reports the
-result off the boat:
+or checks out — deploying stays § Deploy a compose change to the boat.
+`boat-heartbeat` reports the result off the boat:
 
 ```
 symphony: 15 behind, fetched 12m ago
