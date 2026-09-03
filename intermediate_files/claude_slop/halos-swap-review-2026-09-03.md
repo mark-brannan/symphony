@@ -58,7 +58,26 @@ Fixes made today are listed at the end; anything for Mark is on the board.
 
 ## Fresh-image repeatability
 
-(filled in after the gap analysis is reconciled with the bench)
+Full detail and the step order: [halos-fresh-image-rebuild.md](halos-fresh-image-rebuild.md).
+The short version, from a second card imaged today with
+`Halos-Marine-RPI_2026-08-20.0.img.xz` and booted on the bench Pi:
+
+- **Not repeatable as documented, and the gap is in front of the plan, not
+  inside it.** A fresh card needs wired Ethernet with internet before
+  power-on: no WiFi credentials, and the image ships zero container images —
+  SignalK, Authelia, Traefik and Homarr are all pulled on first boot. This
+  card sat for 30 minutes with two failed units and nothing running until a
+  cable went in. Nobody had written this down because Mark did it once by
+  hand and the bench card has looked "already built" ever since.
+- The image ships only SignalK and Homarr as apps. QuestDB, Grafana and the
+  three apps the plan removes (InfluxDB, AvNav, OpenCPN) were all hand
+  installs on the bench card. The plan's "remove InfluxDB, disable AvNav and
+  OpenCPN" steps describe undoing something a fresh card never has.
+- The host layer is now being applied by Ansible to the fresh card; results
+  below when the run finishes. The SignalK state layer (boat copy, forks,
+  npm build) remains hand procedure with one unrecorded command.
+- Consequence for the boat, stated once: a HALOS card is built at home,
+  always, and the first boot of any HALOS card is a home-only event.
 
 ## What was changed today
 

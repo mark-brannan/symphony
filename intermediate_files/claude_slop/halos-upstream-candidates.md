@@ -27,3 +27,5 @@ is made; retag when we learn more. Upstream repo: `github.com/halos-org`.
 | npm native rebuild for Node 24 in a throwaway container | `halos-b3-findings-2026-09-02.md` | core (docs) | The image has no compiler; plugins with native deps fail silently. Either ship build tools or document the recipe. |
 | zram swap on a 2 GB card | `ansible/roles/base` | add-on | Only matters for 2 GB boards. |
 | Cerbo MQTT by IP because the container's `nsswitch` is `files dns` | `venus.json` | core (bug) | `.local` names never resolve inside HALOS app containers; anything mDNS-addressed breaks. |
+| Ship the core container images inside the image, or an offline-first first boot | (not ours to build; upstream issue) | core | A marine box's first boot is often somewhere without internet. Today the image is unusable until it can reach ghcr.io and Docker Hub; the failure is two silently start-limited units. |
+| First-boot network requirement stated up front in the README | upstream docs | core (docs) | Wired Ethernet with internet is required and unstated; WiFi cannot be preseeded. |
