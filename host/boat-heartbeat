@@ -58,21 +58,14 @@ v_clock=$(chronyc tracking 2>/dev/null | awk -F': *' '/^System time/ {print $2}'
 v_failed=$(systemctl list-units --state=failed --no-legend --plain 2>/dev/null | awk '{print $1}' | paste -sd, - || echo "unknown")
 [ -n "$v_failed" ] || v_failed="none"
 
-# Checkout drift. Diagnostics only -- never alarms, because being behind
-# origin is the normal, healthy state of a boat that deploys deliberately.
-# /home/pi/symphony had silently reached 89 commits behind before anyone
-# looked (2026-09-02); this makes the number visible on the one channel that
-# reports from off the boat.
-#
-# Reads local refs only, so this adds no network work to the heartbeat -- the
-# fetch is boat-hourly-sync.timer's job. That means the count is only as fresh
-# as the last successful fetch, which is why the fetch age is reported next to
-# it: "13 behind, fetched 4h ago" is a fetch that has been failing, and looks
-# different from "13 behind, fetched 20m ago", which is just an undeployed
-# change. safe.directory because this runs as root against pi's checkout.
+# Checkout drift, diagnostics only -- being behind origin is the normal state
+# of a boat that deploys deliberately, so it never alarms. Local refs only, so
+# no network work here; boat-hourly-sync.timer does the fetching. The fetch age
+# is what separates a failing fetch from a merely undeployed change.
 repo_state() {
 	_dir=$1; _ref=$2; _fh=$3
 	[ -d "$_dir" ] || { printf 'absent'; return; }
+	# safe.directory: this runs as root against pi's checkout.
 	_n=$(git -c safe.directory='*' --git-dir="$_dir" rev-list --count "HEAD..$_ref" 2>/dev/null)
 	case "$_n" in ''|*[!0-9]*) printf 'unknown'; return ;; esac
 	_age=""
@@ -85,11 +78,8 @@ repo_state() {
 }
 v_symphony=$(repo_state /home/pi/symphony/.git origin/main /home/pi/symphony/.git/FETCH_HEAD)
 v_dotfiles=$(repo_state /home/pi/.local/share/yadm/repo.git origin/main /home/pi/.local/share/yadm/repo.git/FETCH_HEAD)
-# boat-hourly-sync runs `yadm pull --rebase --autostash` against a $HOME that
-# is permanently dirty (the resident Claude session rewrites
-# .claude/settings.json). A conflicting rebase rolls back and leaves the stash
-# behind with no other signal, so the count is reported here. Anything but 0
-# wants a human; nothing on the boat should pop it automatically.
+# A rolled-back autostash leaves only a stash entry as evidence; yadm reports
+# exit 0. Anything but 0 wants a human.
 v_stash=$(git -c safe.directory='*' --git-dir=/home/pi/.local/share/yadm/repo.git \
 	--work-tree=/home/pi stash list 2>/dev/null | wc -l)
 case "$v_stash" in ''|*[!0-9]*) v_stash="unknown" ;; esac

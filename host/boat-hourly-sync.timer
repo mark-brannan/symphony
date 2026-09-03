@@ -2,15 +2,10 @@
 Description=Fetch origin for the boat's checkouts, hourly
 
 [Timer]
-# Late enough that the uplink is usually up. Nothing at boot needs a current
-# checkout, so there is no hurry.
 OnBootSec=5min
 OnUnitActiveSec=1h
-# Measured 2026-09-02: a no-op symphony fetch over ssh is 2.5 s and a few KB.
-# Hourly is well inside modest for a boat on a marina uplink.
 RandomizedDelaySec=5min
-# Don't replay runs for time spent powered off -- only the current distance
-# from origin matters, and the next run gets it.
+# Only the current distance matters; don't replay time spent powered off.
 Persistent=false
 
 [Install]
