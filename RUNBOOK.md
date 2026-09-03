@@ -994,11 +994,23 @@ If the `state` line names a plugin version or `package.json`, the boat
 installed or updated a plugin since the copy. Copy the boat's `package.json`
 across, re-pin the two `file:local-plugins/` entries, and rebuild the tree
 with the script that owns that recipe (stops and restarts the SignalK unit
-itself; 10–20 min on a Pi 4):
+itself; measured 18 min 52 s on a Pi 4):
 
 ```bash
-ssh -t pi@symphony-halos 'cd /home/pi/symphony && sudo scripts/halos_signalk_npm.sh'
+ssh pi@symphony-halos 'cd /home/pi/symphony && sudo scripts/halos_signalk_npm.sh'
 ```
+
+The build runs in a transient systemd unit, so losing the connection loses
+only the log you are watching. Reconnect and follow it again, or check it
+finished, with either of:
+
+```bash
+ssh pi@symphony-halos 'journalctl -u halos-npm -f'
+```
+
+To abort a run, `sudo systemctl stop halos-npm` — that restarts SignalK on the
+way out. Never `systemctl kill`: it kills the restart along with the build and
+leaves SignalK down.
 
 `dns_cutover.sh`'s read path (`status`) runs on every preflight. Exercise the
 write path once from home the day you go, so a dead token is found at home:

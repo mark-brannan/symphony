@@ -35,14 +35,23 @@ SELF_UNIT=halos-npm
 
 # Detach before doing anything. A 20-minute npm run tied to an ssh session is a
 # torn node_modules and a stopped SignalK the moment the link drops: bash takes
-# EPIPE on its next echo, `set -e` aborts mid-install, and a SIGKILL skips the
-# trap below entirely. So the real run happens in a transient unit whose
-# ExecStopPost brings SignalK back even if the unit is killed outright, and this
-# process degrades to a log follower. systemd sets INVOCATION_ID inside the
-# unit, which is how the re-exec knows not to recurse.
+# EPIPE on its next echo, `set -e` aborts mid-install, and an OOM kill skips the
+# trap below entirely. So the real run happens in a transient unit, this process
+# degrades to a log follower, and ExecStopPost restarts SignalK when the trap
+# could not. systemd sets INVOCATION_ID inside the unit, which is how the
+# re-exec knows not to recurse.
+#
+# ExecStopPost covers the main process dying (OOM, crash, `systemctl stop`);
+# measured 2026-09-03, SignalK came back on its own. Recovery is not instant --
+# systemd waits for the npm container, which outlives the script because it runs
+# in dockerd's cgroup, so allow it a minute before concluding it failed. It does
+# NOT cover `systemctl kill`, which SIGKILLs the whole cgroup including the
+# control process; that left SignalK down. To abort a run by hand use
+# `systemctl stop halos-npm`, never `systemctl kill`.
 if [ -z "${INVOCATION_ID:-}" ]; then
   systemctl is-active --quiet "$SELF_UNIT" && { echo "$SELF_UNIT already running; follow it with: journalctl -u $SELF_UNIT -f" >&2; exit 1; }
   systemctl reset-failed "$SELF_UNIT" 2>/dev/null || true
+  started=$(date '+%Y-%m-%d %H:%M:%S')
   systemd-run --unit "$SELF_UNIT" --quiet \
     --property=ExecStopPost="/usr/bin/systemctl start $UNIT" \
     "$(readlink -f "$0")" "$MODE"
@@ -52,12 +61,22 @@ if [ -z "${INVOCATION_ID:-}" ]; then
   trap 'kill $follower 2>/dev/null' EXIT
   while systemctl is-active --quiet "$SELF_UNIT"; do sleep 5; done
   sleep 1; kill $follower 2>/dev/null; trap - EXIT
-  # The unit is --collect-less on purpose: a failed run stays inspectable, and
-  # its Result is the only exit status the caller can still see from out here.
-  result=$(systemctl show "$SELF_UNIT" -p Result --value 2>/dev/null || echo unknown)
-  status=$(systemctl show "$SELF_UNIT" -p ExecMainStatus --value 2>/dev/null || echo 1)
+  # Read the outcome from the journal, not from `systemctl show`: a transient
+  # unit is garbage-collected once it goes inactive, and `show` on a unit that
+  # no longer exists answers Result=success for a run that was killed -- i.e.
+  # the one case the caller most needs to hear about (measured 2026-09-03).
+  # The journal lines outlive the unit.
+  outcome=$(journalctl -u "$SELF_UNIT" --since "$started" --no-pager -o cat 2>/dev/null \
+    | grep -oE "Failed with result '[a-z-]+'|Main process exited, code=[a-z]+, status=[0-9]+[^ ]*" | tail -1 || true)
+  # `|| true` is load-bearing: under `set -o pipefail` a grep that correctly
+  # matches nothing (the clean run) exits 1 and takes the whole script with it.
   systemctl reset-failed "$SELF_UNIT" 2>/dev/null || true
-  [ "$result" = success ] || { echo "== $SELF_UNIT ended $result (status $status)" >&2; exit "${status:-1}"; }
+  case "$outcome" in
+    "") echo "== $SELF_UNIT finished; no failure recorded in the journal" ;;
+    *"Failed with result"*|*status=[1-9]*)
+        echo "== $SELF_UNIT ended badly: $outcome -- journalctl -u $SELF_UNIT" >&2; exit 1 ;;
+    *)  echo "== $SELF_UNIT finished clean" ;;
+  esac
   exit 0
 fi
 [ -f "$D/package.json" ] || { echo "no $D/package.json" >&2; exit 1; }
