@@ -26,21 +26,26 @@ sops). Read first: [halos-swap-review-2026-09-03.md](halos-swap-review-2026-09-0
 
 ## Do, in order
 
-1. Fresh card: `scripts/halos_preflight.sh
-   192.168.0.192`. Expect `plugins` and `state` to read ok now (forks pinned,
-   D-Bus fix present, ~120 loaded). Record the result and the build time in
-   `halos-fresh-image-rebuild.md`. If `plugins` FAILs, paste the
-   `journalctl -u marine-signalk-server-container` grep from plan B3c.
-2. Fresh card, optional and memory-permitting (stop SignalK first on this
-   2 GB box): `sudo apt install marine-questdb-container
-   marine-grafana-container` to learn whether those packages exist on
-   `apt.halos.fi` and what they pull. Record; then `systemctl stop` both.
-3. Ask Mark to swap the payload card back in (fresh card powered off).
+1. ~~Fresh card preflight.~~ **Done 2026-09-03 20:00.** `plugins` and `state`
+   both ok; the four FAILs are all known properties of that card (no
+   tailscale, no questdb/grafana, journal staged pending a reboot). Two
+   preflight bugs found and fixed (5a04053); result in
+   `halos-fresh-image-rebuild.md`.
+2. ~~apt question.~~ **Done.** Answered with `apt-cache policy` instead of an
+   install (the card was 1.3 GB into swap): questdb 10.0.0-1, grafana
+   13.1.3-2, influxdb 2.9.1-5 all exist on `apt.halos.fi`. What they pull is
+   still unmeasured.
+   Also done, unplanned: `halos_signalk_npm.sh` no longer dies with its ssh
+   session (e14fa0a) — it detaches into the transient unit itself. Both
+   failure paths measured on the fresh card.
+3. Ask Mark to swap the payload card back in (fresh card powered off — from
+   here, `ssh pi@192.168.0.192 sudo poweroff`).
 4. Payload card: `scripts/halos_preflight.sh`. Stop QuestDB/Grafana first if
    memory is under 400 MB, and expect `services` to FAIL for that reason
    only. Fix anything else it names; the `state` line's sync step is in
    `RUNBOOK.md` → "Before leaving home". For `vhfinfo`, run the sync step's
    npm script — that is also the recipe's first run on the payload card.
+   Expect `journal` to read `staged(...)` until step 6's reboot.
 5. DNS write-path dry run from the same RUNBOOK section, ending on
    `symphony-pi`. Confirm with `dig`.
 6. Reboot the payload card once with the full stack, wait 5 min,
