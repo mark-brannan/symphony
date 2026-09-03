@@ -1,9 +1,13 @@
 # as-built v1 steps 9-11, 16: the wifi profiles the card needs to find the boat,
 # the access point it offers when there is no boat wifi, and the tailnet name.
 
+# The keyfiles were exported from the boat card and carry `mac-address=`
+# pinning them to that Pi's radio; on any other board the profile exists but
+# never activates, with nothing logged. Strip the pin so the same secret
+# serves the bench Pi, a Pi 5 or a HALPI2 (found on a fresh card, 2026-09-03).
 - name: step 9 | boat wifi profiles
   ansible.builtin.copy:
-    content: "{{ symphony_secrets[item.key] }}"
+    content: "{{ symphony_secrets[item.key] | regex_replace('(?m)^mac-address=.*\\n', '') }}"
     dest: "/etc/NetworkManager/system-connections/{{ item.name }}.nmconnection"
     owner: root
     group: root
@@ -81,12 +85,17 @@
       access); the rename above was skipped.
   when: not ts_bin.stat.exists
 
-# The verify below reads what NetworkManager has loaded, so the reload has to
-# happen first. On a card that already had the profiles this was invisible;
-# on a fresh card the assertion failed with the keyfiles sitting on disk
-# unread (2026-09-03).
-- name: step 9 | apply pending profile reloads
-  ansible.builtin.meta: flush_handlers
+# The verify below reads what NetworkManager has loaded. NetworkManager only
+# reads new keyfiles on an explicit reload, and a handler fires only on the
+# run that wrote them -- a keyfile landed by an earlier run that stopped
+# before its handlers stays unread forever. So reload unconditionally here;
+# it is cheap and does not drop the association the play runs over
+# (measured on a fresh card, 2026-09-03: two runs failed the assertion with
+# the files on disk).
+- name: step 9 | NetworkManager has read the keyfiles
+  ansible.builtin.command: nmcli connection reload
+  changed_when: false
+  check_mode: false
 
 - name: step 9 | wifi profiles are loaded
   ansible.builtin.command: nmcli -t -f NAME connection show

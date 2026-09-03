@@ -122,6 +122,14 @@ value. Each run stopped at the first fatal; each fatal became a role fix:
    the verify.
 3. **Network role assumed tailscale.** Fixed earlier today: the rename is
    skipped with a message when `/usr/bin/tailscale` is absent.
+4. **The handler-based reload had the same flaw as the boot reboot**: a run
+   that wrote the keyfiles and stopped left them unread, and the next run
+   (`changed=0`) never reloaded. Fixed: unconditional `nmcli connection
+   reload` before the verify.
+5. **The sops WiFi keyfiles pin `mac-address=` to the boat Pi's radio.** On
+   the bench Pi the `Symphony` profile loads but can never activate; same on
+   a Pi 5 or HALPI2. Invisible on the boat, where the MAC matches. Fixed: the
+   role strips the pin when it writes the file.
 
 ## Order for the fresh-card test, when the card is in a Pi
 
