@@ -872,33 +872,31 @@ other end is what tells you the boat went quiet.
 
 ## Keeping the boat's checkouts fresh
 
-`boat-hourly-sync.timer` fetches `/home/pi/symphony` hourly. It never merges
-or checks out — deploying stays § Deploy a compose change to the boat.
-`boat-heartbeat` reports the result off the boat:
-
-```
-symphony: 15 behind, fetched 12m ago
-dotfiles: current, 2 stashed
-```
-
-Being behind never alarms. The fetch age is the part that matters: `15 behind,
-fetched 4h ago` is a fetch that has been failing, `fetched 12m ago` is just an
-undeployed change. A non-zero `stashed` means a `yadm pull --rebase
---autostash` conflicted and rolled back — `yadm` exits 0 on that, so nothing
-else catches it.
+`boat-hourly-sync.timer` fetches `/home/pi/symphony` hourly. It never merges —
+to deploy, see § Deploy a compose change to the boat.
 
 ```bash
 systemctl status boat-hourly-sync.timer
 journalctl -t boat-hourly-sync -n 5 --no-pager -o cat
 ```
 
-*Verify:* `sudo systemctl start boat-hourly-sync.service`, then the
-`journalctl` line prints `symphony: fetched, N behind origin/main`. A `fetch
-failed` line means the fetch is broken, not the timer — run it by hand as `pi`
-for the real error, which the unit discards.
+*Verify:* `sudo systemctl start boat-hourly-sync.service` prints
+`symphony: fetched, N behind origin/main`. On `fetch failed`, run
+`/usr/local/bin/boat-hourly-sync` as `pi` — the unit hides the real error.
 
-**dotfiles is not synced by this timer**, only reported, until the dotfiles
-repo canonicalizes `.claude/settings.json`'s key order.
+Each heartbeat also reports drift:
+
+```
+symphony: 15 behind, fetched 12m ago
+dotfiles: current, 2 stashed
+```
+
+Behind is normal and never alarms. Read the fetch age with it: a stale age
+means the fetch is broken, not that a change is waiting. Any `stashed` count
+above 0 needs a person — a `yadm` autostash rolled back, and `yadm` exits 0
+when it does.
+
+dotfiles is reported but not synced here.
 
 ## Swapping the HALOS card onto the boat
 
