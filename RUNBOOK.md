@@ -964,10 +964,15 @@ rsync -av --exclude node_modules --exclude package.json --exclude appstore-cache
 ssh pi@symphony-halos 'sudo systemctl restart marine-signalk-server-container'
 ```
 
-If the boat's `package.json` gained or dropped a dependency since the copy
-(the `state` line names `package.json`), that is a plugin install on the boat
-and needs the npm recipe in `halos-b3-findings-2026-09-02.md` before the
-restart, not just the rsync.
+If the `state` line names a plugin version or `package.json`, the boat
+installed or updated a plugin since the copy. Copy the boat's `package.json`
+across, re-pin the two `file:local-plugins/` entries, and rebuild the tree
+with the script that owns that recipe (stops and restarts the SignalK unit
+itself; 10–20 min on a Pi 4):
+
+```bash
+ssh -t pi@symphony-halos 'cd /home/pi/symphony && sudo scripts/halos_signalk_npm.sh'
+```
 
 `dns_cutover.sh`'s read path (`status`) runs on every preflight. Exercise the
 write path once from home the day you go, so a dead token is found at home:

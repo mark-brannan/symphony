@@ -135,8 +135,21 @@ value. Each run stopped at the first fatal; each fatal became a role fix:
    retries for a minute.
 7. **Monitoring role assumed `/etc/systemd/system/telegraf.service.d/`
    exists.** It did on the bench card (v1 made it by hand). Fixed: the role
-   creates it. Base, repo and host_files roles passed on the fresh card
-   without change (`install.sh` accepted the card as a boat card).
+   creates it. Base and repo roles passed on the fresh card without change.
+8. **`host/install.sh` aborted at the telegraf restart**, before enabling any
+   timer, and the host_files role's "stopped at claude-resident" note
+   misreported it. On a fresh card telegraf has no usable config until the
+   monitoring role runs *after* host_files. Fixed: a failed restart is
+   reported and the installer continues (non-zero exit at the end); it also
+   flushes the journal after restarting journald so `Storage=persistent`
+   takes effect without a reboot. Rerun: both timers active.
+
+After eight fixes: `site.yml` converges on a fresh card, `ok=67 failed=0`,
+and `scripts/halos_preflight.sh <lan-ip>` reads ok on boot, wifi, hotspot,
+can, signalk (override + gid), containers, front, mem. Still FAIL, by design
+of what the play owns: host (no tailscale), state/plugins (SignalK state),
+services (no QuestDB/Grafana in the image), ntfy, questdb, journal (until the
+flush fix landed).
 
 ## Order for the fresh-card test, when the card is in a Pi
 
