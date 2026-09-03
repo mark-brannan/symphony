@@ -82,18 +82,36 @@
 - name: step 8 | apply pending boot changes
   ansible.builtin.meta: flush_handlers
 
+# Deliberately reads /proc and /dev, not the files written above: those are
+# what the NEXT boot will use, these are what this one got. A card whose
+# files are already right but whose kernel is not -- a previous run with
+# symphony_allow_reboot=false, or a hand edit -- notifies no handler, so the
+# check itself has to ask for the reboot (measured on a fresh card,
+# 2026-09-03: two runs in a row failed here with changed=0).
 - name: step 8 | the RUNNING kernel has the devices and settings
-  ansible.builtin.shell: |
+  ansible.builtin.shell: &running_kernel |
     set -e
     test -e /dev/serial0
     test -e /dev/i2c-1
     grep -qw memory /sys/fs/cgroup/cgroup.controllers
     grep -q 'cfg80211.ieee80211_regdom=US' /proc/cmdline
+  register: running_kernel
   changed_when: false
+  failed_when: false
   # Read-only, so it must still run under --check; otherwise the assertions
   # below have nothing to read and --check cannot be used to audit a card.
   check_mode: false
-  # Deliberately reads /proc and /dev, not the files written above: those are
-  # what the NEXT boot will use, these are what this one got. Running with
-  # symphony_allow_reboot=false after a firmware change fails here, correctly.
+  tags: [verify]
+
+- name: step 8 | the files are right but the running kernel is not -- reboot
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+  when: running_kernel.rc != 0 and (symphony_allow_reboot | bool) and not ansible_check_mode
+
+- name: step 8 | the RUNNING kernel has the devices and settings (after reboot)
+  ansible.builtin.shell: *running_kernel
+  changed_when: false
+  check_mode: false
+  # Running with symphony_allow_reboot=false after a firmware change fails
+  # here, correctly: /boot/firmware is right, this boot is not.
   tags: [verify]
