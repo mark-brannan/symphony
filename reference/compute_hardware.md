@@ -107,6 +107,29 @@ screen may be plugged in. What it must not do is render a GPU-accelerated
 browser at boot into a display that is not there; see the v3d trap in
 [RUNBOOK.md](../RUNBOOK.md).
 
+## Bench, at home
+
+Test hardware in Mark's work area. These are options, not fixtures: anything
+here can be re-imaged, lent to another experiment or unplugged, and a session
+should check what is actually powered on before assuming.
+
+- **Pi 4 Model B, 2 GB**, headless, on the home LAN as `192.168.0.193` and on
+  the tailnet as `symphony-halos`. Runs the HALOS card built for the boat
+  swap (`Halos-Marine-RPI_2026-08-20.0.img.xz`, `pi` account, sudo via the
+  sops password). 2 GB is the constraint: SignalK plus QuestDB and Grafana do
+  not fit without zram, and a cold boot of the full stack can OOM a
+  container. Treat every memory number measured here as a lower bound for
+  the 4 GB boat Pi, never as the boat's.
+- **A second microSD card**, imaged with the same HALOS release, for a
+  from-scratch rebuild test. Kept as the fresh-image control; the bench card
+  above is the payload for the swap.
+- **Pi 5**, memory size unrecorded, not yet on the bench. Candidate for the
+  next round of swap testing and the step toward a HALPI2 (Compute Module 5)
+  target, on HALOS or on vanilla Trixie with this repo's own container
+  images. Nothing depends on it yet.
+- **The boat's current card** comes home after the swap and is the only copy
+  of the QuestDB history and `~/influx-export` until copied off.
+
 ## Where this is going
 
 The intended replacement is a [HALPI2](https://shop.hatlabs.fi/products/halpi2-computer)

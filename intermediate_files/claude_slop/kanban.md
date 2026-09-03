@@ -4,6 +4,8 @@ This is symphony's board under the global "Open loops" rule: one line per
 card, imperative, always linked; cards die when done, not archived here — see
 `log.md` and `git log` for history. `## Yours` is calls only Mark can make
 (decisions, purchases, physical/account access). `## Claude's` is work a
+
+- [ ] Keep [halos-upstream-candidates.md](halos-upstream-candidates.md) current — add a line for every HALOS-side change the moment it is made, tagged core / add-on / ours; Mark's standing question from 2026-09-03 is answered from this file later, not now.
 session can pick up and execute. Full working detail behind a card lives in
 `kanban-detail.md`, or at an existing reference doc / open PR when one
 already carries enough context.

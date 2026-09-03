@@ -48,6 +48,38 @@ for d in /dev/serial0 /dev/i2c-1; do [ -e $d ] || echo "missing:$d"; done' | tr 
 out=$(r "$HOST" 'echo $(nmcli -g 802-11-wireless.ssid con show Symphony 2>/dev/null) $(nmcli -g 802-11-wireless.ssid con show Halos-AP 2>/dev/null)')
 [ "$out" = "Symphony SignalK" ] && say ok wifi "profile Symphony; hotspot Halos-AP ssid SignalK" || say FAIL wifi "got '${out}' (want: Symphony SignalK)"
 
+# Both cards run the hotspot on a virtual AP interface next to the WiFi client
+# (boat: wlan9; HALOS: wlan0ap), so the AP must be up on wlan0ap regardless of
+# which client network is present.
+out=$(r "$HOST" 'echo $(nmcli -t -f NAME,DEVICE con show --active | grep "^Halos-AP:" ) $(nmcli -g connection.autoconnect con show Halos-AP) $(ip -br link show wlan0ap 2>/dev/null | awk "{print \$2}")')
+[ "$out" = "Halos-AP:wlan0ap yes UP" ] && say ok hotspot "Halos-AP active on wlan0ap, autoconnect, link UP" || say FAIL hotspot "got '$out' (want: Halos-AP:wlan0ap yes UP)"
+
+# can0 is only ever seen at the boat, so check every piece it needs at home.
+out=$(r "$HOST" 'echo $(/usr/sbin/modinfo -n mcp251x >/dev/null 2>&1 && echo mcp251x) $(/usr/sbin/modinfo -n can_raw >/dev/null 2>&1 && echo can_raw) $(systemctl is-enabled systemd-networkd 2>/dev/null) $(grep -qs "BitRate=250000" /etc/systemd/network/80-can.network && echo 250k) $(systemctl is-enabled systemd-networkd-wait-online 2>/dev/null)')
+[ "$out" = "mcp251x can_raw enabled 250k disabled" ] && say ok can "modules present, networkd enabled, 80-can.network 250 kbit, wait-online disabled" || say FAIL can "got '$out' (want: mcp251x can_raw enabled 250k disabled)"
+
+# A hang at the boat is only diagnosable if the journal survives the reboot
+# and the hardware watchdog actually resets a wedged box (bench hung 3 h on 2026-09-03).
+out=$(r "$HOST" 'echo $([ -d /var/log/journal ] && [ "$(journalctl --list-boots -q 2>/dev/null | wc -l)" -gt 1 ] && echo persistent) $(systemctl show -p RuntimeWatchdogUSec --value) $([ -c /dev/watchdog ] && echo dev)')
+[ "$out" = "persistent 30s dev" ] && say ok journal "journal persistent across boots; watchdog 30 s on /dev/watchdog" || say FAIL journal "got '$out' (want: persistent 30s dev)"
+
+# The SignalK state was copied from the boat on 2026-09-02 and the boat keeps
+# changing it. Config files (not runtime data) and the *installed* plugin
+# versions must match on swap day, or the new card boots with stale settings
+# or older plugins. The two forks and the expected-off plugins differ by
+# decision and are skipped.
+inventory() { # inventory <host> <state dir>
+  r "$1" "cd $2 && for f in settings.json security.json baseDeltas.json red/flows.json plugin-config-data/*.json; do [ -f \"\$f\" ] && printf '%s %s\n' \"\$(sha256sum < \"\$f\" | cut -c1-16)\" \"\$f\"; done
+for d in \$(python3 -c 'import json; print(\" \".join(sorted(json.load(open(\"package.json\"))[\"dependencies\"])))'); do printf '%s@%s\n' \"\$d\" \"\$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[\"version\"])' node_modules/\$d/package.json 2>/dev/null || echo NOTINSTALLED)\"; done" | sort
+}
+theirs=$(inventory "$BOAT" .signalk); mine=$(inventory "$HOST" "$D")
+if [ -z "$theirs" ] || [ -z "$mine" ]; then
+  say FAIL state "could not inventory .signalk (boat $(echo "$theirs" | grep -c .) lines, $HOST $(echo "$mine" | grep -c .) lines)"
+else
+  out=$(diff <(echo "$theirs") <(echo "$mine") | grep '^[<>]' | sed 's/^\([<>]\) [0-9a-f]\{16\} /\1 /' | grep -vE "^[<>] (bt-sensors-plugin-sk|signalk-plugin-watchdog|${EXPECT// /|})@" | tr '\n' ' ')
+  [ -z "$out" ] && say ok state "config files and installed plugin versions match the boat (forks and expected-off skipped)" || say FAIL state "differs from the boat (< boat, > halos): $out-- RUNBOOK 'final state sync'"
+fi
+
 boatp=$(plugins "$BOAT"); hostp=$(plugins "$HOST")
 if [ -z "$boatp" ] || [ -z "$hostp" ]; then
   say FAIL plugins "could not list plugins (boat: $(echo "$boatp" | grep -c .), $HOST: $(echo "$hostp" | grep -c .)) — login or server down"

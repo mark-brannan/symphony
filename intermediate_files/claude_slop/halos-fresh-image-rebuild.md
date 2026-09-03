@@ -1,0 +1,79 @@
+# Rebuilding the HALOS card from a fresh image — what is and isn't repeatable
+
+Written 2026-09-03 from a read of every as-built and Ansible file, plus an
+upstream check of HALOS itself. Nothing here has been run against a fresh
+card yet; the second card (imaged with `Halos-Marine-RPI_2026-08-20.0.img.xz`,
+Raspberry Pi Imager, **no OS customisation** — HALOS's README says so) is the
+control for that test.
+
+## Short answer
+
+No, not today. Ansible reproduces the **host layer** and has converged the
+bench card four times (`ok=60 changed=0`), but it has never created a card:
+every run started from a card v1 had already built by hand. The **SignalK
+state layer** (the boat's `.signalk` copy, the two local forks, the
+`package.json` pins, the Node-24 npm build) is procedure with one unrecorded
+command, and the HALOS **app-store layer** is assumed to be there because the
+image shipped it.
+
+## Upstream facts that shape a rebuild
+
+- Image: `Halos-Marine-RPI` from `github.com/halos-org/halos-pi-gen/releases`,
+  Debian 13 Trixie, arm64, flashed with Imager "Use custom", customisation off.
+- SSH on by default in headless images. Default login is reported as both
+  `pi`/`halos` (halos-distro README) and `pi`/`raspberry` (Hat Labs docs) —
+  try `halos` first; first boot should change it to the sops value.
+- No first-boot wizard; config is Cockpit at `:9090` and the dashboard at `/`.
+  No preseed/cloud-init mechanism documented.
+- Not found upstream: whether `pi` is in `docker` (it is not on the bench),
+  whether sudo is passwordless (it is not), whether `cgroup_enable=memory` is
+  on by default (it was not on the bench), any auto-update timer.
+
+## Gaps, ranked by how badly a rebuild goes without them
+
+1. **The npm build recipe is unrecorded.** `halos-b3-findings-2026-09-02.md`
+   describes it (throwaway `node:24-bookworm` container writing into `$D`,
+   `npm install --ignore-scripts`, named `npm rebuild`s, under
+   `systemd-run`) but the literal commands were never captured. Without it the
+   BME680, i2c and sqlite-backed plugins load nothing and say nothing.
+   *Fix:* write the recipe as `scripts/halos_signalk_npm.sh` and run it once
+   on the fresh card.
+2. **The HALOS app layer is assumed.** Roles `signalk_container` and the
+   preflight expect `marine-signalk-server-container`, QuestDB, Grafana,
+   Homarr, Authelia, Traefik, autoheal and the port registry (SignalK on
+   4430). The Marine image ships SignalK, Grafana, InfluxDB, AvNav; whether
+   QuestDB and Homarr are in the image or were `apt install`ed by Mark is
+   unknown. *Fix:* on the fresh card, `dpkg -l 'marine-*' 'halos-*'` before
+   anything else and record the delta against the bench card.
+3. **`.env`** — copied from `.env.example` by hand; without it compose refuses
+   the project file, so no ntfy, no pypilot. Not in Ansible.
+4. **Second healthchecks.io check** — the URL is in sops, but nothing creates
+   the check; a third card would ping nothing or the wrong one.
+5. **pypilot calibration data** — exists on the boat card only; the copy is a
+   manual root-to-root tar. Not in Ansible.
+6. **Boot chain never exercised by Ansible** — the reboot handler and the
+   running-kernel verify (`roles/boot`) have never fired, because the card
+   already had the lines.
+7. **Silent pre-plan assumptions** — Tailscale joined and authorised (Ansible
+   only renames), SSH key or Tailscale SSH from the control box, the `pi`
+   password set, HALOS's Authelia user created, `Halos-AP.nmconnection`
+   existing under that name.
+8. **The two legs no rebuild can do at home** — `can0` with the HAT, and BLE
+   with the boat's sensors in range. Vcan (`RUNBOOK.md` § A fake can0) covers
+   the socket path; BLE only the D-Bus reachability.
+
+## Order for the fresh-card test, when the card is in a Pi
+
+1. Boot, `ssh pi@<dhcp-ip>` with the default password, change it to the
+   sops value, `tailscale up --ssh --hostname=halos-fresh`, note the IP.
+2. `dpkg -l 'marine-*' 'halos-*'`, `docker ps`, `cat /etc/halos/port-registry`,
+   `nmcli con show`, `cat /boot/firmware/cmdline.txt` — the image baseline,
+   into this file.
+3. `ansible-playbook -i inventory site.yml -l symphony-halos` against the
+   new IP, expect the reboot handler to fire. Record every failure verbatim.
+4. B3 by hand: the `.signalk` copy from the boat, forks, pins, the npm
+   recipe. Time it.
+5. `.env`, ntfy, pypilot image (`--build` takes ~1 h on a Pi 4; export the
+   bench image with `docker save` instead).
+6. `scripts/halos_preflight.sh halos-fresh` — every gap it finds is a line
+   for Ansible or `install.sh`, not a hand fix.

@@ -949,6 +949,26 @@ ok    mem        401 MB available, 1118 MB swap used (2 GB bench cannot hold the
 ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x   (zone dark-star-llc.com, public answer: 100.x.x.x)   symphony-pi      100.x.x.x   <- current   symphony-halos   100.x.x.x
 ```
 
+The `state` line compares the SignalK config files on the card with the boat's
+today. The card was loaded from a copy, and the boat has kept changing plugin
+settings since; a FAIL there means run the final sync, then the preflight
+again. The excludes matter: `package.json` on the card carries the two
+`file:local-plugins/` pins and `node_modules` was built for Node 24, so
+neither may come across.
+
+```bash
+ssh pi@symphony-halos 'D=/var/lib/container-apps/marine-signalk-server-container/data/data
+rsync -av --exclude node_modules --exclude package.json --exclude appstore-cache \
+  --exclude "skserver-raw_*" --exclude "*.bak*" --exclude "*.deb" --exclude signalk-server \
+  --exclude "ssl-*.pem" --exclude "*.sqlite*" pi@symphony-pi:.signalk/ "$D"/'
+ssh pi@symphony-halos 'sudo systemctl restart marine-signalk-server-container'
+```
+
+If the boat's `package.json` gained or dropped a dependency since the copy
+(the `state` line names `package.json`), that is a plugin install on the boat
+and needs the npm recipe in `halos-b3-findings-2026-09-02.md` before the
+restart, not just the rsync.
+
 `dns_cutover.sh`'s read path (`status`) runs on every preflight. Exercise the
 write path once from home the day you go, so a dead token is found at home:
 
