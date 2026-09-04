@@ -103,3 +103,124 @@ rsync flattened the five HALOS-specific plugin files (the four disables and
 venus.json) with the boat's copies. The override set lived only in the
 preflight exclusion list, so nothing protected it. That session amended the
 RUNBOOK; the structural fix is `seed` owning those files.
+
+## Spike findings — inventory run 2026-09-03, read-only
+
+Answers the three questions the spike names. Nothing was changed; every
+line below is from the repo, the SignalK server source at
+`~/signalk-server`, or the local alpha data dir.
+
+### 1. Where each logical override touches today
+
+Seven logical overrides. The count is "files you must find and agree before
+the value is right", not lines.
+
+| Override | Touchpoints | Count |
+|---|---|---|
+| heartbeat ping URL, per card | sops keys `heartbeat_url_symphony_{pi,halos}`; `ansible/host_vars/symphony-pi.yml`; `ansible/host_vars/symphony-halos.yml`; `ansible/roles/monitoring/templates/boat-heartbeat.json.j2`; `ansible/roles/monitoring/tasks/main.yml` step 24; `host/boat-heartbeat.json` (sops, holds ONE url, fallback only); `host/install.sh` `:keep` flag on that copy line; `.gitattributes` | 8 |
+| ntfy server URL, per machine | `signalk/plugin-config-data/signalk-ntfy.json` (placeholder in git); `.gitattributes` `filter=hostvars`; `.hostvars.yaml`; `hostvars.local.yaml` (gitignored, per machine); `hostvars.local.yaml.example`; `scripts/hostvars_filter.py`; `scripts/setup-git-filters.sh` + the machine's `git config` filter entries | 7 |
+| pushover relay off in dev | `dev/plugin-config-overrides/signalk-pushover-notification-relay.json`; `docker-compose.override.yml` mount line; `dev/plugin-config-overrides/README.md` table; the repo copy it shadows | 4 |
+| healthcheck `n2k-can0` off in dev | same three + the repo copy; the dev file also *drops* the `mail` block, so it is not a patch of the repo copy but a different document | 4 |
+| four plugins disabled on HALOS | **nowhere as data.** `scripts/halos_preflight.sh` `EXPECT`/`CONFIG_EXPECT`; prose in `intermediate_files/claude_slop/halos-swap-plan.md`; the truth lives only in the card's live files | 2 (+live) |
+| venus host on HALOS | **nowhere as data.** `CONFIG_EXPECT` in the preflight; the value only in the card's live `venus.json` | 1 (+live) |
+| alpha's port and plugin symlink | **nothing in this repo.** `/home/solace/.signalk` is untracked: `settings.json` `"port": 3010`, `node_modules/signalk-noaa-space-weather -> /home/solace/signalk-noaa-space-weather`, and its own 24 plugin configs | 0 |
+
+Three things the table makes concrete:
+
+- **Alpha is on 3010, not 3000.** The review's ":3000 dev" is the *beta*
+  container (`compose-signalk.yml` publishes 3000). Alpha and beta are
+  different tiers on different ports, and only beta exists in the repo.
+- **Beta has no seam at all, because the repo dir *is* the live dir.**
+  `compose-signalk.yml` bind-mounts `./signalk:/home/node/.signalk`, so the
+  dev server writes its config straight into tracked files. That is why the
+  two dev pins had to be read-only single-file mounts, and why `capture`
+  for beta is a no-op while `seed` for beta would overwrite the repo.
+- **The two override sets that matter most exist only as a skip list.** The
+  four HALOS disables and the venus host have no representation anywhere a
+  program can read. Corroborated live, this session: another session ran
+  RUNBOOK § "final state sync" verbatim and rsync replaced exactly those
+  five files with the boat's copies. The documented procedure destroys the
+  override set, and the preflight then reports `ok state` — because the
+  five files it would have flagged are the five it is told to ignore. This
+  is not a hypothetical cost of the current shape; it is a same-day
+  incident.
+
+### 2. Do plugins rewrite their config with extra keys on save? Yes.
+
+Three distinct writers, all confirmed in source:
+
+- **UI save writes the whole schema-defaulted object.**
+  `PluginConfigurationForm.tsx:461` seeds RJSF `formData` from the current
+  data and submits `{...formData, enabled, enableLogging, enableDebug}` to
+  `POST /plugins/:id/config`; `plugins.ts:1051` hands `req.body` straight
+  to `savePluginOptions`, which is a bare
+  `JSON.stringify(data, null, 2)` (`plugins.ts:316-330`). No merge, no
+  filter — every field the form rendered lands in the file, including ones
+  the operator never touched, plus the three top-level flags. Key order
+  becomes schema order.
+- **Plugins write their own config at runtime.**
+  `plugins.ts:940` exposes `app.savePluginOptions(configuration)`, which
+  replaces the whole `configuration` object. A plugin that persists state
+  this way rewrites the file with no operator action.
+- **Startup can rewrite a file unprompted, and wipe it.**
+  `plugins.ts:1000` — a plugin whose package declares
+  `signalk-plugin-enabled-by-default` and whose config file has no
+  top-level `enabled` key gets the file rewritten at server start with
+  `enabled: true` **and `configuration: {}`**. One tracked file is exposed:
+  `signalk/plugin-config-data/AdvancedWind.json` has no `enabled` key. It
+  is the only one.
+
+Measured evidence, same plugin id across two live dirs (alpha vs the repo
+copy, key-set diff):
+
+```
+signalk-noaa-space-weather  only in alpha: drapEnabled, drapInterval,
+                            goesFluxEnabled, goesFluxInterval, listLevel,
+                            enableDebug, enableLogging
+freeboard-sk                only in repo:  pypilot.*, weather.*
+signalk-logbook             only in repo:  crewNames, displayTimeZone,
+                            logNotifications, notificationMinLevel, ...
+kip, course-provider, sk-ais-status  further key-set differences
+```
+
+`enableDebug`/`enableLogging` appearing only on the alpha side is the UI-save
+signature exactly as the code predicts. The repo's own history shows the same
+thing: `signalk-noaa-space-weather.json` gained `enableDebug`/`enableLogging`
+in b212b3e and lost them in 7b96712, and `signalk-ships-bells.json` gained
+`playbackOutputs`/`mopidySettings`/`alertsSettings` wholesale in d44f4d4.
+
+**Consequence for the proposed design.** A reverse diff cannot assume the
+live file is "rendered output plus operator edits" — a save also adds keys
+nobody chose, drops keys a newer schema no longer defines, and reorders. So
+`capture` must diff *semantically* (parse both, compare by JSON path) and
+must classify a key that appears on the live side only and equals the
+plugin's schema default as noise, not residue. Without that, the first UI
+save on the boat produces dozens of spurious residue rows. The JSON-aware
+merge driver the design already calls for is necessary but not sufficient;
+the schema defaults are the other half, and they are readable from the
+running server (`GET /plugins`, which is where the form gets `plugin.schema`).
+
+### 3. Which command bombed on the dirty-checkout pull
+
+**`dotsync`, not the boat's `git pull`.** `dotsync` is
+`alias dotsync='yadm pull --rebase --autostash && yadm alt && yadm status --short'`
+(`~/.bashrc:158`). Claude Code rewrites `.claude/settings.json` in its own
+key order, the three-way merge saw a whole-file conflict, the autostash
+re-apply failed, `yadm pull` still exited 0, and `$HOME` was left holding
+invalid JSON and an unseen stash. It happened on the boat, and it is
+written up in dotfiles `README.md` § "Why the cron sync is ff-only".
+
+Out of scope, and already fixed: `~/.local/bin/dotfiles-sync.sh` never
+rebases, stashes or merges — it is fast-forward-only, so the outcomes are
+"fast-forwarded", "level", or "skipped" with the blocking files named.
+Symphony's own `host/boat-hourly-sync` is fetch-only by deliberate design
+and has never pulled.
+
+**This is a live objection to the design's prod-hotfix path.** The proposal
+moves the hourly sync "from fetch-only to autostash-rebase". Autostash-rebase
+on a checkout a plugin is actively rewriting is the same shape as the failure
+above, on a repo whose conflicts are pretty-printed JSON. The fetch-only
+posture was chosen for the reason in `host/boat-hourly-sync`'s own comment —
+"an unattended pull would move config out from under running containers".
+If the sync is going to pull, the JSON merge driver and a stop-the-server
+window need to land first, not alongside.
