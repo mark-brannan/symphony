@@ -224,3 +224,13 @@ posture was chosen for the reason in `host/boat-hourly-sync`'s own comment —
 "an unattended pull would move config out from under running containers".
 If the sync is going to pull, the JSON merge driver and a stop-the-server
 window need to land first, not alongside.
+
+**Correction, 2026-09-03 (checked on the boat):** `~/.signalk` is a plain
+directory, not a symlink into `~/symphony`, and the checkout there is clean
+and 30 behind main. A UI change on prod never dirties git, so the
+"autostash-rebase hourly sync" above is a no-op for the hotfix path and is
+withdrawn. The prod seam is the rsync between `~/.signalk` and the
+checkout's `signalk/` -- the same step that flattened HALOS today. `capture`
+is a JSON-level diff between the live dir and the checkout, applied there;
+the git side stays an ordinary pull. The dirty-checkout bomb Mark remembers
+is therefore dotsync on a dev box, not the boat -- confirm in the spike.
