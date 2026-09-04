@@ -104,6 +104,21 @@ if [ "$MODE" = install ]; then
   run install --ignore-scripts --no-audit --no-fund
 fi
 
+# The forks are `file:local-plugins/...` deps, so npm hoists their dependencies
+# to the top level -- and prunes them again the next time the top-level
+# package.json comes across from the boat without them. That is not a visible
+# failure: bt-sensors-plugin-sk lost @naugehyde/node-ble this way on 2026-09-04
+# and SignalK simply started with one fewer plugin and no BLE. Giving each fork
+# its own complete node_modules makes it immune to what the top level does.
+for fork in "$D"/local-plugins/*/; do
+  [ -f "$fork/package.json" ] || continue
+  echo "== npm install in $(basename "$fork") ($(date +%H:%M:%S))"
+  docker run --rm --network host -u 1000:1000 -e HOME=/home/node \
+    -e npm_config_cache=/home/node/.signalk/.npm-cache \
+    -v "$D:/home/node/.signalk" -w "/home/node/.signalk/local-plugins/$(basename "$fork")" \
+    "$IMAGE" npm install --ignore-scripts --no-audit --no-fund
+done
+
 echo "== npm rebuild $NATIVES ($(date +%H:%M:%S))"
 # shellcheck disable=SC2086
 run rebuild $NATIVES
