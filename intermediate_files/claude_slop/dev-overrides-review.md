@@ -233,4 +233,11 @@ withdrawn. The prod seam is the rsync between `~/.signalk` and the
 checkout's `signalk/` -- the same step that flattened HALOS today. `capture`
 is a JSON-level diff between the live dir and the checkout, applied there;
 the git side stays an ordinary pull. The dirty-checkout bomb Mark remembers
-is therefore dotsync on a dev box, not the boat -- confirm in the spike.
+is therefore dotsync, not the boat's symphony checkout.
+
+**Confirmed, 2026-09-04:** it was dotsync *on the boat*, but in `$HOME`
+(the yadm tree), not in `~/symphony`. dotfiles `README.md` § "Why the cron
+sync is ff-only" records it contemporaneously: "That happened on the boat."
+Both halves hold -- the boat's symphony checkout is clean and stays clean,
+and the dirty-checkout bomb was a different repo on the same machine. The
+guess that it was a dev box is withdrawn.
