@@ -154,6 +154,9 @@ rebuild the box.
   into a lie within days. Durable config traps are fine; snapshots aren't.
 - Don't editorialize about the system's design, security posture, or
   industry practice. State the trap and the fix.
+- Runbook edits land in their own commit, and `scripts/lint_runbook_prose.py`
+  budgets prose per section. Cutting earns credit; tune the constants at the
+  top of the script rather than arguing with it.
 
 ## reference/*.md
 - Explanatory material lives here: architecture, design rationale, known
