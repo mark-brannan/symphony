@@ -76,6 +76,28 @@ else echo -n volatile; fi
 echo " $(systemctl show -p RuntimeWatchdogUSec --value) $([ -c /dev/watchdog ] && echo dev)"')
 [ "$out" = "persistent 30s dev" ] && say ok journal "journal persistent across boots; watchdog 30 s on /dev/watchdog" || say FAIL journal "got '$out' (want: persistent 30s dev)"
 
+# The five files the `state` line excludes are asserted here instead. Ignoring a
+# by-design difference and asserting one look identical while everything is
+# fine, and opposite the moment something eats it: the RUNBOOK's own boat rsync
+# overwrote all five on 2026-09-04 and no check failed. The card's Venus host is
+# as-built step 38; the four disables are step 37.
+OVERRIDE_CHECK='import json
+bad = []
+for n in ("signalk-container", "signalk-to-influxdb2",
+          "signalk-to-influxdb-v2-buffer", "signalk-notification-player"):
+    if json.load(open(n + ".json")).get("enabled") is not False:
+        bad.append(n + "=enabled")
+h = json.load(open("venus.json")).get("configuration", {}).get("MQTT", {}).get("host")
+if h != "192.168.8.107":
+    bad.append("venus.MQTT.host=" + str(h))
+print(" ".join(bad) if bad else "ok")'
+out=$(r "$HOST" "cd $D/plugin-config-data 2>/dev/null && python3 - <<'PYEOF'
+$OVERRIDE_CHECK
+PYEOF
+")
+[ "$out" = ok ] && say ok overrides "4 plugins disabled, venus MQTT.host 192.168.8.107 (as-built 37, 38)" \
+  || say FAIL overrides "${out:-could not read plugin-config-data} -- the boat rsync reverts these; see RUNBOOK 'final state sync'"
+
 # The SignalK state was copied from the boat on 2026-09-02 and the boat keeps
 # changing it. Config files (not runtime data) and the *installed* plugin
 # versions must match on swap day, or the new card boots with stale settings

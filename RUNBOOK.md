@@ -986,9 +986,22 @@ neither may come across.
 ssh pi@symphony-halos 'D=/var/lib/container-apps/marine-signalk-server-container/data/data
 rsync -av --exclude node_modules --exclude package.json --exclude appstore-cache \
   --exclude "skserver-raw_*" --exclude "*.bak*" --exclude "*.deb" --exclude signalk-server \
-  --exclude "ssl-*.pem" --exclude "*.sqlite*" pi@symphony-pi:.signalk/ "$D"/'
+  --exclude "ssl-*.pem" --exclude "*.sqlite*" \
+  --exclude "plugin-config-data/signalk-container.json" \
+  --exclude "plugin-config-data/signalk-to-influxdb2.json" \
+  --exclude "plugin-config-data/signalk-to-influxdb-v2-buffer.json" \
+  --exclude "plugin-config-data/signalk-notification-player.json" \
+  --exclude "plugin-config-data/venus.json" \
+  pi@symphony-pi:.signalk/ "$D"/'
 ssh pi@symphony-halos 'sudo systemctl restart marine-signalk-server-container'
 ```
+
+**Do not drop those last five excludes.** They are the card's own settings —
+the four plugins disabled on HALOS and `venus.json`'s `MQTT.host`
+(as-built steps 37 and 38). Without them the sync copies the boat's copies
+over the top and the card silently reverts: SignalK watches these files and
+re-enables the plugins live, on a running server, with no error anywhere.
+Measured 2026-09-04, on the payload card, four days before the swap.
 
 If the `state` line names a plugin version or `package.json`, the boat
 installed or updated a plugin since the copy. Copy the boat's `package.json`
