@@ -1,0 +1,53 @@
+{
+  "n2k-can0.100": {
+    "context": "vessels.urn:mrn:imo:mmsi:368391180",
+    "updates": [
+      {
+        "source": {
+          "unknownPGNs": {
+            "59904": {
+              "canId": 418053988,
+              "prio": 6,
+              "src": 100,
+              "pgn": 59904,
+              "dst": 255,
+              "fields": {
+                "pgn": 60928
+              },
+              "description": "ISO Request",
+              "id": "isoRequest",
+              "timestamp": "2026-09-04T08:30:10.227Z"
+            }
+          },
+          "uniqueNumber": 368391,
+          "manufacturerCode": "Signal K",
+          "deviceInstanceLower": 0,
+          "deviceInstanceUpper": 0,
+          "deviceFunction": 130,
+          "spare": 1,
+          "deviceClass": "Internetwork device",
+          "systemInstance": 0,
+          "industryGroup": "Marine Industry",
+          "arbitraryAddressCapable": "Yes",
+          "deviceInstance": 0,
+          "canName": "c03382007ce59f07",
+          "nmea2000Version": 54.816,
+          "productCode": 667,
+          "modelId": "signalk-server",
+          "softwareVersionCode": "2.30.0",
+          "modelVersion": "3.20.0",
+          "modelSerialCode": "368391",
+          "certificationLevel": "Level A",
+          "loadEquivalency": 1,
+          "installationDescription1": "http://3737631f3961:3000",
+          "label": "n2k-can0",
+          "type": "NMEA2000",
+          "pgn": 126998,
+          "src": "100"
+        },
+        "timestamp": "2026-09-04T08:30:16.202Z",
+        "values": []
+      }
+    ]
+  }
+}
