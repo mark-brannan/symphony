@@ -167,15 +167,15 @@ systemctl --user start claude-resident.service
 
 ## Bringing up a host
 
-Four phases in order. Run each check; an early failure surfaces two phases
-later looking unrelated.
+Four phases in order; run each check.
 
 **1. Tooling.** Docker with compose v2, your user in `docker`, and:
 
 ```bash
 sudo apt install pre-commit     # or: brew install pre-commit
-# sops and age: standalone binaries from their GitHub releases, onto PATH
 ```
+
+`sops` and `age`: release binaries, onto `PATH`.
 
 *Verify:* `docker compose version && sops --version && age --version && pre-commit --version`
 
@@ -209,13 +209,10 @@ bash scripts/provision_grafana_users.sh
 bash scripts/provision_influxdb.sh
 ```
 
-```bash
-# On the boat, not the --profile tls line: see SSO login.
-# provision_influxdb.sh may mint tokens. If it minted influx_token:
-#   python3 scripts/render.py && docker compose up -d --force-recreate grafana
-# If it minted influxdb_signalk_token: put it in
-#   signalk/plugin-config-data/signalk-to-influxdb2.json and restart SignalK.
-```
+On the boat, skip the `--profile tls` line ([SSO login](#sso-login)).
+If `provision_influxdb.sh` minted `influx_token`, re-render and recreate
+grafana; if it minted `influxdb_signalk_token`, put it in
+`signalk/plugin-config-data/signalk-to-influxdb2.json` and restart SignalK.
 
 *Verify:* `bash scripts/test_integration.sh`
 
@@ -587,25 +584,23 @@ test.** Everything here injects synthetic traffic over UDP.
    from an offline test.
 2. Add a UDP NMEA 0183 input if none exists (Settings → Connections → Add,
    type NMEA0183, udp, port 7777), then restart SignalK.
-3. Clone the plugin repos:
+3. Clone the plugin repos (the npm tarballs omit `scripts/`):
 
    ```bash
-   # the npm tarballs omit scripts/
    git clone https://github.com/sailingnaturali/signalk-dsc
    git clone https://github.com/sailingnaturali/signalk-ais-distress
    ```
 
-4. Fire traffic:
+4. Fire traffic; always pass `--host`, the default is the author's boat:
 
    ```bash
-   # always pass --host; the default is the author's boat
    node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777
    node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777 --nature mob --category urgency
    node signalk-ais-distress/scripts/send-test-ais.js --host localhost --port 7777 --beacon mob
    ```
 
-5. *Verify* through the API, not the phone (per-call alarms never reach
-   `signalk-ntfy`; `reference/distress_monitoring.md`):
+5. *Verify* via the API, not the phone (per-call alarms never reach
+   `signalk-ntfy`):
 
    ```bash
    curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/dsc-calls
@@ -613,8 +608,8 @@ test.** Everything here injects synthetic traffic over UDP.
    curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v1/api/vessels/self/notifications
    ```
 
-   Expect the stored call, one `notifications.received.<category>.<id>`
-   each, and `notifications.mob` for `--beacon mob`.
+   Expect the call, a `notifications.received.<category>.<id>` each, and
+   `notifications.mob` for `--beacon mob`.
 
 6. Clear the alarms (readwrite token):
 
@@ -863,10 +858,11 @@ git pull
 python3 scripts/render.py
 docker compose --profile tls up -d dex
 sudo systemctl restart caddy
-# fully containerized host instead, dockside (first run issues certificates):
-#   docker compose --profile tls up -d --build
-# restart grafana and signalk too if GF_AUTH_GENERIC_OAUTH_* or SIGNALK_OIDC_* changed
 ```
+
+Fully containerized host: `docker compose --profile tls up -d --build`,
+dockside. Restart grafana and signalk too if their `*_OAUTH_*` / `*_OIDC_*`
+values changed.
 
 *Verify:*
 
@@ -875,11 +871,10 @@ curl -s https://signalk.symphony.dark-star-llc.com/signalk/v1/auth/oidc/status  
 curl -s https://auth.symphony.dark-star-llc.com/dex/.well-known/openid-configuration | head -3
 ```
 
-Then in a browser: owner login → SignalK Security → Users shows type
-`admin`; another account shows `readonly`; Grafana admits the owner as Admin
-and refuses others; `captain` still logs in. An owner login that comes out
-`readonly` means `SIGNALK_OIDC_GROUPS_ATTRIBUTE=email` didn't reach the
-server; it fails silently.
+Browser: owner login shows `admin` in SignalK Security → Users, any other
+account `readonly`; Grafana admits the owner, refuses others; `captain`
+still works. Owner as `readonly` means `SIGNALK_OIDC_GROUPS_ATTRIBUTE=email`
+didn't reach the server (silent).
 
 ## SSO one-time setup
 

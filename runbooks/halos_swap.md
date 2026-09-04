@@ -38,8 +38,10 @@ SignalK itself):
 
 ```bash
 ssh pi@symphony-halos 'cd /home/pi/symphony && sudo scripts/halos_signalk_npm.sh'
-ssh pi@symphony-halos 'journalctl -u halos-npm -f'      # follow or re-follow the build
 ```
+
+It follows the build's journal itself. If the ssh drops, the build carries
+on; reconnect with `ssh pi@symphony-halos 'journalctl -u halos-npm -f'`.
 
 Abort with `sudo systemctl stop halos-npm`, never `systemctl kill` (that
 leaves SignalK down).
@@ -50,21 +52,20 @@ So a dead token is found at home, not at the boat:
 
 ```bash
 scripts/dns_cutover.sh set symphony-halos -y
-dig +short symphony.dark-star-llc.com @1.1.1.1    # the halos tailnet IP
+dig +short symphony.dark-star-llc.com @1.1.1.1    # the halos tailnet IP, within the 300 s TTL
 scripts/dns_cutover.sh set symphony-pi -y
 dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card
 ```
 
 ## At the boat
 
-1. Baseline the boat card and keep the output:
+1. Baseline the boat card; keep the output:
 
    ```bash
    scripts/halos_swap_check.sh symphony-pi
    ```
 
-   `victron` and `questdb` FAILs are boat-side (Cerbo not answering on
-   8883, QuestDB too loaded to answer in 30 s) and carry over.
+   `victron` and `questdb` FAILs are boat-side and carry over.
 
 2. Shut down; unplug the Micro-C when the green LED stops:
 
@@ -72,29 +73,27 @@ dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card
    ssh pi@symphony-pi 'sudo shutdown -h now'
    ```
 
-3. Swap the cards. Pocket the boat card; it is the only copy of the
-   QuestDB history and `~/influx-export`.
+3. Swap the cards; pocket the boat card, the only copy of the QuestDB
+   history and `~/influx-export`.
 
-4. Reconnect the Micro-C. Wait five minutes (SignalK cold-starts in 3–4).
+4. Reconnect; wait five minutes for SignalK's cold start.
 
-5. Check every function over Tailscale:
+5. Check over Tailscale:
 
    ```bash
    scripts/halos_swap_check.sh
    ```
 
    Same lines as the baseline, `up=` small, `front` on `:4430`. `ble` and
-   `bme680` can take ten minutes; rerun. Don't move DNS until every line
-   that was `ok` in the baseline is `ok` here. A `bme680` FAIL that survives:
+   `bme680` can take ten minutes; rerun. Move DNS only when every baseline
+   `ok` is `ok` here. A `bme680` FAIL that survives:
 
    ```bash
-   # silence is a pass; PermissionError means the group_add override in
-   # host/halos/signalk-healthcheck-override.yml is missing: install it per
-   # host/halos/README.md and restart the unit
    ssh -t pi@symphony-halos "sudo docker exec signalk-server python3 -c \"open('/dev/i2c-1')\""
    ```
 
-## Cut over and check from a phone
+   Silence passes. `PermissionError`: install the override per
+   `host/halos/README.md`, restart the unit.
 
 6. Cut public DNS over:
 
@@ -102,14 +101,13 @@ dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card
    scripts/dns_cutover.sh set symphony-halos
    ```
 
-   Within about 35 minutes healthchecks.io reports `SignalK Symphony` late;
-   that is the boat card no longer pinging. Pause that check or accept the
-   one notification. The HALOS card pings `SignalK Symphony (halos card)`.
+   The boat card has stopped pinging, so healthchecks.io reports
+   `SignalK Symphony` late within ~35 minutes; pause it. The HALOS card
+   pings its own check.
 
 7. Phone on the boat WiFi: install the certificate from
-   `https://signalk.symphony.dark-star-llc.com/ca/`, then open
-   `https://signalk.symphony.dark-star-llc.com/`. Admin UI, no certificate
-   warning, `SignalK` in the WiFi list.
+   `https://signalk.symphony.dark-star-llc.com/ca/`, open the site: admin
+   UI, no warning, `SignalK` in the WiFi list.
 
 ## Rolling back
 
