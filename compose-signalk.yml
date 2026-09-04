@@ -34,7 +34,7 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
-      - "3000:3000"
+      - "3000:3000" # 3000 is the SignalK convention -- mDNS and clients default to it
       - "80:80"
     networks:
       symphony-net:
