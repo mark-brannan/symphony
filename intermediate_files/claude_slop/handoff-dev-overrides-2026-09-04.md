@@ -56,20 +56,41 @@ them without re-reading § Spike findings in
   from a commit staging `scripts/*.py`. Both fixtures and both callers now
   scrub the four `GIT_*` variables.
 
+## Done 2026-09-04, second session (Fable 5.1)
+
+- **Review comments on both PRs addressed** — #41 in f8e81a7, #42 in
+  49605a3 + merge e146f20. Cache files cut and gitignored; the Caddy DNS
+  regression the bot flagged was real (`signalk-server` stopped resolving on
+  `symphony-net`) and is fixed with a network alias on `vcan`; `vcan` has a
+  `can0` healthcheck and both signalk and ntfy wait on it; the hostvars
+  documentation is deleted with the code (RUNBOOK, software_stack,
+  precommit_guards, overrides README, two ansible comments); shellcheck
+  SC2043 fixed. Every inline comment has a reply; each PR has one summary
+  comment. Stack recreated from #42 and verified: vcan healthy in ~5 s,
+  `connected to can0`, ntfy healthy on `localhost:8090` from inside
+  signalk's namespace and from the host, `getent hosts signalk-server`
+  resolves from influxdb.
+- **Pushover: the override stays.** The plan assumed empty keys everywhere,
+  but the *tracked* `signalk-pushover-notification-relay.json` carries the
+  real `api_user`/`api_key` (it is the boat's live config). Deleting the dev
+  pin would hand dev the live keys with `enabled: true` — exactly the
+  re-paging the pin exists to stop. Genuinely per-host; no test needed.
+  `dev/plugin-config-overrides/` and `docker-compose.override.yml` remain,
+  with pushover as their only entry.
+- **Shared checkout repaired.** `/home/solace/symphony/.git/config` had
+  `core.bare = true` (mtime 01:51 that morning, origin unknown), which made
+  every git command there fail with "must be run in a work tree". Set back
+  to `false`; the checkout is 36 behind `origin/main` and has two modified
+  files another session owns.
+
 ## Left to do
 
-1. **Address the review comments on #42.** Mark asked for this explicitly and
-   it was never done — the Bash tool died first. This is the first task.
-2. **Pushover** — the last mergeable override. Dev pins
-   `signalk-pushover-notification-relay` off because the relay's dedupe state
-   is in memory and every container restart re-paged a real phone. Dev's copy
-   already has empty `api_user`/`api_key`. Test whether the plugin **no-ops**
-   on an empty key rather than erroring; if it no-ops, `enabled: true` is safe
-   everywhere, the override disappears, and `dev/plugin-config-overrides/` and
-   `docker-compose.override.yml` can both be deleted outright.
-3. **Then stop.** What remains is genuinely per-host and needs no machinery:
-   the four HALOS plugin disables, the heartbeat URL (per-instance by design —
-   it *is* the host's identity), and alpha's port 3010.
+1. **Mark merges #41**, then re-targets #42 to `main` (`gh api -X PATCH
+   repos/mark-brannan/symphony/pulls/42 -f base=main`) and merges it. Both
+   are green and mergeable; the #42 base-branch review bot may still be
+   running. Card on the board under Yours.
+2. **Then stop.** Remaining overrides are per-host by nature: pushover, the
+   four HALOS plugin disables, the heartbeat URL, alpha's port 3010.
 
 ## Decisions already made — don't reopen
 
