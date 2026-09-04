@@ -2526,3 +2526,27 @@ code spans, credits deletions and renames, validates `--base`; budget
 re-measured at 140; sync script checks rsync before restarting; shellcheck
 clean; `test_secretguard` string updated; swap procedure re-joined into one
 numbered flow. Lint, both test suites and shellcheck green locally.
+
+## 2026-09-04 — PR #44 runbook verification pass (session d9f6b1f8)
+
+Walked every host claim in RUNBOOK.md and runbooks/halos_swap.md against
+the boat and the bench card (read-only), plus every script, flag, env var
+and quoted message against the repo. Corrections landed in 535062a on the
+PR branch. Twelve review threads answered and resolved; the CLAUDE.md
+prose-budget-policy thread is left for Mark. Commit went in with
+`SKIP=runbook-prose`: +124 net prose words, half of it comment text moved
+out of fences; section budgets pass.
+
+Live state noticed, not acted on (Mark's calls):
+- `influxdb` and `grafana-server` are `inactive/disabled` on the boat.
+  CLAUDE.md says stop, never disable.
+- `~/.signalk/node_modules/bt-sensors-plugin-sk` is a plain directory at
+  1.3.8-beta10 (no `getBluetoothSession`); the fork checkout at
+  `~/bt-sensors-plugin-sk` is beta11. BLE is publishing right now, so no
+  fault, but the runbook's "fork keeps reverting" condition is the current
+  state.
+- `signalk-dsc` / `signalk-ais-distress` are not installed on the boat
+  (dev container only); the DSC test section now says it needs them.
+- healthchecks `halos` check is `down` since 10:40Z although the bench card
+  answers ssh.
+- On the bench card `pi` is not in the `docker` group (`sudo docker`).
