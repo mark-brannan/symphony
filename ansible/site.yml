@@ -70,9 +70,9 @@
       ansible.builtin.debug:
         msg: "{{ mem.stdout_lines[1] }}"
       tags: [verify]
-      # A 2 GB bench card cannot hold QuestDB and Grafana alongside this plugin
-      # set; the 4 GB boat card can. Real pressure is available memory under
-      # ~400 MB or swap activity, not load average.
+      # The bench Rpi w 2 GB ram cannot hold QuestDB and Grafana in memory with everything else
+      # The other Rpis w 4 or 8 GB ram can handle it fine.
+      # Memory pressure happens at < 400 MB available memory or any swap activity
 
     - name: next steps
       ansible.builtin.debug:
