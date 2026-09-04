@@ -2490,3 +2490,33 @@ Also hardened `halos_signalk_npm.sh` to survive a dropped ssh (it re-execs
 into its own transient unit; the caller is only a log follower), after Mark
 pointed out that a 20-minute npm run tied to an ssh session was a torn
 `node_modules` waiting to happen.
+
+## 2026-09-04 — runbook cut to the operator's needs, prose lint added
+
+RUNBOOK.md 3513 → 1143 lines on PR #44, standard: an entry stays only if
+Mark would run it in an emergency or on the day-to-day critical path.
+Cut to git history: dated incident narrative, one-off migrations already
+done, mechanism essays, agent-only procedures, the openweather Node-RED
+stopgap. HALOS swap moved to `runbooks/halos_swap.md`. Mark asked to keep
+DSC injection and the age-key commands; both kept.
+
+Why prose rules failed before: CLAUDE.md already said actions-only and the
+CI review prompt already checked it, but each addition passed on its own
+terms, nothing ever forced a cut, and the only runbook check with teeth
+("challenge service changes that don't update RUNBOOK.md") rewarded adding.
+
+New mechanics, all on #44: `scripts/lint_runbook_prose.py` (prose words
+per `##` section ≤120, net prose delta per commit ≤40, runbook edits in
+their own commit; constants at the top), wired into pre-commit and
+validate.yml as a real gate. CLAUDE.md § RUNBOOK.md gained the
+operator-reader rule and the tension rules (make the entry unnecessary;
+don't leave the operator stuck). Global `code.md` gained the same audience
+rule, committed via yadm.
+
+Survey: symphony is the only repo with pre-commit at all; five of its
+hooks are portable. Card + prompt on the global board, blocked on #44.
+
+Mark is "tentatively ok with the cuts so far", not a merge order. PR #44
+is red on shellcheck because a second session (started 12:55) is sharing
+this worktree and pushed 41a4c37 / two Stop-hook wip commits of HALOS
+script work onto the branch. Not mine; not touched.

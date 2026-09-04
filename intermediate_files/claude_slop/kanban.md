@@ -55,6 +55,7 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 
 ## Yours
 
+- [ ] Review the cuts in [PR #44](https://github.com/mark-brannan/symphony/pull/44) and merge; blocked: another session's HALOS script commits (41a4c37 and two wip) landed on the branch and fail shellcheck — decide whether they stay on #44 or move to their own PR
 ### Repo & tooling
 - [ ] Two answers for the swap prep, both one line ([review](halos-swap-review-2026-09-03.md) item 8 and ntfy): which URL does your phone's ntfy app subscribe to (LAN IP `:8090`, tailnet `symphony-pi:8090`, or something else — a tailnet *name* breaks after the swap), and did healthchecks.io alert you when the halos-card check went down at ~07:35 this morning?
 - [ ] **Optional, before swap day: run the stack on the Pi 5** — boot it, read `free -m`; at 4 GB+ it answers the one thing the 2 GB bench never could (SignalK *plus* QuestDB and Grafana up together). Prompt: [handoff-halos-pi5-headroom-test.md](handoff-halos-pi5-headroom-test.md) (Opus 5, medium). Fresh card only, never the payload card.
