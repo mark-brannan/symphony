@@ -97,3 +97,9 @@ override touches today; check whether any plugin rewrites its config with
 extra keys on save (breaks the reverse diff); confirm which command
 actually bombed on the dirty-checkout pull (boat `git pull` vs dotsync --
 the latter is a yadm problem, out of scope here).
+
+**Evidence, 2026-09-03 (parallel session):** the RUNBOOK "final state sync"
+rsync flattened the five HALOS-specific plugin files (the four disables and
+venus.json) with the boat's copies. The override set lived only in the
+preflight exclusion list, so nothing protected it. That session amended the
+RUNBOOK; the structural fix is `seed` owning those files.
