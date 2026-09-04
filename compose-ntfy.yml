@@ -26,7 +26,8 @@ services:
       autoheal: "true"
     network_mode: "service:vcan"
     depends_on:
-      - vcan
+      vcan:
+        condition: service_healthy
 
 volumes:
   ntfy-data:
