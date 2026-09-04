@@ -34,6 +34,13 @@ class ProseCountingTest(unittest.TestCase):
         )
         self.assertEqual(lint.count_prose_words(text), 3)
 
+    def test_shell_comments_inside_fences_count(self):
+        text = "## A\n\n```bash\n#!/bin/sh\n# four words of prose\nrun --flag  # not counted\n```\n"
+        self.assertEqual(lint.count_prose_words(text), 4)
+
+    def test_inline_code_spans_are_free(self):
+        self.assertEqual(lint.count_prose_words("## A\n\nrun `docker compose up -d` now\n"), 2)
+
     def test_index_section_is_exempt(self):
         text = "## Where things are\n\nlink one link two link three\n"
         self.assertEqual(lint.count_prose_words(text), 0)
@@ -104,6 +111,29 @@ class DeltaTest(GitFixture):
         self.write("RUNBOOK.md", "## A\n\n" + ("term " * 100) + "\n")
         self.git("add", "RUNBOOK.md")
         delta, findings = lint.check_delta(["RUNBOOK.md"], "HEAD")
+        self.assertEqual(delta, 0)
+        self.assertEqual(findings, [])
+
+
+    def test_deleted_runbook_credits_its_words(self):
+        self.write("RUNBOOK.md", "## A\n")
+        self.write("runbooks/old.md", "## S\n\n" + ("word " * 100) + "\n")
+        self.git("add", "RUNBOOK.md", "runbooks/old.md")
+        self.git("commit", "-qm", "seed", "--", "RUNBOOK.md", "runbooks/old.md")
+        self.git("rm", "-q", "runbooks/old.md")
+        self.write("RUNBOOK.md", "## A\n\n" + ("word " * 120) + "\n")
+        self.git("add", "RUNBOOK.md")
+        delta, findings = lint.check_delta(lint.staged_paths(), "HEAD")
+        self.assertEqual(delta, 20)
+        self.assertEqual(findings, [])
+
+    def test_pure_rename_is_net_zero(self):
+        self.write("RUNBOOK.md", "seed\n")
+        self.write("runbooks/a.md", "## S\n\n" + ("word " * 100) + "\n")
+        self.git("add", "RUNBOOK.md", "runbooks/a.md")
+        self.git("commit", "-qm", "seed", "--", "RUNBOOK.md", "runbooks/a.md")
+        self.git("mv", "runbooks/a.md", "runbooks/b.md")
+        delta, findings = lint.check_delta(lint.staged_paths(), "HEAD")
         self.assertEqual(delta, 0)
         self.assertEqual(findings, [])
 

@@ -11,4 +11,5 @@ EXPECT="signalk-container signalk-to-influxdb2 signalk-to-influxdb-v2-buffer sig
 # Their plugin-config-data files differ for the same reason -- the disable is
 # written into the config -- as does venus.json, which carries the HALOS card's
 # own Venus host.
+# shellcheck disable=SC2034  # read by the scripts that source this file
 CONFIG_EXPECT="${EXPECT// /.json|}.json|venus.json"

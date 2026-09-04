@@ -28,5 +28,7 @@ for f in $(echo "$CONFIG_EXPECT" | tr '|' '\n'); do
 done
 
 remote_excludes=$(printf '%q ' "${args[@]}")
-ssh pi@symphony-halos "rsync -av $remote_excludes pi@symphony-pi:.signalk/ $D/"
+# shellcheck disable=SC2029  # client-side expansion is the point: the excludes are built here
+ssh pi@symphony-halos "rsync -av $remote_excludes pi@symphony-pi:.signalk/ $D/" \
+  || { echo "halos_config_sync: rsync failed; not restarting SignalK" >&2; exit 1; }
 ssh pi@symphony-halos 'sudo systemctl restart marine-signalk-server-container'

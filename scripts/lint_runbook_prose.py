@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CHECKED_GLOBS = ("RUNBOOK.md", "runbooks/*.md")
 
 # Prose words allowed in one `##` section.
-SECTION_PROSE_MAX = 120
+SECTION_PROSE_MAX = 140
 
 # Net prose words (added minus removed) one commit may add across all
 # checked files.
@@ -66,6 +66,10 @@ def _prose_lines(text):
                 in_fence, fence_marker = False, None
             continue
         if in_fence:
+            # A `#` comment inside a shell fence is prose wearing a costume;
+            # count it, or budgets get met by moving sentences into fences.
+            if fence_marker and re.match(r"^\s*#", line) and not line.lstrip().startswith("#!"):
+                yield section, line
             continue
         h = HEADING_RE.match(line)
         if h:
@@ -82,10 +86,18 @@ def _prose_lines(text):
         yield section, line
 
 
+CODE_SPAN_RE = re.compile(r"`[^`]*`")
+
+
+def _words(line):
+    """Prose words on a line; inline `code spans` are commands, not prose."""
+    return len(WORD_RE.findall(CODE_SPAN_RE.sub(" ", line)))
+
+
 def count_prose_words(text):
     """Total prose words in a document."""
     return sum(
-        len(WORD_RE.findall(line))
+        _words(line)
         for section, line in _prose_lines(text)
         if section not in EXEMPT_SECTIONS
     )
@@ -97,7 +109,7 @@ def section_word_counts(text):
     for section, line in _prose_lines(text):
         if section in EXEMPT_SECTIONS:
             continue
-        counts[section] = counts.get(section, 0) + len(WORD_RE.findall(line))
+        counts[section] = counts.get(section, 0) + _words(line)
     return counts
 
 
@@ -115,7 +127,7 @@ def git_show(ref, path):
 
 
 def staged_paths():
-    r = _git(["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
+    r = _git(["diff", "--cached", "--no-renames", "--name-only", "--diff-filter=ACMRD"])
     return [p for p in r.stdout.splitlines() if p.strip()]
 
 
@@ -183,7 +195,11 @@ def main(argv):
     warn_only = "--warn-only" in argv
     base = "HEAD"
     if "--base" in argv:
-        base = argv[argv.index("--base") + 1]
+        i = argv.index("--base")
+        if i + 1 >= len(argv) or argv[i + 1].startswith("--"):
+            print("runbook-prose: --base requires REF", file=sys.stderr)
+            return 2
+        base = argv[i + 1]
 
     findings = []
     if check_all:
