@@ -41,6 +41,15 @@
     argv: [docker, exec, signalk-server, python3, -c, "open('/dev/i2c-1')"]
   register: i2c_open
   changed_when: false
+  # The flush_handlers above may have just restarted the unit, and `docker
+  # exec` against a container that is still coming up fails outright. The
+  # container's own start period is 900 s, so the probe cannot wait for
+  # healthy -- it only needs the namespace to exist. One minute of retries
+  # covers the restart; a card where i2c is genuinely unreachable still
+  # fails, one minute later (2026-09-04, fresh Pi 5).
+  until: i2c_open.rc == 0
+  retries: 12
+  delay: 5
   # Read-only, so it must still run under --check; otherwise the assertions
   # below have nothing to read and --check cannot be used to audit a card.
   check_mode: false
