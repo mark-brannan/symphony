@@ -74,18 +74,43 @@ that formula rather than copied from the heartbeat's 400 MB figure. Derived,
 
 ## signalk-healthcheck
 
-Installed and enabled on the boat. Both `sendNotification` and `sendEmail` are
-`false`, so it raises nothing and sends nothing.
+**This plugin earns its place, and it is the only thing aboard that does what
+it does.** Its two halves have opposite value, which is why its worth has read
+as ambiguous:
 
-Its host section duplicates thresholds the heartbeat already alarms on. Its
-provider section is the exception: it reads `pipedProviders` from the server
-settings and watches each one's delta rate, which is the only mechanism aboard
-that alarms on data *stopping*. The boat has one provider, `n2k-can0`, and the
-watch for it is disabled.
+- **Host section — redundant, and off.** CPU, memory and disk thresholds that
+  `host/boat-heartbeat` already alarms on, from a process that dies with the
+  Pi. Disabled (`host.enabled: false`) and should stay that way.
+- **Provider section — unique, and live.** It reads `pipedProviders` from the
+  server settings and watches each provider's delta rate, alarming when the
+  rate falls to zero. **Nothing else aboard alarms on data stopping.** Zones
+  fire on a value arriving out of range and are silent when values stop
+  arriving; the plugin watchdog covers mute *plugins*, not mute *providers*.
+  A dead NMEA 2000 bus — a failed drop cable, a powered-down MFD, a blown
+  fuse on the backbone — is invisible to every other monitor here.
+
+Measured on the boat 2026-09-04: `providers.n2k-can0` is `enabled: true` with
+`sendNotification: true`, `deltaWarning: 1`, `deltaAlarm: 1`. It raises onto
+the SignalK notification bus, which reaches the phone via
+`signalk-push-notifications`. An earlier revision of this section recorded the
+watch as disabled; that was true when measured on 2026-08-14 and is no longer.
+
+Email is not wired and is not intended to be. `sendEmail` is `false` on both
+sections, and the plugin's `mail` block carried a username and password but
+no `host` or `port`, so `nodemailer` could not have connected had it ever been
+called (`sendEmail()` is reached only from the two `sendEmail: true` paths).
+The block was dead config and has been dropped from the tracked copy; if email
+alerting is ever wanted, it needs a real SMTP endpoint chosen first, not that
+block restored.
 
 It watches providers, not plugins. A plugin that loads and goes mute is a
-different failure, now covered by `plugins/signalk-plugin-watchdog` — see
+different failure, covered by `plugins/signalk-plugin-watchdog` — see
 [`signalk_plugin_watchdog.md`](signalk_plugin_watchdog.md).
+
+The config is tracked at `signalk/plugin-config-data/signalk-healthcheck.json`
+and is the same on every host, with one legitimate difference: a dev box has
+no CAN hardware, so `providers.n2k-can0.enabled` is `false` there or the check
+sits in `alarm` forever.
 
 ## Gaps
 
@@ -94,8 +119,10 @@ temperature, throttling, clock offset and failed systemd units all travel in the
 ping body every five minutes; only memory and disk can trip `/fail`. A failed
 `signalk.service` reaches the crew only if someone opens a ping and reads it.
 
-**Nothing alarms on data stopping.** Zones cannot express it, the one provider
-watch is disabled, and no plugin covers plugin-level staleness.
+**Data stopping is covered for providers only.** Zones cannot express it, so
+the sole mechanism is `signalk-healthcheck`'s provider watch, live on
+`n2k-can0` since 2026-09-04. It covers the one provider the boat has; a
+provider added later is watched only if it is added to that plugin's config.
 
 **Vessel alarms have one off-boat path.** Anchor drag or MOB reaches the phone
 through `signalk-push-notifications` and nowhere else. The check service's
