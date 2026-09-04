@@ -148,6 +148,19 @@ repos:
         pass_filenames: false
         always_run: true
 
+      # The runbook reached ~3500 lines of prose one defensible addition at
+      # a time. A file-size ceiling only punishes the last straw, so this
+      # budgets each straw: prose words per `##` section, and net prose
+      # added per commit. Code fences, tables and the index are free.
+      # Also keeps runbook edits in their own commit, so one can be
+      # reviewed and rejected without holding up the code beside it.
+      - id: runbook-prose
+        name: runbook prose budget (per section, per commit)
+        entry: python3 scripts/lint_runbook_prose.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       # The boat Pi's locale has no codeset (LANG=en_US), so glibc falls back
       # to ISO-8859-1 and Python inherits it for file I/O. A script that opens
       # a UTF-8 document without an explicit encoding reads it as latin-1 and

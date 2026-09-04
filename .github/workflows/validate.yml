@@ -91,6 +91,11 @@ jobs:
               ''
             }}
       - run: python3 scripts/check_encoding_health.py --repo
+      # Advisory: --warn-only, because six sections already exceed the
+      # budget as written. Drop the flag once they are cut and this becomes
+      # a real gate.
+      - name: runbook prose budget
+        run: python3 scripts/lint_runbook_prose.py --all --warn-only
 
   shellcheck:
     runs-on: ubuntu-latest
