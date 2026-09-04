@@ -40,7 +40,7 @@ for tool in sops age; do
       problem="secret-bearing files cannot be decrypted or edited on this machine" \
       needs="$tool on PATH" \
       blocked_by="scripts/setup-git-filters.sh" \
-      fix="see RUNBOOK.md, Bringing up a host -- Phase 1" \
+      fix="see RUNBOOK.md, Bringing up a host, step 1 Tooling" \
       see="README.md, Setup (contributors do not need it)" || setup_incomplete=1
   fi
 done
@@ -55,7 +55,7 @@ if ! command -v python3 >/dev/null 2>&1; then
     problem="both git filters are python scripts; they will be registered below but cannot run, so checking out or staging a covered file will fail loudly" \
     needs="python3 on PATH" \
     blocked_by="scripts/setup-git-filters.sh" \
-    fix="install python3 (see RUNBOOK.md, Bringing up a host -- Phase 1)" \
+    fix="install python3 (see RUNBOOK.md, Bringing up a host, step 1 Tooling)" \
     see="bash scripts/check_clone_setup.sh" || setup_incomplete=1
 fi
 
@@ -64,7 +64,7 @@ if [ ! -f "$HOME/.config/sops/age/keys.txt" ] && [ -z "${SOPS_AGE_KEY_FILE:-}" ]
     problem="secret-bearing files will smudge as ciphertext until you provision one" \
     needs="~/.config/sops/age/keys.txt, or SOPS_AGE_KEY_FILE pointing at a key" \
     blocked_by="scripts/setup-git-filters.sh" \
-    fix="see RUNBOOK.md, Bringing up a host -- Phase 2" \
+    fix="see RUNBOOK.md, Bringing up a host, step 2 Key material" \
     see="README.md, Setup (contributors do not need one)" || setup_incomplete=1
 fi
 

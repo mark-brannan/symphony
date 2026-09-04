@@ -1,86 +1,74 @@
 # Symphony systems runbook
 
-Operating and recovering S/V Symphony's onboard computer systems: the
-SignalK stack, the host it runs on, and the encrypted configuration that
-ties it together.
-
-This repo is public, so nothing sensitive can sit in it in the clear.
-Secrets are encrypted with sops before git ever sees them.
-
-Procedures only. For how the stack is built and why — containers, the two
-data paths, the encryption design — see
-[reference/software_stack.md](reference/software_stack.md). Physical systems
-(engine, rigging, ground tackle, plumbing) live in `systems/*.md`, with work
-logged in `maintenance/log.md`.
+Commands the operator runs on S/V Symphony's computer systems: getting in,
+keeping the stack up, secrets, and recovery. Procedures only; the design is
+in [reference/software_stack.md](reference/software_stack.md). The HALOS card
+swap has its own file: [runbooks/halos_swap.md](runbooks/halos_swap.md).
 
 ## Where things are
 
 **Getting in**
-- [Remote SSH access](#remote-ssh-access)
-- [Reaching the boat over Tailscale](#reaching-the-boat-over-tailscale)
-- [The resident Claude session on the boat Pi](#the-resident-claude-session-on-the-boat-pi)
+- [SSH to the boat](#ssh-to-the-boat)
+- [When Tailscale refuses the connection](#when-tailscale-refuses-the-connection)
+- [A page hangs but ssh works — MTU](#a-page-hangs-but-ssh-works--mtu)
+- [The resident Claude session](#the-resident-claude-session)
 
-**Building and maintaining the host**
+**Host**
 - [Bringing up a host](#bringing-up-a-host)
 - [Provisioning a HALOS card with Ansible](#provisioning-a-halos-card-with-ansible)
 - [Installing host files](#installing-host-files)
-- [Turning on the off-boat heartbeat](#turning-on-the-off-boat-heartbeat)
+- [Container health](#container-health)
+- [Deploying a compose change to the boat](#deploying-a-compose-change-to-the-boat)
+- [The off-boat heartbeat](#the-off-boat-heartbeat)
 - [Silencing the alarms for planned work](#silencing-the-alarms-for-planned-work)
-- [Keeping the boat's checkouts fresh](#keeping-the-boats-checkouts-fresh)
-- [Container liveness — healthchecks and autoheal](#container-liveness--healthchecks-and-autoheal)
-- [Swapping the HALOS card onto the boat](#swapping-the-halos-card-onto-the-boat)
-- [Don't autostart a browser on the boat Pi](#dont-autostart-a-browser-on-the-boat-pi)
-- [Starting a desktop on the boat Pi on demand](#starting-a-desktop-on-the-boat-pi-on-demand)
-- [Upgrading the scanners](#upgrading-the-scanners)
+- [The boat's hourly fetch](#the-boats-hourly-fetch)
+- [GPU hang from a desktop browser](#gpu-hang-from-a-desktop-browser)
+- [A desktop on the boat Pi on demand](#a-desktop-on-the-boat-pi-on-demand)
 
-**Running the autopilot**
-- [pypilot in a container](#pypilot-in-a-container)
+**SignalK**
+- [Stopping SignalK](#stopping-signalk)
+- [Reinstalling SignalK](#reinstalling-signalk)
+- [Never use OpenPlotter's "Reinstall"](#never-use-openplotters-reinstall)
+- [NMEA 2000 input](#nmea-2000-input)
+- [Adding a BLE sensor](#adding-a-ble-sensor)
+- [QuestDB](#questdb)
+- [Grafana dashboards](#grafana-dashboards)
+- [pypilot](#pypilot)
+- [Testing the DSC / AIS distress chain](#testing-the-dsc--ais-distress-chain)
 
-**Secrets and encryption**
+**Secrets**
 - [Adding a secret](#adding-a-secret)
 - [Rotating a secret](#rotating-a-secret)
+- [Rotating an InfluxDB token](#rotating-an-influxdb-token)
 - [Rotating the age key](#rotating-the-age-key)
 - [Removing a secret](#removing-a-secret)
 - [Email pseudonyms in security.json](#email-pseudonyms-in-securityjson)
 - [Router config backup](#router-config-backup)
-- [Scanning for leaks by hand](#scanning-for-leaks-by-hand)
-
-**Identity and access**
-- [SSO login (GitHub / Google)](#sso-login-github--google)
-
-**Running SignalK**
-- [Upgrading Signalk on the boat Pi](#upgrading-signalk-on-the-boat-pi)
-- [Stopping SignalK on the boat Pi](#stopping-signalk-on-the-boat-pi)
-- [SignalK's NMEA 2000 input](#signalks-nmea-2000-input)
-- [A fake `can0` for testing off the boat](#a-fake-can0-for-testing-off-the-boat)
-- [Setting up a BLE sensor](#setting-up-a-ble-sensor-in-bt-sensors-plugin-sk)
-- [Testing the DSC / AIS distress receive chain](#testing-the-dsc--ais-distress-receive-chain)
+- [SSO login](#sso-login)
+- [SSO one-time setup](#sso-one-time-setup)
+- [SSO access grants](#sso-access-grants)
 
 **Troubleshooting**
-- [Hostnames stop resolving](#when-the-boats-hostnames-stop-resolving)
-- [A plugin isn't in the config UI](#when-a-plugin-isnt-in-the-config-ui)
-- [SignalK errors about missing packages](#when-signalk-errors-about-missing-packages-on-the-boat-pi)
-- [Every plugin install fails on a `file:` dependency](#when-every-plugin-install-fails-on-a-file-dependency)
-- [BLE sensors silent after a reboot](#ble-sensors-go-silent-after-a-reboot)
-- [A BLE sensor connects but delivers nothing](#a-ble-sensor-connects-but-never-delivers-data)
-- [A plugin fork keeps reverting](#a-local-plugin-fork-keeps-reverting-to-the-registry-build)
-- [A hook blocks your commit](#when-a-hook-blocks-your-commit)
-- [Never use OpenPlotter's "Reinstall"](#never-use-openplotters-reinstall-for-signal-k)
+- [Hostnames stop resolving on the boat](#hostnames-stop-resolving-on-the-boat)
+- [A plugin isn't in the config UI](#a-plugin-isnt-in-the-config-ui)
+- [Every plugin install fails on a `file:` dependency](#every-plugin-install-fails-on-a-file-dependency)
+- [SignalK errors about missing packages](#signalk-errors-about-missing-packages)
+- [BLE sensors silent after a reboot](#ble-sensors-silent-after-a-reboot)
+- [A BLE sensor connects but delivers nothing](#a-ble-sensor-connects-but-delivers-nothing)
+- [A plugin fork keeps reverting](#a-plugin-fork-keeps-reverting)
+- [A hook blocks your commit](#a-hook-blocks-your-commit)
 
-**Incidents & recovery**
+**Incidents**
 - [A secret was committed in plaintext](#a-secret-was-committed-in-plaintext)
-- [Recovering a lost age key](#recovering-a-lost-age-key)
+- [Lost age key](#lost-age-key)
 
 ---
 
-## Two deployments, one runbook
+## Two deployments
 
-The compose files are the intended deployment. **The boat Pi is a mix** —
-SignalK, InfluxDB, Grafana and Caddy run there as systemd units, while Dex,
-QuestDB and ntfy are containers (why, in
-[reference/software_stack.md](reference/software_stack.md)). Commands below are
-written for compose. For the three containers they work as written. For the
-systemd units, translate:
+Commands below are written for compose. On the boat Pi, SignalK, InfluxDB,
+Grafana and Caddy are systemd units; Dex, QuestDB, ntfy and autoheal are
+containers. Translate:
 
 | Compose | Boat Pi |
 |---|---|
@@ -90,277 +78,124 @@ systemd units, translate:
 | `docker exec grafana grafana cli …` | `sudo grafana cli …` |
 | service `grafana` | unit `grafana-server` |
 
-Ports are the same either way — SignalK 3000, Grafana 3001, InfluxDB 8086 — so
-every `curl http://localhost:…` in this file works unchanged on both.
-
-Both deployments read the same rendered `.env`, but only containers get it
-loaded automatically. In a shell, source it first:
+Ports are the same on both: SignalK 3000, Grafana 3001, InfluxDB 8086.
+Containers read the rendered `.env` automatically; in a shell, source it:
 
 ```bash
 cd ~/symphony && set -a && . ./.env && set +a
 ```
 
+**On the boat, always name the services in a compose command.** A bare
+`docker compose up -d` starts containers that fight the native units for
+ports 3000, 8086, 3001 and 443.
+
 ---
 
-## Remote SSH access
-
-Connect to the boat:
+## SSH to the boat
 
 ```bash
-ssh pi@symphony-pi
+ssh pi@symphony-pi          # boat card
+ssh pi@symphony-halos       # HALOS card, on the bench at home until it is swapped in
 ```
 
-Attach to the resident Claude session once you're on:
+Tailscale SSH, so no key files. Plain `symphony` does not resolve. Only
+tailnet devices get in; if only WSL runs tailscaled, the Windows side of
+that machine is not on it.
+
+Both cards answer `hostname` with `signalk`. To know which one you are on:
 
 ```bash
-tmux attach -t claude
+tailscale status --self=true --peers=false    # symphony-pi or symphony-halos
 ```
 
-`Ctrl-b` then `d` detaches and leaves it running — see "The resident Claude
-session on the boat Pi".
+*Verify:* `tailscale status` lists the node, `curl -s http://symphony-pi:3000/signalk` returns JSON.
 
-Tailscale carries this: plain `ssh` over a WireGuard mesh, no port forwarding,
-no public exposure. rpi-connect's browser shell can't tunnel `ssh`, so it's no
-use for a Claude Code session.
-
-**Adding a host to the tailnet** (substitute its name for `symphony-pi`):
+Add a host to the tailnet:
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up --ssh --hostname=symphony-pi
+sudo tailscale up --ssh --hostname=<name>
 ```
 
-Follow the printed login URL. *Verify:* `tailscale status` lists it, and
-`ssh pi@symphony-pi` connects from another device on the tailnet.
+*Verify:* `tailscale status` on another device lists it.
 
-### The HALOS trial Pi (home, not the boat)
+## When Tailscale refuses the connection
 
-A separate box — the spare Pi 4 running HaLOS at home, per the Track A trial
-in [containerization_strategy.md](reference/containerization_strategy.md).
-Same tailnet, same `pi` account, same Tailscale SSH — no key setup needed:
+- `does not permit you to SSH to this node` — no `ssh` rule matches.
+- `does not permit you to SSH as user X` — a rule matched; its `users` list lacks `X`.
+- `# Tailscale SSH requires an additional check.` plus a `login.tailscale.com/a/...` URL —
+  open it, approve, re-run ssh. Under `BatchMode=yes` this looks like a hang.
+
+Rules for tagged nodes must name the tag; `autogroup:self` never matches a tag.
 
 ```bash
-ssh pi@halos-pi4
+scripts/tailscale_policy.sh                   # print the live policy
+scripts/tailscale_policy.sh validate <file>   # dry-run a change
 ```
 
-*Verify:* `tailscale status` lists `halos-pi4`, and the command above
-connects. The swap procedure below renames the node `symphony-halos`; after
-that step use `ssh pi@symphony-halos` instead, at home or aboard.
+Apply by pasting into the [policy editor](https://login.tailscale.com/admin/acls/file). Validate first; a bad save is a lockout.
 
-Its apps sit behind HaLOS's own Traefik reverse proxy rather than bare ports
-— check `/etc/halos/port-registry` on the box for the current map (SignalK
-was `4430` as of 2026-08-26). The `pi` user is **not** in the `docker` group
-and has no passwordless `sudo` here — reaching the SignalK container's
-admin API needs a token (see
-[Setting up plugins on the HALOS trial Pi](#setting-up-plugins-on-the-halos-trial-pi)),
-not `docker exec` or a service restart.
+## A page hangs but ssh works — MTU
 
----
+Browser spins on `https://signalk.symphony.dark-star-llc.com/`, ssh and ping
+are fine.
 
-## Reaching the boat over Tailscale
-
-Setup is under [Remote SSH access](#remote-ssh-access); this covers using it
-and the ways it fails. The boat is node `symphony-pi`, tailnet address
-100.113.172.64.
-
-Only devices on the tailnet can reach it — which includes the Windows side
-of a WSL machine *not* being on it, because WSL runs its own tailscaled and
-doesn't share it with the host. If a browser can't load the admin UI,
-install Tailscale on *that* machine before debugging anything else.
-
-```bash
-tailscale status                 # symphony-pi listed and not "offline"
-curl -s http://symphony-pi:3000/signalk    # server version + endpoints
-```
-
-SignalK admin UI: `http://symphony-pi:3000/admin/`.
-
-### A cloud Claude session can't reach symphony-pi
-
-Cloud sessions join the tailnet automatically at startup. If one can't
-reach `symphony-pi`:
-
-1. Check session startup output for a `tailscale-join:` line on stderr —
-   the hook reports a notice there for every failure (missing auth key,
-   join timeout, etc.), it doesn't fail silently.
-2. Confirm the join's actual state:
-   ```bash
-   tailscale status --socket="$HOME/.tailscale-cloud.sock"   # joined? authenticated?
-   cat "${TMPDIR:-/tmp}"/tailscaled.*.log                     # daemon's own log
-   ```
-3. If the notice says `TAILSCALE_AUTHKEY not set`, set or refresh that
-   env var on the cloud environment — a reusable, ephemeral,
-   `tag:cloud-ephemeral` key from the
-   [tailnet admin console](https://login.tailscale.com/admin/machines).
-4. If the node joined but ssh is refused, it's the policy, not the join —
-   the tailnet needs an `ssh` rule with `tag:cloud-ephemeral` as `src`. See
-   § SSH users and the periodic check.
-
-Local/terminal sessions don't need this — they already have tailscale via
-the host machine.
-
-### SSH users and the periodic check
-
-Tailscale SSH handles auth, so no key setup is needed, but the tailnet policy
-decides both which nodes may connect and which local users you may become.
-Two different refusals, two different causes:
-
-- `does not permit you to SSH to this node` — no `ssh` rule matches at all.
-- `does not permit you to SSH as user X` — a rule matched, but its `users`
-  list doesn't include that account.
-
-Every node except the phone is tagged, and **`autogroup:self` does not apply
-to tags** — so a rule written against `autogroup:self` silently covers
-nothing here. Rules for tagged devices have to name the tags. This broke all
-SSH from the dev machines once already, on 2026-08-19.
-
-Read the live policy without opening the console:
-
-```bash
-scripts/tailscale_policy.sh            # prints the current policy file
-scripts/tailscale_policy.sh validate <file>   # dry-run a proposed one
-```
-
-The stored OAuth credential is read-only, so applying a change is a paste
-into the [policy file editor](https://login.tailscale.com/admin/acls/file).
-Validate first — a bad save is a lockout.
-
-A `check`-mode rule sets a re-auth period. When it lapses, ssh stops at
-`# Tailscale SSH requires an additional check.` and prints a
-`login.tailscale.com/a/...` URL — open it, approve, then re-run ssh. The URL
-is single-use, so don't bother saving it. Under `-o BatchMode=yes` or any
-non-interactive wrapper this just looks like a hang; that message is the
-tell. This applies only to connections from untagged devices: **Tailscale
-forbids `check` from a tagged source**, so the dev machines and cloud
-sessions never see it.
-
-### A page hangs but the host is reachable — MTU
-
-Symptom: the browser spins forever on `https://signalk.symphony.dark-star-llc.com/`, ssh and
-ping to the same host are fine, and a port check succeeds:
-
-```powershell
-Test-NetConnection 100.113.172.64 -Port 443 -InformationLevel Quiet   # True
-```
-
-That combination means small packets get through and large ones don't. TCP
-completes its handshake, then the TLS handshake's full-size packets are
-dropped in silence. It shows up when a device takes a *direct* path to the
-boat over an uplink whose real MTU is below Tailscale's assumed 1280 —
-cellular and Starlink both do this. Relayed connections don't hit it, so one
-machine can work while another fails against the same server.
-
-Confirm by finding where ping stops making it through with
-don't-fragment set:
-
-```powershell
-foreach ($s in 1100,1200,1272,1400) { ping -n 1 -f -l $s 100.113.172.64 }
-```
-
-Fix on Windows — find the adapter's `ifIndex`, then lower its MTU
-(needs an elevated shell):
+Windows (elevated):
 
 ```powershell
 Get-NetIPInterface -AddressFamily IPv4 | Where-Object InterfaceAlias -like '*Tailscale*'
 netsh interface ipv4 set subinterface <ifIndex> mtu=1180 store=persistent
 ```
 
-On macOS or Linux, set it on the Tailscale interface instead:
+macOS / Linux (does not survive a `tailscaled` restart):
 
 ```bash
 sudo ifconfig utun<N> mtu 1180        # macOS
 sudo ip link set tailscale0 mtu 1180  # Linux
 ```
 
-The Windows form survives reboots; the macOS and Linux ones don't survive a
-`tailscaled` restart. It's per-machine either way and doesn't propagate, so
-each new device can need it again.
+*Verify:* the page loads.
 
----
-
-## The resident Claude session on the boat Pi
-
-The Pi keeps a Claude Code session running in tmux with Remote Control on, so
-work in progress isn't tied to an SSH connection staying up. It starts at
-boot, with nobody logged in.
-
-Attach on the box, and detach without stopping anything:
+## The resident Claude session
 
 ```bash
-tmux attach -t claude       # attach
-                            # Ctrl-b then d to detach
+tmux attach -t claude        # Ctrl-b then d detaches, leaves it running
 ```
 
-Detaching, closing the terminal, and dropping the SSH connection all leave the
-session running. Remotely, open the `https://claude.ai/code/session_…` URL the
-session prints at startup; the footer shows `/rc active` when Remote Control is
-live.
-
-If it isn't running:
+If it isn't running (a `--user` unit; run as `pi`, not via `sudo`):
 
 ```bash
 systemctl --user status claude-resident.service
 systemctl --user start claude-resident.service
 ```
 
-That's a `--user` unit, so `sudo systemctl` won't find it — run it as `pi`.
-What makes it survive a reboot is lingering (`loginctl show-user pi -p Linger`
-→ `Linger=yes`); without that, a user unit stops when the last login session
-ends. `host/install.sh` sets it.
-
-The wrapper starts the pane with a trailing shell, so if Claude exits the tmux
-session stays up and you can restart it in place instead of losing the window.
-
 ---
 
 ## Bringing up a host
 
-Four phases, in this order: tooling, key material, repo, services. Each ends
-with a check — run it, because a failure in an early phase tends to surface
-two phases later as something that looks unrelated.
+Four phases in order; run each check.
 
-### Phase 1 — Host and tooling
-
-The host needs Docker (with compose v2), and on Linux your user in the
-`docker` group. Then install `pre-commit`:
+**1. Tooling.** Docker with compose v2, your user in `docker`, and:
 
 ```bash
-sudo apt install pre-commit     # Debian/Ubuntu, incl. Pi OS and WSL2
-brew install pre-commit         # macOS
+sudo apt install pre-commit     # or: brew install pre-commit
 ```
 
-Prefer the package manager over `pip` — some of these hosts have no `pip`
-at all.
-
-`sops` and `age` ship as standalone binaries. Get them from
-[sops releases](https://github.com/getsops/sops/releases) and
-[age releases](https://github.com/FiloSottile/age/releases) and put them on
-`PATH`, e.g. `~/.local/bin`.
+`sops` and `age`: release binaries, onto `PATH`.
 
 *Verify:* `docker compose version && sops --version && age --version && pre-commit --version`
 
-### Phase 2 — Key material
-
-Get the age **private** key onto the host out-of-band — password manager,
-offline copy, another host you already trust. Never through this repo, never
-over a channel you wouldn't send the secrets themselves over.
+**2. Key material.** Get the age private key onto the host out of band, never through the repo.
 
 ```bash
-
 mkdir -p ~/.config/sops/age
-cp $super_secret_key_file ~/.config/sops/age/keys.txt
+cp <key file> ~/.config/sops/age/keys.txt
 chmod 600 ~/.config/sops/age/keys.txt
 ```
 
-(Or point `SOPS_AGE_KEY_FILE` at it wherever it lives.)
+*Verify:* `sops --decrypt secrets/symphony.sops.yaml | head -1` prints readable YAML. If not, stop here.
 
-*Verify:* `sops --decrypt secrets/symphony.sops.yaml | head -1` returns
-readable YAML.
-
-> 🔴 **Critical:** If it doesn't, stop — nothing downstream will work, and
-> continuing will produce confusing failures that look like Docker problems.
-
-### Phase 3 — Repo and configuration
+**3. Repo.**
 
 ```bash
 git clone https://github.com/mark-brannan/symphony.git
@@ -369,247 +204,57 @@ bash scripts/setup-git-filters.sh
 python3 scripts/render.py
 ```
 
-`setup-git-filters.sh` is the one onboarding command: it wires the sops
-clean/smudge filter, installs the pre-commit hooks, clears any stale
-`core.hooksPath`, and decrypts the in-place files onto disk. It only touches
-files that are *still ciphertext*, so it can never clobber live local
-config, and it's safe to re-run at any time.
+*Verify:* `bash scripts/verify_encrypted.sh` passes and `grep -c ENC .env` prints 0.
 
-Filters can't be wired before this point — git filter commands live in
-`.git/config`, which git deliberately doesn't version (arbitrary commands
-from a cloned repo would be a code-execution vector). That's why
-secret-bearing files check out encrypted and need this step.
-
-`render.py` decrypts `secrets/symphony.sops.yaml` into `.env`, which every
-container reads via `env_file`.
-
-*Verify:* `bash scripts/verify_encrypted.sh` passes, and
-`grep -c ENC .env` returns 0 (i.e. `.env` is fully rendered plaintext —
-it's gitignored and must never be committed).
-
-### Phase 4 — Services
+**4. Services.**
 
 ```bash
-docker compose up -d
-```
-
-Once SSO is configured ([SSO login](#sso-login-github--google)), on a host
-where everything is containerized use this instead so the TLS proxy and the
-identity provider come up too:
-
-```bash
-docker compose --profile tls up -d --build
-```
-
-**On the boat, don't use the command above** — Caddy there is still a native
-systemd service, and the Compose `caddy` container fails to bind `:443`
-against it. Bring up only `dex` and restart the native Caddy (see
-[Deploy (on the boat)](#4--deploy-on-the-boat) below).
-
-Compose starts InfluxDB first; SignalK and Grafana both declare
-`depends_on: influxdb`. Note that `depends_on` waits for the *container*,
-not for InfluxDB to be ready to serve — on a cold start the provisioning
-scripts below may need a retry.
-
-Then converge the service-internal state, which lives inside those
-containers rather than in any file:
-
-```bash
+docker compose up -d                              # plain
+docker compose --profile tls up -d --build        # fully containerized host with SSO
 bash scripts/provision_grafana_users.sh
 bash scripts/provision_influxdb.sh
 ```
 
-Both are idempotent and safe to re-run. Grafana's needs its superadmin
-password already applied — see the `GF_SECURITY_ADMIN_PASSWORD` note under
-"Rotating a secret" if you're on an existing (not fresh) `grafana-data`
-volume.
+On the boat, skip the `--profile tls` line ([SSO login](#sso-login)).
+If `provision_influxdb.sh` minted `influx_token`, re-render and recreate
+grafana; if it minted `influxdb_signalk_token`, put it in
+`signalk/plugin-config-data/signalk-to-influxdb2.json` and restart SignalK.
 
-*Verify:* `bash scripts/test_integration.sh` — this is the real check that
-the stack works end to end.
+*Verify:* `bash scripts/test_integration.sh`
 
-### Special cases
-
-#### First-ever boot
-
-If no `security.json` has ever existed, there's nothing to decrypt. Let
-SignalK create its own through the setup wizard on first admin login, then
-`git add signalk/security.json` once so it starts being tracked — encrypted
-— from that point forward.
-
-#### What `provision_influxdb.sh` does
-
-It can mint credentials that then need propagating by hand, so read this
-before running it:
-
-- On a **fresh** volume it runs `/api/v2/setup` (org `darkstarllc`, bucket
-  `symphony`) and stores the resulting operator token. On an **existing**
-  one it uses the operator token already in `secrets/symphony.sops.yaml`.
-  Everything under `DOCKER_INFLUXDB_INIT_*` is fresh-volume-only in the same
-  way. That is why the boat's database says org `symphony` while `.env` says
-  `darkstarllc`, and why the admin user `.env` names does not exist: the
-  volume predates both. Changing those values on a running install does
-  nothing and silently disagrees with reality.
-- Either way it creates the `captain` user as an org *member*, not owner —
-  InfluxDB OSS has only those two levels — and mints read/write-scoped
-  tokens for the SignalK plugin and Grafana's datasource if they don't
-  already exist.
-- **If it minted a new `influx_token`:** re-run `scripts/render.py` and
-  `docker compose up -d --force-recreate grafana`.
-- **If it minted a new `influxdb_signalk_token`:** update the `token` field
-  in `signalk/plugin-config-data/signalk-to-influxdb2.json` and restart
-  `signalk-server`.
-
----
+First-ever boot with no `security.json`: let SignalK's setup wizard create it,
+then `git add signalk/security.json` once.
 
 ## Provisioning a HALOS card with Ansible
 
-Builds a HALOS card's host layer: boot config, `can0`, wifi and hostname,
-packages, host files, and the SignalK container overrides. Not SignalK's plugin
-tree, not container application config, not the age key or the git filters — see
-[reference/host_provisioning.md](reference/host_provisioning.md) for where the
-line is and why.
-
-Run from a laptop over Tailscale, not from the card.
-
-### Before the first run
-
-On the control machine:
+From a laptop on the tailnet, with `sops`, the age key, and ssh to `pi@symphony-halos`:
 
 ```bash
 sudo apt install ansible
 ansible-galaxy collection list community.sops community.general
-```
-
-You also need `sops` on `PATH`, the age key at `~/.config/sops/age/keys.txt`,
-Tailscale up, and ssh to `pi@symphony-halos` on a key. The playbook reads
-`secrets/symphony.sops.yaml` on the *control* machine; nothing is installed on
-the card.
-
-On the card, wire the git filters once — Ansible warns about their absence but
-will not fix it, because the age key has to arrive out of band:
-
-```bash
-ssh pi@symphony-halos 'cd /home/pi/symphony && bash scripts/setup-git-filters.sh'
-```
-
-### Run it
-
-```bash
+ssh pi@symphony-halos 'cd /home/pi/symphony && bash scripts/setup-git-filters.sh'   # once per card
 cd ansible && ansible-playbook site.yml
 ```
 
-Useful variants:
+Variants: `--check --diff` (no changes), `--tags verify` (audit only),
+`-e symphony_allow_reboot=false` (card carrying live data; reboot it yourself
+after), `-e symphony_repo_version=<branch>`.
 
-```bash
-ansible-playbook site.yml --check --diff
-```
-
-```bash
-ansible-playbook site.yml --tags verify
-```
-
-```bash
-ansible-playbook site.yml -e symphony_allow_reboot=false
-```
-
-`--check --diff` changes nothing and prints every drift line; the read-only
-verification tasks still run under it. `--tags verify` audits a card without
-touching it. `symphony_allow_reboot=false` turns a needed reboot into a warning
-— use it on a card carrying live data, and reboot it yourself afterwards, or the
-running kernel stays behind `/boot/firmware`.
-
-To converge a card against work that has not landed yet:
-
-```bash
-ansible-playbook site.yml -e symphony_repo_version=claude/some-branch
-```
-
-### Verify
-
-Run it twice. The second run is the test:
-
-```bash
-cd ansible && ansible-playbook site.yml
-```
-
-`changed=0 failed=0` is the pass. Anything still changing on a second run is a
-task that is not idempotent, not a card that keeps drifting.
-
-Then, from a tailnet machine with sops access:
-
-```bash
-scripts/halos_preflight.sh
-```
-
-Every line must read `ok`.
-
-### Existing cards
-
-The card is never a fresh clone. Two traps on a card built before this playbook:
-
-- **A `sudo git` in its past.** Root-owned refs under
-  `/home/pi/symphony/.git/refs/` stop `pi` creating branches, and git reports it
-  as a lock file it cannot create rather than as an ownership problem. The
-  playbook repairs this; nothing else does.
-- **`/etc/boat-heartbeat.json` may hold the *other* card's check URL,** if that
-  card ran `host/install.sh` more recently. The playbook rewrites it from
-  `heartbeat_url` in that host's vars. Confirm which check a card pings before
-  assuming its silence means it is down.
-
----
+*Verify:* run it a second time and get `changed=0 failed=0`, then
+`scripts/halos_preflight.sh` reads `ok` on every line.
 
 ## Installing host files
-
-`host/` holds files that live on the machine rather than in a container —
-scripts under `/usr/local/sbin`, and the root cron entries that call them.
-On the host:
 
 ```bash
 cd ~/symphony && git pull
 sudo host/install.sh
 ```
 
-It's idempotent, and it prints what it installed plus the resulting root
-crontab. Re-run it after any change under `host/`; it rewrites only the cron
-entries pointing at paths it installs and leaves everything else in that
-crontab alone.
+Idempotent; re-run after any change under `host/`. It refuses on anything
+that isn't a boat card; `SYMPHONY_INSTALL_FORCE=1` overrides only for a real
+card failing a check.
 
-It only runs on a boat card. It checks three things — systemd is booted, the
-`pi` user exists, `uname -m` is `aarch64`/`armv7l`/`armv6l` — and if any fails
-it names every one that failed, installs nothing, and exits 1. From an x86_64
-WSL2 box with systemd enabled and no `pi` user, two of the three:
-
-```
-install.sh: this does not look like a boat card -- user-pi(absent) arch(x86_64, not a Pi)
-install.sh: refusing. SYMPHONY_INSTALL_FORCE=1 to override.
-```
-
-Expect a longer list elsewhere — a Mac or a container without systemd as PID 1
-adds `systemd(not booted with it)`, and an Apple Silicon Mac still fails the
-arch check, since `uname -m` there is `arm64` rather than `aarch64`. Refusing
-is the right answer on all of them. Don't reach for the override to get past
-it: this writes root-owned files into `/usr/local/sbin`, `/etc/systemd`,
-`/etc/apt` and `/home/pi`, enables timers, and rewrites the root crontab of
-whatever machine it is run on.
-
-```bash
-sudo SYMPHONY_INSTALL_FORCE=1 host/install.sh
-```
-
-is for a host that really is a target but fails a check — a card whose
-`pi` user has been renamed, say.
-
-To add a file, drop it in `host/` and add a line to `INSTALL` (and `CRON` if
-it needs scheduling) at the top of `host/install.sh`.
-
-Anything landing under `/etc/systemd/` triggers a `daemon-reexec`, because
-manager settings like the watchdog don't apply on a plain `daemon-reload`.
-
-Currently installed:
-
-`systemd-watchdog.conf` turns on the Pi's BCM2835 hardware watchdog with a
-30-second timeout, so a hang that stops answering ping and SSH resets the
-board instead of waiting for someone aboard to pull power. Confirm it took:
+*Verify* the hardware watchdog took (expect 30s, `30s`, `30`):
 
 ```bash
 journalctl -b | grep -i "hardware watchdog"
@@ -617,1914 +262,209 @@ systemctl show -p RuntimeWatchdogUSec
 cat /sys/class/watchdog/watchdog0/timeout
 ```
 
-Expect `Watchdog running with a hardware timeout of 30s`,
-`RuntimeWatchdogUSec=30s`, and `30`. Read all three: 15s is the bcm2835
-hardware heartbeat and the kernel extends past it in software, so a value
-above 15 is honoured rather than clamped — but check rather than assume it.
-
-It won't catch a wedged service while systemd keeps running — that needs a
-separate check.
-
-`chrony.conf` sets the clock policy: step by any amount at any time, and serve
-time to the boat's own networks. chrony replaces `systemd-timesyncd`, which
-`apt` removes on install. The installer places config but does not install
-packages — do that first, or it sits there inert:
+`install.sh` drops chrony's config whether or not chrony is installed, and
+only restarts it if it is. If `chronyc` is missing:
 
 ```bash
 sudo apt install chrony
 sudo host/install.sh
+chronyc tracking && chronyc sources     # a reference named, one `^*` peer
 ```
 
-*Verify:* `chronyc tracking` names a reference and reports a small offset, and
-`chronyc sources` shows one peer selected with `^*`.
+`nightly-reboot` is installed but its cron line is commented out. If you
+re-enable it, keep its guard: a reboot landing on an `npm install` in
+`~/.signalk` truncates the plugin tree and npm will not repair it.
 
-Don't add a GPS refclock. The usual `refclock SHM` recipe reads gpsd's shared
-memory, and this boat's GNSS is on NMEA 2000 rather than a serial port, so
-those segments are never written — `ntpshmmon` returns no samples no matter
-which segment number you pick. See `reference/compute_hardware.md` → "GNSS
-arrives on NMEA 2000, and SignalK isn't reading it".
-
-Don't add `rtcsync`: the Pi 4B has no RTC, which is the reason `makestep 1.0
--1` is there. Without it chronyd slews rather than steps, and a clock that
-booted years wrong stays wrong for hours.
-
-`telegraf-rpi-health` feeds telegraf's `exec` input, turning
-`vcgencmd get_throttled` into the `rpi_health` measurement. Run it by hand to
-check it works; it prints one line of InfluxDB line protocol:
-
-```bash
-/usr/local/bin/telegraf-rpi-health
-```
-
-All-zero fields are the healthy answer. A `1` in any `_since_boot` field means
-the SoC saw under-voltage or throttling at some point since the last boot,
-which on this boat means the NMEA 2000 bus sagged.
-
-`boat-heartbeat` and its timer ping an external dead man's switch every five
-minutes with a vitals summary, so that the box going silent raises an alarm
-somewhere that isn't the box. **It does nothing until you give it a URL** —
-see "Turning on the off-boat heartbeat" below.
-
-`nightly-reboot` is still installed, but its line in root's crontab is
-commented out. It rebooted the Pi at 04:00 **unless** an `npm` or `node-gyp`
-process was running. Keep that guard if you ever turn it back on.
-
-> 📌 **Gotcha:** Don't call `shutdown` from cron directly — a reboot landing
-> on an `npm install` in `~/.signalk` truncates the plugin tree, and npm
-> won't repair it afterward because it sees the half-written directories and
-> considers those packages installed.
-
-On a night it runs, check which way it went with:
-
-```bash
-journalctl -t nightly-reboot --since yesterday
-```
-
----
-
-## Container liveness — healthchecks and autoheal
-
-Every container in this stack carries a healthcheck, and `autoheal`
-(`compose-autoheal.yml`) restarts any that goes `unhealthy`. This exists
-because `restart: unless-stopped` fires only when a process *exits*: on
-2026-09-02 QuestDB spun at 250 % CPU for eleven hours, accepting the socket
-and never answering, while `docker ps` said `Up 12 days`.
-
-### Check the current state
+## Container health
 
 ```bash
 ssh pi@symphony-pi 'docker ps --format "{{.Names}}\t{{.Status}}"'
 ```
 
-Every line must read `(healthy)`. A container with no health word at all has
-no healthcheck — that is the failure this section exists to prevent, not a
-container that happens to be fine.
-
-If one is unhealthy, read the probe's own output before restarting anything:
+Every line must say `(healthy)`. A line with no health word has no
+healthcheck. For an unhealthy one, read the probe before restarting:
 
 ```bash
-ssh pi@symphony-pi 'docker inspect questdb --format "{{json .State.Health}}"' | python3 -m json.tool
+ssh pi@symphony-pi 'docker inspect <name> --format "{{json .State.Health}}"' | python3 -m json.tool
+ssh pi@symphony-pi 'docker logs autoheal --since 24h'      # what autoheal restarted
 ```
 
-`FailingStreak` and the last `Log` entry's `ExitCode`/`Output` say which
-probe failed and how. Curl exit 28 (timeout) against a container burning CPU
-is the wedge signature; exit 7 (refused) is an ordinary crash.
+Repeated restarts in the autoheal log mean the probe is losing a race: raise
+that service's `start_period`, redeploy, then look for a fault.
 
-What autoheal has restarted, and when:
-
-```bash
-ssh pi@symphony-pi 'docker logs autoheal --since 24h'
-```
-
-### Deploy a compose change to the boat
+## Deploying a compose change to the boat
 
 ```bash
 ssh pi@symphony-pi
 cd ~/symphony && git pull
-docker compose --profile tls up -d questdb ntfy dex autoheal
+docker compose --profile tls up -d questdb ntfy dex autoheal pypilot pypilot-web
 ```
 
-**Name the services explicitly.** The boat runs SignalK, InfluxDB, Grafana
-and Caddy as native systemd units, but `docker-compose.yml` `include`s a
-service for each of them. A bare `docker compose up -d` there starts
-containers that fight the native processes for ports 3000, 8086, 3001 and
-443. The same trap is spelled out for `dex` under
-[Deploy (on the boat)](#4--deploy-on-the-boat); it applies to every compose
-command run on the boat.
+That list is every container the boat runs. *Verify:* the `docker ps` check above, about 90 s later.
 
-*Verify:* the `docker ps` check above, ~90 s later, once each probe has run.
+## The off-boat heartbeat
 
-### Add a healthcheck to a new service
+`boat-heartbeat.timer` pings a healthchecks.io check every five minutes. The
+URL lives sops-encrypted in `host/boat-heartbeat.json`; `host/install.sh`
+places it at `/etc/boat-heartbeat.json`. No file, no pings.
 
-Two things, in the same block, or the service is only half covered:
-
-```yaml
-    healthcheck:
-      test: ["CMD-SHELL", "<probe>"]
-      interval: 30s
-      timeout: 10s
-      start_period: 60s
-      retries: 3
-    labels:
-      autoheal: "true"
-```
-
-- **Probe the request path, not the port.** QuestDB's wedge kept the
-  listening socket open the whole time. `select 1` through `/exec` is what
-  catches it; `curl http://host:9000/` would not have.
-- **Check what the image actually has.** `questdb` ships `curl` and no
-  `wget`; `dex` and `ntfy` ship busybox `wget` and no `curl`.
-- **Without the `autoheal: "true"` label nothing restarts it.** Autoheal is
-  configured for label opt-in, so a healthcheck alone gets you a red word in
-  `docker ps` and no action.
-- **Set `start_period` from a measured cold start, then multiply.** Too
-  tight is the expensive mistake: a 60 s window against SignalK's 3–4 min
-  cold start had autoheal restarting it every ~3 min on the HALOS card
-  (`host/halos/signalk-healthcheck-override.yml`). Measure with:
-
-  ```bash
-  ssh pi@symphony-pi 'c=questdb; s=$(date +%s); docker restart $c >/dev/null
-    until docker exec $c curl -sf -o /dev/null "http://127.0.0.1:9000/exec?query=select%201"; do sleep 1; done
-    echo "ready after $(( $(date +%s) - s ))s"'
-  ```
-
-### Test that it actually restarts
-
-A healthcheck that has never failed is untested. Simulate the wedge —
-a spinning process that never exits — by freezing the container's process:
-
-```bash
-ssh pi@symphony-pi 'pid=$(docker inspect -f "{{.State.Pid}}" ntfy); sudo kill -STOP $pid'
-```
-
-Then watch `docker ps`. Expect `(healthy)` → `(unhealthy)` after
-`retries × interval`, then a restart by autoheal within one
-`AUTOHEAL_INTERVAL`. Measured on the boat 2026-09-02: **132 s** from the
-SIGSTOP to a healthy ntfy again. The restart clears the SIGSTOP, so there
-is nothing to undo. If you abort early, `sudo kill -CONT $pid` unfreezes it.
-
-A wedged container burns the whole stop timeout before SIGKILL, so expect
-roughly 30 s of dead air between autoheal's log line and the container
-actually coming back. That is the wait working, not a hang.
-
-Use `ntfy` for this. It is the cheapest container to interrupt; QuestDB
-loses history writes and Dex logs everyone out.
-
-### If a container flaps
-
-Repeated restarts in `docker logs autoheal` mean the probe is losing a race,
-not that the service is broken. Do not tighten anything — raise
-`start_period` on that service, redeploy, and only then look for a fault.
-
-## Turning on the off-boat heartbeat
-
-Armed on the boat Pi as of 2026-08-13; this is how to change it or set it up
-elsewhere. The ping URL lives in `host/boat-heartbeat.json`, whose `url` field
-is sops-encrypted, so it is in version control without being readable in a
-public repo. `host/install.sh` places it at `/etc/boat-heartbeat.json`, mode
-0600 root. The script exits immediately if that file is missing, so removing
-it turns the heartbeat off.
-
-Treat the ping URL as a bearer credential — anyone holding it can send false
-"alive" pings, which masks a dead boat rather than leaking anything. If it is
-ever exposed, rotate the check on the provider's side.
-
-1. Create a check on any service that hands out a ping URL — Healthchecks.io,
-   Better Stack, Cronitor all work, and the script doesn't care which. Set the
-   expected period to **5 minutes** and the grace period to **20 minutes or
-   more**. The boat's uplink drops routinely; a tight grace turns a normal
-   marina wifi hiccup into a 3 a.m. alarm, and alarms you learn to ignore are
-   worse than none.
-2. Put the URL in the repo file and install it. Edit the `url` field in
-   `host/boat-heartbeat.json` — on disk it is plaintext, and the clean filter
-   encrypts it on the way into git:
+To set it up or change the URL: create a check (period 5 min, grace 20 min
+or more), edit the `url` field, then:
 
 ```bash
 git diff --cached host/boat-heartbeat.json   # must show ENC[...], not the URL
 sudo host/install.sh
-```
-
-> 🔴 **Critical:** If that diff shows the URL in the clear, stop: the sops
-> filter isn't wired in this checkout. Run `bash scripts/setup-git-filters.sh`
-> and re-stage. This is not hypothetical — it was found unconfigured here
-> on 2026-08-13, which is the state in which a secret gets committed in
-> public.
-
-3. Fire one ping by hand and read the result:
-
-```bash
 sudo systemctl start boat-heartbeat.service
-journalctl -t boat-heartbeat -n 5
-systemctl list-timers boat-heartbeat.timer
+journalctl -t boat-heartbeat -n 5            # expect: ping ok
+systemctl list-timers boat-heartbeat.timer   # NEXT about five minutes out
 ```
 
-Expect `ping ok` and a `NEXT` about five minutes out. `ping failed` covers both
-a dead endpoint and no uplink at all — the script can't tell them apart, so
-check the uplink first and the URL second. It exits 0 either way on purpose,
-so a boat that is merely offline doesn't leave a failed unit behind; the log
-line is the only place a failure shows.
+If the diff shows the URL in clear, stop: run `bash scripts/setup-git-filters.sh` and re-stage.
 
-To see what actually gets posted, point it at a listener on the box. Move the
-live file aside first — overwriting it in place loses the real ping URL:
-
-```bash
-python3 -m http.server 8899 --bind 127.0.0.1 &
-sudo mv /etc/boat-heartbeat.json /etc/boat-heartbeat.json.real
-echo '{"url":"http://127.0.0.1:8899/test"}' | sudo tee /etc/boat-heartbeat.json >/dev/null
-sudo systemctl start boat-heartbeat.service
-journalctl -t boat-heartbeat -n 2
-sudo mv /etc/boat-heartbeat.json.real /etc/boat-heartbeat.json
-```
-
-The body is one `key: value` per line — uptime, load, mem available, disk,
-temp, throttled, clock, failed units — so whichever service you choose needs
-to accept a POST body, or ignore it.
-
-To turn it off, delete `/etc/boat-heartbeat.json`. Don't disable the timer —
-leaving it running means re-enabling is one file away, and the check on the
-other end is what tells you the boat went quiet.
-
----
+`ping failed` is either a dead endpoint or no uplink; check the uplink first.
+To turn it off, delete `/etc/boat-heartbeat.json`; leave the timer alone.
 
 ## Silencing the alarms for planned work
 
-Silence is the alarm, so a shutdown, a card swap or pulling power at the panel
-pages you for work you meant to do. Pause the check first:
+From a laptop, before a shutdown, card swap or power-off:
 
 ```bash
-scripts/monitoring_snooze.sh status          # both checks
-scripts/monitoring_snooze.sh pause pi        # silence the boat card's check
+scripts/monitoring_snooze.sh status
+scripts/monitoring_snooze.sh pause pi
 ```
 
-Run it from a laptop on the tailnet, not the boat — it suppresses at
-healthchecks.io, which is the only thing that works when the Pi is off or its
-card has been swapped for another rootfs.
+Don't resume by hand; the next ping un-pauses it.
 
-Don't resume by hand. A paused check leaves the paused state on the next ping,
-so the boat un-silences itself when it comes back; `resume` also works but
-resets the check to `new` and throws away its ping history.
+*Verify:* after the box is back, `status` shows the check `up`. Still
+`paused` ten minutes after boot means the timer isn't running aboard.
 
-*Verify:* after the box is back, `scripts/monitoring_snooze.sh status` shows
-that check `up` with a recent last ping. Still `paused` ten minutes after
-boot means `boat-heartbeat.timer` isn't running aboard — see § Turning on the
-off-boat heartbeat.
+## The boat's hourly fetch
 
----
-
-## Keeping the boat's checkouts fresh
-
-`boat-hourly-sync.timer` fetches `/home/pi/symphony` hourly. It never merges —
-to deploy, see § Deploy a compose change to the boat.
+`boat-hourly-sync.timer` fetches `/home/pi/symphony` hourly; it never merges.
 
 ```bash
 systemctl status boat-hourly-sync.timer
-journalctl -t boat-hourly-sync -n 5 --no-pager -o cat
+journalctl -t boat-hourly-sync -n 5 --no-pager -o cat    # symphony: fetched, N behind origin/main
 ```
 
-*Verify:* run `sudo systemctl start boat-hourly-sync.service`, then the
-`journalctl` command above. It prints `symphony: fetched, N behind
-origin/main`. On `fetch failed`, get the real error the unit swallows:
+The heartbeat body carries the same drift line. `behind` is normal.
+`ahead`/`diverged` means someone committed on the boat; any `stashed` count
+means a yadm autostash rolled back. Both need a person. On `fetch failed`:
 
 ```bash
-sudo -u pi GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=20' \
-  git -C /home/pi/symphony fetch origin
+sudo -u pi GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=20' git -C /home/pi/symphony fetch origin
 ```
 
-Each heartbeat also reports drift:
+dotfiles syncs separately: `~/.local/bin/dotfiles-sync.sh --status`.
 
-```
-symphony: 15 behind, fetched 12m ago
-dotfiles: current, 2 stashed
-```
+## GPU hang from a desktop browser
 
-Behind is normal and never alarms. A stale fetch age means no recent
-successful fetch — usually the boat was offline, so check the timer and
-journal before assuming it is broken. `ahead`/`diverged` means someone
-committed on the boat directly — a deploy checkout should never be ahead of
-origin, so this needs a person. Any `stashed` count above 0 needs a
-person: a `yadm` autostash rolled back, and `yadm` exits 0 when it does.
-
-dotfiles is synced by its own cron line, not by this unit:
-`~/.local/bin/dotfiles-sync.sh` fast-forwards every five minutes and skips,
-naming the files, when a dirty `$HOME` blocks it. Check it with
-`~/.local/bin/dotfiles-sync.sh --status`; the dotfiles RUNBOOK § Keep
-machines in sync has the rest.
-
-## Swapping the HALOS card onto the boat
-
-Puts the HALOS card into the boat Pi for a live trial; the boat card comes
-home as the rollback. The card is built per
-`intermediate_files/claude_slop/halos-swap-plan.md`; what was actually done
-and measured is in `halos-swap-execution-2026-09-02.md` next to it. The Pi is
-powered from the NMEA 2000 bus, so "power off" means unplugging its Micro-C.
-
-Both check scripts print one `ok`/`FAIL` line per function and exit non-zero
-on any `FAIL`. **A line that FAILs on the boat card before the swap and FAILs
-on the HALOS card after it is a boat problem, not a card problem** — the
-baseline in step 1 exists to tell those apart.
-
-### Before leaving home
-
-```bash
-scripts/halos_preflight.sh
-```
-
-Every line must be `ok`. Nothing can be fetched at the boat. The `services`
-line needs QuestDB and Grafana running on the bench Pi; on the 2 GB bench they
-run only on the zram swap and page continuously, so run the preflight and stop
-them after (`sudo systemctl stop marine-questdb-container marine-grafana-container`).
-
-```
-ok    host       signalk symphony.dark-star-llc.com signalk.symphony.dark-star-llc.com symphony-halos
-ok    boot       overlays cgroup regdom i2c-dev serial0 i2c-1
-ok    wifi       profile Symphony; hotspot Halos-AP ssid SignalK
-ok    plugins    120 loaded, 63 on; same set and states as the boat except the 4 expected-off and 3 image-only; forks pinned, D-Bus fix present
-ok    signalk    active 2.31.1 override gid988 (healthcheck override installed, i2c gid in the SignalK process)
-ok    services   8 active
-ok    staydown   avnav opencpn disabled+inactive; influxdb app absent
-ok    heartbeat  ping ok
-ok    questdb    telegraf cpu rows 53; newest signalk row 1 s old
-ok    ntfy       health 200
-ok    front      Traefik :4430 -> SignalK 200; device cert has signalk.symphony.dark-star-llc.com
-ok    mem        401 MB available, 1118 MB swap used (2 GB bench cannot hold the databases; the 4 GB boat can)
-ok    dns        A symphony.dark-star-llc.com -> 100.x.x.x   (zone dark-star-llc.com, public answer: 100.x.x.x)   symphony-pi      100.x.x.x   <- current   symphony-halos   100.x.x.x
-```
-
-The `state` line compares the SignalK config files on the card with the boat's
-today. The card was loaded from a copy, and the boat has kept changing plugin
-settings since; a FAIL there means run the final sync, then the preflight
-again. The excludes matter: `package.json` on the card carries the two
-`file:local-plugins/` pins and `node_modules` was built for Node 24, so
-neither may come across.
-
-```bash
-ssh pi@symphony-halos 'D=/var/lib/container-apps/marine-signalk-server-container/data/data
-rsync -av --exclude node_modules --exclude package.json --exclude appstore-cache \
-  --exclude "skserver-raw_*" --exclude "*.bak*" --exclude "*.deb" --exclude signalk-server \
-  --exclude "ssl-*.pem" --exclude "*.sqlite*" \
-  --exclude "plugin-config-data/signalk-container.json" \
-  --exclude "plugin-config-data/signalk-to-influxdb2.json" \
-  --exclude "plugin-config-data/signalk-to-influxdb-v2-buffer.json" \
-  --exclude "plugin-config-data/signalk-notification-player.json" \
-  --exclude "plugin-config-data/venus.json" \
-  pi@symphony-pi:.signalk/ "$D"/'
-ssh pi@symphony-halos 'sudo systemctl restart marine-signalk-server-container'
-```
-
-**Do not drop those last five excludes.** They are the card's own settings —
-the four plugins disabled on HALOS and `venus.json`'s `MQTT.host`
-(as-built steps 37 and 38). Without them the sync copies the boat's copies
-over the top and the card silently reverts: SignalK watches these files and
-re-enables the plugins live, on a running server, with no error anywhere.
-Measured 2026-09-04, on the payload card, four days before the swap.
-
-If the `state` line names a plugin version or `package.json`, the boat
-installed or updated a plugin since the copy. Copy the boat's `package.json`
-across, re-pin the two `file:local-plugins/` entries, and rebuild the tree
-with the script that owns that recipe (stops and restarts the SignalK unit
-itself; measured 18 min 52 s on a Pi 4):
-
-```bash
-ssh pi@symphony-halos 'cd /home/pi/symphony && sudo scripts/halos_signalk_npm.sh'
-```
-
-The build runs in a transient systemd unit, so losing the connection loses
-only the log you are watching. Reconnect and follow it again, or check it
-finished, with either of:
-
-```bash
-ssh pi@symphony-halos 'journalctl -u halos-npm -f'
-```
-
-To abort a run, `sudo systemctl stop halos-npm` — that restarts SignalK on the
-way out. Never `systemctl kill`: it kills the restart along with the build and
-leaves SignalK down.
-
-`dns_cutover.sh`'s read path (`status`) runs on every preflight. Exercise the
-write path once from home the day you go, so a dead token is found at home:
-
-```bash
-scripts/dns_cutover.sh set symphony-halos -y
-dig +short symphony.dark-star-llc.com @1.1.1.1    # the halos tailnet IP
-scripts/dns_cutover.sh set symphony-pi -y
-dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card's IP
-```
-
-Public resolvers followed within 30 s each way when this was run; allow the
-record's 300 s TTL. Off-boat access is on the bench card for that window.
-
-### At the boat
-
-1. Baseline the boat card:
-
-   ```bash
-   scripts/halos_swap_check.sh symphony-pi
-   ```
-
-   ```
-   ok    signalk    signalk 2.31.1 up=1000844s
-   ok    lan        eth0 192.168.8.240/24 can0 UP
-   ok    n2k        newest n2k-can0 value 0 s old (/navigation/attitude)
-   ok    victron    ESTAB 192.168.8.107:8883; electrical: batteries chargers inverters solar
-   ok    ble        1 of 5 configured sensors publishing voltage, newest 123 s
-   ok    heartbeat  ping ok
-   ok    ntfy       sent to symphony-alarms; check the phone
-   ok    questdb    newest signalk history row 4 s old
-   ok    devices    /dev/serial0 /dev/i2c-1
-   ok    bme680     inside: airquality gas humidity refrigerator relativeHumidity temperature
-   ok    front      https signalk.symphony.dark-star-llc.com :443 200 -> SignalK
-   ```
-
-   Keep this output. `victron` FAILs while the Cerbo is not answering on
-   port 8883, and `questdb` FAILs when the boat card's QuestDB is too loaded
-   to answer in 30 s; both are boat-side and carry over to the new card.
-
-2. Shut it down; unplug the Micro-C when the green LED stops:
-
-   ```bash
-   ssh pi@symphony-pi 'sudo shutdown -h now'
-   ```
-
-3. Swap the cards. The boat card goes in your pocket; it is the only copy of
-   the QuestDB history and `~/influx-export`.
-4. Reconnect the Micro-C. Wait five minutes: SignalK cold-starts in 3–4 min
-   with this plugin set, and the container healthcheck allows 15.
-5. Check every core function over Tailscale — this doesn't touch public DNS,
-   so it's safe to run before traffic moves:
-
-   ```bash
-   scripts/halos_swap_check.sh
-   ```
-
-   Same lines as the baseline, with `up=` small and `front` on `:4430`.
-   `ble` and `bme680` can take ten minutes after boot; rerun. A `ble` FAIL
-   after that is "BLE sensors go silent after a reboot". A `bme680` FAIL that
-   survives the ten minutes is usually not the sensor: check that the container
-   can reach the bus at all, because it cannot without the `group_add` line in
-   `host/halos/signalk-healthcheck-override.yml` being installed on the card.
-
-   ```bash
-   ssh -t pi@symphony-halos "sudo docker exec signalk-server python3 -c \"open('/dev/i2c-1')\""
-   ```
-
-   Silence is a pass. `PermissionError` means the override is missing or was
-   reverted; install it per `host/halos/README.md` and restart the unit. Don't move on to
-   DNS until every line that was `ok` in the baseline is `ok` here — a slow
-   boot otherwise moves public traffic to a node that isn't ready yet.
-
-6. Cut public DNS over (on-boat devices need nothing; the router override
-   follows the Pi's MAC):
-
-   ```bash
-   scripts/dns_cutover.sh set symphony-halos
-   ```
-
-   ```
-   A symphony.dark-star-llc.com -> 100.x.x.x. Public resolvers follow within 300 s
-   ```
-
-   Within about 35 minutes healthchecks.io reports `SignalK Symphony` late:
-   that is the boat card no longer pinging. The HALOS card pings its own
-   check, `SignalK Symphony (halos card)`. Pause the old check in the
-   healthchecks.io app, or accept the one notification.
-
-7. Phone on the boat WiFi: install the certificate from
-   `https://signalk.symphony.dark-star-llc.com/ca/`, then open
-   `https://signalk.symphony.dark-star-llc.com/`. SignalK admin at the root,
-   no certificate warning, `SignalK` in the WiFi list.
-
-### Rolling back
-
-Unplug the Micro-C, swap the boat card in, plug in, wait three minutes, then
-check readiness before moving DNS back — same order as the swap itself:
-
-```bash
-scripts/halos_swap_check.sh symphony-pi
-scripts/dns_cutover.sh set symphony-pi
-```
-
-The `(halos card)` check goes late instead of the boat one. Nothing on the
-boat card is changed by the trial.
-
----
-
-## Don't autostart a browser on the boat Pi
-
-> 🔴 **Critical:** Chromium started from `~/.config/autostart` renders with
-> GPU acceleration whether or not an HDMI display is connected, and on this
-> Pi that wedges the v3d driver. `Resetting GPU for hang` then repeats
-> several times a minute until a kworker blocks permanently in
-> `v3d_gpu_reset_for_timeout`, systemd stops petting the watchdog, and the
-> board hard-resets. Those blocked kworkers also hold the load average up by
-> one apiece, so load stops meaning anything; nothing but a reboot clears
-> them.
+Chromium autostarted on this Pi wedges the v3d driver whether or not a
+display is attached, and the board eventually hard-resets. Its autostart
+entry, `freeboard.desktop` (Chromium in app mode), is parked in
+`~/.config/autostart-disabled/`; keep it there.
 
 ```bash
 journalctl -b -k | grep -c "Resetting GPU for hang"    # want 0
 ps -eo pid,stat,comm | awk '$2 ~ /D/'                  # want no kworker
 ```
 
-If the count is climbing, find what's driving the GPU and stop it — the
-desktop by itself doesn't touch v3d. The Freeboard entry now sits in
-`~/.config/autostart-disabled/`; its Desktop launcher still works when
-someone is actually at a screen.
+A climbing count means something is driving the GPU; stop it. Only a reboot clears the blocked kworkers.
 
----
+## A desktop on the boat Pi on demand
 
-## Starting a desktop on the boat Pi on demand
-
-The Pi boots to `multi-user.target` with no desktop. `labwc` busy-loops at
-~100% of a core when no display is attached, so a desktop left running costs
-a quarter of the board's CPU continuously — measured 6d7h of CPU across 12
-days uptime on 2026-09-02, and it is not wayvnc driving it: stopping wayvnc
-left labwc at 98%.
-
-RPi Connect **remote shell** works headless and needs nothing below. Only
-**screen sharing** needs a desktop, because wayvnc attaches to a live
-Wayland session. `rpi-connect-wayvnc` is therefore disabled — left enabled it
-restart-loops against a display that isn't there.
-
-To bring a desktop up:
+The Pi boots headless. Only RPi Connect *screen sharing* needs this; the
+remote shell works without it.
 
 ```bash
 sudo systemctl start lightdm
 sleep 20
 XDG_RUNTIME_DIR=/run/user/1000 systemctl --user start rpi-connect-wayvnc
-```
-
-Verify before reaching for the RPi Connect web UI — `screen sharing:
-allowed` alone does not mean a session exists to share:
-
-```bash
-pgrep -a -x labwc                                              # want a `labwc -m` line
+pgrep -a -x labwc                                                              # want a `labwc -m` line
 XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active rpi-connect-wayvnc   # want active
 ```
 
-To put it away again:
+Put it away (labwc burns a full core with no display attached):
 
 ```bash
 XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop rpi-connect-wayvnc
 sudo systemctl stop lightdm
-pkill -u pi -x labwc
-pgrep -a -x labwc                                              # want no output
-```
-
-`systemctl stop lightdm` does **not** stop the autologin session's compositor
-— it is reparented away from lightdm at boot and survives — which is why the
-`pkill` line is there. Match on `-x labwc`, never `pkill -f '/usr/bin/labwc
--m'`: the `-f` form matches your own ssh command line and kills your session
-before it reaches labwc.
-
-Persistence: `Linger=yes` is set for `pi`, so RPi Connect's user services
-come back on a headless boot with nobody logged in. Don't clear it — remote
-access to the boat depends on it.
-
----
-
-## Upgrading the scanners
-
-`pre-commit autoupdate` does nothing here — every hook is `repo: local`, so
-there are no upstream revisions to bump. The versions live in three places
-and all three must move together, or a commit gets cleared by one scanner
-version and a push by another:
-
-```bash
-grep -n GITLEAKS_VERSION   scripts/gitleaks_precommit.sh    # commit-time
-grep -n TRUFFLEHOG_VERSION scripts/scan_verified_secrets.sh # CI + local
-grep -n zricethezav        .github/workflows/secret-scan.yml # CI
-```
-
-Edit all three to the same tag, then pull the new images **dockside, not
-underway** — the first run after a bump fetches from Docker Hub, and a
-failed fetch mid-passage leaves the commit-time hook degrading to a warning
-just when you can least check it by hand.
-
-The scanners live in `secret-scan.yml`, not `validate.yml`. Nothing in
-`validate.yml` is version-pinned this way.
-
----
-
-## pypilot in a container
-
-Design notes and what is still unverified: `reference/pypilot_containerization.md`.
-Don't run this alongside the native pypilot install — both bind the same
-ports (8000, 20220, 23322).
-
-### Build and run it on a laptop
-
-No IMU needed. This is the check that the image still builds.
-
-```bash
-docker compose -f dev/compose-pypilot-dev.yml up -d --build
-sleep 30
-```
-
-*Verify:* `curl -s -o /dev/null -w '%{http_code}\n' localhost:18000` is 200,
-and both containers are up:
-
-```bash
-docker compose -f dev/compose-pypilot-dev.yml ps
-docker compose -f dev/compose-pypilot-dev.yml logs pypilot | grep realtime
-```
-
-The log line must read `made imu process realtime`. If it reads `failed to
-make ... realtime`, the `cap_add`/`ulimits` pair in the compose file did not
-take effect and the control loop is running at ordinary priority — the
-failure is otherwise silent. `imu.heading = False` is expected here: there is
-no IMU on a laptop.
-
-Tear down, including its data volume:
-
-```bash
-docker compose -f dev/compose-pypilot-dev.yml down -v
-```
-
-### Run it on a Pi with the IMU
-
-Only on a machine where pypilot is *not* already running natively. Stop the
-native one first if it is (`sudo systemctl stop pypilot pypilot_web`), and
-remember it will come back at the next reboot unless disabled.
-
-From the repo checkout on the Pi:
-
-```bash
-docker compose --profile pypilot up -d --build pypilot pypilot-web
-```
-
-Seed the calibration and the SignalK token before trusting anything it says —
-`RTIMULib.ini` holds the compass calibration, which is expensive to redo:
-
-```bash
-# run on the Pi, from the repo checkout
-cp ~/.pypilot/RTIMULib.ini ~/.pypilot/signalk-token pypilot/data/
-sudo chown root:root pypilot/data/RTIMULib.ini pypilot/data/signalk-token
-docker compose --profile pypilot restart pypilot
-```
-
-*Verify,* in this order — each line distinguishes a different silent failure:
-
-```bash
-# the container can reach the bus at all (0x68 present = the MPU9250 answers)
-docker exec pypilot i2cdetect -y 1
-
-# realtime scheduling took effect
-docker logs pypilot 2>&1 | grep -i realtime
-
-# the IMU is actually producing a heading; tilt the Pi and run it again
-docker exec pypilot pypilot_client imu.heading imu.pitch imu.error
-
-# the web UI, which is also what the SignalK plugin talks to
-curl -s -o /dev/null -w '%{http_code}\n' localhost:8000
-```
-
-`imu.heading = False` with an empty `imu.error` means the daemon started but
-never got a reading — check `i2cdetect` first, then whether the native pypilot
-is still holding the bus.
-
-### Cut the boat over from native to containerized
-
-Done on `symphony-pi` 2026-09-03. This makes the container the live
-service, not a side-by-side test — the native units are disabled, not just
-stopped, and `pypilot/data/` (not `~/.pypilot`) becomes the state directory
-going forward.
-
-```bash
-# from the repo checkout on the Pi
-sudo systemctl stop pypilot pypilot_web
-sudo cp -a ~/.pypilot/. pypilot/data/
-sudo chown -R root:root pypilot/data
-docker compose --profile pypilot up -d pypilot pypilot-web
-```
-
-Run the four verification lines above, then disable the native units so
-they don't come back and fight the container for the bus and ports:
-
-```bash
-sudo systemctl disable pypilot pypilot_web
-```
-
-*Verify:* `systemctl is-enabled pypilot pypilot_web` prints `disabled` for
-both, and `docker inspect pypilot pypilot-web --format '{{.HostConfig.RestartPolicy.Name}}'`
-prints `unless-stopped` for both — that's what brings them back after a
-Docker or host restart with no systemd unit of their own. **This has not
-been tested through an actual reboot** — confirm `docker ps` shows both
-`Up` after the next one the boat takes for another reason.
-
-Leave `~/.pypilot` in place, untouched, as the rollback: to revert,
-`docker compose --profile pypilot down` then
-`sudo systemctl enable --now pypilot pypilot_web`.
-
-### Back up the state that matters
-
-Everything pypilot persists is in `pypilot/data/`, and none of it is tracked
-(it holds a SignalK token). Back it up off the box before rebuilding or
-re-imaging:
-
-```bash
-tar czf ~/pypilot-data-$(date +%Y%m%d).tgz -C pypilot data
-```
-
-*Verify:* `tar tzf ~/pypilot-data-*.tgz | grep RTIMULib.ini` prints a match.
-Without that file the compass calibration is gone and has to be redone by
-swinging the boat.
-
-### Rebuild after an upstream bump
-
-`PYPILOT_REF` in `pypilot/Dockerfile` pins one upstream commit. To move it,
-edit the ARG, then:
-
-```bash
-docker compose --profile pypilot up -d --build pypilot pypilot-web
-```
-
-*Verify:* `docker exec pypilot pip show pypilot | head -2` reports the version
-you expect, then re-run the four verification commands above. Do not bump it
-on the boat first.
-
-## Adding a secret
-
-Two schemes, and they don't share a procedure. A standalone value — an API
-key, a token, a password nothing reads yet — goes into the Layer 1 store.
-A secret *field inside a config file* SignalK/Grafana reads off disk is
-in-place, via the script. Using the script on the store is the failure mode
-here — see the warning at the end of this section.
-
-### Layer 1: store the value (`secrets/symphony.sops.yaml`)
-
-This file is encrypted as a whole and sits on disk as ciphertext. No git
-filter touches it — `sops` is the only way to edit it, and a plain
-`git add` commits the ciphertext exactly as it is on disk.
-
-Storing a secret is a complete change on its own. Commit it as its own
-commit; wiring a consumer (next subsection) is a separate change that can
-land days later or never:
-
-```bash
-sops secrets/symphony.sops.yaml   # opens decrypted in $EDITOR; add the
-                                  # `healthchecks_api_key: <value>` line, save
-git add secrets/symphony.sops.yaml
-git commit -m "Store healthchecks.io API key" -- secrets/symphony.sops.yaml
-```
-
-*Verify:* `sops --decrypt --extract '["healthchecks_api_key"]' secrets/symphony.sops.yaml`
-prints the value, and
-`git show :secrets/symphony.sops.yaml | grep healthchecks_api_key` shows
-`ENC[`, not the value.
-
-If sops prints `File has not changed, exiting.`, the edit did not take —
-usually the editor quit without saving — and there is nothing to commit.
-Re-run it, and trust the verify line over your memory of having typed the
-key.
-
-### Layer 1: wire a consumer (a new `.env` value)
-
-When something actually starts reading the stored value:
-
-```bash
-$EDITOR .env.example                     # add the same key, blank/dummy value
-$EDITOR .env.j2                          # add the {{ jinja }} line
-python3 scripts/render.py
-```
-
-then restart whatever reads it — a running process picks up `.env` only
-across a restart (`docker compose up -d --force-recreate <svc>`; on the
-boat, `sudo systemctl restart <svc>`).
-
-### In-place (a plugin config file SignalK/Grafana already owns)
-
-```bash
-scripts/add_inplace_secret.sh <file> <field> [<field2> ...]
-git commit
-```
-
-Worked example — this is exactly what wires up a new plugin's token:
-
-```bash
-scripts/add_inplace_secret.sh signalk/plugin-config-data/signalk-postgsail.json token
-git commit -m "Encrypt signalk-postgsail.json's token"
-```
-
-The script adds the `.sops.yaml` rule and the `.gitattributes` entry
-(skipping either if already present), checks the two stay consistent, stages
-the file, and fails loudly if the field didn't actually encrypt. Idempotent
-— re-run it any time.
-
-Two files get touched, not three: the pre-commit guard and the CI verifier
-read `.sops.yaml` at runtime, so they pick up the new file automatically.
-
-### Never point `add_inplace_secret.sh` at `secrets/*.sops.yaml`
-
-The script refuses `secrets/` paths and ciphertext-on-disk files up front.
-A run predating that guard edited before it verified: by the time it failed
-on a whole-file encrypted store, it had already appended a `.sops.yaml`
-rule and a `.gitattributes` `filter=sops` line for it — and
-`sops_paths.py check` accepts that state as consistent. The stray filter line then makes every
-later `git add` of the file run the clean filter, which fails with sops
-complaining about *"a top-level entry called 'sops'"*.
-
-A failed run also leaves the file staged as **deleted** — the script runs
-`git rm --cached` just before the `git add` that fails — so until the
-recovery below is done, a commit that sweeps up the index would remove the
-file from the repo. Don't commit anything else from that checkout first.
-
-If a `secrets/` file gives you that error on `git add`, this is what
-happened. To recover, delete the two appended blocks — the `filter=sops`
-line at the end of `.gitattributes`, and the `path_regex` block for the
-file at the end of `.sops.yaml` — then confirm and re-add:
-
-```bash
-git check-attr filter -- secrets/symphony.sops.yaml   # want: unspecified
-python3 scripts/sops_paths.py check
-git add secrets/symphony.sops.yaml
-```
-
-`unspecified` is the correct answer for everything under `secrets/`; those
-files never go through the filter.
-
----
-
-## Rotating a secret
-
-**Layer 1:**
-
-```bash
-sops secrets/symphony.sops.yaml          # edit the value, save
-python3 scripts/render.py
-docker compose up -d --force-recreate <service>
-```
-
-`GF_SECURITY_ADMIN_PASSWORD` is the exception — it only takes effect on a
-*fresh* `grafana-data` volume. On an existing one, also run:
-
-```bash
-docker exec grafana grafana cli admin reset-admin-password '<value>'
-curl -u admin:<value> http://localhost:3001/api/org      # expect 200
-```
-
-**In-place:** change it through the SignalK admin UI, then:
-
-```bash
-git add <file>
-git commit
-```
-
-The clean filter re-encrypts on the way in. If the same secret is also
-mirrored in `secrets/symphony.sops.yaml` (like `influx_token`, which Grafana
-needs as an env var — a second consumption path besides SignalK reading it
-off disk), update both.
-
-**Grafana / InfluxDB users:** edit the password in
-`secrets/symphony.sops.yaml`, then re-run the matching provisioner — both
-converge password + role on every run, safe to re-run any time:
-
-```bash
-scripts/provision_grafana_users.sh
-scripts/provision_influxdb.sh
-```
-
-**InfluxDB tokens** can't be reset in place — a value is shown once, at
-creation. So the order is mint, migrate, verify, *then* revoke: the old token
-keeps working until the new one is proven, and no writes are lost mid-rotation.
-
-Everything below is plain HTTP against `:8086` and is identical bare-metal or
-containerized. Only step 5 forks.
-
-**1. Get a credential that works, and the org id.** Of the four InfluxDB
-tokens in sops, only `influxdb_captain_token` authenticates — the other three
-returned 401 when last checked on 2026-08-14. Don't assume; check the code:
-
-```bash
-cd ~/symphony
-TOK=$(sops --decrypt --extract '["influxdb_captain_token"]' secrets/symphony.sops.yaml)
-ORG=$(curl -s -H "Authorization: Token $TOK" http://localhost:8086/api/v2/orgs \
-      | python3 -c 'import json,sys;print(json.load(sys.stdin)["orgs"][0]["id"])')
-curl -s -o /dev/null -w "auth check: %{http_code}\n" \
-     -H "Authorization: Token $TOK" http://localhost:8086/api/v2/authorizations
-```
-
-`200` and you can continue. `401` means that one is dead too — see "When every
-stored token is dead" below.
-
-**2. Find the authorization you're replacing.** `?orgID=` takes the hex id, not
-a name:
-
-```bash
-curl -s -H "Authorization: Token $TOK" \
-     "http://localhost:8086/api/v2/authorizations?orgID=$ORG" \
-  | python3 -c '
-import json,sys
-for a in json.load(sys.stdin)["authorizations"]:
-    print(a["id"], repr(a.get("description","")), "perms=%d" % len(a["permissions"]))
-'
-OLD_ID=<paste the id>
-```
-
-**3. Mint the replacement with the same permissions:**
-
-```bash
-curl -s -H "Authorization: Token $TOK" \
-     "http://localhost:8086/api/v2/authorizations/$OLD_ID" > /tmp/oldauth.json
-python3 -c '
-import json
-a=json.load(open("/tmp/oldauth.json"))
-json.dump({"orgID":a["orgID"],"userID":a["userID"],
-           "description":a.get("description","")+" (rotated)",
-           "permissions":a["permissions"]}, open("/tmp/newauth-req.json","w"))
-'
-curl -s -X POST -H "Authorization: Token $TOK" -H "Content-Type: application/json" \
-     -d @/tmp/newauth-req.json http://localhost:8086/api/v2/authorizations \
-  > /tmp/newauth.json
-NEW=$(python3 -c 'import json;print(json.load(open("/tmp/newauth.json"))["token"])')
-```
-
-Don't echo `$NEW`. Terminal scrollback persists, and in a Claude session it
-lands in a transcript — which is what caused the 2026-08-14 rotation.
-
-**4. Update every consumer. Find them, don't trust a list** — the list grows:
-
-```bash
-grep -rl -- "$TOK" ~/.signalk/plugin-config-data/ /etc/telegraf/ 2>/dev/null
-grep -c -- "$TOK" ~/symphony/.env
-
-for f in $(grep -rl -- "$TOK" ~/.signalk/plugin-config-data/); do
-  OLD="$TOK" NEW="$NEW" python3 -c '
-import os,io,sys
-p=sys.argv[1]; s=io.open(p,encoding="utf-8").read()
-io.open(p,"w",encoding="utf-8").write(s.replace(os.environ["OLD"],os.environ["NEW"]))
-print("updated", p)
-' "$f"
-done
-
-sops --set "[\"influxdb_captain_token\"] \"$NEW\"" secrets/symphony.sops.yaml
-python3 scripts/render.py
-```
-
-Two of those files are easy to miss by hand: in
-`signalk-to-influxdb2.json` the token is nested at
-`configuration.influxes[].token`, not top-level, and the buffering plugin's
-file is `signalk-to-influxdb-v2-buffer.json` — `-buffer`, though the plugin is
-named `-buffering`.
-
-**5. Restart consumers, then prove writes land** *before* revoking:
-
-```bash
-sudo systemctl restart signalk telegraf                      # bare metal
-# docker compose up -d --force-recreate signalk telegraf     # containerized
-
-curl -s -H "Authorization: Token $NEW" -H "Content-Type: application/vnd.flux" \
-     -H "Accept: application/csv" -XPOST \
-     "http://localhost:8086/api/v2/query?org=symphony" \
-     -d 'from(bucket:"symphony")|>range(start:-2m)|>limit(n:3)' | head -3
-```
-
-Rows means the new credential is carrying traffic. No rows means stop and fix
-it — the old token still works, so nothing is lost yet.
-
-**6. Revoke, and prove it's dead:**
-
-```bash
-curl -s -o /dev/null -w "delete: %{http_code}\n" -X DELETE \
-     -H "Authorization: Token $NEW" \
-     "http://localhost:8086/api/v2/authorizations/$OLD_ID"
-curl -s -o /dev/null -w "old token now: %{http_code}  (401 = revoked)\n" \
-     -H "Authorization: Token $TOK" http://localhost:8086/api/v2/authorizations
-shred -u /tmp/oldauth.json /tmp/newauth.json /tmp/newauth-req.json
-```
-
-Expect `204` then `401`. Record it in `ROTATION.md`, which is where credentials
-already rotated and the reason are kept.
-
-### When every stored token is dead
-
-`influxdb_operator_token`, `influxdb_signalk_token` and `influx_token` all
-return 401 as of 2026-08-14, and the repo's tracked copy of
-`signalk/plugin-config-data/signalk-to-influxdb2.json` carries a *third* dead
-token, different again from the boat's live value. Following any procedure
-that reaches for one of those propagates a 401 credential.
-
-If nothing authenticates, what's left is the InfluxDB UI at `:8086` with the
-`captain` login, or `scripts/provision_influxdb.sh` against a fresh volume.
-Neither has been exercised from a fully locked-out state, so treat them as
-untested rather than as a procedure.
-
----
-
-## Rotating the age key
-
-The age key is the master key: it decrypts everything else. Rotate it
-annually, and immediately if you think it's been exposed.
-
-```bash
-scripts/rotate_age_key.sh status                  # what's the current state?
-scripts/rotate_age_key.sh add --generate          # phase 1: new key joins
-#   ... back up the new key, deploy it to every host ...
-scripts/rotate_age_key.sh verify <new-public-key> # gate: prove it works alone
-scripts/rotate_age_key.sh retire <old-public-key> # phase 2: old key leaves
-```
-
-Commit after each phase.
-
-### Why two phases
-
-Between phase 1 and phase 2 both keys decrypt everything. That window is the
-point: it lets you get the new key onto every host and confirm each one
-works before the old key stops being accepted. Running both phases together
-locks out any host you haven't updated yet.
-
-### Don't skip `verify`
-
-`verify` checks that the new key can decrypt everything **on its own**. Run
-it before `retire`. If it fails it names the files that didn't re-key; fix
-those with another `add` and run it again.
-
-It's a separate step because two things make a half-finished rotation look
-finished:
-
-- The in-place files aren't re-keyed by `sops updatekeys`. On disk they're
-  plaintext and only git holds the ciphertext, so they're re-keyed by making
-  the clean filter re-encrypt (`SOPS_FILTER_REKEY=1`, which the script
-  sets). Without that the filter reuses the old ciphertext unchanged, and
-  those files stay readable only by the old key.
-- `SOPS_AGE_KEY_FILE` doesn't limit sops to that one key. sops also reads
-  `~/.config/sops/age/keys.txt`, so an obvious "can the new key read this?"
-  test passes because the *old* key is still in the default keyring.
-
-`verify` works around both: it checks the staged ciphertext with `HOME` and
-`XDG_CONFIG_HOME` pointed away from the real keyring, and it proves that
-isolation with a throwaway key before trusting its own result.
-
-### Keys scoped to one file
-
-Most rules in `.sops.yaml` share one recipient list; a few spell out their
-own so a key can open a single file. `add` and `retire` reach both kinds, so
-a rotation needs no extra steps — but read what `verify` says:
-
-```
-OK: age1n566... alone decrypts all 1 file(s) it is a recipient of.
-Note: this key is scoped -- 14 other configured file(s) are deliberately
-out of its reach.
-```
-
-That's a pass, not a lockout. `verify` on a scoped key tells you nothing
-about whether the *rotation* is complete — run it against the new global key
-for that.
-
-`scripts/rotate_age_key.sh status` lists which keys are scoped and to what.
-
-### What rotation does and does not protect
-
-Rotating the age key protects **future** commits. It does not re-encrypt git
-history: every old commit still holds ciphertext readable by the retired
-key.
-
-So if the old key was **compromised**, rotating it is not sufficient —
-anyone with that key plus a clone can read every secret ever committed. In
-that case you must also rotate the underlying secrets themselves (the
-InfluxDB tokens, the SignalK `secretKey`, the API keys), following
-"Rotating a secret" above. Rotating the age key alone is the right response
-to *hygiene*; rotating the secrets is the right response to *exposure*.
-
-### If a host is missed
-
-A host still holding only the retired key will fail to decrypt after phase
-2. Nothing is lost — copy a current private key to
-`~/.config/sops/age/keys.txt` on that host and re-run
-`scripts/setup-git-filters.sh`. The keyring file takes multiple keys, one
-block each.
-
-### Checking a key that isn't on this box
-
-`status` lists recipients whose private half is absent — an escrow key
-should be one of them:
-
-```
-Recipients whose private half is NOT on this box:
-  age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q
-```
-
-That says the key is *expected*, not that the copy you're keeping elsewhere
-still works. Nothing on this machine can tell you that. Check it directly,
-at least after any move and once a year:
-
-```bash
-# 1. Retrieve it into a scratch file. NOT into ~/.config/sops/age/keys.txt --
-#    putting it back defeats the point of keeping it off this box.
-install -m 600 /dev/null /tmp/check.key
-#    ... paste the key in ...
-
-# 2. Is it the key you think? This catches a truncated or wrong paste,
-#    which is the realistic failure and is otherwise invisible.
-age-keygen -y /tmp/check.key       # must print the public key from .sops.yaml
-
-# 3. Does it actually open the repo?
-SOPS_AGE_KEY_FILE=/tmp/check.key \
-  scripts/rotate_age_key.sh verify <public-key>
-
-# 4. Destroy the scratch copy.
-shred -u /tmp/check.key
-```
-
-`SOPS_AGE_KEY_FILE` makes `verify` read that file instead of the keyring, so
-the key is tested without ever being installed here. Expect
-`decrypts all 15 file(s)` for an escrow key. Fewer means it's scoped to some
-rules only and can't stand in for the working key — fine for the manifest
-key, wrong for escrow.
-
-A failure at step 2 is recoverable while the key is still on this box or
-another host. A failure at step 3 after the last other copy is gone is not.
-Which is why this gets checked on a schedule rather than when you need it.
-
----
-
-## Removing a secret
-
-To stop tracking a file's secret (plugin uninstalled, field no longer used):
-
-1. Delete its `path_regex` block from `.sops.yaml`.
-2. Delete its `filter=sops` line from `.gitattributes`.
-3. `python3 scripts/sops_paths.py check` — confirms the two still agree.
-4. If the file itself is going away: `git rm --cached <file>` and add it to
-   `.gitignore`.
-
-Removing the rules does **not** un-publish anything already committed. If
-the secret was ever live in a public commit, rotate it — see below.
-
----
-
-## Email pseudonyms in security.json
-
-Email addresses in `signalk/security.json` become `pid.*` tokens on the way
-into git and are restored on the way out. The working tree keeps the real
-addresses, so SignalK is unaffected. GitHub logins arrive as a handle
-(`mark-brannan`) and stay legible.
-
-### Resolve a token
-
-```
-python3 scripts/pseudonymize.py resolve pid.rj232vx
-```
-
-Takes the short form or the full `pid.rj232vx+invalid@gmail.com`. Needs an
-age identity, which is the point — the token is publishable, the address
-behind it isn't.
-
-### Let someone else resolve tokens
-
-Give them the manifest key, not your working key. Copy the block labelled
-`age1n566m5z8e5nmhqkhxqmpd9jr2678t6l6wrzvcxrnckdjn9r2adjs55jgp9` out of
-`~/.config/sops/age/keys.txt` into theirs. Check what it opens first:
-
-```bash
-scripts/rotate_age_key.sh verify age1n566m5z8e5nmhqkhxqmpd9jr2678t6l6wrzvcxrnckdjn9r2adjs55jgp9
-```
-
-It should report one file — `secrets/pseudonyms.sops.yaml` — and say the key
-is scoped. If it reports more, stop: that key now opens the boat's live
-credentials too.
-
-### When someone new logs in
-
-SignalK writes the new address into the file itself, and the clean filter
-picks it up at commit time:
-
-```
-pseudonymize: new address p*****d@yahoo.com -> pid.t8tym9m+invalid@yahoo.com
-pseudonymize: the map changed -- stage secrets/pseudonyms.sops.yaml ...
-```
-
-Stage `secrets/pseudonyms.sops.yaml` in that same commit. Without it the
-token lands in git with nothing that resolves it, for you and everyone else.
-
-### If checkout warns the map is unavailable
-
-```
-pseudonymize: WARNING - cannot decrypt secrets/pseudonyms.sops.yaml
-```
-
-Don't start SignalK against that file. The tokens stay in place, SignalK
-reads them as real addresses, and rewrites them back as the users' identity.
-Get an age identity working, then re-run smudge:
-
-```
-git checkout -- signalk/security.json
-```
-
-### Find when someone had access
-
-```
-git log -S 'pid.rj232vx' -- signalk/security.json
+pkill -u pi -x labwc          # -x, never -f: -f matches your own ssh line
+pgrep -a -x labwc             # want no output
 ```
 
 ---
 
-## Router config backup
+## Stopping SignalK
 
-The boat router holds the local DNS override that makes the hostnames
-resolve on the boat. A factory reset takes it, and on-boat access with it.
-An encrypted copy of the router's full UCI config lives in
-`secrets/router-config.sops.yaml`.
-
-Refresh it after any router change (the pi's key is authorized on the
-router; run this from anywhere on the tailnet):
-
-```bash
-ssh pi@symphony-pi 'ssh root@192.168.8.1 "uci export"' > /tmp/uci.txt
-test -s /tmp/uci.txt && grep -q '^package' /tmp/uci.txt && echo export ok
-python3 -c "import yaml; yaml.safe_dump({'uci_export': open('/tmp/uci.txt').read()}, open('secrets/router-config.sops.yaml','w'), default_style='|')"
-sops --encrypt --in-place secrets/router-config.sops.yaml
-rm /tmp/uci.txt
-```
-
-Check the `export ok` line before going on — a failed ssh leaves
-`/tmp/uci.txt` empty, and the next step overwrites the backup with it.
-
-Overwriting the file with fresh plaintext first is what makes
-`--encrypt --in-place` work: run against the existing *encrypted* file it
-fails with sops's "top-level entry called 'sops'" error. This file is a
-snapshot of one export, so a wholesale replace loses nothing.
-
-*Verify:* `sops --decrypt --extract '["uci_export"]' secrets/router-config.sops.yaml | head -3`
-shows the export. Then `git add secrets/router-config.sops.yaml` and commit.
-
-To read or restore:
-
-```bash
-sops --decrypt secrets/router-config.sops.yaml
-```
-
-Feed the `uci_export` contents back through `uci import` on the router,
-then `reload_config`. Restoring overwrites WiFi and WAN settings too —
-this is a whole-config restore, not a DNS-only one.
-
----
-
-## Scanning for leaks by hand
-
-Both scanners are pinned to the same versions CI uses.
-
-```bash
-# Pattern + entropy scan over the whole history
-docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.30.1 \
-  git --no-banner --redact --config /repo/.gitleaks.toml
-
-# Live-credential scan: actually calls provider APIs to see what still works
-scripts/scan_verified_secrets.sh
-```
-
-The second is the one that matters during an incident. gitleaks tells you
-something *looks* like a secret; trufflehog tells you whether it *still
-works*. Output is redacted in both — deliberately, since CI logs on a public
-repo are world-readable.
-
----
-
-## A secret was committed in plaintext
-
-**Rotate first. Everything else is secondary.** Assume it's compromised the
-moment it's pushed — it's in GitHub's API, in forks, and in anything scraping
-new commits. Rewriting history does **not** un-publish it; GitHub keeps
-unreferenced commits reachable by SHA.
-
-1. Revoke and reissue the credential at its provider. This is the only step
-   that fixes anything — see "Rotating a secret" above.
-
-2. Add the `.sops.yaml` rule it was missing, which is usually how it got
-   through:
-
-```bash
-scripts/add_inplace_secret.sh <file> <field>
-```
-
-3. Confirm the new value is encrypted and nothing else is still live:
-
-```bash
-bash scripts/verify_encrypted.sh
-scripts/scan_verified_secrets.sh
-```
-
-Consider history rewriting only if the value genuinely cannot be rotated — a
-hardcoded key in a third-party device, say. It force-pushes, breaks every
-existing clone, and still does not remove the data from GitHub's servers
-without contacting GitHub Support.
-
-`main`'s [branch ruleset](https://github.com/mark-brannan/symphony/settings/rules/21060338)
-blocks force pushes with no standing bypass. To do this, temporarily disable
-the ruleset (or add yourself to its bypass list), push the rewritten history,
-then re-enable it. There is no faster path — this is by design.
-
----
-
-## Recovering a lost age key
-
-The age private key is the single point of failure — anyone provisioning a new
-host, or recovering this one, needs it, and it is never in git.
-
-**Prevent this.** Keep two valid recipients, store the second away from the
-first, and never retire it. Losing one then costs nothing:
-
-```bash
-scripts/rotate_age_key.sh add --generate
-```
-
-**If you have a backup**, restore it and everything works normally:
-
-```bash
-mkdir -p ~/.config/sops/age
-cp <the backup> ~/.config/sops/age/keys.txt
-chmod 600 ~/.config/sops/age/keys.txt
-sops --decrypt secrets/symphony.sops.yaml | head -1   # expect readable YAML
-```
-
-**If the key is truly gone**, every sops-encrypted value is unrecoverable from
-git alone. Generate a fresh keypair, repoint `.sops.yaml`, then re-populate
-from live sources:
-
-```bash
-age-keygen -o ~/.config/sops/age/keys.txt
-# put the new public key in .sops.yaml, then re-add each file:
-git add secrets/symphony.sops.yaml signalk/security.json
-```
-
-What re-populates from where: `secrets/symphony.sops.yaml` values come from
-what's live in the running containers and `.env`. The in-place files come from
-their plaintext-on-disk copies, which losing the key does not touch — only the
-git-stored encrypted copies become unreadable.
-
-One exception. `influxdb_operator_token` has no plaintext copy anywhere, being
-used only by provisioning scripts — and it is already dead. Recovering from
-that is its own procedure: "When every stored token is dead", under "Rotating
-a secret" above.
-
-**Don't reach for `DOCKER_INFLUXDB_INIT_USERNAME` / `_PASSWORD` as the
-break-glass login.** Those apply only when InfluxDB initialises a *fresh*
-volume. This volume already existed when they were set, so the user they name
-was never created and signing in with them returns 401 — which reads as a wrong
-password rather than a missing account. The login that exists is `captain`.
-
-Last resort: `~/symphony-backups/` holds a plaintext snapshot of the live
-SignalK config from 2026-08-07, deliberately outside the repo. It is a full set
-of live credentials in the clear — treat it accordingly.
-
----
-
-## SSO login (GitHub / Google)
-
-SignalK and Grafana web UIs show a "Sign in with GitHub / Google" button.
-Behind it sits Dex, a small identity provider on the boat at
-`auth.symphony.dark-star-llc.com`: SignalK and Grafana trust only Dex; Dex hands the actual
-login to GitHub or Google. Any account at either provider can sign in and
-view SignalK (readonly). The owner's email also gets Grafana Admin.
-Anything that changes state still uses the local password logins
-(`captain`, Grafana's superadmin), which are also the no-internet
-fallback.
-
-Steps 1–3 are one-time setup from any machine. Step 4 runs on the boat.
-
-### 1 — Domain and DNS (one-time)
-
-Prerequisite: a registered domain with its DNS hosted at Cloudflare (the
-free plan is enough). A subdomain of a domain already on Cloudflare works
-too (`DOMAIN` can be `boat.example.com`).
-
-1. In Cloudflare DNS, add one **A** record and three CNAMEs, all DNS
-   only / grey cloud (not proxied):
-   - `symphony.dark-star-llc.com` → the host's **tailnet** IP, e.g. `100.113.172.64`
-   - `signalk.symphony.dark-star-llc.com`, `grafana.symphony.dark-star-llc.com`, `auth.symphony.dark-star-llc.com` → CNAME to
-     `symphony.dark-star-llc.com`
-
-   Public DNS answers for off-boat devices, the boat router answers for
-   on-boat ones (step 3), and the same URL works in both places. Give
-   the host a fixed LAN IP too (DHCP reservation in the boat router) —
-   the router override needs it. A public name resolving to a private
-   or CGNAT address is fine; nothing here is reachable from the
-   internet.
-
-   The tailnet IP is stable, but it belongs to the *machine*, not the
-   hostname. Rebuild the host's SD card, or delete and re-add it in the
-   Tailscale console, and it joins as a new machine with a different
-   100.x — this record then points at nothing. Symptom: off-boat access
-   dies, on-boat keeps working. You can't CNAME to the MagicDNS
-   `.ts.net` name instead; it doesn't resolve off the tailnet.
-2. Create the certificate-issuance token: Cloudflare → My Profile → API
-   Tokens → Create Token → "Edit zone DNS" template → limit it to this
-   one zone.
-3. On the **boat router**, add a local DNS override sending the whole
-   subdomain to the host's LAN IP (dnsmasq:
-   `address=/symphony.dark-star-llc.com/192.168.1.50`, or the router UI's "local DNS
-   records"). One wildcard entry covers the apex and every subdomain,
-   so adding a service later needs no router change.
-
-   Don't skip this. It is what makes the hostname work for anything on
-   the boat that isn't on the tailnet — a guest's phone — and offshore
-   there is no public DNS at all, so without it even already-logged-in
-   devices can't resolve the names.
-
-*Verify:* from a device on the boat LAN **with the WAN link
-disconnected**, `nslookup signalk.symphony.dark-star-llc.com` returns the LAN IP.
-
-### 2 — OAuth apps (one-time)
-
-**GitHub** — under the personal account, no org involved:
-[github.com/settings/developers](https://github.com/settings/developers)
-→ OAuth Apps → New OAuth App:
-
-- Application name: anything (e.g. "Symphony boat systems")
-- Homepage URL: `https://auth.symphony.dark-star-llc.com`
-- Authorization callback URL: `https://auth.symphony.dark-star-llc.com/dex/callback`
-
-Copy the client ID; "Generate a new client secret" and copy it.
-
-**Google** — at
-[console.cloud.google.com](https://console.cloud.google.com):
-
-1. Create a project (any name).
-2. APIs & Services → OAuth consent screen: user type **External**, app
-   name + support email → then **publish to production** (Audience →
-   "Publish app"). Not Testing: testing mode caps sign-ins to a
-   100-address allowlist, and the open readonly door is intended. The
-   basic scopes used need no Google review.
-3. Credentials → Create credentials → OAuth client ID → type **Web
-   application** → one redirect URI:
-   `https://auth.symphony.dark-star-llc.com/dex/callback`
-4. Copy the client ID and client secret.
-
-Both providers talk only to Dex, hence the single callback URL each — no
-signalk/grafana URLs belong in either console.
-
-### 3 — Secrets store (one-time)
-
-```bash
-sops secrets/symphony.sops.yaml
-```
-
-Replace the `REPLACE_WITH_*` placeholders: `boat_domain`,
-`github_oauth_client_id`, `github_oauth_client_secret`,
-`google_oauth_client_id`, `google_oauth_client_secret`,
-`cloudflare_api_token`. `owner_email` is the email that gets Grafana
-Admin. Leave `dex_symphony_client_secret` alone — it's the pre-generated
-secret shared between Dex and SignalK/Grafana; nothing outside this repo
-ever needs it. Commit the file, then:
-
-```bash
-python3 scripts/render.py
-```
-
-(renders both `.env` and `dex/config.yaml` — the latter is gitignored
-plaintext, same trust level as `.env`).
-
-### 4 — Deploy (on the boat)
-
-On the boat Pi today, Dex is a container and Caddy is still a native
-systemd service, so deploy them separately:
-
-```bash
-git pull
-python3 scripts/render.py
-docker compose --profile tls up -d dex
-sudo systemctl restart caddy
-```
-
-**Name `dex` explicitly.** A bare `--profile tls up -d` also starts the
-`caddy` container, which fails to bind `:443` against the native Caddy
-already holding it and proxies to container names that don't exist on
-that host. The front door goes down and the cause isn't obvious.
-
-On a host where everything is containerized, the whole profile is right:
-
-```bash
-docker compose --profile tls up -d --build
-```
-
-The first run builds the caddy image and issues certificates, so it needs
-internet — do it dockside.
-
-Restart Grafana and SignalK too if you changed anything they read —
-`GF_AUTH_GENERIC_OAUTH_*` or `SIGNALK_OIDC_*`. They pick up `.env` through
-an `EnvironmentFile=` drop-in, so a re-render alone doesn't reach a running
-process.
-
-*Verify:*
-
-```bash
-curl -s https://signalk.symphony.dark-star-llc.com/signalk/v1/auth/oidc/status
-curl -s https://auth.symphony.dark-star-llc.com/dex/.well-known/openid-configuration | head -3
-```
-
-The first expects `"enabled":true` and
-`"issuer":"https://auth.symphony.dark-star-llc.com/dex"`; the second returns JSON if Dex is
-up behind Caddy. If TLS itself fails, certificates haven't issued — check
-`docker logs caddy`. Then from a browser on the LAN:
-
-- `https://signalk.symphony.dark-star-llc.com` → sign in as the owner with either provider →
-  Security → Users shows that user with type `admin`. Any other account
-  shows `readonly`. An owner login that comes out `readonly` means
-  `SIGNALK_OIDC_GROUPS_ATTRIBUTE` didn't reach the server — it fails
-  silently, so check the container's environment rather than the logs.
-- `https://grafana.symphony.dark-star-llc.com` → the owner's login → Admin; any other
-  account → refused (that's the strict email list working).
-- The `captain` password still logs in on SignalK with admin.
-
-### Who gets what
-
-| Login | SignalK | Grafana |
-|---|---|---|
-| any GitHub or Google account | readonly | refused |
-| the owner's email, via either provider | admin | Admin |
-| `captain` (local password) | admin | — |
-| Grafana superadmin / provisioned users (password) | — | Admin / as provisioned |
-
-Both services now key off the same thing — the email on the login — so
-either provider gives the same answer.
-
-SSO permissions are re-applied at every login: promoting an SSO user in
-the SignalK admin UI reverts the next time they sign in, and Grafana
-re-evaluates its email list the same way.
-
-### Granting more than readonly
-
-- **Grafana:** add the email to
-  `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH` in `.env.j2` — e.g. append
-  `|| email=='crew@example.com' && 'Editor'` — then
-  `python3 scripts/render.py` and
-  `docker compose up -d --force-recreate grafana`. A hand-managed list,
-  in the repo.
-- **SignalK:** add the address to `SIGNALK_OIDC_ADMIN_GROUPS` in
-  `.env.j2` — comma-separated, e.g.
-  `owner@example.com,crew@example.com` — then `python3 scripts/render.py`
-  and `docker compose up -d --force-recreate signalk`.
-  `SIGNALK_OIDC_READWRITE_GROUPS` takes the same form for a lesser
-  grant. Matched literally and case-sensitively.
-- Both lists are read fresh on every login, so removing an address
-  demotes that person the next time they sign in — no user cleanup
-  needed. Promoting someone by hand in the SignalK admin UI does not
-  stick, for the same reason.
-- **Don't remove `SIGNALK_OIDC_GROUPS_ATTRIBUTE=email`.** It looks
-  redundant and isn't: it's what makes ADMIN_GROUPS read as an email
-  list at all. Without it the server looks for a `groups` claim that
-  nothing sends, and every SSO login silently drops to readonly.
-
-### Removing someone
-
-SSO guests need no removal — they're readonly. To cut a person off
-entirely: delete their user in SignalK (Security → Users — SignalK
-sessions never expire, and deleting the user is what invalidates the
-session), remove their email from the Grafana role path if it's there,
-and delete their Grafana user (Administration → Users).
-
-### Offshore (no internet)
-
-- Devices already signed in stay signed in: SignalK sessions don't
-  expire, Grafana sessions last 30 days idle / 90 days max.
-- SSO login needs internet, so a fresh device offshore uses local login
-  instead: on SignalK, the username/password form below the SSO button
-  (`captain`, password in the secrets store); on Grafana, the password
-  box.
-- After ~60 days fully offline, browsers start warning about an expired
-  certificate. It's only a warning; renewal happens on its own once
-  internet returns.
-
-### Re-testing the login flow without real providers
-
-A local stand-in issuer (`dex-dev`) exercises the whole SignalK OIDC
-flow on a dev machine. It serves two personas: a "Mock upstream"
-connector that logs in as `kilgore@kilgore.trout` in one click, and a
-password user `dev@example.com` / `password`. Both land as `readonly`
-under the boat's config.
-
-```bash
-docker compose --profile dev-idp up -d dex-dev
-# point .env's SIGNALK_OIDC_* at it (gitignored; re-render to undo):
-#   ISSUER=http://dex-dev:5556/dex  CLIENT_ID=symphony-local
-#   CLIENT_SECRET=local-dev-not-a-secret
-#   REDIRECT_URI=http://localhost:3000/signalk/v1/auth/oidc/callback
-docker compose up -d signalk
-```
-
-Log in via the SSO button, then restore:
-
-```bash
-python3 scripts/render.py
-docker compose up -d signalk
-docker compose --profile dev-idp rm -sf dex-dev
-```
-
-and delete the test users in SignalK Security → Users (they land in
-git-tracked `signalk/security.json` otherwise).
-
----
-
-## Upgrading SignalK on the boat Pi
-
-> 🔴 **Do not run `sudo openplotter-signalk-installer`.** It took the boat
-> offline for two days on 2026-08-23. This section used to recommend it as the
-> only safe path; that advice was wrong.
-
-Read `/usr/lib/python3/dist-packages/openplotterSignalkInstaller/signalkPostInstall.py`
-before trusting the tool. Two lines make it unsafe to run unattended:
-
-- **Line 45: `apt autoremove -y nodejs npm`.** It removes the Node runtime
-  before reinstalling from NodeSource. On this Pi that resolved to the
-  `nsolid` package, which conflicts with `nodejs`; the run never completed and
-  left no `signalk-server` at all.
-- **Line 91: `node_path = npm config get prefix`,** whose answer it writes into
-  the `~/.signalk/signalk-server` launcher at line 95. Under `sudo` that value
-  is **working-directory dependent** — invoked from `/home/pi`, npm reads
-  `/home/pi/.npmrc` as *project* config, refuses its `prefix=~/.npm-global`,
-  and re-expands `~` against root's HOME, yielding `/root/.npm-global`. The
-  service runs as `User=pi` and cannot read `/root`, so the launcher points at
-  a path the service can never execute. Nothing warns you.
-
-To install or reinstall the server, do the npm half by hand as user `pi` —
-never via `sudo`, so the prefix resolves deterministically to
-`/home/pi/.npm-global`:
-
-```bash
-sudo systemctl stop signalk.socket signalk.service
-```
-```bash
-npm install -g signalk-server --no-audit --no-fund
-```
-
-Expect this to take 30-60 minutes on the Pi and to log nothing during its
-extract/link phase. Confirm progress with the growing tree, not the log:
-`du -sh ~/.npm-global/lib/node_modules/signalk-server`.
-
-Then point the launcher at wherever it landed, and start socket before service:
-
-```bash
-printf '#!/bin/sh\n%s/lib/node_modules/signalk-server/bin/signalk-server -c %s $*\n' "$(npm config get prefix)" "$HOME/.signalk" > ~/.signalk/signalk-server && chmod 775 ~/.signalk/signalk-server
-```
-```bash
-sudo systemctl reset-failed signalk.service && sudo systemctl start signalk.socket signalk.service
-```
-
-`/etc/systemd/system/signalk.service` needs no edit — its `ExecStart` is that
-launcher script, so repointing the script is the whole change. Verify with
-`systemctl is-active signalk` and a `journalctl -u signalk -f` that reaches
-plugin loading without `Cannot find module`.
-
-## Stopping SignalK on the boat Pi
-
-`systemctl stop signalk` does not keep it down. A `signalk.socket` unit
-re-activates the service on the first connection to port 3000, which in
-practice means seconds — the admin UI polls. Stop the socket first:
+`signalk.socket` re-activates the service on the first connection to port
+3000, so stop the socket first. Do this before any `npm install` in `~/.signalk`.
 
 ```bash
 sudo systemctl stop signalk.socket
 sudo systemctl stop signalk.service
-ss -lntp | grep :3000      # expect no output
+ss -lntp | grep :3000         # expect no output
 ```
 
-Start them in the reverse order. If the service was killed while running it
-shows `failed`; `sudo systemctl reset-failed signalk.service` clears that
-before starting.
+Start in reverse order. A killed service shows `failed`; clear it first:
 
-Do this before any `npm install` in `~/.signalk`. Otherwise the running server
-is reading the tree while npm rewrites it, and anything that restarts the
-service mid-install brings it up against a half-written plugin directory.
+```bash
+sudo systemctl reset-failed signalk.service
+sudo systemctl start signalk.socket signalk.service
+```
 
-## Bringing up QuestDB on the boat
+## Reinstalling SignalK
 
-`compose-questdb.yml` is included from `docker-compose.yml`.
+**Do not run `sudo openplotter-signalk-installer`.** It removes the Node
+runtime, and under `sudo` writes a launcher path the `pi` service cannot
+read. Do the npm half as `pi`:
 
-1. Raise the kernel's memory-mapping limit. QuestDB memory-maps every
-   partition column file, and a grown database exhausts the default — queries
-   then fail with out-of-memory errors while RAM is free. It is a host
-   setting; it cannot be set from inside the container.
+```bash
+sudo systemctl stop signalk.socket signalk.service
+npm install -g signalk-server --no-audit --no-fund
+printf '#!/bin/sh\n%s/lib/node_modules/signalk-server/bin/signalk-server -c %s $*\n' "$(npm config get prefix)" "$HOME/.signalk" > ~/.signalk/signalk-server && chmod 775 ~/.signalk/signalk-server
+sudo systemctl reset-failed signalk.service && sudo systemctl start signalk.socket signalk.service
+```
 
-   ```bash
-   if [ "$(cat /proc/sys/vm/max_map_count)" -lt 1048576 ]; then
-     echo 'vm.max_map_count=1048576' | sudo tee /etc/sysctl.d/99-questdb.conf
-     sudo sysctl --system
-   fi
-   test "$(cat /proc/sys/vm/max_map_count)" -ge 1048576 && echo ok
-   ```
+The install takes 30–60 minutes and logs nothing while extracting; watch
+`du -sh ~/.npm-global/lib/node_modules/signalk-server` grow instead.
 
-   1048576 is a floor, not a target — the conditional is there so a host that
-   already sets it higher for something else keeps its value.
+*Verify:* `systemctl is-active signalk` and `journalctl -u signalk -f` reaches plugin loading with no `Cannot find module`.
 
-   Still the old value → another file sets it later in load order:
-   `grep -r max_map_count /etc/sysctl.d/ /etc/sysctl.conf`, remove the loser,
-   re-run `sudo sysctl --system`.
+## Never use OpenPlotter's "Reinstall"
 
-2. Start it and check it is ready.
+Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf ~/.signalk`
+first, with no prompt and no backup. If you need it, back up `~/.signalk`
+and restore the config files afterward.
 
-   ```bash
-   docker compose -f docker-compose.yml up -d questdb
-   curl -fsS --max-time 5 --retry 30 --retry-delay 2 --retry-connrefused \
-     -G --data-urlencode 'query=SELECT 1;' \
-     http://127.0.0.1:9000/exec                     # answers = ready
-   docker inspect questdb --format '{{range .Config.Env}}{{println .}}{{end}}' \
-     | grep '^QDB_CAIRO_' | sort                    # compare against the list below
-   ```
-
-   All five must be present, with these values — a count alone would pass a
-   container carrying the wrong ones:
-
-   ```
-   QDB_CAIRO_COMMIT_MODE=sync
-   QDB_CAIRO_O3_COLUMN_MEMORY_SIZE=256k
-   QDB_CAIRO_WAL_WRITER_DATA_APPEND_PAGE_SIZE=128k
-   QDB_CAIRO_WRITER_DATA_APPEND_PAGE_SIZE=256k
-   QDB_CAIRO_WRITER_DATA_INDEX_VALUE_APPEND_PAGE_SIZE=256k
-   ```
-
-   `docker compose up -d` returns before QuestDB can serve, hence the retries;
-   on this Pi it takes a few seconds. And `http://127.0.0.1:9000/` is not a
-   readiness check at all — it answers 301 as soon as the listener binds,
-   before the database can serve anything. And check
-   the caps with `docker inspect`, not `docker logs`: QuestDB does log each
-   one as `server-main env config [key=QDB_CAIRO_...]` at startup, but this
-   container caps its json-file log at 10 MB x 2, and QuestDB is verbose
-   enough that those lines rotate out within hours — a log grep then reads 0
-   on a correctly configured container.
-
-   Any missing or different → the container came up without the page-size caps. Recreate
-   it with `docker compose -f docker-compose.yml up -d --force-recreate
-   questdb`, then repeat the two checks above before going on; they are read only at start. Without them QuestDB
-   preallocates 16 MB per column file, and one Telegraf flush creating a table
-   per measurement takes gigabytes for a few hundred rows. That filled this
-   Pi's root filesystem on 2026-08-20, and InfluxDB's WAL writer then stuck in
-   an ENOSPC retry loop that outlived the recovery.
-
-3. Start the writers and make their tables durable.
-
-   ```bash
-   sudo systemctl restart telegraf
-   until curl -sf -G --data-urlencode 'query=SELECT 1 FROM cpu LIMIT 1' \
-     http://127.0.0.1:9000/exec | grep -q '"count":1'; do sleep 5; done
-   scripts/questdb_table_hygiene.sh              # TTL + dedup
-   sudo du -sm "$(docker inspect questdb \
-     --format '{{range .Mounts}}{{if eq .Destination "/var/lib/questdb"}}{{.Source}}{{end}}{{end}}')"
-   ```
-
-   That `du` should read tens of MB, not GB. Ask docker for the volume path
-   rather than typing it: it is derived from the compose project name, so it
-   differs on any checkout not in a directory called `symphony`.
-
-   Telegraf's first flush is a minute or so out, so wait for its tables rather
-   than guessing: `cpu` is the sentinel, and the hygiene script's own output
-   lists every table it changed and every one it did not recognise — read it,
-   because an unrecognised table with no TTL is usually a new Telegraf
-   measurement that needs adding to the script's list. Line protocol creates
-   tables with no TTL and no dedup keys, so re-run the script after adding an
-   input or recreating a table. Without
-   dedup, a batch whose HTTP response timed out is retried into rows QuestDB
-   already committed — duplicate data, and a skewed row-count parity check.
-
-   `du` in gigabytes → stop the writers and go back to step 2's env check.
-
-4. Check whether the memory cap is real.
-
-   ```bash
-   docker inspect questdb --format '{{.HostConfig.Memory}}'
-   ```
-
-   Expect `805306368` (the compose file's `mem_limit: 768m`) once cgroups are
-   enabled, and `0` while they are not. Any other number means the running
-   container predates a change to `mem_limit` — recreate it. This is a value
-   to read, not a gate: it lives in `compose-questdb.yml` and changing it
-   there should not fail this step.
-
-   0 on this Pi: Raspberry Pi OS ships without `cgroup_enable=memory`, and
-   `docker compose up` logs "Your kernel does not support memory limit
-   capabilities or the cgroup is not mounted." To enforce it, append
-   `cgroup_enable=memory cgroup_memory=1` to the single line in
-   `/boot/firmware/cmdline.txt` and reboot. Until then watch instead of
-   capping — `free -m`, `grep ^pswp /proc/vmstat` — and stop QuestDB if
-   available memory goes under ~400 MB.
-
----
-
-## SignalK's NMEA 2000 input
-
-One connection, `n2k-can0`, reads the bus through canboatjs. It lives in
-`signalk/settings.json` as a `pipedProvider` and is editable in the admin UI
-under Server → Connections.
-
-*Verify it's alive:*
+## NMEA 2000 input
 
 ```bash
 curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/position
-curl -s localhost:3000/signalk/v1/api/vessels/self/navigation/gnss
-```
-
-Expect `"$source": "n2k-can0.<addr>"` and coordinates whose last digits move
-between calls. A `$source` of `signalk-fixed-position` means the real GPS has
-gone quiet and the fallback has taken over — see below.
-
-If nothing arrives at all, check the bus before SignalK:
-
-```bash
 ip -br link show can0                  # want UP
 timeout 5 candump -n 20 can0           # want frames
 ```
 
-On the dev stack `can0` lives in the `vcan` sidecar's namespace, not the
-host's: prefix both with `docker compose exec vcan`.
+Expect `"$source": "n2k-can0.<addr>"` and coordinates that move between
+calls. `$source` of `signalk-fixed-position` means the GPS is quiet and
+Position Keeper is replaying the last fix. Read `$source`, not the presence
+of a position.
 
-**Don't unset `uniqueNumber`.** It's pinned to `368391` in the connection's
-`subOptions`. It forms part of the NAME this box claims on the bus; left
-unset, SignalK generates a random one on save, and the Pi shows up as a
-brand-new device to every other instrument each time.
+Don't unset `uniqueNumber` (pinned `368391` in the connection's `subOptions`);
+the Pi would appear as a new device on the bus each save.
 
-### A fake `can0` for testing off the boat
+## Adding a BLE sensor
 
-The dev stack does this itself: the `vcan` sidecar in `compose-signalk.yml`
-creates `can0` in the network namespace signalk runs in, so `docker compose
-up` gives SignalK a CAN interface with no manual step. The host kernel needs
-the `vcan` module (WSL2 has it; elsewhere `sudo modprobe vcan`). Without it
-the sidecar never turns healthy and signalk does not start — rather than
-starting without `can0` and sitting in `alarm`.
-
-*Verify:*
-
-```bash
-docker compose exec vcan ip -br link show can0      # want UP
-docker compose logs signalk | grep 'connected to can0'
-```
-
-On any other Linux host (bench Pi, a VM) — SignalK can't tell this from a
-real CAN hat:
-
-```bash
-sudo modprobe vcan && sudo ip link add dev can0 type vcan && sudo ip link set up can0
-```
-
-Verify with `ip -d link show can0` — it prints `vcan`. Gone on reboot; re-run it.
-Replay traffic with `canplayer -I <candump.log>` (`can-utils`). macOS has no
-SocketCAN: use a Linux VM or container, with `--cap-add=NET_ADMIN`.
-
-### A fallback that has become the primary looks exactly like success
-
-`signalk-fixed-position` (Position Keeper) stores the last known fix and
-re-emits it once GPS has been quiet for its `interval`. That is wanted
-behaviour — position-dependent plugins keep working through a GPS dropout.
-The trap is that it looks identical to a working GPS: for a long time it was
-the *only* position source on this boat, emitting a stored dock coordinate
-about two metres from the truth, and nothing appeared broken.
-
-> 📌 **Gotcha:** Don't read "there is a position" as "the GPS works." Read
-> `$source`.
-
-### When the AIS is powered, there will be two GPS sources
-
-The chartplotter and the AIS each have their own receiver, so both publish
-position, and SignalK will pick between them per-path in whatever order they
-arrive. `~/.signalk/priorities.json` is what arbitrates; it is currently `{}`,
-meaning no preference is expressed.
-
-Set it once both are live and their addresses are known — an address is only
-knowable by looking, since it's claimed dynamically:
-
-```bash
-curl -s localhost:3000/signalk/v1/api/sources | python3 -m json.tool | grep -A2 n2k-can0
-```
-
-Then give `navigation.position` an ordered source list with a timeout, so the
-preferred receiver wins and the other takes over only after it goes quiet.
-Doing this before both units are on would mean guessing at an address.
-
----
-
-## Setting up a BLE sensor in bt-sensors-plugin-sk
-
-Read this before adding a sensor or rebuilding this box. Two config keys are
-required that nothing warns you about: leave either out and the sensor
-connects, polls, decodes correctly and publishes **nothing**, with no error in
-any log. Both are per-peripheral, in
-`signalk/plugin-config-data/bt-sensors-plugin-sk.json`.
+In `signalk/plugin-config-data/bt-sensors-plugin-sk.json`, per peripheral.
+`params.pollFreq` and an explicit `paths` block are both required; without
+either the sensor connects and publishes nothing, with no error anywhere.
+Saving through the plugin's config UI writes both.
 
 ```json
 {
   "active": true,
   "mac_address": "A5:C2:37:40:01:46",
-  "params": {
-    "name": "House Battery 1",
-    "sensorClass": "JBDBMS",
-    "batteryID": "0146",
-    "pollFreq": 60
-  },
+  "params": { "name": "House Battery 1", "sensorClass": "JBDBMS", "batteryID": "0146", "pollFreq": 60 },
   "paths": {
     "voltage": "electrical.batteries.0146.voltage",
     "SOC": "electrical.batteries.0146.capacity.stateOfCharge",
@@ -2533,18 +473,9 @@ any log. Both are per-peripheral, in
 }
 ```
 
-`params.pollFreq` (seconds) is what selects `initGATTInterval()`. Without it
-`BTSensor::activateGATT` falls through to `initGATTNotifications()`, which some
-sensor classes — JBDBMS among them — implement as an empty method. The device
-connects, sends one read request and then sits idle forever.
+Identify by MAC, not name; both house batteries advertise as `DP04S007L4S200A`.
 
-`paths` must name every tag you want published. `initPaths()` subscribes a tag
-only when `deviceConfig.paths[tag]` exists; the `.default` on each metadatum is
-a suggestion for the config UI, **not** a runtime fallback. Saving the sensor
-through the plugin's own config UI writes this block for you, which is why a
-hand-written or hand-merged config is where this bites.
-
-Confirm the whole plugin is publishing, not just one sensor:
+*Verify* (each sensor's `name` appears as its own `$source`):
 
 ```bash
 curl -s http://localhost:3000/signalk/v1/api/vessels/self \
@@ -2559,35 +490,468 @@ w(d)
 print(c.most_common(20))'
 ```
 
-Each configured sensor should appear as its own `$source` (the sensor's
-`name`). If **no** sensor from the plugin appears, it is config, not the radio
-— don't go debugging BLE.
+If no sensor from the plugin appears at all, it is config, not radio.
 
-Identify a device by MAC, never by advertised name. Symphony's two house
-batteries both advertise as `DP04S007L4S200A`; only the MAC distinguishes them,
-and BlueZ exposes it.
+## QuestDB
+
+First-time setup on a host. The mmap limit is a kernel setting on the host;
+the container cannot raise it itself.
+
+```bash
+if [ "$(cat /proc/sys/vm/max_map_count)" -lt 1048576 ]; then
+  echo 'vm.max_map_count=1048576' | sudo tee /etc/sysctl.d/99-questdb.conf
+  sudo sysctl --system
+fi
+test "$(cat /proc/sys/vm/max_map_count)" -ge 1048576 && echo ok
+docker compose -f docker-compose.yml up -d questdb
+curl -fsS --max-time 5 --retry 30 --retry-delay 2 --retry-connrefused \
+  -G --data-urlencode 'query=SELECT 1;' http://127.0.0.1:9000/exec      # answers = ready
+docker inspect questdb --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^QDB_CAIRO_' | sort
+```
+
+All five must be present with these values, or the container preallocates
+16 MB per column file and fills the SD card:
+
+```
+QDB_CAIRO_COMMIT_MODE=sync
+QDB_CAIRO_O3_COLUMN_MEMORY_SIZE=256k
+QDB_CAIRO_WAL_WRITER_DATA_APPEND_PAGE_SIZE=128k
+QDB_CAIRO_WRITER_DATA_APPEND_PAGE_SIZE=256k
+QDB_CAIRO_WRITER_DATA_INDEX_VALUE_APPEND_PAGE_SIZE=256k
+```
+
+Missing or different: `docker compose -f docker-compose.yml up -d --force-recreate questdb` and re-check.
+
+Then the writers:
+
+```bash
+sudo systemctl restart telegraf
+until curl -sf -G --data-urlencode 'query=SELECT 1 FROM cpu LIMIT 1' http://127.0.0.1:9000/exec | grep -q '"count":1'; do sleep 5; done
+scripts/questdb_table_hygiene.sh              # TTL + dedup; read its output for unrecognised tables
+sudo du -sm "$(docker inspect questdb --format '{{range .Mounts}}{{if eq .Destination "/var/lib/questdb"}}{{.Source}}{{end}}{{end}}')"
+```
+
+*Verify:* the `du` reads tens of MB, not GB. Re-run the hygiene script after adding a Telegraf input or recreating a table.
+
+Memory pressure (`free -m` available under ~400 MB, or `grep ^pswp /proc/vmstat` climbing): stop QuestDB, InfluxDB or Grafana with `systemctl stop`, never `disable`.
+
+## Grafana dashboards
+
+Dashboards are generated from `scripts/build_dashboards.py`; the committed JSON is its output.
+
+```bash
+python3 scripts/build_dashboards.py
+python3 scripts/test_dashboards.py       # not optional: a bad panel fails silently at runtime
+```
+
+UI tweaks live only in Grafana's database and are overwritten on the next
+provisioning reload; put anything worth keeping in the spec.
+
+Check the live boat:
+
+```bash
+python3 scripts/verify_dashboards_live.py --grafana https://grafana.<DOMAIN> --user <admin> --password <password>
+curl -sG http://localhost:9000/exec --data-urlencode "query=SELECT table_name FROM tables()"   # a missing Telegraf table is a panel that cannot draw
+```
+
+## pypilot
+
+State is in `pypilot/data/` (untracked: compass calibration and a SignalK
+token). The native units are disabled; `~/.pypilot` is the rollback.
+
+*Verify,* in order:
+
+```bash
+docker exec pypilot i2cdetect -y 1                                    # 0x68 present = the IMU answers
+docker logs pypilot 2>&1 | grep -i realtime                           # must read: made imu process realtime
+docker exec pypilot pypilot_client imu.heading imu.pitch imu.error    # tilt the Pi, run again
+curl -s -o /dev/null -w '%{http_code}\n' localhost:8000               # 200
+```
+
+Back up before any rebuild or re-image:
+
+```bash
+tar czf ~/pypilot-data-$(date +%Y%m%d).tgz -C pypilot data
+tar tzf ~/pypilot-data-*.tgz | grep RTIMULib.ini      # must match
+```
+
+Roll back to native:
+
+```bash
+docker compose --profile pypilot down
+sudo systemctl enable --now pypilot pypilot_web
+```
+
+## Testing the DSC / AIS distress chain
+
+**Never press a radio's DSC distress button or activate a SART/MOB/EPIRB to
+test.** Everything here injects synthetic traffic over UDP. It needs
+`signalk-dsc` and `signalk-ais-distress` installed on the server under test;
+check Plugin Config first.
+
+1. Turn off DSCWatch reporting first: Plugin Config → signalk-dsc → untick
+   "Report received calls to DSCWatch.com". Queued reports send later, even
+   from an offline test.
+2. Add a UDP NMEA 0183 input if none exists (Settings → Connections → Add,
+   type NMEA0183, udp, port 7777), then restart SignalK.
+3. Clone the plugin repos (the npm tarballs omit `scripts/`):
+
+   ```bash
+   git clone https://github.com/sailingnaturali/signalk-dsc
+   git clone https://github.com/sailingnaturali/signalk-ais-distress
+   ```
+
+4. Fire traffic; always pass `--host`, the default is the author's boat:
+
+   ```bash
+   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777
+   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777 --nature mob --category urgency
+   node signalk-ais-distress/scripts/send-test-ais.js --host localhost --port 7777 --beacon mob
+   ```
+
+5. *Verify* via the API, not the phone (per-call alarms never reach
+   `signalk-ntfy`):
+
+   ```bash
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/dsc-calls
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/ais-distress
+   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v1/api/vessels/self/notifications
+   ```
+
+   Expect the call, a `notifications.received.<category>.<id>` each, and
+   `notifications.mob` for `--beacon mob`.
+
+6. Clear the alarms (readwrite token):
+
+   ```bash
+   cd signalk-dsc          && SIGNALK_TOKEN=$TOK node scripts/clear-dsc-alarm.js --host localhost --category all
+   cd ../signalk-ais-distress && SIGNALK_TOKEN=$TOK node scripts/clear-ais-alarm.js --host localhost --beacon all
+   ```
+
+7. Restore DSCWatch and remove the test UDP input.
 
 ---
 
-## When the boat's hostnames stop resolving
+## Adding a secret
 
-All three names fail on the boat wifi and browsers say the site can't be
-found — a DNS failure, not a certificate or connection error. The services
-themselves are still up: `http://192.168.8.240:3000` loads by IP.
-
-Confirm which link is down:
+**A standalone value** (API key, token, password) goes in the store:
 
 ```bash
-ping -c2 192.168.8.240   # boat computer, wired
-ping -c2 192.168.8.241   # same host, wifi
+sops secrets/symphony.sops.yaml          # add the `name: value` line, save
+git add secrets/symphony.sops.yaml
+git commit -m "Store <name>" -- secrets/symphony.sops.yaml
 ```
 
-Wired dead and wifi alive points at the cable, the switch port, or the Pi's
-`eth0`. The router's wildcard resolves every name to the wired address only,
-so all three go down with that one interface even though the host is still
-reachable.
+*Verify:* `sops --decrypt --extract '["<name>"]' secrets/symphony.sops.yaml` prints the value; `git show :secrets/symphony.sops.yaml | grep <name>` shows `ENC[`. `File has not changed, exiting.` means the edit didn't save.
 
-Repoint the wildcard at the wifi reservation:
+To make something read it, add the key to `.env.example` and `.env.j2`, run
+`python3 scripts/render.py`, and restart the reader.
+
+**A field inside a config file SignalK/Grafana owns** is encrypted in place:
+
+```bash
+scripts/add_inplace_secret.sh signalk/plugin-config-data/<plugin>.json token
+git commit -m "Encrypt <plugin>.json's token"
+```
+
+Never point it at `secrets/*.sops.yaml`. If a `secrets/` file ever fails
+`git add` with sops complaining about *"a top-level entry called 'sops'"*,
+delete the `filter=sops` line for it from `.gitattributes` and its
+`path_regex` block from `.sops.yaml`, then:
+
+```bash
+git check-attr filter -- secrets/symphony.sops.yaml   # want: unspecified
+python3 scripts/sops_paths.py check
+git add secrets/symphony.sops.yaml
+```
+
+## Rotating a secret
+
+**Store value:**
+
+```bash
+sops secrets/symphony.sops.yaml
+python3 scripts/render.py
+docker compose up -d --force-recreate <service>
+```
+
+`GF_SECURITY_ADMIN_PASSWORD` only applies to a fresh Grafana volume. On an existing one, also:
+
+```bash
+docker exec grafana grafana cli admin reset-admin-password '<value>'
+curl -u admin:<value> http://localhost:3001/api/org      # expect 200
+```
+
+**In-place value:** change it in the SignalK admin UI, then `git add <file>
+&& git commit`. If the store mirrors it (`influx_token` does), update both.
+
+**Grafana / InfluxDB user passwords:** edit the store, then re-run
+`scripts/provision_grafana_users.sh` / `scripts/provision_influxdb.sh`.
+
+## Rotating an InfluxDB token
+
+Tokens show once at creation, so: mint, migrate, verify, then revoke.
+
+```bash
+cd ~/symphony
+TOK=$(sops --decrypt --extract '["influxdb_captain_token"]' secrets/symphony.sops.yaml)
+ORG=$(curl -s -H "Authorization: Token $TOK" http://localhost:8086/api/v2/orgs \
+      | python3 -c 'import json,sys;print(json.load(sys.stdin)["orgs"][0]["id"])')
+curl -s -o /dev/null -w "auth check: %{http_code}\n" -H "Authorization: Token $TOK" http://localhost:8086/api/v2/authorizations
+```
+
+`200` to continue. Find the authorization to replace:
+
+```bash
+curl -s -H "Authorization: Token $TOK" "http://localhost:8086/api/v2/authorizations?orgID=$ORG" \
+  | python3 -c '
+import json,sys
+for a in json.load(sys.stdin)["authorizations"]:
+    print(a["id"], repr(a.get("description","")), "perms=%d" % len(a["permissions"]))
+'
+OLD_ID=<paste the id>
+```
+
+Mint the replacement with the same permissions. Don't echo `$NEW`; scrollback and transcripts persist.
+
+```bash
+curl -s -H "Authorization: Token $TOK" "http://localhost:8086/api/v2/authorizations/$OLD_ID" > /tmp/oldauth.json
+python3 -c '
+import json
+a=json.load(open("/tmp/oldauth.json"))
+json.dump({"orgID":a["orgID"],"userID":a["userID"],
+           "description":a.get("description","")+" (rotated)",
+           "permissions":a["permissions"]}, open("/tmp/newauth-req.json","w"))
+'
+curl -s -X POST -H "Authorization: Token $TOK" -H "Content-Type: application/json" \
+     -d @/tmp/newauth-req.json http://localhost:8086/api/v2/authorizations > /tmp/newauth.json
+NEW=$(python3 -c 'import json;print(json.load(open("/tmp/newauth.json"))["token"])')
+```
+
+Update every consumer. The plugin token is nested at
+`configuration.influxes[].token`; the buffering plugin's file is
+`signalk-to-influxdb-v2-buffer.json`.
+
+```bash
+grep -rl -- "$TOK" ~/.signalk/plugin-config-data/ /etc/telegraf/ 2>/dev/null
+grep -c -- "$TOK" ~/symphony/.env
+for f in $(grep -rl -- "$TOK" ~/.signalk/plugin-config-data/); do
+  OLD="$TOK" NEW="$NEW" python3 -c '
+import os,io,sys
+p=sys.argv[1]; s=io.open(p,encoding="utf-8").read()
+io.open(p,"w",encoding="utf-8").write(s.replace(os.environ["OLD"],os.environ["NEW"]))
+print("updated", p)
+' "$f"
+done
+sops --set "[\"influxdb_captain_token\"] \"$NEW\"" secrets/symphony.sops.yaml
+python3 scripts/render.py
+```
+
+Restart consumers and prove writes land before revoking:
+
+```bash
+sudo systemctl restart signalk telegraf                      # boat
+# docker compose up -d --force-recreate signalk telegraf     # containerized
+curl -s -H "Authorization: Token $NEW" -H "Content-Type: application/vnd.flux" -H "Accept: application/csv" \
+     -XPOST "http://localhost:8086/api/v2/query?org=symphony" \
+     -d 'from(bucket:"symphony")|>range(start:-2m)|>limit(n:3)' | head -3
+```
+
+Rows means the new token carries traffic. No rows: stop and fix; the old one still works. Then revoke:
+
+```bash
+curl -s -o /dev/null -w "delete: %{http_code}\n" -X DELETE -H "Authorization: Token $NEW" \
+     "http://localhost:8086/api/v2/authorizations/$OLD_ID"
+curl -s -o /dev/null -w "old token now: %{http_code}  (401 = revoked)\n" \
+     -H "Authorization: Token $TOK" http://localhost:8086/api/v2/authorizations
+shred -u /tmp/oldauth.json /tmp/newauth.json /tmp/newauth-req.json
+```
+
+Expect `204` then `401`. Record it in `ROTATION.md`.
+
+If nothing authenticates, the InfluxDB UI at `:8086` with the `captain`
+login is what's left. `DOCKER_INFLUXDB_INIT_USERNAME`/`_PASSWORD` are not a
+login on this volume; it predates them.
+
+## Rotating the age key
+
+Annually, and immediately on suspected exposure. Commit after each phase.
+
+```bash
+scripts/rotate_age_key.sh status
+scripts/rotate_age_key.sh add --generate           # phase 1: new key joins
+#   back up the new key; install it on every host
+scripts/rotate_age_key.sh verify <new-public-key>  # gate: the new key alone opens everything
+scripts/rotate_age_key.sh retire <old-public-key>  # phase 2
+```
+
+Don't skip `verify`. It hides the old key from sops and proves the new one
+opens every file alone; a plain `sops --decrypt` passes while the old key
+is still in your keyring. On failure it names the files.
+
+A host missed before phase 2 fails to decrypt afterward: copy a current key
+to `~/.config/sops/age/keys.txt` there and re-run `scripts/setup-git-filters.sh`.
+
+If the old key was *compromised*, rotating it is not enough; history still
+holds ciphertext it can read. Rotate the secrets themselves too.
+
+Check an escrow key that isn't on this box (after any move, and yearly).
+Not into the keyring; that defeats keeping it off-box:
+
+```bash
+install -m 600 /dev/null /tmp/check.key            # paste the key in
+age-keygen -y /tmp/check.key                       # must print the public key from .sops.yaml
+SOPS_AGE_KEY_FILE=/tmp/check.key scripts/rotate_age_key.sh verify <public-key>
+shred -u /tmp/check.key
+```
+
+Expect `decrypts all N file(s)` for an escrow key; fewer means it is scoped.
+
+## Removing a secret
+
+1. Delete its `path_regex` block from `.sops.yaml`.
+2. Delete its `filter=sops` line from `.gitattributes`.
+3. `python3 scripts/sops_paths.py check`
+4. If the file is going away: `git rm --cached <file>` and add it to `.gitignore`.
+
+If the value was ever live in a public commit, rotate it.
+
+## Email pseudonyms in security.json
+
+Addresses in `signalk/security.json` become `pid.*` tokens in git and are
+restored on checkout.
+
+```bash
+python3 scripts/pseudonymize.py resolve pid.rj232vx
+git log -S 'pid.rj232vx' -- signalk/security.json       # when someone had access
+```
+
+When someone new logs in, the commit prints `pseudonymize: the map changed`;
+stage `secrets/pseudonyms.sops.yaml` in that same commit.
+
+If checkout warns `cannot decrypt secrets/pseudonyms.sops.yaml`, don't start
+SignalK against the file. Get an age identity working, then
+`git checkout -- signalk/security.json`.
+
+## Router config backup
+
+The router holds the DNS override that makes the hostnames resolve aboard.
+Refresh after any router change, from anywhere on the tailnet:
+
+```bash
+ssh pi@symphony-pi 'ssh root@192.168.8.1 "uci export"' > /tmp/uci.txt
+test -s /tmp/uci.txt && grep -q '^package' /tmp/uci.txt && echo export ok
+python3 -c "import yaml; yaml.safe_dump({'uci_export': open('/tmp/uci.txt').read()}, open('secrets/router-config.sops.yaml','w'), default_style='|')"
+sops --encrypt --in-place secrets/router-config.sops.yaml
+rm /tmp/uci.txt
+```
+
+Stop if `export ok` doesn't print; an empty export overwrites the backup.
+
+*Verify:* `sops --decrypt --extract '["uci_export"]' secrets/router-config.sops.yaml | head -3`, then commit.
+
+Restore: `sops --decrypt secrets/router-config.sops.yaml`, feed `uci_export`
+through `uci import` on the router, then `reload_config`. This restores WiFi
+and WAN too.
+
+## SSO login
+
+Dex on the boat fronts GitHub and Google. Any account gets SignalK readonly;
+the owner's email gets SignalK admin and Grafana Admin. Local password logins
+(`captain`, Grafana superadmin) remain and are the offline fallback.
+
+Deploy on the boat. Name `dex` in the command: with no service named,
+compose also starts the `caddy` container, which fights the native Caddy
+for port 443.
+
+```bash
+git pull
+python3 scripts/render.py
+docker compose --profile tls up -d dex
+sudo systemctl restart caddy
+```
+
+Fully containerized host: `docker compose --profile tls up -d --build`,
+dockside. Restart grafana and signalk too if their `*_OAUTH_*` / `*_OIDC_*`
+values changed.
+
+*Verify:*
+
+```bash
+curl -s https://signalk.symphony.dark-star-llc.com/signalk/v1/auth/oidc/status               # "enabled":true, issuer .../dex
+curl -s https://auth.symphony.dark-star-llc.com/dex/.well-known/openid-configuration | head -3
+```
+
+Browser: owner login shows `admin` in SignalK Security → Users, any other
+account `readonly`; Grafana admits the owner, refuses others; `captain`
+still works. Owner as `readonly` means `SIGNALK_OIDC_GROUPS_ATTRIBUTE=email`
+didn't reach the server (silent).
+
+## SSO one-time setup
+
+**1. DNS (Cloudflare).** A record `symphony.dark-star-llc.com` → the host's
+tailnet IP; CNAMEs `signalk.`, `grafana.`, `auth.` → it. All DNS-only (grey
+cloud). Create an API token from the "Edit zone DNS" template scoped to this
+zone. On the boat router add `address=/symphony.dark-star-llc.com/<LAN IP>`.
+A rebuilt or re-added host gets a new tailnet IP and this record goes
+stale (off-boat dead, on-boat fine).
+
+*Verify:* from the boat LAN with the WAN unplugged, `nslookup signalk.symphony.dark-star-llc.com` returns the LAN IP.
+
+**2. OAuth apps.** GitHub: personal account → OAuth Apps → New, homepage
+`https://auth.symphony.dark-star-llc.com`, callback
+`https://auth.symphony.dark-star-llc.com/dex/callback`. Google: a project,
+consent screen External and **published**, Web application credential
+with the same callback.
+
+**3. Secrets.** Fill `boat_domain`, `github_oauth_client_id`,
+`github_oauth_client_secret`, `google_oauth_client_id`,
+`google_oauth_client_secret`, `cloudflare_api_token` and `owner_email`.
+Leave `dex_symphony_client_secret` as it is.
+
+```bash
+sops secrets/symphony.sops.yaml
+python3 scripts/render.py
+```
+
+Then deploy per [SSO login](#sso-login).
+
+## SSO access grants
+
+Who gets what is decided from `.env.j2` at every login, not from the user
+lists inside SignalK or Grafana. A promotion made in the SignalK UI is undone
+at the next login; a removal made here takes effect at the next login.
+
+- Grafana: append `|| email=='crew@example.com' && 'Editor'` to
+  `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH`.
+- SignalK: add the address to `SIGNALK_OIDC_ADMIN_GROUPS`, or to
+  `SIGNALK_OIDC_READWRITE_GROUPS` (add that variable if it isn't there).
+  Comma-separated, case-sensitive.
+
+```bash
+python3 scripts/render.py
+docker compose up -d --force-recreate grafana signalk
+```
+
+**Cut someone off entirely:** delete their SignalK user (Security → Users;
+sessions never expire otherwise) and their Grafana user.
+
+**Offshore:** a fresh device uses the local password form. After ~60 days
+offline, browsers warn about the certificate until internet returns.
+
+---
+
+## Hostnames stop resolving on the boat
+
+All names fail on the boat wifi but `http://192.168.8.240:3000` loads by IP.
+The router's wildcard points only at the wired address.
+
+```bash
+ping -c2 192.168.8.240   # wired
+ping -c2 192.168.8.241   # wifi
+```
+
+Wired dead, wifi alive: repoint the wildcard at wifi until the cable is fixed.
 
 ```bash
 ssh root@192.168.8.1
@@ -2595,509 +959,113 @@ uci set dhcp.@dnsmasq[0].address='/symphony.dark-star-llc.com/192.168.8.241'
 uci commit dhcp && /etc/init.d/dnsmasq restart
 ```
 
-From a laptop on the boat wifi, `dig +short signalk.symphony.dark-star-llc.com`
-should return `192.168.8.241`. If it still returns the old address, flush the
-client's cache — on macOS, `sudo dscacheutil -flushcache; sudo killall -HUP
-mDNSResponder`.
+*Verify:* `dig +short signalk.symphony.dark-star-llc.com` from the boat wifi returns `.241` (flush the client cache if not). Set it back to `.240` afterward.
 
-Set it back to `192.168.8.240` once the cable is fixed. Wifi is the slower
-path and drops when the router reboots.
+## A plugin isn't in the config UI
 
----
-
-## Grafana dashboards
-
-The dashboards are generated. `scripts/build_dashboards.py` holds the panel
-spec; the JSON under `grafana/provisioning/dashboards/json/` is its output and
-is committed because Grafana provisioning reads files and the boat has no
-build step. After changing the spec:
+A plugin that crashes on load is absent from Server → Plugin Config, which
+looks like not installed.
 
 ```bash
-python3 scripts/build_dashboards.py
-python3 scripts/test_dashboards.py
+docker logs signalk-server --since 5m 2>&1 | grep 'failed to start'      # container
+journalctl -u signalk --since -5m | grep 'failed to start'               # boat
 ```
 
-The second one is not optional. It asserts the committed JSON still matches
-the spec, that every unit label is backed by the matching conversion in its
-query, that panels do not overlap, and that each query reads the QuestDB
-table its measurement is actually written to -- a SignalK path filtered out
-of `signalk`/`signalk_str`, or a Telegraf table named after the measurement. A dashboard is wrong silently -- nothing
-about a blank or mis-scaled panel raises an error at runtime -- so this check
-is the only thing standing between a typo and a gauge that confidently reads
-3.6 knots when the boat is doing 7.
-
-Grafana's file provider is `editable: true`, so panels can be tweaked in the
-UI to try something out. Those tweaks live only in Grafana's database and are
-overwritten on the next provisioning reload. Anything worth keeping goes back
-into the spec.
-
-### Looking at them without being aboard
-
-```bash
-scripts/dev_stack.sh up
-```
-
-Starts QuestDB, InfluxDB and Grafana, seeds synthetic vessel data into both
-stores, checks that every panel draws, and prints the URL. SignalK does not
-come up -- it wants hardware a laptop does not have. `scripts/dev_stack.sh
-down` removes the volumes.
-
-The seed values are invented but the *shape* is real: same measurement names,
-same fields, same tags, same SI units. Seeding in display units would make a
-broken conversion look correct, which is the one thing this has to not do.
-What gets seeded is read out of the generated dashboards themselves, so a
-panel added to the spec is covered on the next run without anyone remembering
-to add it here.
-
-If you have a dev `.env` from before the QuestDB port, delete it first — the
-script only writes one when absent, and the `QUESTDB_*` variables are new.
-Symptom of a stale one: every panel empty and the QuestDB datasource failing
-to connect.
-
-### Checking the real thing
-
-Two checks, and they answer different questions:
-
-```bash
-python3 scripts/audit_dashboard_paths.py      # on the boat
-python3 scripts/verify_dashboards_live.py --grafana https://grafana.<DOMAIN> \
-    --user <admin> --password <password>
-```
-
-`audit_dashboard_paths.py` lists what the dashboards reference, and which
-panel references it — no liveness. For freshness, ask QuestDB directly. The
-dashboards read four table families, so all four have to be checked:
-
-```bash
-for t in signalk signalk_str; do curl -sG http://localhost:9000/exec \
-    --data-urlencode "query=SELECT path, max(ts) FROM $t GROUP BY path"; done
-curl -sG http://localhost:9000/exec --data-urlencode \
-    "query=SELECT max(ts) FROM signalk_position"
-curl -sG http://localhost:9000/exec --data-urlencode \
-    "query=SELECT table_name FROM tables()"
-```
-
-The last one lists the Telegraf tables (`cpu`, `mem`, `disk`, `net`,
-`procstat`, …); a table missing from it is a panel that cannot draw.
-
-`verify_dashboards_live.py` runs every panel's SQL through Grafana's own
-`/api/ds/query`. That is the end-to-end one: datasource uid, credentials, the
-QuestDB datasource plugin and a publishing path all have to be right for a
-panel to pass.
-The audit can pass while this fails, and that gap is exactly the datasource
-wiring.
-
-Both exit non-zero on a problem, so either can go in a cron or a check-in.
-
----
-
-## InfluxDB buckets
-
-Four buckets, each named after whoever writes it:
-
-| Bucket | Writer | Retention |
-|---|---|---|
-| `signalk` | `signalk-to-influxdb2`, full rate | 90d |
-| `signalk_archive` | the same plugin, second entry, decimated to 1/min | years |
-| `telegraf` | Telegraf | 30d |
-| `influxdb` | InfluxDB scraping its own `/metrics` | 7d |
-
-Retention is a per-bucket property. That is the entire reason for the split:
-one bucket cannot express "years of state-of-charge, two weeks of CPU." The
-second reason is tokens -- Telegraf can hold a write-only token scoped to its
-own bucket instead of borrowing captain's all-access one.
-
-Splitting costs nothing at query time. **The bucket is named in the Flux
-query, not in the datasource** -- `defaultBucket` is only Grafana's default for
-ad-hoc exploration. One datasource and one read token reach all four, and a
-panel can `union()` across them.
-
-`signalk_archive` is deliberately the *same paths* at lower rate rather than a
-chosen subset. Splitting by topic would mean deciding today which paths matter
-in three years, and giving every panel a lookup table of which bucket its path
-lives in. A superset at lower resolution needs neither: long-range panels read
-the archive, live ones read `signalk`.
-
-One caveat to record: the plugin's `resolution` **decimates** -- it drops
-updates arriving inside the window -- rather than averaging. The archive keeps
-trends and loses spikes between samples. An InfluxDB task doing
-`aggregateWindow(fn: max)` would keep the extremes, at the cost of CPU and RAM
-on a Pi where memory is already the constraint.
-
-### Creating them
-
-Run on the boat. Idempotent -- `influx bucket create` fails harmlessly if the
-bucket is there.
-
-```bash
-# The CLI is not installed; these go through the HTTP API. Token comes from
-# the live plugin config, same as the audit script.
-python3 - <<'EOF'
-import glob, json, os, urllib.request
-
-cfg = glob.glob(os.path.expanduser(
-    "~/.signalk/plugin-config-data/signalk-to-influxdb2.json"))[0]
-token = json.load(open(cfg))["configuration"]["influxes"][0]["token"]
-
-def api(path, data=None, method=None):
-    req = urllib.request.Request("http://localhost:8086" + path,
-                                 data=data, method=method)
-    req.add_header("Authorization", "Token " + token)
-    req.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.loads(r.read().decode() or "{}")
-
-org_id = api("/api/v2/orgs?org=symphony")["orgs"][0]["id"]
-DAY = 86400
-for name, days in [("signalk", 90), ("signalk_archive", 0),
-                   ("telegraf", 30), ("influxdb", 7)]:
-    if api(f"/api/v2/buckets?name={name}").get("buckets"):
-        print(f"{name}: exists")
-        continue
-    rules = [{"type": "expire", "everySeconds": days * DAY}] if days else []
-    api("/api/v2/buckets", json.dumps(
-        {"orgID": org_id, "name": name, "retentionRules": rules}).encode(),
-        "POST")
-    print(f"{name}: created")
-EOF
-```
-
-Then repoint the writers. Telegraf reads `TELEGRAF_INFLUX_BUCKET` from the
-rendered `.env`, so:
-
-```bash
-python3 scripts/render.py
-sudo systemctl restart telegraf
-```
-
-Nothing needs migrating. The existing points in the old `symphony` bucket age
-out on their own, and the dashboards stop reading it the moment the new
-buckets have data.
-
-### The signalk-to-influxdb2 change
-
-This one is a plugin config edit, and the config file is sops-tracked -- make
-it in SignalK's plugin UI (or on the live file on the boat, where the age key
-is), not by hand-editing the committed copy. Target state for
-`configuration.influxes`:
-
-```json
-[
-  {
-    "url": "http://localhost:8086",
-    "token": "<unchanged>",
-    "bucket": "signalk",
-    "onlySelf": true,
-    "useSKTimestamp": true,
-    "resolution": 1000,
-    "ignoredPaths": [
-      "^observations\\.noaa\\.",
-      "^pointsOfInterest\\.",
-      "^vhfdata\\.",
-      "^notifications\\.noaa\\.",
-      "^environment\\.noaa\\.swpc\\.scales\\.",
-      "^environment\\.forecast\\."
-    ],
-    "ignoredSources": [],
-    "filteringRules": []
-  },
-  {
-    "url": "http://localhost:8086",
-    "token": "<same token>",
-    "bucket": "signalk_archive",
-    "onlySelf": true,
-    "useSKTimestamp": true,
-    "resolution": 60000,
-    "ignoredPaths": ["<same list>"],
-    "ignoredSources": [],
-    "filteringRules": []
-  }
-]
-```
-
-`influxes` is an array and each entry is an independent writer with its own
-bucket, filters and resolution, so the archive tier needs no InfluxDB task.
-
-`ignoredPaths` takes JS regular expressions and both lists were empty, which
-is why roughly 1,400 measurements of NOAA shore stations, Wikipedia points of
-interest and VHF directory entries were being written to an SD card every
-interval. Filtering them is a larger win on write volume than the bucket split
-is. Note `ignoredPaths` is disabled entirely if `filteringRules` is non-empty
--- use one mechanism or the other, not both.
-
-The `notifications.noaa.` entry matters for a second reason: those arrive as
-`notifications.noaa.urn:oid:<unique>`, one new measurement per NWS alert,
-never retired. That was the only unbounded series growth in the database.
-
-### Turning off InfluxDB's self-scrape
-
-If nothing is watching `influxdb` bucket data, the cheapest change of all is
-to stop generating it -- InfluxDB scraping its own `/metrics` into the same
-database it is trying to keep small is self-inflicted SD wear. The System
-health dashboard's series-cardinality panel is the only consumer; drop that
-panel and the scrape can go.
-
----
-
-## When a plugin isn't in the config UI
-
-A plugin that crashes on load doesn't appear in Server → Plugin Config at
-all, which looks identical to not being installed. Check the log first:
-
-```bash
-docker logs signalk-server --since 5m 2>&1 | grep 'failed to start'
-docker inspect <container> --format '{{.State.Error}}'   # for sk-* containers
-```
-
-Missing-module errors usually mean a broken dependency tree. The fix is a
-clean reinstall against `signalk/package.json`, which declares every plugin:
+Missing-module errors: on the boat, see [SignalK errors about missing
+packages](#signalk-errors-about-missing-packages). In a container, reinstall
+against `signalk/package.json`:
 
 ```bash
 docker compose stop signalk
 mv signalk/node_modules signalk/.node_modules_old
-docker run --rm -v "$PWD/signalk:/home/node/.signalk" -w /home/node/.signalk \
-  --entrypoint npm signalk/signalk-server:latest install
+docker run --rm -v "$PWD/signalk:/home/node/.signalk" -w /home/node/.signalk --entrypoint npm signalk/signalk-server:latest install
 docker compose start signalk
 ```
 
-Move the old tree aside rather than deleting it, so you can put it back.
-Note `signalk/.npmrc` sets `package-lock=false`, so versions resolve fresh
-against the `^` ranges each time — this is not a reproducible install. npm 11
-also blocks postinstall scripts by default; if a plugin needs a native binary
-(`sharp`, `esbuild`), run `npm approve-scripts <pkg>` and reinstall it.
-
-### Back up hand-installed plugins before any npm install
-
-`~/.signalk/.npmrc` sets `package-lock=false` on the boat too, so every
-install re-resolves the whole tree and deletes anything in `node_modules`
-that no entry in `package.json` asks for. Plugins copied in by hand rather
-than installed from the registry are exactly that, and npm removes them
-without prompting.
-
-Before installing anything in `~/.signalk`, list what is at risk:
+Before any `npm install` in `~/.signalk`, list what it would prune; hand-copied plugins are deleted without prompting:
 
 ```bash
-cd ~/.signalk
-npm install <pkg> --dry-run 2>&1 | grep '^remove'
+cd ~/.signalk && npm install <pkg> --dry-run 2>&1 | grep '^remove'
 ```
 
-Anything it reports is about to be deleted. Back those directories up, run
-the install, then restore them and confirm they are back — the dry run only
-sees what exists when you run it, so a plugin added afterwards will be
-pruned without ever appearing in that list.
+Back those up first. A plugin that must stay gets a `file:` entry in
+`package.json` pointing **outside** `node_modules`.
 
-On 2026-08-15 this caught `signalk-plugin-watchdog` and `flaky-plugin`,
-both hand-installed. The permanent fix for any plugin meant to stay is a
-`file:` entry in `package.json`, which takes it out of the prune path — but
-it must point **outside** `node_modules`, or it breaks every later install:
-see [When every plugin install fails on a `file:` dependency](#when-every-plugin-install-fails-on-a-file-dependency).
+## Every plugin install fails on a `file:` dependency
 
----
-
-## When every plugin install fails on a `file:` dependency
-
-Symptom: every App Store install fails, whichever plugin you picked, and so
-does a plain `npm install` in `~/.signalk`. The named package is not the one
-you were installing:
-
-```
-npm warn tarball tarball data for <plugin>@file:<plugin> (null) seems to be corrupted. Trying again.
-npm error code ENOENT
-npm error path /home/pi/.signalk/<plugin>/package.json
-npm error enoent Could not read package.json
-```
-
-Cause: a `file:` entry in `~/.signalk/package.json` pointing at a directory
-*inside* `node_modules`. npm packs that directory, then clears the
-destination — the same directory — before unpacking it, so the source is gone
-by the time it is needed. The whole install aborts before anything is written.
-
-`npm install <pkg> --dry-run` succeeds anyway; it resolves the tree without
-reifying it, so it will not reproduce this. Confirm from `package.json`
-instead:
+Every App Store install fails with `ENOENT ... /home/pi/.signalk/<plugin>/package.json`,
+naming a plugin you didn't pick. A `file:` entry points inside `node_modules`.
 
 ```bash
-grep -o '"[^"]*": *"file:[^"]*"' ~/.signalk/package.json
-```
-
-Any result containing `node_modules` is the fault. Point the entry at the
-real source instead — for the watchdog that is its git-tracked copy in this
-repo, already on the boat:
-
-```bash
+grep -o '"[^"]*": *"file:[^"]*"' ~/.signalk/package.json     # any `node_modules` result is the fault
 cd ~/.signalk
 cp -a package.json package.json.bak-$(date +%Y%m%d)
 npm pkg set dependencies.<plugin>=file:../symphony/plugins/<plugin>
 npm --save --ignore-scripts install
 ```
 
-`--ignore-scripts` matches what the server itself passes, so the App Store
-and the command line behave the same way.
+*Verify:* `ls -l ~/.signalk/node_modules/<plugin>` is a symlink into `../../symphony/plugins/`, and the source is still there. Restart SignalK.
 
-*Verify* — the link resolves, the source survived, and the install actually
-reified:
+## SignalK errors about missing packages
 
-```bash
-ls -l ~/.signalk/node_modules/<plugin>   # symlink -> ../../symphony/plugins/<plugin>
-ls ~/symphony/plugins/<plugin>           # files still there
-```
-
-Run a real install, never `--dry-run`, as the check. npm links `file:` deps
-rather than copying them, so edits to the git-tracked source reach the server
-with no reinstall, and the plugin stays out of the prune path described above.
-Restart SignalK to load whatever the install actually brought in.
-
----
-
-## When SignalK errors about missing packages on the boat Pi
-
-The Pi is a baremetal OpenPlotter install, so the Docker reinstall above
-doesn't apply to it. Read this before running `npm install` there — the
-obvious fix feeds the problem.
-
-A truncated plugin tree makes SignalK log missing-module errors. `npm install`
-in `~/.signalk` looks like the answer, but it wants around 1.7 GB on a box
-with 3.7 GB of RAM and 200 MB of swap. Memory runs out, the Pi climbs to ~90%
-iowait, and SSH stops answering — a banner can take over a minute. Killing or
-rebooting out of that truncates the tree further, so the next start logs more
-missing modules than the last one did.
-
-> 🔴 **Critical:** Never run `npm install` over a broken tree. npm treats a
-> half-written package directory as installed and skips it, so a second run
-> repairs nothing.
-
-Move the tree aside first:
+A truncated plugin tree on the boat. **Never run `npm install` over a broken
+tree**; npm treats half-written packages as installed. Move it aside and
+install in two phases; a single `npm install` deletes the whole tree when
+`better-sqlite3`'s build fails, which it always does here.
 
 ```bash
-sudo systemctl stop signalk.socket     # socket first, see above
+free -m                                # want > 2 GB available; else: sudo systemctl stop grafana-server influxdb
+sudo systemctl stop signalk.socket
 sudo systemctl stop signalk.service
 mv ~/.signalk/node_modules ~/.signalk/.node_modules_old
 cd ~/.signalk
-npm install --ignore-scripts --no-audit --no-fund   # phase 1: lay down the tree
-npm rebuild                                          # phase 2: build the natives
+npm install --ignore-scripts --no-audit --no-fund   # phase 1: the tree
+npm rebuild                                          # phase 2: natives; exits non-zero and that is fine
 ```
 
-Install in those two phases, not as a plain `npm install`. A single
-`npm install` deletes the entire tree it just wrote if any one package's
-build script fails, and `better-sqlite3@7.6.2` always fails here — see below.
-That costs the whole install and leaves `~/.signalk` with no `node_modules`
-at all. `npm rebuild` reports the same failure and leaves everything else
-built, so the tree survives it.
+Watch with `vmstat 5`: high `wa` is SD writes and finishes; `si`/`so`
+non-zero with `available` falling is swapping, so free more memory. Don't
+kill the install. If a previous run was interrupted, `npm cache clean --force` first.
 
-`npm rebuild` exits non-zero while still having done its job. Judge it by
-what it produced, not its exit code:
+*Verify:*
 
 ```bash
-find ~/.signalk/node_modules -name '*.node' | wc -l   # expect dozens, not 0
+find ~/.signalk/node_modules -name '*.node' | wc -l   # dozens, not 0
 ls -d ~/.signalk/node_modules/@mapbox/node-pre-gyp    # must exist
+sudo systemctl reset-failed signalk.service && sudo systemctl start signalk.socket signalk.service
 ```
 
-`@mapbox/node-pre-gyp` is what native modules build through. If it is absent,
-every native build aborts on it and no `.node` is produced anywhere.
+## BLE sensors silent after a reboot
 
-Check `free -m` before starting — you want more than 2 GB available. If you
-don't have it, `sudo systemctl stop grafana-server influxdb` frees a few
-hundred MB, and `sudo systemctl stop raspotify cups cups-browsed ModemManager`
-a couple hundred more. Should a previous install have been interrupted, add
-`npm cache clean --force`; it can leave partial tarballs behind, and on a full
-disk it also frees a couple of GB.
+Nothing under `electrical.batteries.*` and one `Uncaught exception: Error: write EPIPE` from `dbus-next` at startup.
 
-Watch it with `vmstat 5` rather than the load average. Load average won't tell
-a stalled install from a GPU hang, where blocked kworkers inflate it just as
-much and only a reboot clears them.
-
-Read the swap columns, not `wa` alone. Phase 1 drives `wa` to 60-80 with `b`
-in double digits purely from SD-card writes, and that finishes fine. What
-means it won't finish is `si`/`so` staying non-zero with `available` falling
-toward zero — that is swapping instead of working. Free more memory then;
-`available` recovering is the confirmation. Don't kill the install to fix it.
-
-Start again in reverse order. A service killed while running comes back
-`failed`, so clear it with `sudo systemctl reset-failed signalk.service`
-first.
-
----
-
-## BLE sensors go silent after a reboot
-
-`bt-sensors-plugin-sk` publishes nothing at all — no `electrical.batteries.*`,
-no sensor of any kind — and the only clue is one uncaught exception as the
-server starts:
-
-```text
-Uncaught exception: Error: write EPIPE
-  at auth (.../@jellybrick/dbus-next/lib/handshake.js:67)
-```
-
-Confirm it is this fault and not something else. The bus logs the other half:
+`signalk-ble-check.timer` restarts SignalK by itself when the plugin is
+loaded but publishing nothing: six minutes after boot, then every fifteen,
+at most three times per boot.
 
 ```bash
-journalctl --since -1h | grep "not authenticated soon enough"
+journalctl -t signalk-ble-check --since -1d -o cat                      # what the timer did
+journalctl --since -1h | grep "not authenticated soon enough"           # present = this fault
+grep -c getBluetoothSession ~/.signalk/node_modules/bt-sensors-plugin-sk/index.js   # want > 0
 ```
 
-A `Connection has not authenticated soon enough, closing it
-(auth_timeout=30000ms)` line a second or two before the EPIPE is this fault.
-Without that line, you are looking at something else — go to "A BLE sensor
-connects but never delivers data".
-
-The plugin carries the fix (upstream PR #1, merged 2026-08-21): it opens the
-bus lazily from `start()` instead of at `require()` time, listens for the
-bus's `error` event, and reconnects with backoff. Check the deployed copy has
-it before anything else:
-
-```bash
-grep -c getBluetoothSession /home/pi/bt-sensors-plugin-sk/index.js   # expect >0
-```
-
-If it is 0, the boat is on an older copy — `git -C /home/pi/bt-sensors-plugin-sk
-pull --ff-only` and restart SignalK, socket first or the socket unit relaunches
-the service mid-stop:
+Grep the copy SignalK loads, not the fork checkout. A count of 0 means
+SignalK runs a build without the fix: relink it to the fork per [A plugin
+fork keeps reverting](#a-plugin-fork-keeps-reverting), then restart:
 
 ```bash
 sudo systemctl stop signalk.socket
 sudo systemctl stop signalk.service
 sudo systemctl start signalk.socket
-curl -s -o /dev/null http://localhost:3000/signalk/    # socket-activates it
+curl -s -o /dev/null http://localhost:3000/signalk/
 ```
 
-Verify with the `$source` census under "Setting up a BLE sensor" — each sensor
-publishes under its own configured `name`. Give it a few minutes: BLE connect
-plus a first poll is slower than the rest of startup.
+*Verify* with the `$source` census under [Adding a BLE sensor](#adding-a-ble-sensor), after a few minutes.
+Don't reinstate a raised `auth_timeout` in `/etc/dbus-1/`; it only hides a different fault.
 
-Why it happened, and why a restart alone never fixed it: the plugin used to
-open its `org.bluez` connection at `require()` time, so the socket opened
-during SignalK's plugin-load sweep. dbus-next runs the auth handshake from that
-socket's `connect` callback, and the callback cannot be dispatched until the
-event loop drains — which takes longer than 30s here, because loading the
-remaining plugins is synchronous. The bus closed the unauthenticated socket at
-its 30s `auth_timeout`; the handshake's first byte then landed on a dead
-socket, and the plugin never retried, so the bus stayed dead for that whole
-process. Every start blocked the same way, which is why it was not intermittent
-and why `signalk-ble-check` burned its entire restart budget each boot.
+## A BLE sensor connects but delivers nothing
 
-A raised `auth_timeout` in `/etc/dbus-1/system-local.conf` was the stopgap for
-this between 2026-08-20 and 2026-08-21. It is gone from the boat and from
-`host/install.sh`. Don't reinstate it — if BLE is silent again, the fault is
-somewhere else, and a longer timeout will only hide it.
-
-Two dead ends — check them, but don't expect to find anything:
-
-- **The radio.** `sudo hciconfig hci0` should show `UP RUNNING` with no error
-  counters climbing. If it doesn't, this fault isn't reaching the controller
-  at all — look elsewhere.
-- **Boot ordering.** bluetoothd owns the bus long before SignalK loads.
-  `host/signalk-after-bluetooth.conf` keeps that ordering because it is correct
-  hygiene, not because it fixes this.
-
----
-
-## A BLE sensor connects but never delivers data
-
-bt-sensors logs `le-connection-abort-by-local` and `Unable to connect to
-Bluetooth device after 5 attempts`, and nothing appears under
-`electrical.batteries.<id>`.
-
-First find out whether the radio link is forming at all:
+Log shows `le-connection-abort-by-local` and `Unable to connect ... after 5 attempts`.
 
 ```bash
 bluetoothctl --timeout 20 scan on >/dev/null 2>&1
@@ -3105,409 +1073,113 @@ bluetoothctl info <MAC> | grep -E 'RSSI|Connected'
 { printf 'connect <MAC>\n'; sleep 25; printf 'quit\n'; } | bluetoothctl
 ```
 
-A healthy RSSI plus `Connected: yes` immediately followed by
-`le-connection-abort-by-local` and `Connected: no` means the link forms and
-GATT service discovery is what dies. That pattern rules out range, the plugin
-and the sensor class in one shot — don't go hunting in any of them.
-
-None of these clear it, so don't spend time on them:
+Healthy RSSI and `Connected: yes` then immediately `no` means GATT discovery
+dies in the controller firmware. Resetting the adapter, restarting
+`bluetooth`, and `remove <MAC>` don't clear it. Reboot the Pi, after
+confirming no install is running:
 
 ```bash
-bluetoothctl power off && bluetoothctl power on
-sudo hciconfig hci0 reset
-sudo systemctl restart bluetooth
-bluetoothctl remove <MAC>          # even followed by a fresh scan
+pgrep -a -f 'npm |node-gyp|apt-get|dpkg'      # want nothing
+sudo reboot
 ```
 
-Reboot the Pi. The controller is the onboard BCM4345C0 on UART, and its
-firmware patch (`brcm/BCM4345C0.raspberrypi,4-model-b.hcd`) is loaded only at
-boot, so nothing short of a reboot re-initialises it.
-
-> ⚠️ **Warning:** Confirm no install is in flight first — a reboot landing on
-> an `npm install` in `~/.signalk` truncates the plugin tree:
-
-```bash
-pgrep -a -f 'npm |node-gyp|apt-get|dpkg'
-```
-
-Reading BLE directly is unaffected by the plugin and is the fastest way to
-tell a radio problem from a decode problem:
+Read the sensor directly to separate radio from decode:
 
 ```bash
 scripts/ble-probe.sh poll <MAC> ff02 dda50300fffd77 ff01 15   # JBD packs
 ```
 
----
+## A plugin fork keeps reverting
 
-## A local plugin fork keeps reverting to the registry build
-
-`~/.signalk/node_modules/<plugin>` was a symlink to a local fork and is now a
-real directory holding the registry version. Any `npm install` in `~/.signalk`
-does this, and so does the app store on its own.
-
-Relink it, with SignalK stopped:
-
-```bash
-rm -rf ~/.signalk/node_modules/bt-sensors-plugin-sk
-ln -s ~/bt-sensors-plugin-sk ~/.signalk/node_modules/bt-sensors-plugin-sk
-```
-
-Then pin the exact version the fork declares, in `~/.signalk/package.json`:
-
-```json
-"bt-sensors-plugin-sk": "1.3.8-beta10"
-```
-
-Relinking without repinning buys you nothing — it will be replaced again. A
-caret range like `^1.3.7` never matches a prerelease such as `1.3.8-beta10`,
-because npm's semver excludes prereleases from a range unless the range names
-one, so the fork permanently reads as a version needing repair. Compare the
-two before assuming a link will hold:
+`~/.signalk/node_modules/<plugin>` was a symlink to a fork and is now the
+registry build. Any install re-resolves it unless the pin matches the fork's
+exact version (a caret range never matches a prerelease).
 
 ```bash
 node -e 'console.log("pin: ", require("/home/pi/.signalk/package.json").dependencies["bt-sensors-plugin-sk"])'
 node -e 'console.log("fork:", require("/home/pi/bt-sensors-plugin-sk/package.json").version)'
 ```
 
-Restart SignalK before judging any of this. The server keeps whatever it
-loaded at startup, so swapping the directory changes nothing until it
-restarts — the fork you just linked is not yet the code that's running, and a
-plugin you think you're testing may be the one you replaced.
-
-A symlinked fork also needs its own `node_modules`. npm never installs
-dependencies *through* the symlink — the pinned registry version in
-`~/.signalk/package.json` is a version string, not an install — so the fork's
-declared deps are only ever present by accident, hoisted by some earlier
-registry install of the same package. Any rebuild of `~/.signalk/node_modules`
-drops them and the plugin fails to start:
-
-```text
-bt-sensors-plugin-sk failed to start: Cannot find module '@naugehyde/node-ble'
-```
-
-Install them inside the fork instead of anywhere near `~/.signalk` — that
-keeps it to a few dozen packages rather than the 1.7 GB tree that OOMs the Pi:
+With SignalK stopped, relink and pin the exact version in `~/.signalk/package.json`:
 
 ```bash
-cd ~/bt-sensors-plugin-sk
-npm install --omit=dev --ignore-scripts --no-audit --no-fund
+rm -rf ~/.signalk/node_modules/bt-sensors-plugin-sk
+ln -s ~/bt-sensors-plugin-sk ~/.signalk/node_modules/bt-sensors-plugin-sk
+cd ~/bt-sensors-plugin-sk && npm install --omit=dev --ignore-scripts --no-audit --no-fund   # the fork's own deps
+find ~/bt-sensors-plugin-sk/node_modules -name '*.node'                                     # want none; else npm rebuild here
 ```
 
-`--ignore-scripts` is safe here only because these deps are all pure JS.
-*Verify* — if this finds anything, run `npm rebuild` in the same directory:
+Restart SignalK before judging anything; it keeps whatever it loaded at startup.
+
+## A hook blocks your commit
 
 ```bash
-find ~/bt-sensors-plugin-sk/node_modules -name '*.node'   # expect no output
+bash scripts/check_clone_setup.sh      # names the fix for every gap
 ```
 
+- **"a secret-bearing file is staged in the clear"** — the clean filter isn't wired. `bash scripts/setup-git-filters.sh`, re-stage.
+- **"a whole-file secret store is staged unencrypted"** — `sops --encrypt --in-place <file>`, re-stage.
+- **"looks like a cleartext credential"** — wire it with `scripts/add_inplace_secret.sh`, or rename the field if it isn't a secret.
+- **gitleaks finding** — look at the file and line. A true false positive gets a narrow `.gitleaks.toml` allowlist entry with `condition = "AND"`.
+- **"sops config is inconsistent"** — `.sops.yaml` and `.gitattributes` disagree; the message says which.
+
+A blocked **push** names a commit and a file:
+
+```bash
+git show <commit>:<file>
+bash scripts/setup-git-filters.sh
+git rebase -i <commit>~1
+git push
+# if that commit was already pushed, the secret is out: see the incident below
+```
+
+Break glass: `SKIP=<hook-id> git commit`, `git commit --no-verify`,
+`git push --no-verify`. CI still scans full history on the PR.
 
 ---
 
-## When a hook blocks your commit
+## A secret was committed in plaintext
 
-First, when anything here blocks you:
+**Rotate first.** It is compromised the moment it is pushed; rewriting
+history does not un-publish it.
 
-```bash
-bash scripts/check_clone_setup.sh      # what this clone has wired, and what to do
-```
-
-It needs nothing installed and it names the fix for every gap it finds.
-
-### Mode
-
-Hook messages carry a `mode:` line.
-
-- **contributor** — no age key here. A guard that can't run says so and lets
-  the commit through; CI is the gate.
-- **strict** — there is a key. The same guard fails instead.
-
-Auto-detected from an age key being present *and* both git filters being
-configured. To override:
+1. Revoke and reissue at the provider ([Rotating a secret](#rotating-a-secret)).
+2. Add the missing rule: `scripts/add_inplace_secret.sh <file> <field>`
+3. Confirm nothing else is live:
 
 ```bash
-SECRETGUARD_MODE=strict git commit ...       # one command, force strict
-SECRETGUARD_MODE=contributor git commit ...  # one command, force contributor
-echo contributor > .secretguard-mode         # pin this clone (same two words)
-bash scripts/check_clone_setup.sh            # confirm: the "mode:" line at the top
+bash scripts/verify_encrypted.sh
+scripts/scan_verified_secrets.sh                     # trufflehog: what still works
+docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.30.1 git --no-banner --redact --config /repo/.gitleaks.toml
 ```
 
-Those two words are the whole vocabulary — `SECRETGUARD_MODE=1` is ignored,
-with a message, rather than guessed at.
+Rewrite history only if the value cannot be rotated. `main`'s
+[ruleset](https://github.com/mark-brannan/symphony/settings/rules/21060338)
+blocks force pushes; disable it, push, re-enable.
 
-CI is always strict, and resolves before both of the above: a
-`SECRETGUARD_MODE` exported in a workflow cannot downgrade it.
-`.secretguard-mode` is gitignored — it never travels.
+## Lost age key
 
-Two things never relax, in either mode: staging a `filter=sops` file whose
-content isn't encrypted, and editing one you can't decrypt.
+Prevent it: keep two recipients, stored apart, and never retire the second
+(`scripts/rotate_age_key.sh add --generate`).
 
-### When a push is blocked
-
-`scripts/prepush_secret_scan.sh` reads every commit you are about to
-publish, not just the tip — so it catches one made earlier with
-`--no-verify`. Push is the irreversible moment: deleting a commit from
-GitHub does not un-publish it, and on a topic branch nothing else looks
-until a PR exists.
-
-The message names a commit and a file. Then:
+With a backup:
 
 ```bash
-git show <commit>:<file>               # 1. confirm what is in there
-bash scripts/setup-git-filters.sh      # 2. wire the filter, if that was the problem
-git rebase -i <commit>~1               # 3. fix the commit that carries it
-git push                               # 4. re-run the scan
+mkdir -p ~/.config/sops/age
+cp <the backup> ~/.config/sops/age/keys.txt
+chmod 600 ~/.config/sops/age/keys.txt
+sops --decrypt secrets/symphony.sops.yaml | head -1   # expect readable YAML
 ```
 
-Step 3 is a history rewrite, so it is only safe while the branch is
-unpushed. If it is already pushed, the secret is out — go to *A secret was
-committed in plaintext*, below, and rotate.
-
-### Break glass
+Without one, nothing in git decrypts. Generate a fresh key, put its public
+half in `.sops.yaml`, and re-add each file from live sources: the store from
+the running containers and `.env`, the in-place files from their plaintext
+copies on disk.
 
 ```bash
-SKIP=<hook-id> git commit ...          # skip one hook
-git commit --no-verify                 # skip all commit hooks
-git push --no-verify                   # skip the pre-push scan
+age-keygen -o ~/.config/sops/age/keys.txt
+git add secrets/symphony.sops.yaml signalk/security.json
 ```
 
-All three are legitimate and every message names the one that applies. CI's
-gitleaks and trufflehog passes still run over full history on a PR. If you
-push a secret past these, treat it as a leak — *A secret was committed in
-plaintext*, below.
-
-### Which check failed
-
-In rough order of likelihood:
-
-- **"staged WITHOUT sops encryption markers"** — the clean filter didn't
-  run. Almost always a clone that never ran `scripts/setup-git-filters.sh`.
-  Run it, then re-stage the file.
-- **"looks like a cleartext credential"** — a config file has a
-  password/token/apikey field with a real value. Either wire it up with
-  `scripts/add_inplace_secret.sh`, or if it genuinely isn't a secret, move
-  the value out of a field with that name.
-- **gitleaks finding** — a credential-shaped string anywhere in the diff.
-  The output is redacted; look at the file and line it names. If it's a
-  genuine false positive, add a *narrow* allowlist entry to `.gitleaks.toml`
-  with `condition = "AND"` so you silence one string in one file, never a
-  whole path.
-- **"sops config is inconsistent"** — `.sops.yaml` and `.gitattributes`
-  disagree. The message says which file and which direction. A sops rule
-  without a filter entry is the dangerous one: that file would commit as
-  plaintext.
-
-To see everything without committing:
-
-```bash
-pre-commit run --all-files
-```
-
-**`--no-verify` skips all of it.** It exists for genuine emergencies. CI
-will still catch an unencrypted secret on push — you'll just find out in
-public instead of at your terminal.
-
----
-
-## Fixing openweather-signalk's mis-scaled outside humidity
-
-`environment.outside.relativeHumidity` comes from the `openweather-signalk`
-plugin and arrives as OpenWeatherMap's raw percent (e.g. `88`) instead of
-SignalK's spec ratio (`0.88`) — an upstream unit-labeling bug. Every
-dashboard panel on this path multiplies by 100 expecting a true ratio, so
-until the upstream fix ships the outside-humidity panels read ~8800%. The
-stopgap is a Node-RED flow that republishes the same path as a corrected
-ratio. Node-RED already runs inside SignalK (`@signalk/signalk-node-red`).
-
-1. Open the Node-RED editor: `https://<signalk-host>/node-red/` (or
-   `http://<host>:3000/node-red/` if not behind Caddy yet).
-2. Menu (☰, top right) → **Import** → paste the flow JSON below → **Import**
-   to a new tab.
-3. Open the **outside relativeHumidity** node and confirm its path is set to
-   `environment.outside.relativeHumidity` with flattened output enabled —
-   the import may not carry those fields depending on the installed node
-   version; set them by hand if the fields are empty.
-4. **Deploy**.
-5. Verify: open the SignalK Data Browser
-   (`https://<signalk-host>/admin/#/databrowser`) and confirm
-   `environment.outside.relativeHumidity` reads as a ratio (`0.0`–`1.0`),
-   not a raw percent. Watch it across at least one openweather poll cycle,
-   since the correction only applies on the next delta after deploy.
-6. Regenerate/refresh the weather and life-support Grafana panels if they
-   were mid-way through a bad reading — they read live, so they self-correct
-   once the corrected value lands.
-
-Remove this flow once the upstream openweather-signalk fix ships (tracked at
-github.com/inspired-technologies/signalk-openweather-plugin) — don't leave
-a stopgap running past the reason it exists.
-
-<details>
-<summary>Flow JSON</summary>
-
-```json
-[
-    {
-        "id": "hum01tab",
-        "type": "tab",
-        "label": "openweather humidity fix",
-        "disabled": false,
-        "info": "Corrects environment.outside.relativeHumidity: openweather-signalk publishes OpenWeatherMap's raw percent (0-100) on this path instead of SignalK's 0-1 ratio (upstream bug, see github.com/inspired-technologies/signalk-openweather-plugin issue). This flow republishes the same path as a corrected ratio for any source labeled openweather. Remove this flow once the upstream fix ships."
-    },
-    {
-        "id": "hum02sub",
-        "type": "signalk-subscribe",
-        "z": "hum01tab",
-        "name": "outside relativeHumidity",
-        "path": "environment.outside.relativeHumidity",
-        "flatten": true,
-        "x": 200,
-        "y": 120,
-        "wires": [["hum03fn"]]
-    },
-    {
-        "id": "hum03fn",
-        "type": "function",
-        "z": "hum01tab",
-        "name": "percent -> ratio (openweather only)",
-        "func": "// openweather-signalk mislabels its 'current' humidity object as\n// unit: 'ratio' instead of '%' (confirmed in its source, skunits.js /\n// openweather.js), so its toSignalK() never divides by 100. It publishes\n// OpenWeatherMap's raw 0-100 percent straight through.\n//\n// Guard 1: only touch deltas from an openweather source, so a future\n// upstream fix (or some other source on this path) is left alone.\n// Guard 2: only divide when the value looks like a percent (> 1.5). Our\n// own corrected republish below lands back on this exact path and\n// retriggers this same subscribe node -- without this guard it would\n// halve its own output forever.\nif (!msg.$source || msg.$source.toLowerCase().indexOf('openweather') === -1) {\n    return null;\n}\nif (typeof msg.payload !== 'number' || msg.payload <= 1.5) {\n    return null;\n}\nmsg.payload = {\n    path: 'environment.outside.relativeHumidity',\n    value: msg.payload / 100\n};\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "x": 470,
-        "y": 120,
-        "wires": [["hum04out", "hum05dbg"]]
-    },
-    {
-        "id": "hum04out",
-        "type": "signalk-send-pathvalue",
-        "z": "hum01tab",
-        "name": "republish corrected ratio",
-        "x": 760,
-        "y": 100,
-        "wires": []
-    },
-    {
-        "id": "hum05dbg",
-        "type": "debug",
-        "z": "hum01tab",
-        "name": "corrected value",
-        "active": false,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "x": 760,
-        "y": 140,
-        "wires": []
-    }
-]
-```
-
-</details>
-
----
-
-## Testing the DSC / AIS distress receive chain
-
-**Never press a radio's DSC distress button or activate a SART/MOB/EPIRB to
-test anything** — that transmits a real distress alert; standing rule, see
-`maintenance/priorities.md`. Everything below injects synthetic traffic over
-UDP instead. Nothing goes on the air.
-
-Prerequisites: `@sailingnaturali/signalk-dsc` and
-`@sailingnaturali/signalk-ais-distress` installed and enabled
-(`signalk-mob-notifier` optionally, for the `notifications.mob` alarm).
-
-1. **Turn DSCWatch reporting off before injecting anything.** signalk-dsc
-   ships every received call — synthetic ones included — to dscwatch.com,
-   and undelivered reports queue on disk and send when connectivity returns,
-   so an offline test still pollutes the network later. Plugin Config →
-   signalk-dsc → untick "Report received calls to DSCWatch.com", or set
-   `dscwatchEnabled: false` in
-   `plugin-config-data/signalk-dsc.json` and restart. Restore afterwards.
-
-2. Add a UDP NMEA 0183 input if the server has none — Settings →
-   Connections → Add, or in `settings.json` `pipedProviders`:
-
-   ```json
-   { "id": "dsc-test-udp", "enabled": true,
-     "pipeElements": [{ "type": "providers/simple",
-       "options": { "type": "NMEA0183", "subOptions": { "type": "udp", "port": "7777" } } }] }
-   ```
-
-   Restart SignalK after adding it.
-
-3. Clone the plugin repos for the test scripts. Don't look for them in the
-   installed packages — the npm tarballs omit `scripts/`, so
-   `npm run send-test-dsc` fails with module-not-found on any app-store
-   install (reported upstream 2026-08):
-
-   ```
-   git clone https://github.com/sailingnaturali/signalk-dsc
-   git clone https://github.com/sailingnaturali/signalk-ais-distress
-   ```
-
-4. Fire test traffic. Always pass `--host` — the default is the author's
-   own boat hostname, not localhost:
-
-   ```
-   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777
-   node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777 --nature mob --category urgency
-   node signalk-ais-distress/scripts/send-test-ais.js --host localhost --port 7777 --beacon mob
-   ```
-
-5. Verify each stage (`$TOK` = any access token; anonymous works where
-   read-only access is allowed):
-
-   ```
-   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/dsc-calls
-   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/ais-distress
-   curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v1/api/vessels/self/notifications
-   ```
-
-   Expect: the stored call with parsed fields, a
-   `notifications.received.<category>.<id>` per call (distress → `emergency`,
-   urgency → `alarm`), and for a `--beacon mob` injection additionally
-   `notifications.mob` at `emergency` from signalk-mob-notifier. A distress
-   caller also appears as a SaR target (`sar.urn:mrn:imo:mmsi:<caller>`) in
-   Freeboard.
-
-6. **Don't judge the test by the phone buzzing.** Per-call distress alarms
-   currently never reach `signalk-ntfy` or any other wildcard
-   `notifications.*` subscriber — a signalk-server delivery bug, verified
-   0-for-6 on 2.31.1; details in `reference/distress_monitoring.md`. Verify
-   via the REST endpoints above. If ntfy stays silent, that is the known
-   bug, not a broken test.
-
-7. Clear the alarms when done — clearing is a write, so it needs a
-   readwrite token, and run it from the cloned repos:
-
-   ```
-   cd signalk-dsc          && SIGNALK_TOKEN=$TOK node scripts/clear-dsc-alarm.js --host localhost --category all
-   cd ../signalk-ais-distress && SIGNALK_TOKEN=$TOK node scripts/clear-ais-alarm.js --host localhost --beacon all
-   ```
-
-   Cleared alarms drop to `normal` and stop re-raising across restarts. An
-   uncleared distress alarm re-raises for up to an hour after a server
-   restart — deliberate plugin behavior, not a stuck test.
-
-8. Afterwards: restore the DSCWatch setting to whatever the standing config
-   says, and disable the test UDP input if it was added only for this.
-
----
-
-## Never use OpenPlotter's "Reinstall" for Signal K
-
-Settings → Signal K → **Update** is safe. **Reinstall** runs `rm -rf` on
-`~/.signalk` first — every plugin's configuration, `security.json`,
-`settings.json`, all of it. That is deliberate on OpenPlotter's part: it
-forces the first-run branch that rewrites the launcher script, which is
-skipped whenever `settings.json` already exists. There is no prompt and
-nothing is backed up.
-
-If you need that branch to run — say, to regenerate the launcher after moving
-Node — back up `~/.signalk` first and put the config files back afterward.
-
-
-## List of packages that might need to be installed (based on HALOS investigation)
-sudo apt-get install yadm pre-commit 
-
-For yadm, my git key or a new one
+`influxdb_operator_token` has no plaintext copy anywhere; the `captain` login
+in the InfluxDB UI is what's left.

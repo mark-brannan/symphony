@@ -133,7 +133,7 @@ zone or AWS account, neither of which had the groundwork (DNS record,
 IAM users) this would have needed. rpi-connect stays enabled as a
 fallback.
 
-RUNBOOK.md → "Remote SSH access" has setup and verification.
+RUNBOOK.md → "SSH to the boat" has setup and verification.
 
 ## Web login (SSO)
 
@@ -259,7 +259,7 @@ upstream route stays open as a tidiness argument rather than a coverage one:
   user. Its static secrets are intentionally public; nothing they protect
   exists outside the dev machine.
 
-RUNBOOK.md → "SSO login (GitHub / Google)" has all procedures.
+RUNBOOK.md → "SSO login" has all procedures.
 
 ## Two paths to the same job
 
