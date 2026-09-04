@@ -150,12 +150,14 @@ repos:
 
       # The runbook reached ~3500 lines of prose one defensible addition at
       # a time. A file-size ceiling only punishes the last straw, so this
-      # budgets each straw: prose words per `##` section, and net prose
-      # added per commit. Code fences, tables and the index are free.
-      # Also keeps runbook edits in their own commit, so one can be
-      # reviewed and rejected without holding up the code beside it.
+      # budgets each straw: prose words per `##` section. Code fences,
+      # tables and the index are free. Also keeps runbook edits in their
+      # own commit, so one can be reviewed and rejected without holding up
+      # the code beside it. (A net-prose-added-per-commit rule lived here
+      # too; it's temporarily disabled in the script -- see the comment in
+      # scripts/lint_runbook_prose.py.)
       - id: runbook-prose
-        name: runbook prose budget (per section, per commit)
+        name: runbook prose budget (per section)
         entry: python3 scripts/lint_runbook_prose.py
         language: system
         pass_filenames: false
