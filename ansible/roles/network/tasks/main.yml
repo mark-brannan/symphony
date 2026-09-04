@@ -55,11 +55,33 @@
   # Same SSID and key as the boat card's hotspot, so anything already paired
   # with SignalK keeps working across the swap without being re-paired.
 
-# Tailscale is bootstrap (RUNBOOK → Remote SSH access): the image does not
-# ship it and `tailscale up` needs Mark's browser login. A fresh card reaches
-# this step over the LAN with no tailscale at all, so rename only when it is
-# there and say so when it is not, rather than failing the whole play.
+# The login itself (`tailscale up`) needs Mark's browser -- that part stays
+# bootstrap, by hand, per RUNBOOK → Remote SSH access. The package does not:
+# a card was found on 2026-09-04 with no tailscale binary at all (a reflash
+# most likely) and the login-only assumption meant nobody had a step that put
+# it back. Installing is idempotent (`creates` below), so this runs on every
+# converge and only ever does anything the first time.
 - name: step 16 | is tailscale installed
+  ansible.builtin.stat:
+    path: /usr/bin/tailscale
+  register: ts_bin_pre
+
+- name: step 16 | install tailscale
+  ansible.builtin.shell: curl -fsSL https://tailscale.com/install.sh | sh
+  args:
+    creates: /usr/bin/tailscale
+  when: not ts_bin_pre.stat.exists
+  # The official installer detects distro/codename/arch itself; the boat and
+  # bench cards aren't guaranteed to match, and replicating that detection
+  # with get_url + apt_repository would be one more thing to keep in sync
+  # with two card OSes instead of one upstream script.
+
+# Unconditional and re-registered under its own name rather than reusing
+# ts_bin_pre: a task registering the same var name a second time, but skipped
+# by `when`, overwrites it with a skip result that has no `.stat` at all --
+# every task below would then fail evaluating its own `when`. Found running
+# this against the freshly-reinstalled bench card, 2026-09-04.
+- name: step 16 | current tailscale install state
   ansible.builtin.stat:
     path: /usr/bin/tailscale
   register: ts_bin
@@ -68,22 +90,54 @@
   ansible.builtin.command: tailscale status --json
   register: ts_status
   changed_when: false
+  failed_when: false
   check_mode: false
   when: ts_bin.stat.exists
 
+# `Self` is a populated-looking placeholder (HostName present, PublicKey all
+# zeroes) even while logged out -- `Self is defined` is true either way, so
+# `BackendState` is the only field that actually distinguishes "authenticated"
+# from "installed but never logged in" (found running this against a freshly
+# reinstalled card, 2026-09-04: the rename below silently no-oped against a
+# logged-out daemon instead of being skipped).
 - name: step 16 | rename the tailnet node
   ansible.builtin.command: "tailscale set --hostname={{ tailscale_hostname }}"
-  when: ts_bin.stat.exists and (ts_status.stdout | from_json).Self.HostName != tailscale_hostname
+  when: >-
+    ts_bin.stat.exists and (ts_status.stdout | from_json).BackendState == "Running"
+    and (ts_status.stdout | from_json).Self.HostName != tailscale_hostname
   # Renaming keeps the node key and the tailnet IP; it is a display name, so
   # this does not re-authenticate the card or disturb an open ssh session.
 
-- name: step 16 | tailscale is not installed on this card
+- name: step 16 | tailscale needs Mark's login
   ansible.builtin.debug:
     msg: >-
-      No /usr/bin/tailscale. Install it and `tailscale up --ssh
-      --hostname={{ tailscale_hostname }}` by hand (RUNBOOK → Remote SSH
-      access); the rename above was skipped.
-  when: not ts_bin.stat.exists
+      tailscale is installed but not logged in (BackendState {{
+      (ts_status.stdout | from_json).BackendState }}). Run `sudo tailscale up
+      --ssh --hostname={{ tailscale_hostname }}` by hand (RUNBOOK → Remote SSH
+      access) -- the browser auth step isn't scriptable; the rename above
+      was skipped until then.
+  when: ts_bin.stat.exists and (ts_status.stdout | from_json).BackendState != "Running"
+
+# The rename above only proves tailscaled is up right now -- it says nothing
+# about whether it survives a reboot. A bench power-cycle on 2026-09-04 left
+# the card unreachable with every other check green, because nothing here
+# asserted tailscaled's boot-enabled state.
+- name: step 16 | tailscaled is enabled and active
+  ansible.builtin.command: "systemctl {{ item }} --quiet tailscaled"
+  register: ts_boot
+  loop: [is-enabled, is-active]
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ts_bin.stat.exists
+  tags: [verify]
+
+- name: step 16 | assert tailscaled survives a reboot
+  ansible.builtin.assert:
+    that: ts_boot.results | selectattr('rc', 'ne', 0) | list | length == 0
+    fail_msg: "tailscaled enabled/active rc: {{ ts_boot.results | map(attribute='rc') | list }} (want [0, 0]) -- a reboot silently drops the card off the tailnet"
+  when: ts_bin.stat.exists
+  tags: [verify]
 
 # The verify below reads what NetworkManager has loaded. NetworkManager only
 # reads new keyfiles on an explicit reload, and a handler fires only on the
