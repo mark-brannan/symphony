@@ -42,7 +42,6 @@ logged in `maintenance/log.md`.
 - [Rotating the age key](#rotating-the-age-key)
 - [Removing a secret](#removing-a-secret)
 - [Email pseudonyms in security.json](#email-pseudonyms-in-securityjson)
-- [Per-machine config values](#per-machine-config-values)
 - [Router config backup](#router-config-backup)
 - [Scanning for leaks by hand](#scanning-for-leaks-by-hand)
 
@@ -366,19 +365,15 @@ readable YAML.
 ```bash
 git clone https://github.com/mark-brannan/symphony.git
 cd symphony
-cp hostvars.local.yaml.example hostvars.local.yaml
-# edit hostvars.local.yaml: set THIS machine's values (the example lists them)
 bash scripts/setup-git-filters.sh
 python3 scripts/render.py
 ```
 
-`setup-git-filters.sh` is the one onboarding command: it wires the sops and
-hostvars clean/smudge filters, installs the pre-commit hooks, clears any
-stale `core.hooksPath`, decrypts the in-place files onto disk, and expands
-the per-machine values from `hostvars.local.yaml`
-([Per-machine config values](#per-machine-config-values)). It only touches
-files that are *still ciphertext or placeholders*, so it can never clobber
-live local config, and it's safe to re-run at any time.
+`setup-git-filters.sh` is the one onboarding command: it wires the sops
+clean/smudge filter, installs the pre-commit hooks, clears any stale
+`core.hooksPath`, and decrypts the in-place files onto disk. It only touches
+files that are *still ciphertext*, so it can never clobber live local
+config, and it's safe to re-run at any time.
 
 Filters can't be wired before this point — git filter commands live in
 `.git/config`, which git deliberately doesn't version (arbitrary commands
@@ -1839,151 +1834,6 @@ git checkout -- signalk/security.json
 ```
 git log -S 'pid.rj232vx' -- signalk/security.json
 ```
-
----
-
-## Per-machine config values
-
-Some plugin-config values differ per machine without being secrets — the
-first is `signalk-ntfy`'s server URL (`http://ntfy:80` on the dev stack,
-`http://localhost:8090` on the boat Pi). Git stores a placeholder
-(`"{{ ntfy_url }}"`); the working tree holds this machine's value, expanded
-by the `hostvars` clean/smudge filter from `hostvars.local.yaml`
-(gitignored). Which files and variables: `.hostvars.yaml`. Why it's built
-this way: [reference/software_stack.md](reference/software_stack.md).
-
-SignalK reads plugin config only when the plugin starts, so every change
-below ends with a restart — `sudo systemctl restart signalk` on the boat,
-`docker compose restart signalk` on the dev stack. Skip it and the running
-plugin keeps its old config, which makes the change look like it did
-nothing.
-
-### Set up a machine
-
-```bash
-cp hostvars.local.yaml.example hostvars.local.yaml
-# edit hostvars.local.yaml -- the example lists the known per-machine values
-bash scripts/setup-git-filters.sh
-```
-
-*Verify:* `grep url signalk/plugin-config-data/signalk-ntfy.json` shows a
-real URL.
-
-> ⚠️ **Warning:** If it shows `{{ ntfy_url }}`, don't (re)start SignalK until
-> that's fixed — it reads the placeholder as a literal URL. If SignalK was
-> already running during setup, restart it.
-
-### Change this machine's value (e.g. the ntfy URL moved)
-
-```bash
-# edit hostvars.local.yaml, then:
-python3 scripts/hostvars_filter.py refresh
-sudo systemctl restart signalk   # dev stack: docker compose restart signalk
-```
-
-Don't skip `refresh`: editing `hostvars.local.yaml` alone changes nothing on
-disk, and don't use `git checkout --` for this — it would discard any other
-local changes in the file; `refresh` rewrites only the placeholder values.
-
-*Verify:* `grep url signalk/plugin-config-data/signalk-ntfy.json` shows the
-new value, and after the restart the plugin's page under Server → Plugin
-Config shows it too.
-
-If instead the value was changed in SignalK's admin UI first, the plugin is
-already using it and needs no restart, but git and `hostvars.local.yaml` now
-disagree with the disk. Update `hostvars.local.yaml` to match and run
-`refresh` — it prints `unchanged`, which is right, the disk already has the
-value. If the file had already been staged, re-stage it:
-
-```bash
-git add --renormalize signalk/plugin-config-data/signalk-ntfy.json
-```
-
-Until the two agree, committing the file is blocked by the
-`hostvars-placeholders` pre-commit hook (and the same check in CI) rather
-than committing one machine's value over the other's.
-
-### Add a new per-machine value
-
-Worked example: `signalk/plugin-config-data/foo.json` gains a per-machine
-`"endpoint"` value, variable name `foo_endpoint`.
-
-1. Declare it in `.hostvars.yaml` (and add the file to `.gitattributes` as
-   `filter=hostvars` if it isn't listed there yet):
-
-   ```yaml
-     signalk/plugin-config-data/foo.json:
-       - foo_endpoint
-   ```
-
-2. Add it to `hostvars.local.yaml.example` with the known machines' values
-   in a comment; set this machine's value in `hostvars.local.yaml`.
-
-3. Leave the real value in the plugin file — never write the placeholder
-   into it by hand; the clean filter contracts the value while staging.
-   The staging command depends on whether git already tracks the file:
-
-   ```bash
-   git add signalk/plugin-config-data/foo.json                # new file
-   ```
-
-   ```bash
-   git add --renormalize signalk/plugin-config-data/foo.json  # already tracked
-   ```
-
-   Already-tracked files need `--renormalize` because a plain `git add`
-   skips the filter when the file looks unmodified — but `--renormalize`
-   silently stages *nothing* for an untracked file, so a new file needs the
-   plain form.
-
-4. *Verify:* `git show :signalk/plugin-config-data/foo.json` shows
-   `{{ foo_endpoint }}`. Commit it together with `.hostvars.yaml`,
-   `.gitattributes`, and `hostvars.local.yaml.example`.
-
-5. On every other machine, after pulling: add that machine's value to its
-   `hostvars.local.yaml`, then
-
-   ```bash
-   python3 scripts/hostvars_filter.py refresh
-   sudo systemctl restart signalk   # dev stack: docker compose restart signalk
-   ```
-
-   The pull prints `hostvars: WARNING ... left unexpanded` as the reminder.
-   Until the refresh runs, the file on disk holds the literal placeholder,
-   and SignalK would read it as the real value at the plugin's next start —
-   `scripts/lint_host_state.py` flags this state on the boat.
-
-### A pull rejects: "Your local changes ... would be overwritten by merge"
-
-Happens when a pull brings a file under hostvars coverage while the working
-tree still holds this machine's literal value — this is how an existing
-checkout picks up coverage that was added on another machine. Git's own two
-suggestions are both wrong here: `git stash` is forbidden repo-wide, and
-committing would commit the machine-local value. The local difference is
-exactly the value the filter regenerates, so it's safe to discard for this
-one file:
-
-1. Discard only the covered file and pull:
-
-   ```bash
-   git checkout -- signalk/plugin-config-data/signalk-ntfy.json
-   git pull
-   ```
-
-2. Put this machine's value in `hostvars.local.yaml` — the pull just
-   delivered `hostvars.local.yaml.example` if this machine has neither.
-3. Expand it:
-
-   ```bash
-   bash scripts/setup-git-filters.sh
-   ```
-
-4. *Verify:* `grep url signalk/plugin-config-data/signalk-ntfy.json` shows
-   this machine's URL. Restart SignalK.
-
-Between the checkout and the setup script the file on disk is wrong (first
-the other machine's committed value, then a placeholder), so run the three
-commands in one sitting and don't restart SignalK partway through.
 
 ---
 

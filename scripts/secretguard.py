@@ -2,7 +2,7 @@
 """Python twin of scripts/secretguard.sh -- same mode, same message shape.
 
 Guards in this repo exist in both languages (lint_repo_hygiene.py and
-hostvars_filter.py in python, the pre-commit shell guards in bash), and a
+sops_filter.py in python, the pre-commit shell guards in bash), and a
 contributor should not be able to tell which one stopped them. Both
 implementations resolve mode by the rules documented in the shell file and
 format messages identically; scripts/test_secretguard.py asserts they
@@ -196,9 +196,7 @@ def can_decrypt():
 
 
 def _filters_configured():
-    return bool(_git_config("filter.sops.clean")) and bool(
-        _git_config("filter.hostvars.clean")
-    )
+    return bool(_git_config("filter.sops.clean"))
 
 
 def _read_mode_file():

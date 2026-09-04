@@ -32,8 +32,8 @@
     dest: "{{ symphony_repo_dir }}"
     version: "{{ symphony_repo_version }}"
     update: true
-    # Never force. A checkout on a card is not disposable: sops- and
-    # hostvars-filtered files read as modified whenever the filters are not
+    # Never force. A checkout on a card is not disposable: sops-filtered
+    # files read as modified whenever the filters are not
     # wired up, and a reset --hard would delete whatever a session left there.
     force: false
   # --diff on this task prints the whole pending repo diff -- eleven thousand
@@ -61,7 +61,7 @@
   ansible.builtin.debug:
     msg: >-
       {{ symphony_repo_dir }} has no sops clean/smudge filter. Encrypted files
-      are ciphertext on disk and hostvars files still hold {{ '{{' }} placeholders {{ '}}' }}.
+      are ciphertext on disk.
       This is bootstrap, deliberately outside Ansible's remit
       (reference/host_provisioning.md): the age key has to arrive out of band
       and git filters live in .git/config, which is unversioned. Run

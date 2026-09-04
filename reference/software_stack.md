@@ -419,69 +419,20 @@ is a property of those two Dex connectors, not a guarantee — GitLab IDs
 resolve publicly, and Dex's static password DB puts whatever string you typed
 into the subject. Re-check it before adding a connector.
 
-## Per-machine values in plugin config
+## The ntfy URL is the same on every machine
 
-The tracked plugin-config files double as the live configuration on every
-checkout, and one value genuinely differs by machine: `signalk-ntfy`'s
-server URL is `http://ntfy:80` on the dev stack (SignalK reaches ntfy over
-the compose network) but `http://localhost:8090` on the boat Pi (native
-SignalK, ntfy container's published port). With a single committed file,
-whichever machine committed last silently broke the other's alarm delivery.
+`signalk-ntfy`'s server URL used to differ per machine — `http://ntfy:80` on
+the dev stack, `http://localhost:8090` on the boat — and a git clean/smudge
+filter (`hostvars`) kept one machine's value from overwriting the other's.
+Removed 2026-09-04: ntfy listens on 8090 and, on the dev stack, shares
+signalk's network namespace (`compose-ntfy.yml`, `network_mode:
+"service:vcan"`), so `http://localhost:8090` is correct on both. The filter
+existed to hide one RFC1918 address that is not sensitive.
 
-The fix reuses the clean/smudge filter architecture: git stores a
-placeholder (`"url": "{{ ntfy_url }}"`), and a second filter (`hostvars`,
-`scripts/hostvars_filter.py`) expands it on checkout from a gitignored
-per-machine `hostvars.local.yaml` and contracts it back on commit. SignalK
-reads and rewrites the file exactly as before; the machine-specific value
-never reaches git.
-
-Not sops, deliberately: these values aren't secrets, they just aren't
-shared — an ENC[...] blob would hide a harmless URL and still couldn't
-differ per machine. Only whole string values substitute, matched
-byte-for-byte, so a value can never be rewritten where it appears inside
-some longer string. `.hostvars.yaml` declares which files and variable
-names participate; the placeholder syntax matches the jinja2 templates
-`scripts/render.py` already renders, so an eventual Ansible migration
-treats these files as the templates they effectively are.
-
-The invariant — git's copy holds the placeholder, never one machine's
-literal value — is enforced the same way as the sops layer: a loud warning
-from the clean filter, a pre-commit hook (`hostvars-placeholders`), and the
-same check in CI (`scripts/hostvars_filter.py check`).
-
-### Alternatives considered for the ntfy URL
-
-Two other mechanisms could have carried this value; both were rejected for
-this case, and the reasons bound when each is the right tool.
-
-**A dev override** (`dev/plugin-config-overrides/`, a read-only bind mount
-over the repo's copy). Right for plugins that must be *forced* into a dev
-state — the pin deliberately breaks admin-UI saves, and it assumes the
-committed file is the boat's value with dev as the exception. Neither fits
-ntfy: the plugin is live in both environments, its other settings (topic,
-levels, `minIntervalMinutes`) should stay editable and committable from
-either machine, and the URL difference has no "real" side for the repo to
-own. The filter keeps the committed file environment-neutral and the
-admin-UI workflow intact on both machines.
-
-**One URL everywhere via DNS** — a split-horizon name, an `/etc/hosts`
-alias, or routing ntfy through Caddy. The two SignalK instances talk to
-*different* ntfy servers, each co-located with its SignalK; a shared name
-would not remove the per-machine difference, only relocate it from a
-declared, CI-checked `hostvars.local.yaml` into unversioned network state —
-a dnsmasq override per router, an `/etc/hosts` entry, a published-port
-choice — one copy per LAN, invisible to git and to `check`. On the boat it
-would also insert a resolver (and, via Caddy, the TLS front door and its
-offshore-expiring certificates) into the alarm-delivery path, which today
-depends on nothing but the loopback interface. Dev in fact already uses a
-split-horizon name: `ntfy` resolves only inside the compose network, via
-Docker's embedded DNS. The boat's equivalent binding is `localhost` — it
-just cannot be spelled identically, and alarms are the last traffic that
-should take on new dependencies to make a config file byte-identical.
-
-A client-facing name (a phone finding ntfy on the boat LAN, via the
-existing router DNS override and a Caddy route) is a separate, compatible
-concern — it would not change what SignalK dials.
+The test that retired it governs any future per-host value: before building
+a mechanism to make a value differ per host, ask whether it could be the
+same everywhere without causing pain. Bias toward removing the difference,
+not toward a better override.
 
 ## How the safety net is layered
 

@@ -73,18 +73,7 @@ jobs:
           python-version: "3.x"
       - run: pip install pyyaml
       - run: python3 scripts/validate_configs.py
-      # Per-machine values: assert git's copy of every hostvars-covered file
-      # still holds its {{ placeholders }} rather than one machine's literal
-      # value (same relationship to the local hook as the sops checks).
-      #
-      # --all is required, not optional. The pre-commit hook scopes itself to
-      # what a commit stages, so that a bad file cannot block unrelated work;
-      # nothing is staged in CI, so without --all this would pass vacuously
-      # and repo-wide enforcement would quietly disappear. CI is where whole-
-      # repo truth is asserted -- that is the trade the scoping is built on.
-      - run: python3 scripts/hostvars_filter.py check --all
-
-      # Same trade, same reason: both of these scope to the staged set at
+      # Both of these scope to the staged set at
       # commit time and must run unscoped here.
       #
       # HYGIENE_COMMIT_RANGE gives rule_frozen_secrets_untouched something to

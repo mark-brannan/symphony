@@ -220,7 +220,7 @@ class CLocaleDoesNotBreakPathsTest(unittest.TestCase):
     def test_staged_paths_survives_an_ascii_locale(self):
         name = "caf\u00e9.sops.yaml"
         with tempfile.TemporaryDirectory() as tmp:
-            run = lambda *c: subprocess.run(c, cwd=tmp, capture_output=True)
+            run = lambda *c: subprocess.run(c, cwd=tmp, capture_output=True, env=CLEAN_ENV)
             run("git", "init", "-q", ".")
             run("git", "config", "user.email", "t@example.com")
             run("git", "config", "user.name", "t")
@@ -236,7 +236,7 @@ class CLocaleDoesNotBreakPathsTest(unittest.TestCase):
                 % (str(Path(__file__).resolve().parent), tmp)
             )
             hostile = {
-                **os.environ,
+                **CLEAN_ENV,
                 "LC_ALL": "C", "LANG": "C",
                 "PYTHONCOERCECLOCALE": "0", "PYTHONUTF8": "0",
             }
@@ -247,6 +247,13 @@ class CLocaleDoesNotBreakPathsTest(unittest.TestCase):
                          f"staged_paths died under a C locale:\n{done.stderr}")
         self.assertIn(name, done.stdout,
                       "the non-ASCII path must survive an ASCII locale")
+
+
+# git exports GIT_DIR and GIT_INDEX_FILE into hook environments, so a test
+# building its own temp repo drives the real one instead when run from a
+# commit -- staging its fixture there and failing on the real index.
+GIT_ENV = ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_OBJECT_DIRECTORY")
+CLEAN_ENV = {k: v for k, v in os.environ.items() if k not in GIT_ENV}
 
 
 class NonAsciiPathsStayInScopeTest(unittest.TestCase):
@@ -261,7 +268,7 @@ class NonAsciiPathsStayInScopeTest(unittest.TestCase):
     def test_a_non_ascii_staged_path_is_returned_verbatim(self):
         name = "caf\u00e9-\u00e5\u00df.md"
         with tempfile.TemporaryDirectory() as tmp:
-            run = lambda *c: subprocess.run(c, cwd=tmp, capture_output=True)
+            run = lambda *c: subprocess.run(c, cwd=tmp, capture_output=True, env=CLEAN_ENV)
             run("git", "init", "-q", ".")
             run("git", "config", "user.email", "t@example.com")
             run("git", "config", "user.name", "t")
@@ -271,7 +278,8 @@ class NonAsciiPathsStayInScopeTest(unittest.TestCase):
             real_root = eh.ROOT
             eh.ROOT = Path(tmp)
             try:
-                staged = eh.staged_paths()
+                with mock.patch.dict(os.environ, CLEAN_ENV, clear=True):
+                    staged = eh.staged_paths()
             finally:
                 eh.ROOT = real_root
 

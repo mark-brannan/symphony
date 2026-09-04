@@ -12,6 +12,3 @@ signalk/plugin-config-data/freeboard-sk.json filter=sops
 signalk/plugin-config-data/signalk-saillogger.json filter=sops
 host/boat-heartbeat.json filter=sops
 
-# Per-machine values (not secrets) -- expanded from hostvars.local.yaml by
-# scripts/hostvars_filter.py; git stores {{ placeholders }}
-signalk/plugin-config-data/signalk-ntfy.json filter=hostvars
