@@ -88,6 +88,10 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 
 ## Claude's
 
+### Repo & tooling
+- [ ] **Restore [PR #44](https://github.com/mark-brannan/symphony/pull/44)'s per-commit prose-delta rule (rule 2)** once PR #44 is merged and closed out — Mark's call, temporary drop only. `scripts/lint_runbook_prose.py`'s `main()` has the exact 3-line restore in a comment right above where `check_delta` used to be called; `check_delta` and its tests were left in place. Also restore `.pre-commit-config.yaml`'s `runbook-prose` hook name/comment (currently says "per section" only).
+- [ ] **Confirm the sticky-comment fix to `claude-review.yml` (PR #44, commit `c03887d`) actually works, on the next PR that touches it.** It couldn't self-test on #44 — GitHub's own claude-code-action skipped running because the PR modifies the workflow file it runs under (logged as "Skipping action due to workflow validation," a known pre-existing case per the comment in that workflow already). Watch the first real PR after #44 merges: one `claude[bot]` summary comment should update in place across pushes, not multiply.
+
 ### Infrastructure
 - [ ] Dev-box `grafana` container is in a restart loop since 2026-09-04 02:12 — `Datasource provisioning error: data source not found`; pre-existing, not touched by #41/#42. Read `docker logs grafana` against [grafana/provisioning](../../grafana/provisioning) and fix the datasource reference.
 - [ ] Confirm containerized pypilot on `symphony-pi` survives a reboot — cut over 2026-09-03 (native disabled, container `restart: unless-stopped`), but that policy has never been exercised through an actual host reboot. Check `docker ps` shows `pypilot`/`pypilot-web` `Up` after the next reboot the boat takes for any reason; if not, `RUNBOOK.md` § "Cut the boat over" has the rollback.
