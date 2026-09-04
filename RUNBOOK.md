@@ -2590,6 +2590,9 @@ ip -br link show can0                  # want UP
 timeout 5 candump -n 20 can0           # want frames
 ```
 
+On the dev stack `can0` lives in the `vcan` sidecar's namespace, not the
+host's: prefix both with `docker compose exec vcan`.
+
 **Don't unset `uniqueNumber`.** It's pinned to `368391` in the connection's
 `subOptions`. It forms part of the NAME this box claims on the bus; left
 unset, SignalK generates a random one on save, and the Pi shows up as a
@@ -2597,7 +2600,22 @@ brand-new device to every other instrument each time.
 
 ### A fake `can0` for testing off the boat
 
-On any Linux host (bench Pi, WSL) — SignalK can't tell this from a real CAN hat:
+The dev stack does this itself: the `vcan` sidecar in `compose-signalk.yml`
+creates `can0` in the network namespace signalk runs in, so `docker compose
+up` gives SignalK a CAN interface with no manual step. The host kernel needs
+the `vcan` module (WSL2 has it; elsewhere `sudo modprobe vcan`). Without it
+the sidecar never turns healthy and signalk does not start — rather than
+starting without `can0` and sitting in `alarm`.
+
+*Verify:*
+
+```bash
+docker compose exec vcan ip -br link show can0      # want UP
+docker compose logs signalk | grep 'connected to can0'
+```
+
+On any other Linux host (bench Pi, a VM) — SignalK can't tell this from a
+real CAN hat:
 
 ```bash
 sudo modprobe vcan && sudo ip link add dev can0 type vcan && sudo ip link set up can0

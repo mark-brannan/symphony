@@ -2,7 +2,7 @@
 
 `signalk/plugin-config-data/` is what we intend to push to the boat. A few
 plugins can't hold the same values in both places — the relay that pages a
-real phone, a provider watch for hardware the dev box doesn't have. Rather
+real phone is the one left. Rather
 than let dev values creep into the repo, each of those gets a replacement
 file here, bind-mounted read-only over the repo's copy in
 `docker-compose.override.yml`.
@@ -15,7 +15,6 @@ SignalK natively rather than in Docker, so nothing here reaches it.
 | File | Dev value | Reason |
 |---|---|---|
 | `signalk-pushover-notification-relay.json` | `enabled: false` | The relay's dedupe state is in memory. Every container restart re-sent every non-normal notification to the phone, and the dev container restarts constantly. |
-| `signalk-healthcheck.json` | `providers.n2k-can0.enabled: false` | Watches a CAN provider the dev box has no hardware for, so its delta rate is permanently 0 and it sits in `alarm` forever. |
 
 ## The trap: you can't save these from the dev admin UI
 
@@ -40,8 +39,7 @@ add a mount line to `docker-compose.override.yml`. Keep the two files
 structurally identical otherwise, so a diff shows just the dev delta — with
 one exception: strip credential fields rather than copying them, both because
 these files aren't sops-covered and because the pre-commit secret guard will
-block the commit if you do. `signalk-healthcheck.json` drops its `mail` block
-for that reason; email is disabled in dev either way.
+block the commit if you do.
 
 `signalk-ntfy.json` is handled by the `hostvars` filter instead of a pin
 (RUNBOOK.md § Per-machine config values): the plugin is live in both

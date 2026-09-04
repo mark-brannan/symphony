@@ -5,14 +5,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    ports:
-      - "3000:3000" # 3000 is the SignalK convention -- mDNS and clients default to it
-      - "80:80"
     volumes:
       - ./signalk:/home/node/.signalk
       - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - symphony-net
+    network_mode: "service:vcan"
     group_add:
       - "1001" # host's docker GID, for docker.sock access (getent group docker)
     #devices:
@@ -21,4 +17,36 @@ services:
     cap_add:
       - NET_ADMIN # Allows the container to interact with network configurations if needed
     depends_on:
-      - influxdb
+      influxdb:
+        condition: service_started
+      vcan:
+        condition: service_healthy
+
+  # Dev-only sidecar. The signalk image has no iproute2 and runs as uid 1000,
+  # so it cannot create a CAN interface itself. This container owns the
+  # network namespace and creates can0 in it; signalk joins it
+  # (network_mode above), which is why the ports, the network and the
+  # signalk-server DNS name are declared here rather than on signalk.
+  vcan:
+    image: alpine:3.20
+    container_name: signalk-vcan
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "3000:3000" # 3000 is the SignalK convention -- mDNS and clients default to it
+      - "80:80"
+    networks:
+      symphony-net:
+        aliases:
+          - signalk-server # caddy's reverse_proxy upstream resolves to the namespace owner
+    healthcheck:
+      test: ["CMD", "ip", "link", "show", "can0"]
+      interval: 5s
+      start_period: 30s
+      retries: 3
+    command: >
+      sh -c "apk add --no-cache iproute2 >/dev/null &&
+             ip link add dev can0 type vcan &&
+             ip link set up can0 &&
+             exec sleep infinity"
