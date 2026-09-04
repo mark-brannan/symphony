@@ -18,10 +18,12 @@ Every line must be `ok`. The `services` line needs QuestDB and Grafana up on
 the bench Pi; on the 2 GB bench, stop them again afterward
 (`sudo systemctl stop marine-questdb-container marine-grafana-container`).
 
-A `state` FAIL means the boat's SignalK config has moved since the card was
-loaded. Sync, then re-run the preflight. **Keep every exclude**; the last
-five are the card's own settings, and SignalK re-enables plugins live when
-they are overwritten, with no error.
+## Sync the SignalK config
+
+A `state` FAIL in the preflight means the boat's SignalK config has moved
+since the card was loaded. Sync, then re-run the preflight. **Keep every
+exclude**; the last five are the card's own settings, and SignalK re-enables
+plugins live when they are overwritten, with no error.
 
 ```bash
 ssh pi@symphony-halos 'D=/var/lib/container-apps/marine-signalk-server-container/data/data
@@ -50,7 +52,9 @@ ssh pi@symphony-halos 'journalctl -u halos-npm -f'      # follow or re-follow th
 Abort with `sudo systemctl stop halos-npm`, never `systemctl kill` (that
 leaves SignalK down).
 
-Exercise the DNS write path once from home, so a dead token is found at home:
+## Exercise the DNS cutover from home
+
+So a dead token is found at home, not at the boat:
 
 ```bash
 scripts/dns_cutover.sh set symphony-halos -y
@@ -67,9 +71,8 @@ dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card
    scripts/halos_swap_check.sh symphony-pi
    ```
 
-   `victron` FAILs while the Cerbo isn't answering on 8883 and `questdb`
-   FAILs when the boat's QuestDB is too loaded to answer in 30 s; both are
-   boat-side and carry over.
+   `victron` and `questdb` FAILs are boat-side (Cerbo not answering on
+   8883, QuestDB too loaded to answer in 30 s) and carry over.
 
 2. Shut down; unplug the Micro-C when the green LED stops:
 
@@ -77,29 +80,29 @@ dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card
    ssh pi@symphony-pi 'sudo shutdown -h now'
    ```
 
-3. Swap the cards. The boat card goes in your pocket; it is the only copy of
-   the QuestDB history and `~/influx-export`.
+3. Swap the cards. Pocket the boat card; it is the only copy of the
+   QuestDB history and `~/influx-export`.
 
 4. Reconnect the Micro-C. Wait five minutes (SignalK cold-starts in 3–4).
 
-5. Check every function over Tailscale (touches no public DNS):
+5. Check every function over Tailscale:
 
    ```bash
    scripts/halos_swap_check.sh
    ```
 
    Same lines as the baseline, `up=` small, `front` on `:4430`. `ble` and
-   `bme680` can take ten minutes; rerun. A `bme680` FAIL that survives is
-   usually the container not reaching the bus:
+   `bme680` can take ten minutes; rerun. Don't move DNS until every line
+   that was `ok` in the baseline is `ok` here. A `bme680` FAIL that survives:
 
    ```bash
+   # silence is a pass; PermissionError means the group_add override in
+   # host/halos/signalk-healthcheck-override.yml is missing: install it per
+   # host/halos/README.md and restart the unit
    ssh -t pi@symphony-halos "sudo docker exec signalk-server python3 -c \"open('/dev/i2c-1')\""
    ```
 
-   Silence is a pass. `PermissionError` means the `group_add` override in
-   `host/halos/signalk-healthcheck-override.yml` is missing; install it per
-   `host/halos/README.md` and restart the unit. Don't move DNS until every
-   line that was `ok` in the baseline is `ok` here.
+## Cut over and check from a phone
 
 6. Cut public DNS over:
 

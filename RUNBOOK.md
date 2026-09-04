@@ -45,6 +45,8 @@ swap has its own file: [runbooks/halos_swap.md](runbooks/halos_swap.md).
 - [Email pseudonyms in security.json](#email-pseudonyms-in-securityjson)
 - [Router config backup](#router-config-backup)
 - [SSO login](#sso-login)
+- [SSO one-time setup](#sso-one-time-setup)
+- [SSO access grants](#sso-access-grants)
 
 **Troubleshooting**
 - [Hostnames stop resolving on the boat](#hostnames-stop-resolving-on-the-boat)
@@ -172,9 +174,8 @@ later looking unrelated.
 
 ```bash
 sudo apt install pre-commit     # or: brew install pre-commit
+# sops and age: standalone binaries from their GitHub releases, onto PATH
 ```
-
-`sops` and `age` are standalone binaries from their GitHub releases; put them on `PATH`.
 
 *Verify:* `docker compose version && sops --version && age --version && pre-commit --version`
 
@@ -208,11 +209,13 @@ bash scripts/provision_grafana_users.sh
 bash scripts/provision_influxdb.sh
 ```
 
-On the boat, not the `--profile tls` line: see [SSO login](#sso-login) step 4.
-The provisioners are idempotent. `provision_influxdb.sh` may mint tokens:
-if it minted `influx_token`, re-run `render.py` and `docker compose up -d
---force-recreate grafana`; if it minted `influxdb_signalk_token`, put it in
-`signalk/plugin-config-data/signalk-to-influxdb2.json` and restart SignalK.
+```bash
+# On the boat, not the --profile tls line: see SSO login.
+# provision_influxdb.sh may mint tokens. If it minted influx_token:
+#   python3 scripts/render.py && docker compose up -d --force-recreate grafana
+# If it minted influxdb_signalk_token: put it in
+#   signalk/plugin-config-data/signalk-to-influxdb2.json and restart SignalK.
+```
 
 *Verify:* `bash scripts/test_integration.sh`
 
@@ -580,27 +583,29 @@ sudo systemctl enable --now pypilot pypilot_web
 test.** Everything here injects synthetic traffic over UDP.
 
 1. Turn off DSCWatch reporting first: Plugin Config → signalk-dsc → untick
-   "Report received calls to DSCWatch.com". Queued reports send later even
+   "Report received calls to DSCWatch.com". Queued reports send later, even
    from an offline test.
 2. Add a UDP NMEA 0183 input if none exists (Settings → Connections → Add,
    type NMEA0183, udp, port 7777), then restart SignalK.
-3. Clone the plugin repos; the npm tarballs omit `scripts/`:
+3. Clone the plugin repos:
 
    ```bash
+   # the npm tarballs omit scripts/
    git clone https://github.com/sailingnaturali/signalk-dsc
    git clone https://github.com/sailingnaturali/signalk-ais-distress
    ```
 
-4. Fire traffic. Always pass `--host`; the default is the author's boat:
+4. Fire traffic:
 
    ```bash
+   # always pass --host; the default is the author's boat
    node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777
    node signalk-dsc/scripts/send-test-dsc.js --host localhost --port 7777 --nature mob --category urgency
    node signalk-ais-distress/scripts/send-test-ais.js --host localhost --port 7777 --beacon mob
    ```
 
-5. *Verify* through the API, not the phone. Per-call distress alarms do not
-   reach `signalk-ntfy` (server bug; `reference/distress_monitoring.md`):
+5. *Verify* through the API, not the phone (per-call alarms never reach
+   `signalk-ntfy`; `reference/distress_monitoring.md`):
 
    ```bash
    curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v2/api/resources/dsc-calls
@@ -608,8 +613,8 @@ test.** Everything here injects synthetic traffic over UDP.
    curl -s -H "Authorization: Bearer $TOK" localhost:3000/signalk/v1/api/vessels/self/notifications
    ```
 
-   Expect the stored call, a `notifications.received.<category>.<id>` per
-   call, and `notifications.mob` for the `--beacon mob` injection.
+   Expect the stored call, one `notifications.received.<category>.<id>`
+   each, and `notifications.mob` for `--beacon mob`.
 
 6. Clear the alarms (readwrite token):
 
@@ -618,7 +623,7 @@ test.** Everything here injects synthetic traffic over UDP.
    cd ../signalk-ais-distress && SIGNALK_TOKEN=$TOK node scripts/clear-ais-alarm.js --host localhost --beacon all
    ```
 
-7. Restore the DSCWatch setting and remove the test UDP input.
+7. Restore DSCWatch and remove the test UDP input.
 
 ---
 
@@ -848,39 +853,20 @@ and WAN too.
 Dex on the boat fronts GitHub and Google. Any account gets SignalK readonly;
 the owner's email gets SignalK admin and Grafana Admin. Local password logins
 (`captain`, Grafana superadmin) remain and are the offline fallback.
+One-time setup is under [SSO one-time setup](#sso-one-time-setup).
 
-**1. DNS (Cloudflare, one-time).** A record `symphony.dark-star-llc.com` →
-the host's tailnet IP; CNAMEs `signalk.`, `grafana.`, `auth.` → it. All
-DNS-only (grey cloud). Create an API token from the "Edit zone DNS" template
-scoped to this zone. On the boat router add `address=/symphony.dark-star-llc.com/<LAN IP>`
-(one wildcard covers every subdomain). A rebuilt or re-added host gets a new
-tailnet IP and this record goes stale: symptom is off-boat dead, on-boat fine.
-
-*Verify:* from the boat LAN with the WAN unplugged, `nslookup signalk.symphony.dark-star-llc.com` returns the LAN IP.
-
-**2. OAuth apps (one-time).** GitHub: personal account → OAuth Apps → New,
-homepage `https://auth.symphony.dark-star-llc.com`, callback
-`https://auth.symphony.dark-star-llc.com/dex/callback`. Google: a project,
-consent screen External and **published** (Testing caps sign-ins to 100
-addresses), Web application credential with the same callback.
-
-**3. Secrets.** `sops secrets/symphony.sops.yaml`: fill `boat_domain`,
-`github_oauth_client_id/secret`, `google_oauth_client_id/secret`,
-`cloudflare_api_token`, `owner_email`. Leave `dex_symphony_client_secret`.
-Then `python3 scripts/render.py`.
-
-**4. Deploy.** On the boat (Caddy is native; name `dex`, or the caddy
-container fights for `:443`):
+Deploy on the boat (Caddy is native; name `dex`, or the caddy container
+fights for `:443`):
 
 ```bash
 git pull
 python3 scripts/render.py
 docker compose --profile tls up -d dex
 sudo systemctl restart caddy
+# fully containerized host instead, dockside (first run issues certificates):
+#   docker compose --profile tls up -d --build
+# restart grafana and signalk too if GF_AUTH_GENERIC_OAUTH_* or SIGNALK_OIDC_* changed
 ```
-
-Fully containerized host: `docker compose --profile tls up -d --build`, dockside (first run issues certificates).
-Restart Grafana and SignalK too if `GF_AUTH_GENERIC_OAUTH_*` or `SIGNALK_OIDC_*` changed.
 
 *Verify:*
 
@@ -895,12 +881,46 @@ and refuses others; `captain` still logs in. An owner login that comes out
 `readonly` means `SIGNALK_OIDC_GROUPS_ATTRIBUTE=email` didn't reach the
 server; it fails silently.
 
-**Grant more than readonly.** In `.env.j2`: Grafana, append
-`|| email=='crew@example.com' && 'Editor'` to `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH`;
-SignalK, add the address to `SIGNALK_OIDC_ADMIN_GROUPS` (or `_READWRITE_GROUPS`),
-comma-separated, case-sensitive. Render and `--force-recreate` the service.
-Both lists are re-read at every login, so promotions made in the SignalK UI
-don't stick and removals take effect at the next login.
+## SSO one-time setup
+
+**1. DNS (Cloudflare).** A record `symphony.dark-star-llc.com` → the host's
+tailnet IP; CNAMEs `signalk.`, `grafana.`, `auth.` → it. All DNS-only (grey
+cloud). Create an API token from the "Edit zone DNS" template scoped to this
+zone. On the boat router add `address=/symphony.dark-star-llc.com/<LAN IP>`.
+A rebuilt or re-added host gets a new tailnet IP and this record goes
+stale (off-boat dead, on-boat fine).
+
+*Verify:* from the boat LAN with the WAN unplugged, `nslookup signalk.symphony.dark-star-llc.com` returns the LAN IP.
+
+**2. OAuth apps.** GitHub: personal account → OAuth Apps → New, homepage
+`https://auth.symphony.dark-star-llc.com`, callback
+`https://auth.symphony.dark-star-llc.com/dex/callback`. Google: a project,
+consent screen External and **published**, Web application credential
+with the same callback.
+
+**3. Secrets.**
+
+```bash
+sops secrets/symphony.sops.yaml   # fill boat_domain, github_oauth_client_id/secret,
+                                  # google_oauth_client_id/secret, cloudflare_api_token, owner_email;
+                                  # leave dex_symphony_client_secret
+python3 scripts/render.py
+```
+
+Then deploy per [SSO login](#sso-login).
+
+## SSO access grants
+
+Both lists are re-read at every login: promotions made in the SignalK UI
+don't stick, and removals take effect at the next login.
+
+```bash
+$EDITOR .env.j2
+#   Grafana: append  || email=='crew@example.com' && 'Editor'  to GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH
+#   SignalK: add the address to SIGNALK_OIDC_ADMIN_GROUPS (or _READWRITE_GROUPS), comma-separated, case-sensitive
+python3 scripts/render.py
+docker compose up -d --force-recreate grafana signalk
+```
 
 **Cut someone off entirely:** delete their SignalK user (Security → Users;
 sessions never expire otherwise) and their Grafana user.
@@ -1086,9 +1106,15 @@ bash scripts/check_clone_setup.sh      # names the fix for every gap
 - **gitleaks finding** — look at the file and line. A true false positive gets a narrow `.gitleaks.toml` allowlist entry with `condition = "AND"`.
 - **"sops config is inconsistent"** — `.sops.yaml` and `.gitattributes` disagree; the message says which.
 
-A blocked **push** names a commit and a file: `git show <commit>:<file>`,
-fix the filter, `git rebase -i <commit>~1`, push again. If that commit was
-already pushed, the secret is out; go to the incident below.
+A blocked **push** names a commit and a file:
+
+```bash
+git show <commit>:<file>
+bash scripts/setup-git-filters.sh
+git rebase -i <commit>~1
+git push
+# if that commit was already pushed, the secret is out: see the incident below
+```
 
 Break glass: `SKIP=<hook-id> git commit`, `git commit --no-verify`,
 `git push --no-verify`. CI still scans full history on the PR.
