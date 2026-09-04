@@ -21,22 +21,14 @@ the bench Pi; on the 2 GB bench, stop them again afterward
 ## Sync the SignalK config
 
 A `state` FAIL in the preflight means the boat's SignalK config has moved
-since the card was loaded. Sync, then re-run the preflight. **Keep every
-exclude**; the last five are the card's own settings, and SignalK re-enables
-plugins live when they are overwritten, with no error.
+since the card was loaded. Sync, then re-run the preflight. The card's own
+settings (which plugins stay disabled, `venus.json`) are excluded by
+`scripts/halos_disabled_plugins.sh`, the same list the preflight checks
+against, so the two can't drift apart; SignalK re-enables plugins live when
+their config is overwritten, with no error.
 
 ```bash
-ssh pi@symphony-halos 'D=/var/lib/container-apps/marine-signalk-server-container/data/data
-rsync -av --exclude node_modules --exclude package.json --exclude appstore-cache \
-  --exclude "skserver-raw_*" --exclude "*.bak*" --exclude "*.deb" --exclude signalk-server \
-  --exclude "ssl-*.pem" --exclude "*.sqlite*" \
-  --exclude "plugin-config-data/signalk-container.json" \
-  --exclude "plugin-config-data/signalk-to-influxdb2.json" \
-  --exclude "plugin-config-data/signalk-to-influxdb-v2-buffer.json" \
-  --exclude "plugin-config-data/signalk-notification-player.json" \
-  --exclude "plugin-config-data/venus.json" \
-  pi@symphony-pi:.signalk/ "$D"/'
-ssh pi@symphony-halos 'sudo systemctl restart marine-signalk-server-container'
+scripts/halos_config_sync.sh
 ```
 
 If `state` names a plugin version or `package.json`, the boat installed a
