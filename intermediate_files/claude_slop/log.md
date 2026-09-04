@@ -2444,3 +2444,49 @@ the five HALOS-specific files the same afternoon — recorded in the doc as
 evidence. Removed an untracked junk file from the repo root.
 
 Next: board card (Mark approves/amends design), then the spike prompt.
+
+## 2026-09-04 — HALOS payload card validated before the swap
+
+Ran the evening handoff end to end. Steps 1-7 done; the card is ready.
+
+**Two faults that would have reached the boat.** The RUNBOOK's own final
+state sync rsync overwrote the five card-specific config files with the
+boat's, undoing the four plugin disables and the venus host edit — and
+because SignalK watches those files it re-enabled the plugins live, on a
+running server, with nothing logged. Recovered from as-built steps 37 and 38,
+which were the only record of the delta. Then the npm sync pruned
+`@naugehyde/node-ble`, a dependency the bt-sensors fork had hoisted to the
+top level: SignalK came up with 119 plugins instead of 120 and no BLE, and
+the reason existed only in `docker logs signalk-server` — not the preflight,
+not the journal.
+
+Both are fixed structurally rather than by hand: the rsync excludes the five
+files, `halos_signalk_npm.sh` gives each fork its own `node_modules`, and
+preflight gained an `overrides` line that *asserts* the by-design differences
+instead of skipping them. That last one is the lesson worth keeping — the
+skip was added hours earlier the same night to make `state` readable, and it
+is exactly what let the rsync damage pass silently. Ignoring a by-design
+difference and asserting one look identical until something eats it.
+
+**The wedge is no longer an inference.** With the full stack up, the 2 GB
+bench card hard-reset three times in fifteen minutes; the persistent journal
+(installed the day before) caught the last minute each time — logging running
+60 s behind, docker health checks timing out, QuestDB reporting 4.6 GB
+accounted on a 1.8 GB box. `throttled=0x0`, so not power. With QuestDB and
+Grafana stopped it then ran six hours clean. Bench-only cause; the 4 GB boat
+has headroom.
+
+**Explained, not anomalies:** three SignalK restarts overnight at exactly
+30-minute spacing were `signalk-ble-check` doing its job — `COOLDOWN=1800`,
+`MAX_RESTARTS=3` per boot — because no BLE sensors are in range at home. It
+gave up after three, as designed. Zero kernel OOM kills.
+
+**Gotcha for future sessions:** grepping the journal on this card for a term
+also matches the session's own ssh command text, echoed by `tailscaled`. It
+produced a false "2 OOM kills" reading here. Exclude `tailscaled` or scope
+with `-u`.
+
+Also hardened `halos_signalk_npm.sh` to survive a dropped ssh (it re-execs
+into its own transient unit; the caller is only a log follower), after Mark
+pointed out that a 20-minute npm run tied to an ssh session was a torn
+`node_modules` waiting to happen.

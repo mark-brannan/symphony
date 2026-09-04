@@ -409,3 +409,16 @@
 - Added a suppress button for the off-boat alarms: one command pauses the
   boat's healthchecks.io check before planned work, and the boat un-silences
   itself on its first heartbeat afterwards.
+
+## 2026-09-04
+
+- Validated the HALOS card end to end before the swap. The card now matches
+  the boat's SignalK config and plugin versions, the journal survives a
+  reboot, and the DNS cutover was exercised in both directions from home.
+- Found and fixed two faults that would have travelled to the boat: the
+  documented config sync overwrote the card's own plugin settings, and a
+  package install silently removed the Bluetooth library, leaving the card
+  running with no BLE sensors and no error.
+- Reproduced the card's overnight hang on the bench and identified the cause:
+  the 2 GB test Pi cannot hold QuestDB and Grafana alongside SignalK. With
+  those two stopped the card ran six hours clean.
