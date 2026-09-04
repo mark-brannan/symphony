@@ -169,10 +169,10 @@ rebuild the box.
   hostname is Tailscale's; plain `symphony` doesn't resolve. Both of Mark's
   dev machines already hold the credentials, so don't go hunting for keys or
   IPs. This has cost several sessions the same detour; the details are in
-  `RUNBOOK.md` § Reaching the boat over Tailscale.
+  `RUNBOOK.md` § SSH to the boat.
 - If ssh is refused by *policy* rather than by the host, read the two
   distinct Tailscale refusals and the tag-vs-`autogroup:self` trap in
-  `RUNBOOK.md` § SSH users and the periodic check before touching anything.
+  `RUNBOOK.md` § When Tailscale refuses the connection before touching anything.
   `scripts/tailscale_policy.sh` prints the live policy read-only; applying a
   change is Mark's paste into the admin console, never a session's.
 
