@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Single source of truth for how the HALOS card's SignalK config is meant to
 # differ from the boat's (halos-swap-plan.md). Sourced by halos_preflight.sh
 # (to check the difference is exactly this) and halos_config_sync.sh (to
