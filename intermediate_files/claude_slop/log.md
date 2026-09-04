@@ -2516,7 +2516,13 @@ rule, committed via yadm.
 Survey: symphony is the only repo with pre-commit at all; five of its
 hooks are portable. Card + prompt on the global board, blocked on #44.
 
-Mark is "tentatively ok with the cuts so far", not a merge order. PR #44
-is red on shellcheck because a second session (started 12:55) is sharing
-this worktree and pushed 41a4c37 / two Stop-hook wip commits of HALOS
-script work onto the branch. Not mine; not touched.
+Review round: Mark's own fix for his rsync comment (41a4c37,
+`halos_config_sync.sh` + `halos_disabled_plugins.sh`) landed on the branch
+from this shared worktree; first misread as a foreign session, and an
+attempt to rewrite the branch around it was blocked by the classifier,
+correctly. Then addressed every real finding: the lint now counts `#`
+comments inside shell fences (b24149e had hidden prose there), frees inline
+code spans, credits deletions and renames, validates `--base`; budget
+re-measured at 140; sync script checks rsync before restarting; shellcheck
+clean; `test_secretguard` string updated; swap procedure re-joined into one
+numbered flow. Lint, both test suites and shellcheck green locally.
