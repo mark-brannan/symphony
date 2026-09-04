@@ -25,6 +25,8 @@ services:
     labels:
       autoheal: "true"
     network_mode: "service:vcan"
+    depends_on:
+      - vcan
 
 volumes:
   ntfy-data:

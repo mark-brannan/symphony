@@ -14,7 +14,7 @@ SignalK natively rather than in Docker, so nothing here reaches it.
 
 | File | Dev value | Reason |
 |---|---|---|
-| `signalk-pushover-notification-relay.json` | `enabled: false` | The relay's dedupe state is in memory. Every container restart re-sent every non-normal notification to the phone, and the dev container restarts constantly. |
+| `signalk-pushover-notification-relay.json` | `api_user`/`api_key` blank, `enabled: true` | The relay's dedupe state is in memory, so every container restart re-sends every non-normal notification, and the dev container restarts constantly. With blank credentials the plugin still runs, but Pushover rejects each request with 400 and nothing reaches the phone (`index.js` builds the request from `config.api_key` with no guard; the response is logged at debug level only). Only the secret differs from the boat's file. |
 
 ## The trap: you can't save these from the dev admin UI
 
@@ -40,9 +40,3 @@ structurally identical otherwise, so a diff shows just the dev delta — with
 one exception: strip credential fields rather than copying them, both because
 these files aren't sops-covered and because the pre-commit secret guard will
 block the commit if you do.
-
-`signalk-ntfy.json` is handled by the `hostvars` filter instead of a pin
-(RUNBOOK.md § Per-machine config values): the plugin is live in both
-environments and its non-URL settings should stay editable from either, so
-a read-only pin is the wrong shape — only the server URL differs per
-machine.

@@ -149,16 +149,15 @@ section "Git configuration for this clone"
 echo "  (filter *commands* live in .git/config, which git never versions --"
 echo "   every clone has to wire its own)"
 
-for f in sops; do
-	cmd="$(git config --get "filter.$f.clean" 2>/dev/null)"
-	if [ -n "$cmd" ]; then
-		ok "filter.$f.clean" "configured"
-	else
-		blocker "filter.$f.clean" "not set in git config" \
-			".gitattributes declares filter=$f, so covered files would commit UNTRANSFORMED -- and the repo-hygiene pre-commit hook fails every commit, including a typo fix in a markdown file" \
-			"bash scripts/setup-git-filters.sh"
-	fi
-done
+f=sops
+cmd="$(git config --get "filter.$f.clean" 2>/dev/null)"
+if [ -n "$cmd" ]; then
+	ok "filter.$f.clean" "configured"
+else
+	blocker "filter.$f.clean" "not set in git config" \
+		".gitattributes declares filter=$f, so covered files would commit UNTRANSFORMED -- and the repo-hygiene pre-commit hook fails every commit, including a typo fix in a markdown file" \
+		"bash scripts/setup-git-filters.sh"
+fi
 
 hooks_path="$(git config --get core.hooksPath 2>/dev/null)"
 if [ -n "$hooks_path" ]; then
