@@ -55,7 +55,7 @@
   # Same SSID and key as the boat card's hotspot, so anything already paired
   # with SignalK keeps working across the swap without being re-paired.
 
-# Tailscale is bootstrap (RUNBOOK → Remote SSH access): the image does not
+# Tailscale is bootstrap (RUNBOOK → SSH to the boat): the image does not
 # ship it and `tailscale up` needs Mark's browser login. A fresh card reaches
 # this step over the LAN with no tailscale at all, so rename only when it is
 # there and say so when it is not, rather than failing the whole play.
@@ -81,8 +81,8 @@
   ansible.builtin.debug:
     msg: >-
       No /usr/bin/tailscale. Install it and `tailscale up --ssh
-      --hostname={{ tailscale_hostname }}` by hand (RUNBOOK → Remote SSH
-      access); the rename above was skipped.
+      --hostname={{ tailscale_hostname }}` by hand (RUNBOOK → SSH to the
+      boat); the rename above was skipped.
   when: not ts_bin.stat.exists
 
 # The verify below reads what NetworkManager has loaded. NetworkManager only

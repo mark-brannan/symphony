@@ -94,7 +94,7 @@ $OVERRIDE_CHECK
 PYEOF
 ")
 [ "$out" = ok ] && say ok overrides "4 plugins disabled, venus MQTT.host 192.168.8.107 (as-built 37, 38)" \
-  || say FAIL overrides "${out:-could not read plugin-config-data} -- the boat rsync reverts these; see RUNBOOK 'final state sync'"
+  || say FAIL overrides "${out:-could not read plugin-config-data} -- the boat rsync reverts these; see runbooks/halos_swap.md 'Sync the SignalK config'"
 
 # The SignalK state was copied from the boat on 2026-09-02 and the boat keeps
 # changing it. Config files (not runtime data) and the *installed* plugin
@@ -110,7 +110,7 @@ if [ -z "$theirs" ] || [ -z "$mine" ]; then
   say FAIL state "could not inventory .signalk (boat $(echo "$theirs" | grep -c .) lines, $HOST $(echo "$mine" | grep -c .) lines)"
 else
   out=$(diff <(echo "$theirs") <(echo "$mine") | grep '^[<>]' | sed 's/^\([<>]\) [0-9a-f]\{16\} /\1 /' | grep -vE "^[<>] (bt-sensors-plugin-sk|signalk-plugin-watchdog|${EXPECT// /|})@" | grep -vE "^[<>] plugin-config-data/(${CONFIG_EXPECT})$" | tr '\n' ' ')
-  [ -z "$out" ] && say ok state "config files and installed plugin versions match the boat (forks, expected-off and venus skipped)" || say FAIL state "differs from the boat (< boat, > halos): $out-- RUNBOOK 'final state sync'"
+  [ -z "$out" ] && say ok state "config files and installed plugin versions match the boat (forks, expected-off and venus skipped)" || say FAIL state "differs from the boat (< boat, > halos): $out-- see runbooks/halos_swap.md 'Sync the SignalK config'"
 fi
 
 boatp=$(plugins "$BOAT"); hostp=$(plugins "$HOST")
