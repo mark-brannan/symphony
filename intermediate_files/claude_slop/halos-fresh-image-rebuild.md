@@ -345,9 +345,12 @@ exposes a `boost` knob on this board but `scaling_boost_frequencies` is
 empty, so disabling boost does nothing; `scaling_max_freq` is the only lever
 that matters.** Available range is a flat 1.5–2.4 GHz in 100 MHz steps.
 
-Also set, and worth keeping for any power-marginal card:
-`/etc/docker/daemon.json` `max-concurrent-downloads: 2`. Eight layers
-decompressing in parallel across four cores is the peak that killed it.
+Also set on this card by hand: `/etc/docker/daemon.json`
+`max-concurrent-downloads: 2` — eight layers decompressing in parallel across
+four cores is the peak that killed it. **It is captured nowhere in `host/` or
+`ansible/`, so it dies with this card**, which is right if it is only a
+bench-supply workaround and wrong if the boat wants it. Carded rather than
+generalised from here.
 
 All of this is **runtime-only and reverts on reboot**. Persisting it is
 `arm_freq=1500` in `config.txt` or a small unit writing `scaling_max_freq`,
