@@ -2424,3 +2424,23 @@ Measured against both live checks rather than taken from the docs:
 Wired in as swap-day step 3 with the sequence renumbered, a `status` line in
 the post-swap check, and a RUNBOOK section "Silencing the alarms for planned
 work" (b2ca2e4).
+
+## 2026-09-03 — dev/prod overrides review (design session)
+
+Walked Mark's brief in `dev-overrides-review.md`. Inventory: five override
+mechanisms sorted by kind of value, none by tier; the preflight exclusion
+list is the smell. Agreed design, written into the doc § Proposed design:
+main is the source of truth, `overrides/<tier>.yaml` as patches, two verbs
+`seed` and `capture`, prod hotfixes via autostash-rebase hourly sync plus a
+JSON-aware merge driver, secret guard as a sorter that routes to sops,
+GitHub Environments for promotion gates with pull-based prod. Cloud gamma
+and AWS deferred; near-term tiers alpha native / beta :3000 container /
+gamma HALOS / prod boat.
+
+Found: `signalk-healthcheck` is installed on prod with a live config never
+tracked in git (dev pin overrides a file that doesn't exist). Offered as the
+first hand capture; not done. A parallel session's RUNBOOK rsync flattened
+the five HALOS-specific files the same afternoon — recorded in the doc as
+evidence. Removed an untracked junk file from the repo root.
+
+Next: board card (Mark approves/amends design), then the spike prompt.
