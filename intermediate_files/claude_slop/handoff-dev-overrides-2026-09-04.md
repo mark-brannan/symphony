@@ -70,13 +70,18 @@ them without re-reading § Spike findings in
   `connected to can0`, ntfy healthy on `localhost:8090` from inside
   signalk's namespace and from the host, `getent hosts signalk-server`
   resolves from influxdb.
-- **Pushover: the override stays.** The plan assumed empty keys everywhere,
-  but the *tracked* `signalk-pushover-notification-relay.json` carries the
-  real `api_user`/`api_key` (it is the boat's live config). Deleting the dev
-  pin would hand dev the live keys with `enabled: true` — exactly the
-  re-paging the pin exists to stop. Genuinely per-host; no test needed.
-  `dev/plugin-config-overrides/` and `docker-compose.override.yml` remain,
-  with pushover as their only entry.
+- **Pushover: resolved as Mark intended — the override shrinks to the
+  secret.** Read the plugin source (`signalk-pushover-notification-relay`
+  1.0.0, `index.js`): no guard on empty credentials, it posts every state
+  change and only debug-logs the response. Confirmed live: Pushover answers
+  400 `application token must be supplied` to blank token/user, so nothing
+  reaches the phone. The dev pin is now `enabled: true` with blank
+  `api_user`/`api_key` (3e226a3), so dev and boat differ only by the secret,
+  which dev must not hold (the tracked file is sops-covered and carries the
+  real keys). The override file and `docker-compose.override.yml` therefore
+  stay, with pushover as their only entry. Not verified in the running dev
+  container: the plugin is in `signalk/package.json` but not installed in
+  its `node_modules`.
 - **Shared checkout repaired.** `/home/solace/symphony/.git/config` had
   `core.bare = true` (mtime 01:51 that morning, origin unknown), which made
   every git command there fail with "must be run in a work tree". Set back
