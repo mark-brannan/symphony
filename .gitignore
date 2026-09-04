@@ -35,8 +35,6 @@ signalk/sources-cache.json
 signalk/red/.config.nodes.json
 signalk/red/.config.runtime.json
 
-# per-machine values for the hostvars filter -- see scripts/hostvars_filter.py
-hostvars.local.yaml
 
 # secrets / rendered config -- see RUNBOOK.md
 .env

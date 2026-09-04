@@ -91,7 +91,7 @@ if have python3; then
 		ok "pyyaml" "importable"
 	else
 		gap "pyyaml" "python3 cannot import yaml" \
-			"the sops/hostvars filters and several scripts can't parse .sops.yaml; the unit-test hook is skipped" \
+			"the sops filter and several scripts can't parse .sops.yaml; the unit-test hook is skipped" \
 			"pip install pyyaml"
 	fi
 else
@@ -149,7 +149,7 @@ section "Git configuration for this clone"
 echo "  (filter *commands* live in .git/config, which git never versions --"
 echo "   every clone has to wire its own)"
 
-for f in sops hostvars; do
+for f in sops; do
 	cmd="$(git config --get "filter.$f.clean" 2>/dev/null)"
 	if [ -n "$cmd" ]; then
 		ok "filter.$f.clean" "configured"
@@ -191,14 +191,6 @@ else
 		"see RUNBOOK.md, Bringing up a host -- Phase 2 (contributors don't need one)"
 fi
 
-if [ -f hostvars.local.yaml ]; then
-	ok "hostvars.local.yaml" "present"
-else
-	gap "hostvars.local.yaml" "missing" \
-		"per-machine values (the ntfy server URL) stay as {{ placeholders }} on disk and SignalK reads them literally" \
-		"cp hostvars.local.yaml.example hostvars.local.yaml && \$EDITOR hostvars.local.yaml"
-fi
-
 # --- what is actually on disk -----------------------------------------------
 section "Working-tree state of covered files"
 
@@ -229,27 +221,6 @@ else
 		"provision an age key, then: bash scripts/setup-git-filters.sh"
 fi
 [ "$whole_files" -gt 0 ] && ok "sops whole-file stores" "$whole_files under secrets/ (ciphertext at rest is correct)"
-
-pending=0
-checked_hv=0
-while IFS= read -r p; do
-	[ -n "$p" ] || continue
-	[ -f "$p" ] || continue
-	checked_hv=$((checked_hv + 1))
-	if grep -qE '"\{\{ *[A-Za-z_]' "$p" 2>/dev/null; then
-		pending=$((pending + 1))
-	fi
-done < <(filtered_paths hostvars)
-
-if [ "$checked_hv" -eq 0 ]; then
-	unknown "hostvars files" "none listed in .gitattributes"
-elif [ "$pending" -eq 0 ]; then
-	ok "hostvars files" "$checked_hv file(s), placeholders expanded"
-else
-	gap "hostvars files" "$pending of $checked_hv still hold {{ placeholders }}" \
-		"SignalK reads the placeholder text literally -- e.g. it posts to the URL '{{ ntfy_url }}'" \
-		"create hostvars.local.yaml, then: bash scripts/setup-git-filters.sh"
-fi
 
 # --- verdict ----------------------------------------------------------------
 section "Summary"

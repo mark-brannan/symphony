@@ -3,7 +3,7 @@
 #
 # SCOPE RULE, applies to every hook below: a hook may FAIL only on
 # something THIS commit stages, and every failure must name a way out that
-# works even for someone without the age key or hostvars.local.yaml. Repo-
+# works even for someone without the age key. Repo-
 # wide state is CI's job -- the same scripts run there with --all. A guard
 # that blocks a one-line doc edit over a file you never touched is not
 # safer, it just gets bypassed; that cost days once already.
@@ -21,7 +21,7 @@
 #
 # Hooks stay always_run because they scope themselves from
 # `git diff --cached` -- pre-commit's `files:` would duplicate scope that
-# already lives in .sops.yaml / .hostvars.yaml / .gitattributes, and would
+# already lives in .sops.yaml / .gitattributes, and would
 # not fire on a commit that only deletes a covered path.
 #
 # These give fast feedback at commit time. They are NOT the enforcement
@@ -127,23 +127,11 @@ repos:
       # so they run on any change to the scripts. Stdlib unittest, no
       # dependency, well under a second.
       - id: secret-tooling-tests
-        name: unit tests (pseudonymize, sops recipients, hostvars, secretguard, guard scoping)
+        name: unit tests (pseudonymize, sops recipients, secretguard, guard scoping)
         entry: scripts/run_secret_tooling_tests.sh
         language: system
         pass_filenames: false
-        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|hostvars_filter|secretguard|lint_repo_hygiene|check_encoding_health|test_.*)\.py|scripts/secretguard\.sh|scripts/run_secret_tooling_tests\.sh|\.sops\.yaml|\.pseudonyms\.yaml|\.hostvars\.yaml)$'
-
-      # The hostvars analogue of the staged-secrets guard: git's copy of a
-      # covered file must hold its {{ placeholders }}, not one machine's
-      # literal value. Catches a clone whose hostvars filter isn't wired, and
-      # a value edited in SignalK's admin UI without hostvars.local.yaml
-      # being brought along (scripts/hostvars_filter.py refresh).
-      - id: hostvars-placeholders
-        name: hostvars guard (placeholders survive into git)
-        entry: python3 scripts/hostvars_filter.py check
-        language: system
-        pass_filenames: false
-        always_run: true
+        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|secretguard|lint_repo_hygiene|check_encoding_health|test_.*)\.py|scripts/secretguard\.sh|scripts/run_secret_tooling_tests\.sh|\.sops\.yaml|\.pseudonyms\.yaml)$'
 
       # Rules whose absence has already cost real downtime on this boat. Each
       # one carries its incident in its docstring. Repo-only and CI-safe;

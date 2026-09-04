@@ -126,8 +126,7 @@ secretguard_can_decrypt() {
 }
 
 _secretguard_filters_configured() {
-	[ -n "$(git config --get filter.sops.clean 2>/dev/null)" ] &&
-		[ -n "$(git config --get filter.hostvars.clean 2>/dev/null)" ]
+	[ -n "$(git config --get filter.sops.clean 2>/dev/null)" ]
 }
 
 # Where a guard message goes.
