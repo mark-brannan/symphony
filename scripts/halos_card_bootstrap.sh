@@ -83,11 +83,15 @@ if [ "$CAP" = "--cap" ]; then
   # scaling_max_freq is the only lever that matters: cpufreq-dt exposes a
   # `boost` knob but scaling_boost_frequencies is empty on the Pi 5, so
   # disabling boost changes nothing. Runtime only; reverts on reboot.
-  $SSH -o BatchMode=yes "pi@$IP" "echo '$PW' | sudo -S -p '' sh -c '
-    for c in /sys/devices/system/cpu/cpu[0-9]*/cpufreq; do
-      echo powersave > \$c/scaling_governor
-      echo 1500000  > \$c/scaling_max_freq
-    done'"
+  # The password goes down stdin, never into the command string: an
+  # interpolated "echo '$PW' | sudo -S" would sit in ssh's argv locally and in
+  # the remote shell's argv on the card, readable from `ps` in both places.
+  # Same reason the password-set step above uses SUDO_ASKPASS.
+  printf '%s\n' "$PW" | $SSH -o BatchMode=yes "pi@$IP" \
+    "sudo -S -p '' sh -c 'for c in /sys/devices/system/cpu/cpu[0-9]*/cpufreq; do
+       echo powersave > \$c/scaling_governor
+       echo 1500000  > \$c/scaling_max_freq
+     done'"
   echo "clock      capped to 1.5 GHz, powersave (runtime only, reverts on reboot)"
   echo "throttled  $($SSH -o BatchMode=yes "pi@$IP" 'vcgencmd get_throttled | cut -d= -f2') after cap"
 fi
