@@ -1,5 +1,32 @@
 # Symphony — open loops
 
+## 🔴 OVERRIDING GOAL — the reflash→board→boat pipeline must be bulletproof
+
+**Mark's framing, 2026-09-04: treat this as mission-critical. Test it, refine
+it, repeat until it works perfectly — not "looks done."** Five stages, next
+Pi 4 reflash is the vehicle for proving it:
+
+1. Flash a fresh card (RPi 4, `Halos-Marine-RPI` image) — Mark's hands, not
+   scriptable; exact recipe in
+   [halos-fresh-image-rebuild.md](halos-fresh-image-rebuild.md).
+2. `ansible-playbook site.yml` at home — **must be fully non-interactive.**
+   Currently is NOT: a genuinely fresh/reflashed card has no Tailscale node
+   key, so `tailscale up` blocks on Mark's browser login. [PR #45](https://github.com/mark-brannan/symphony/pull/45)
+   added the install+boot-enabled-assert half of this, live-verified; the
+   login-is-manual half is still open — see the card below.
+3. `scripts/halos_preflight.sh` at home — must be deterministic, every line
+   `ok`, zero manual reads required to interpret a result.
+4. Physical swap onto the boat — small, scripted set of changes +
+   verification. This part is *already* the right shape
+   ([dispatch-halos-swap-day.md](dispatch-halos-swap-day.md)); no gap here.
+5. Verification at the boat — same preflight tooling, boat-side checks.
+
+No stage ships as "should work." Run it, find what breaks, fix it in the
+role/script (never by hand on the card), run it again, until a from-blank
+card converges clean without anyone typing a command that isn't in `site.yml`
+or `halos_preflight.sh`.
+
+
 This is symphony's board under the global "Open loops" rule: one line per
 card, imperative, always linked; cards die when done, not archived here — see
 `log.md` and `git log` for history. `## Yours` is calls only Mark can make
@@ -56,6 +83,7 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 ## Yours
 
 ### Repo & tooling
+- [ ] **Blocks 🔴 banner stage 2 going fully non-interactive:** generate a reusable Tailscale auth key at https://login.tailscale.com/admin/settings/keys — tag it `tag:home-fleet` + `tag:symphony-devices`, set a real expiry (not "never"), reusable (multiple reflashes), then hand it to me to store per RUNBOOK "Adding a secret" (`secrets/symphony.sops.yaml`, standalone value, not in-place). The `tailscale_oauth_client_*` pair already on file is deliberately read-only ([tailscale_policy.sh](../../scripts/tailscale_policy.sh)'s own comment) and can't mint keys — this has to be you, in the console.
 - [ ] Two answers for the swap prep, both one line ([review](halos-swap-review-2026-09-03.md) item 8 and ntfy): which URL does your phone's ntfy app subscribe to (LAN IP `:8090`, tailnet `symphony-pi:8090`, or something else — a tailnet *name* breaks after the swap), and did healthchecks.io alert you when the halos-card check went down at ~07:35 this morning?
 - [ ] **Optional, before swap day: run the stack on the Pi 5** — boot it, read `free -m`; at 4 GB+ it answers the one thing the 2 GB bench never could (SignalK *plus* QuestDB and Grafana up together). Prompt: [handoff-halos-pi5-headroom-test.md](handoff-halos-pi5-headroom-test.md) (Opus 5, medium). Fresh card only, never the payload card.
 - [ ] **Swap day: the card is validated and ready** — preflight clean, state synced, journal persistent, DNS cutover exercised both ways ([handoff](handoff-halos-swap-2026-09-03-pm.md) steps 1-7 done 2026-09-04). At the boat, work [dispatch-halos-swap-day.md](dispatch-halos-swap-day.md); the two faults found and fixed overnight are in [halos-swap-review-2026-09-03.md](halos-swap-review-2026-09-03.md).
@@ -107,7 +135,7 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 - [ ] [Build a host-health Grafana dashboard from Telegraf's existing metrics](kanban-detail.md#build-a-host-health-grafana-dashboard) — blocked: no Grafana on the boat since 2026-08-25. Queries were verified live and still apply; this is panels, not discovery, whenever Grafana comes back.
 - [ ] [Put fail2ban (or equivalent) in front of sshd on the boat Pi](kanban-detail.md#rate-limit-sshd-on-the-boat-pi) — precautionary, not a response to anything measured.
 - [ ] Port `host/install.sh`'s contents into the `clock`, `watchdog`, `monitoring` and `claude-resident` roles [reference/host_provisioning.md](../../reference/host_provisioning.md) — `ansible/` exists and `roles/host_files` invokes the installer whole; this is the slice that starts shrinking it. Its `INSTALL` array maps to `copy`, `RESTART`/`ENABLE` to handlers and `systemd`, `CRON` to `cron`.
-- [ ] Build a genuinely fresh Pi 4 card with `ansible-playbook site.yml` — every run so far converged a card that v1 had already built by hand, which proves the playbook describes the card but not that it can create one. Untested on that path: the reboot handler (never fired), the apt repo and package installs, purging an absent InfluxDB app, and a clone rather than a pull ([halos-build-v2-asbuilt.md](halos-build-v2-asbuilt.md) § Not done in v2).
+- [ ] **See 🔴 banner at top of this file.** Build a genuinely fresh Pi 4 card with `ansible-playbook site.yml` — 2026-09-03's runs converged a card v1 had already built by hand; 2026-09-04 found and fixed the same-shape gap for real (tailscale absent entirely, not just unrenamed — [PR #45](https://github.com/mark-brannan/symphony/pull/45)) against an already-provisioned card, not a from-blank one. Still untested from truly blank: the reboot handler (never fired), the apt repo and package installs, purging an absent InfluxDB app, a clone rather than a pull ([halos-build-v2-asbuilt.md](halos-build-v2-asbuilt.md) § Not done in v2).
 - [ ] Delete the local branch `salvage/ansible-partial-checkout` on `symphony-halos` (`/home/pi/symphony`, commit `a6ea802`) — a partially-staged tree preserved rather than discarded when an Ansible checkout failed on root-owned refs 2026-09-02. Never pushed; its content is exactly [PR #38](https://github.com/mark-brannan/symphony/pull/38)'s tree, so it is reproducible.
 - [ ] Replace `ansible.builtin.apt_repository` before ansible-core 2.25 removes it — `deb822_repository` writes `influxdata.sources` rather than the `influxdata.list` both cards carry, so it needs a deliberate migration, not a swap. The warning prints on every run, deliberately — that is the reminder.
 - [ ] [Extend `lint_repo_hygiene.py` with a soft warn on long log.md bullets](kanban-detail.md#doc-cleanup-follow-ups-still-open) — optional enforcement, from the 2026-08-19 bloat audit.
