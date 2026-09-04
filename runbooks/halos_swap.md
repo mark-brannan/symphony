@@ -4,9 +4,10 @@ Puts the HALOS card into the boat Pi; the boat card comes home as the
 rollback. The Pi is powered from the NMEA 2000 bus: "power off" means
 unplugging its Micro-C.
 
-Both check scripts print one `ok`/`FAIL` line per function. A line that
-FAILs on the boat card before the swap and on the HALOS card after it is a
-boat problem, not a card problem; the baseline exists to tell them apart.
+`scripts/halos_preflight.sh` and `scripts/halos_swap_check.sh` each print
+one `ok`/`FAIL` line per check. A line that FAILs on the boat card before
+the swap and on the HALOS card after it is a boat problem, not a card
+problem; the baseline exists to tell them apart.
 
 ## Before leaving home
 
@@ -57,6 +58,9 @@ scripts/dns_cutover.sh set symphony-pi -y
 dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card
 ```
 
+A `dig` that still shows the old address is the resolver's cache; wait out
+the TTL and run it again.
+
 ## At the boat
 
 1. Baseline the boat card; keep the output:
@@ -67,9 +71,11 @@ dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card
 
    `victron` and `questdb` FAILs are boat-side and carry over.
 
-2. Shut down; unplug the Micro-C when the green LED stops:
+2. Silence the boat card's alarm, shut down, and unplug the Micro-C when
+   the green LED stops:
 
    ```bash
+   scripts/monitoring_snooze.sh pause pi
    ssh pi@symphony-pi 'sudo shutdown -h now'
    ```
 
@@ -101,13 +107,12 @@ dig +short symphony.dark-star-llc.com @1.1.1.1    # back to the boat card
    scripts/dns_cutover.sh set symphony-halos
    ```
 
-   The boat card has stopped pinging, so healthchecks.io reports
-   `SignalK Symphony` late within ~35 minutes; pause it. The HALOS card
-   pings its own check.
+   The boat card's check stays paused; the HALOS card pings its own.
 
 7. Phone on the boat WiFi: install the certificate from
    `https://signalk.symphony.dark-star-llc.com/ca/`, open the site: admin
-   UI, no warning, `SignalK` in the WiFi list.
+   UI, no certificate warning, and the `SignalK` hotspot in the phone's
+   WiFi list.
 
 ## Rolling back
 
@@ -118,5 +123,5 @@ scripts/halos_swap_check.sh symphony-pi
 scripts/dns_cutover.sh set symphony-pi
 ```
 
-The `(halos card)` check goes late instead. Nothing on the boat card is
-changed by the trial.
+The `halos` check goes late instead, and the boat card's first ping
+un-pauses its own. Nothing on the boat card is changed by the trial.

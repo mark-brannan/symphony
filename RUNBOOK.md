@@ -95,12 +95,18 @@ ports 3000, 8086, 3001 and 443.
 
 ```bash
 ssh pi@symphony-pi          # boat card
-ssh pi@halos-pi4            # HALOS trial Pi at home (symphony-halos once swapped)
+ssh pi@symphony-halos       # HALOS card, on the bench at home until it is swapped in
 ```
 
-Tailscale SSH; no keys. `symphony` alone does not resolve. Only devices on
-the tailnet reach it, and the Windows side of a WSL machine is *not* on it
-when only WSL runs tailscaled.
+Tailscale SSH, so no key files. Plain `symphony` does not resolve. Only
+tailnet devices get in; if only WSL runs tailscaled, the Windows side of
+that machine is not on it.
+
+Both cards answer `hostname` with `signalk`. To know which one you are on:
+
+```bash
+tailscale status --self=true --peers=false    # symphony-pi or symphony-halos
+```
 
 *Verify:* `tailscale status` lists the node, `curl -s http://symphony-pi:3000/signalk` returns JSON.
 
@@ -132,7 +138,7 @@ Apply by pasting into the [policy editor](https://login.tailscale.com/admin/acls
 ## A page hangs but ssh works — MTU
 
 Browser spins on `https://signalk.symphony.dark-star-llc.com/`, ssh and ping
-are fine. Cellular and Starlink uplinks do this on a direct path.
+are fine.
 
 Windows (elevated):
 
@@ -256,7 +262,8 @@ systemctl show -p RuntimeWatchdogUSec
 cat /sys/class/watchdog/watchdog0/timeout
 ```
 
-chrony needs its package before the config means anything:
+`install.sh` drops chrony's config whether or not chrony is installed, and
+only restarts it if it is. If `chronyc` is missing:
 
 ```bash
 sudo apt install chrony
@@ -290,10 +297,10 @@ that service's `start_period`, redeploy, then look for a fault.
 ```bash
 ssh pi@symphony-pi
 cd ~/symphony && git pull
-docker compose --profile tls up -d questdb ntfy dex autoheal
+docker compose --profile tls up -d questdb ntfy dex autoheal pypilot pypilot-web
 ```
 
-*Verify:* the `docker ps` check above, about 90 s later.
+That list is every container the boat runs. *Verify:* the `docker ps` check above, about 90 s later.
 
 ## The off-boat heartbeat
 
@@ -354,7 +361,8 @@ dotfiles syncs separately: `~/.local/bin/dotfiles-sync.sh --status`.
 
 Chromium autostarted on this Pi wedges the v3d driver whether or not a
 display is attached, and the board eventually hard-resets. Its autostart
-entry lives in `~/.config/autostart-disabled/`; keep it there.
+entry, `freeboard.desktop` (Chromium in app mode), is parked in
+`~/.config/autostart-disabled/`; keep it there.
 
 ```bash
 journalctl -b -k | grep -c "Resetting GPU for hang"    # want 0
@@ -486,7 +494,8 @@ If no sensor from the plugin appears at all, it is config, not radio.
 
 ## QuestDB
 
-Bring-up on a host. The mmap limit is a host sysctl; the container cannot set it.
+First-time setup on a host. The mmap limit is a kernel setting on the host;
+the container cannot raise it itself.
 
 ```bash
 if [ "$(cat /proc/sys/vm/max_map_count)" -lt 1048576 ]; then
@@ -547,9 +556,8 @@ curl -sG http://localhost:9000/exec --data-urlencode "query=SELECT table_name FR
 
 ## pypilot
 
-Runs as the `pypilot` and `pypilot-web` containers; state is in `pypilot/data/`
-(untracked; holds the compass calibration and a SignalK token). The native
-units are disabled and `~/.pypilot` is the rollback.
+State is in `pypilot/data/` (untracked: compass calibration and a SignalK
+token). The native units are disabled; `~/.pypilot` is the rollback.
 
 *Verify,* in order:
 
@@ -577,7 +585,9 @@ sudo systemctl enable --now pypilot pypilot_web
 ## Testing the DSC / AIS distress chain
 
 **Never press a radio's DSC distress button or activate a SART/MOB/EPIRB to
-test.** Everything here injects synthetic traffic over UDP.
+test.** Everything here injects synthetic traffic over UDP. It needs
+`signalk-dsc` and `signalk-ais-distress` installed on the server under test;
+check Plugin Config first.
 
 1. Turn off DSCWatch reporting first: Plugin Config → signalk-dsc → untick
    "Report received calls to DSCWatch.com". Queued reports send later, even
@@ -718,8 +728,8 @@ curl -s -X POST -H "Authorization: Token $TOK" -H "Content-Type: application/jso
 NEW=$(python3 -c 'import json;print(json.load(open("/tmp/newauth.json"))["token"])')
 ```
 
-Update every consumer. Find them; the list grows. The plugin token is nested
-at `configuration.influxes[].token`, and the buffering plugin's file is
+Update every consumer. The plugin token is nested at
+`configuration.influxes[].token`; the buffering plugin's file is
 `signalk-to-influxdb-v2-buffer.json`.
 
 ```bash
@@ -775,8 +785,9 @@ scripts/rotate_age_key.sh verify <new-public-key>  # gate: the new key alone ope
 scripts/rotate_age_key.sh retire <old-public-key>  # phase 2
 ```
 
-Don't skip `verify`. Two things make a half-finished rotation look finished
-and it checks for both; if it fails it names the files.
+Don't skip `verify`. It hides the old key from sops and proves the new one
+opens every file alone; a plain `sops --decrypt` passes while the old key
+is still in your keyring. On failure it names the files.
 
 A host missed before phase 2 fails to decrypt afterward: copy a current key
 to `~/.config/sops/age/keys.txt` there and re-run `scripts/setup-git-filters.sh`.
@@ -848,10 +859,10 @@ and WAN too.
 Dex on the boat fronts GitHub and Google. Any account gets SignalK readonly;
 the owner's email gets SignalK admin and Grafana Admin. Local password logins
 (`captain`, Grafana superadmin) remain and are the offline fallback.
-One-time setup is under [SSO one-time setup](#sso-one-time-setup).
 
-Deploy on the boat (Caddy is native; name `dex`, or the caddy container
-fights for `:443`):
+Deploy on the boat. Name `dex` in the command: with no service named,
+compose also starts the `caddy` container, which fights the native Caddy
+for port 443.
 
 ```bash
 git pull
@@ -893,12 +904,13 @@ stale (off-boat dead, on-boat fine).
 consent screen External and **published**, Web application credential
 with the same callback.
 
-**3. Secrets.**
+**3. Secrets.** Fill `boat_domain`, `github_oauth_client_id`,
+`github_oauth_client_secret`, `google_oauth_client_id`,
+`google_oauth_client_secret`, `cloudflare_api_token` and `owner_email`.
+Leave `dex_symphony_client_secret` as it is.
 
 ```bash
-sops secrets/symphony.sops.yaml   # fill boat_domain, github_oauth_client_id/secret,
-                                  # google_oauth_client_id/secret, cloudflare_api_token, owner_email;
-                                  # leave dex_symphony_client_secret
+sops secrets/symphony.sops.yaml
 python3 scripts/render.py
 ```
 
@@ -906,13 +918,17 @@ Then deploy per [SSO login](#sso-login).
 
 ## SSO access grants
 
-Both lists are re-read at every login: promotions made in the SignalK UI
-don't stick, and removals take effect at the next login.
+Who gets what is decided from `.env.j2` at every login, not from the user
+lists inside SignalK or Grafana. A promotion made in the SignalK UI is undone
+at the next login; a removal made here takes effect at the next login.
+
+- Grafana: append `|| email=='crew@example.com' && 'Editor'` to
+  `GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH`.
+- SignalK: add the address to `SIGNALK_OIDC_ADMIN_GROUPS`, or to
+  `SIGNALK_OIDC_READWRITE_GROUPS` (add that variable if it isn't there).
+  Comma-separated, case-sensitive.
 
 ```bash
-$EDITOR .env.j2
-#   Grafana: append  || email=='crew@example.com' && 'Editor'  to GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH
-#   SignalK: add the address to SIGNALK_OIDC_ADMIN_GROUPS (or _READWRITE_GROUPS), comma-separated, case-sensitive
 python3 scripts/render.py
 docker compose up -d --force-recreate grafana signalk
 ```
@@ -920,9 +936,8 @@ docker compose up -d --force-recreate grafana signalk
 **Cut someone off entirely:** delete their SignalK user (Security → Users;
 sessions never expire otherwise) and their Grafana user.
 
-**Offshore:** signed-in devices stay signed in. A fresh device uses the
-local password form. After ~60 days offline browsers warn about the
-certificate; it renews itself when internet returns.
+**Offshore:** a fresh device uses the local password form. After ~60 days
+offline, browsers warn about the certificate until internet returns.
 
 ---
 
@@ -999,7 +1014,7 @@ install in two phases; a single `npm install` deletes the whole tree when
 `better-sqlite3`'s build fails, which it always does here.
 
 ```bash
-free -m                                # want > 2 GB available; else stop grafana-server influxdb, then raspotify cups cups-browsed ModemManager
+free -m                                # want > 2 GB available; else: sudo systemctl stop grafana-server influxdb
 sudo systemctl stop signalk.socket
 sudo systemctl stop signalk.service
 mv ~/.signalk/node_modules ~/.signalk/.node_modules_old
@@ -1024,15 +1039,21 @@ sudo systemctl reset-failed signalk.service && sudo systemctl start signalk.sock
 
 Nothing under `electrical.batteries.*` and one `Uncaught exception: Error: write EPIPE` from `dbus-next` at startup.
 
+`signalk-ble-check.timer` restarts SignalK by itself when the plugin is
+loaded but publishing nothing: six minutes after boot, then every fifteen,
+at most three times per boot.
+
 ```bash
-journalctl --since -1h | grep "not authenticated soon enough"          # present = this fault
-grep -c getBluetoothSession /home/pi/bt-sensors-plugin-sk/index.js     # want > 0
+journalctl -t signalk-ble-check --since -1d -o cat                      # what the timer did
+journalctl --since -1h | grep "not authenticated soon enough"           # present = this fault
+grep -c getBluetoothSession ~/.signalk/node_modules/bt-sensors-plugin-sk/index.js   # want > 0
 ```
 
-If the count is 0 the boat is on an old copy of the plugin:
+Grep the copy SignalK loads, not the fork checkout. A count of 0 means
+SignalK runs a build without the fix: relink it to the fork per [A plugin
+fork keeps reverting](#a-plugin-fork-keeps-reverting), then restart:
 
 ```bash
-git -C /home/pi/bt-sensors-plugin-sk pull --ff-only
 sudo systemctl stop signalk.socket
 sudo systemctl stop signalk.service
 sudo systemctl start signalk.socket
@@ -1096,7 +1117,8 @@ Restart SignalK before judging anything; it keeps whatever it loaded at startup.
 bash scripts/check_clone_setup.sh      # names the fix for every gap
 ```
 
-- **"staged WITHOUT sops encryption markers"** — the clean filter isn't wired. `bash scripts/setup-git-filters.sh`, re-stage.
+- **"a secret-bearing file is staged in the clear"** — the clean filter isn't wired. `bash scripts/setup-git-filters.sh`, re-stage.
+- **"a whole-file secret store is staged unencrypted"** — `sops --encrypt --in-place <file>`, re-stage.
 - **"looks like a cleartext credential"** — wire it with `scripts/add_inplace_secret.sh`, or rename the field if it isn't a secret.
 - **gitleaks finding** — look at the file and line. A true false positive gets a narrow `.gitleaks.toml` allowlist entry with `condition = "AND"`.
 - **"sops config is inconsistent"** — `.sops.yaml` and `.gitattributes` disagree; the message says which.
@@ -1160,5 +1182,4 @@ git add secrets/symphony.sops.yaml signalk/security.json
 ```
 
 `influxdb_operator_token` has no plaintext copy anywhere; the `captain` login
-in the InfluxDB UI is what's left. `~/symphony-backups/` on the boat holds
-a plaintext snapshot of the SignalK config, deliberately outside the repo.
+in the InfluxDB UI is what's left.
