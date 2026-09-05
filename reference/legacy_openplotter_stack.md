@@ -22,7 +22,7 @@ Three active interfaces, which is why the box answers on more than one address:
 mDNS advertises `signalk.local` and `_signalk-http._tcp`. Which address
 `signalk.local` resolves to depends on which interface the client sees first —
 both eth0 and wlan0 answer. The DHCP reservation and A record called for in
-`RUNBOOK.md` → "SSO login (GitHub / Google)" need to pick one deliberately.
+`RUNBOOK.md` → "SSO one-time setup" need to pick one deliberately.
 
 Resources are the binding constraint: 3.7 GiB RAM total with roughly 800 MiB
 available under normal load, and a 29 GB SD card. Observed load average around
@@ -159,8 +159,8 @@ staging directories, a zero-byte `lie/package.json`, and an
 `@mapbox/node-pre-gyp` stripped of its own `package.json` and most of `lib/`.
 Because node-pre-gyp is what native modules build through, every later install
 aborted at the first one, and 32 plugins were failing to start. The way out is
-to move the tree aside rather than install over it — RUNBOOK, "When SignalK
-errors about missing packages on the boat Pi."
+to move the tree aside rather than install over it — RUNBOOK, "SignalK errors
+about missing packages."
 
 Three things kept interrupting installs. Root's crontab ran
 `0 0 * * * /sbin/shutdown -r +5`, so anything crossing midnight died mid-write;
@@ -207,8 +207,8 @@ It matters out of proportion to those two plugins because npm rolls back the
 whole install when a build script fails, so one unbuildable package throws away
 a complete, otherwise-good tree. Splitting the install into
 `npm install --ignore-scripts` then `npm rebuild` contains it: `npm rebuild`
-fails on that package alone and leaves the rest built. RUNBOOK, "When SignalK
-errors about missing packages on the boat Pi."
+fails on that package alone and leaves the rest built. RUNBOOK, "SignalK errors
+about missing packages."
 
 **Disk fills with cache, not data.** On 2026-08-11 the root filesystem was 89%
 full. InfluxDB accounted for 308 MB and SignalK's raw logs for 1.2 MB. The

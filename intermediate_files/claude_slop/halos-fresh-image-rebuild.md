@@ -204,21 +204,335 @@ AvNav/OpenCPN" steps have a forward equivalent on a fresh card:
 all from `apt.halos.fi trixie-stable/main`. What they pull on install is
 still unmeasured.
 
-## Order for the fresh-card test, when the card is in a Pi
+## Order for a fresh-card rebuild
 
-0. Wired Ethernet with internet. Nothing works before this — see
-   "Requirements" above.
+Every step below has been run verbatim on a fresh card (Pi 4 2026-09-03,
+Pi 5 2026-09-04). `$IP` is the card's DHCP address; `$D` is
+`/var/lib/container-apps/marine-signalk-server-container/data/data`.
 
-1. Boot, `ssh pi@<dhcp-ip>` with the default password, change it to the
-   sops value, `tailscale up --ssh --hostname=halos-fresh`, note the IP.
-2. `dpkg -l 'marine-*' 'halos-*'`, `docker ps`, `cat /etc/halos/port-registry`,
-   `nmcli con show`, `cat /boot/firmware/cmdline.txt` — the image baseline,
-   into this file.
-3. `ansible-playbook -i inventory site.yml -l symphony-halos` against the
-   new IP, expect the reboot handler to fire. Record every failure verbatim.
-4. B3 by hand: the `.signalk` copy from the boat, forks, pins, the npm
-   recipe. Time it.
-5. `.env`, ntfy, pypilot image (`--build` takes ~1 h on a Pi 4; export the
-   bench image with `docker save` instead).
-6. `scripts/halos_preflight.sh halos-fresh` — every gap it finds is a line
-   for Ansible or `install.sh`, not a hand fix.
+**0. Wired Ethernet with internet, plugged in before power-on.** Not
+optional — see "Requirements" above. The image ships no container images at
+all, so first boot pulls several GB. If the units already failed:
+
+```sh
+sudo systemctl reset-failed
+sudo systemctl restart --no-block halos-core-containers marine-signalk-server-container
+```
+
+Find the card: it is the only Debian 13 box on the LAN.
+
+```sh
+for i in $(seq 1 254); do (ping -c1 -W1 192.168.0.$i >/dev/null 2>&1 && echo 192.168.0.$i) & done | sort
+# then, per live host:
+timeout 3 bash -c 'exec 3<>/dev/tcp/<ip>/22 && head -c 45 <&3'   # want OpenSSH ... Debian-…deb13…
+```
+
+**1. Bootstrap: key, password, and a power sanity check.**
+
+```sh
+scripts/halos_card_bootstrap.sh $IP
+```
+
+Installs your public key, sets `pi` to the sops password (trying the image
+defaults `halos` then `raspberry`), and reports board, RAM, sudo mode and
+`vcgencmd get_throttled`. **Read the throttled line.** Bit 0 set means
+under-voltage *now*; that card will die under a parallel `docker pull` with
+no OOM and no panic. Fix the supply, or trade clock for current:
+
+```sh
+scripts/halos_card_bootstrap.sh $IP --cap    # 1.5 GHz, powersave; reverts on reboot
+```
+
+**2. Record the image baseline into this file** — it drifts between images,
+and two of these were wrong before the Pi 5 run:
+
+```sh
+ssh pi@$IP 'dpkg -l "marine-*" "halos-*"; cat /etc/halos/port-registry;
+  nmcli -t -f NAME,DEVICE,TYPE con show; cat /boot/firmware/cmdline.txt;
+  grep -v "^#" /boot/firmware/config.txt | grep -v "^$"; id; timedatectl'
+```
+
+**3. Flatten the image-pull peak** on any card that reported under-voltage.
+Eight layers decompressing across four cores is the largest transient the
+card ever sees:
+
+```sh
+printf '{\n  "max-concurrent-downloads": 2,\n  "max-concurrent-uploads": 2\n}\n' \
+  | ssh pi@$IP 'sudo tee /etc/docker/daemon.json >/dev/null && sudo systemctl restart docker'
+```
+
+**4. The two app packages, BEFORE Ansible.** Order matters: `apt install`
+drags in `marine-influxdb-container` as an automatic dependency, and
+`roles/base` step 20 purges it. Install first and Ansible cleans up; install
+after a converged run and you have silently reinstated the app Ansible exists
+to remove.
+
+```sh
+ssh pi@$IP 'sudo apt-get update && sudo apt-get install -y marine-questdb-container marine-grafana-container'
+```
+
+Offline, or on a slow link, load the images instead of pulling them — they
+are the entire weight (the `.deb`s are 34.6 kB):
+
+```sh
+gzip -dc halos-db-images.tar.gz | ssh pi@$IP 'sudo docker load'
+# export side, from any card that has them:
+ssh pi@<src> 'sudo docker save grafana/grafana:13.1.3 questdb/questdb:10.0.0 influxdb:2.9.1 | gzip -1' > halos-db-images.tar.gz
+```
+
+**5. Ansible.** Scratch inventory under the scratchpad, never committed:
+
+```yaml
+all:
+  children:
+    halos_cards: { hosts: { symphony-halos: { ansible_host: <IP> } } }
+    openplotter_cards: { hosts: { symphony-pi: } }
+  vars:
+    ansible_user: pi
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+```
+
+```sh
+cd ansible && ansible-playbook -i <scratch>/inv.yml site.yml -l symphony-halos
+```
+
+Expect the boot role to reboot the card and the run to continue. Rerun until
+`changed=0`; record every failure verbatim as a role fix, not a hand fix.
+
+**6. Disable the heartbeat on any card that is not the one in service.**
+`host/install.sh` enables `boat-heartbeat.timer`, and `host_vars` points it
+at the *real* card's healthchecks.io check — so a bench card silently
+reports as the boat card. It is re-enabled by every Ansible run, so this is
+the last step after the last run, not a one-off:
+
+```sh
+ssh pi@$IP 'sudo systemctl disable --now boat-heartbeat.timer'
+```
+
+**7. SignalK state (as-built steps 31–42).** A card that is not on the
+tailnet cannot reach the boat, so the copy relays through the dev box:
+
+```sh
+ssh pi@$IP 'cp $D/package.json /home/pi/package.json.halos'
+rsync -a --exclude node_modules --exclude appstore-cache --exclude 'skserver-raw_*' \
+  --exclude '*.bak*' --exclude '*.deb' --exclude signalk-server --exclude 'ssl-*.pem' \
+  pi@symphony-pi:.signalk/ <stage>/          # ~138 MB
+rsync -a <stage>/ pi@$IP:$D/                 # run twice; the second moves nothing
+rsync -a --exclude node_modules --exclude .git pi@symphony-pi:bt-sensors-plugin-sk/ <bt>/
+rsync -a <bt>/ pi@$IP:$D/local-plugins/bt-sensors-plugin-sk/
+ssh pi@$IP 'git -C /home/pi/symphony pull && cp -r /home/pi/symphony/plugins/signalk-plugin-watchdog $D/local-plugins/'
+```
+
+Then the two `file:` pins in `$D/package.json`
+(`file:local-plugins/<name>` for both forks), the build, and the config:
+
+```sh
+ssh pi@$IP 'sudo /home/pi/symphony/scripts/halos_signalk_npm.sh install'
+```
+
+8 min on a Pi 5 at 1.5 GHz, 19 min on a Pi 4; 2773 packages. Then as-built
+37–38: `"enabled": false` in `signalk-container.json`,
+`signalk-to-influxdb2.json`, `signalk-to-influxdb-v2-buffer.json`,
+`signalk-notification-player.json`, and `venus.json`'s `MQTT.host` to the
+Cerbo's address. Restart and confirm no `EACCES` / `Cannot find module`.
+
+**8. Front door and ntfy (as-built 43–46).**
+
+```sh
+ssh pi@$IP 'cd /home/pi/symphony && cp -n .env.example .env &&
+  sudo docker compose -p symphony -f docker-compose.yml up -d ntfy &&
+  sudo install -m 0644 host/halos/traefik-symphony-signalk-host.yml \
+    /etc/halos/traefik-dynamic.d/symphony-signalk-host.yml'
+```
+
+Verify `/`→302, `/ca`→302, `/ca/`→200, `/sso`→404, `/sso/`→200 with
+`curl -sk --resolve signalk.<domain>:443:127.0.0.1`.
+
+**9. Preflight.** `scripts/halos_preflight.sh $IP`. Every gap it names is a
+line for Ansible or `install.sh`, not a hand fix. On an off-tailnet card,
+`host` FAILs by design; `state` FAILs on any plugin the boat has since
+updated, which `RUNBOOK.md` → "final state sync" owns.
+
+### If the card loses power mid-build
+
+A power cut during `docker pull` leaves an image that **`docker pull` will
+not repair** — the digest matches, so Docker considers it present and reuses
+the corrupt layers. Every binary in it returns `exec format error`, including
+`/bin/ls`, while `docker image inspect` still reports the right
+architecture. Recovery is remove-then-pull:
+
+```sh
+ssh pi@$IP 'sudo docker rmi node:24-bookworm && sudo docker pull node:24-bookworm'
+ssh pi@$IP 'sudo docker run --rm node:24-bookworm node -p process.versions.modules'  # want 137
+```
+
+`halos_signalk_npm.sh` is safe to re-run after this; npm reconciles the tree.
+
+## The whole plan on a fresh Pi 5, 2026-09-04
+
+The first end-to-end run of this file's own order on hardware where memory
+was not the constraint. Board: **Raspberry Pi 5 Model B Rev 1.0, 8 GB**
+(8050 MB total), 4 cores, Debian 13 Trixie, kernel 6.18.39+rpt-rpi-2712,
+115 GB card. Reached on the LAN at its DHCP address; never joined to the
+tailnet, matching the 2026-09-03 fresh Pi 4 run.
+
+### The headroom question is answered: it was the card, not the stack
+
+| | used | available | swap |
+|---|---|---|---|
+| SignalK alone, image baseline | 1635 MB | 6415 MB | 0 |
+| + QuestDB, Grafana, InfluxDB (10 containers) | 2074 MB | 5976 MB | 0 |
+| Host layer converged, full stack | 2127 MB | 5934 MB | 0 |
+| Final, full boat plugin set loaded | 3509 MB | 4552 MB | 21 pages out |
+
+The stack's steady footprint with the boat's 120 plugins is ~3.5 GB. A 2 GB
+card cannot hold that at all, which is the whole of the 2026-09-04 reset
+loop; nothing about the stack is at fault. Swap moved 21 pages in 42 minutes,
+which is noise, not pressure.
+
+### What the two app packages actually cost
+
+The `.deb`s are **34.6 kB fetched, 195 kB installed** — systemd units and
+compose files only. Every byte of weight is the image pull:
+
+| image | size |
+|---|---|
+| `grafana/grafana:13.1.3` | 1.09 GB |
+| `questdb/questdb:10.0.0` | 312 MB |
+| `influxdb:2.9.1` | 292 MB |
+
+Disk went 7229 → 9277 MB, so budget ~2 GB. **`marine-influxdb-container`
+2.9.1-5 arrives as an automatic dependency** of the other two — the plan
+never says so, and `roles/base` step 20 then purges it on the next Ansible
+run. Installing the packages *after* a converged run therefore silently
+reinstates the app Ansible exists to remove. To cache the images without
+that, `docker pull` the three tags directly and skip apt.
+
+### Ansible: one new fix, then clean
+
+Run 1: `ok=69 changed=35 failed=1`. Run 2 after the fix:
+**`ok=64 changed=0 failed=0`** — converged and idempotent, including the
+boot role's reboot handler firing and passing the running-kernel verify.
+
+9. **The step 30 i2c probe raced the SignalK restart.** `flush_handlers` at
+   step 29 can restart the unit; `docker exec` against a container still
+   coming up fails outright, and the container's own start period is 900 s.
+   Failed on the first run, passed seconds later on a rerun — the tell.
+   Fixed the same way as the identity role's SAN probe: `until rc == 0`,
+   12 retries at 5 s. Verified by forcing the race deliberately.
+
+### Image baseline divergences from the 2026-08-20 Pi 4 notes
+
+Both measured on the virgin card before anything was changed:
+
+- **`sudo` requires a password.** This file records the image as passwordless
+  for `pi`. It is not, here. Unconfirmed whether this is a Pi 5 image
+  difference or an error in the original note — re-check on a Pi 4 image
+  before treating it as the former.
+- **The port registry ships all four ports**, not just SignalK:
+  `signalk-server=4430`, `questdb=4431`, `grafana=4432`, `influxdb=4433`.
+
+Otherwise as recorded: no tailscale/telegraf/chrony, `pi` not in `docker`,
+journal volatile, `regdom=GB`, no memory cgroup, no i2c/spi/uart/CAN lines,
+`systemd-zram-generator` present, Halos-AP up on `wlan0ap`.
+
+### The npm build
+
+`scripts/halos_signalk_npm.sh install`, containers left running:
+**8 min 13 s**, exit 0, 2773 packages — against 18 min 52 s on the Pi 4, and
+that with the CPU capped to 1.5 GHz (see below). bt-sensors' own tree added
+857 packages in 41 s; the five named natives rebuilt clean.
+
+### Preflight: 17 ok, 2 FAIL
+
+Both FAILs are properties of this card, not defects:
+
+```
+FAIL  host    no tailscale on this card (by design; not on the tailnet)
+FAIL  state   advancedwind 2.9.2 on the boat vs 2.9.3 here -- npm took the
+              newer minor; RUNBOOK 'final state sync' owns this
+```
+
+Three lines passed that **had never passed on any card**: `services 8 active`,
+`questdb telegraf cpu rows 46; newest signalk row 46 s old` (QuestDB actually
+ingesting), and `containers all report (healthy)`. `plugins` matched the boat
+exactly at 120 loaded / 63 on.
+
+## Power is the Pi 5's binding constraint on a bench supply
+
+The run died once, hard, and the cause was not memory.
+
+Twelve minutes in, ten seconds into the npm build's `docker pull`, the card
+dropped off the LAN and did not return; it needed a power cycle. `journalctl
+-b -1` ends mid-sentence at `10:10:22.007` while Docker was tearing down the
+SignalK container — no OOM kill, no panic, no shutdown. That is instantaneous
+power loss, and it is the opposite signature to a 2 GB card's memory reset,
+which leaves an OOM trail.
+
+`vcgencmd get_throttled` after the bounce read **`0x50005`**: under-voltage
+*now*, throttled *now*, and both latched since boot — at a load average of
+0.24. The supply (USB-C from a bench supply, no PD negotiation) was below
+spec even at rest.
+
+**What fixed it, without touching hardware:** cap the clock.
+
+```sh
+for c in /sys/devices/system/cpu/cpu[0-9]*/cpufreq; do
+  echo powersave > $c/scaling_governor
+  echo 1500000  > $c/scaling_max_freq
+done
+```
+
+`get_throttled` went to `0x50000` immediately — the live bits cleared, only
+the latched history left. The card then survived the full npm build, showing
+one brief `0x50005` transient at peak and riding it out. **`cpufreq-dt`
+exposes a `boost` knob on this board but `scaling_boost_frequencies` is
+empty, so disabling boost does nothing; `scaling_max_freq` is the only lever
+that matters.** Available range is a flat 1.5–2.4 GHz in 100 MHz steps.
+
+Also set on this card by hand: `/etc/docker/daemon.json`
+`max-concurrent-downloads: 2` — eight layers decompressing in parallel across
+four cores is the peak that killed it. **It is captured nowhere in `host/` or
+`ansible/`, so it dies with this card**, which is right if it is only a
+bench-supply workaround and wrong if the boat wants it. Carded rather than
+generalised from here.
+
+All of this is **runtime-only and reverts on reboot**. Persisting it is
+`arm_freq=1500` in `config.txt` or a small unit writing `scaling_max_freq`,
+and it costs throughput — an open question, not a decision made here.
+
+### A power cut mid-`docker pull` leaves an image that `docker pull` will not repair
+
+After the bounce, every binary in `node:24-bookworm` returned
+`exec format error` — `/bin/ls` included — though `docker image inspect`
+reported `arm64/linux` correctly and the root filesystem was clean. The
+layers had been extracted from an interrupted pull. Re-pulling did **not**
+fix it: the digest matched, so Docker considered the image present and reused
+the corrupt layers. Only `docker rmi node:24-bookworm` followed by a fresh
+pull recovered it. Worth knowing on any card that loses power during a build.
+
+### Host monitoring for this already existed and worked
+
+`host/telegraf-rpi-health` (telegraf `inputs.exec`) reads `get_throttled` and
+emits `under_voltage`/`freq_capped`/`throttled`/`soft_temp_limit` as both
+`_now` and `_since_boot`. Deployed and telegraf active on both cards; it
+recorded this event correctly. **lm-sensors is installed on neither card and
+should not be** — a Pi has no chip for it to read.
+
+CPU frequency was missing and is now emitted by the same script as
+`cpu_freq_khz` / `cpu_freq_max_khz`: `inputs.cpu` is utilisation, not clock,
+so a thermal downclock or a deliberate cap previously left no trace at all.
+
+**Nothing alerts on any of it.** `grafana/provisioning/dashboards/json/system.json`
+shows eight stat panels (`Under-voltage now`, `Throttled since boot`, …) and
+there is no alert rule anywhere in the repo — no Grafana alerting provisioning
+exists at all. The metric is therefore visible only to someone already looking
+at the dashboard, which is why the 2026-09-04 brownout was diagnosed by hand
+despite being recorded correctly the whole time. Building that alert is real
+work (the provisioning does not exist yet), not a line to slip into this run.
+
+### What this still cannot answer
+
+Unchanged from the top of this file: `can0` with the HAT, BLE with the boat's
+sensors in range, the boat LAN. And a Pi 5 is not a Pi 4 — a clean run here
+is suggestive for the boat's Pi 4B, never proof.

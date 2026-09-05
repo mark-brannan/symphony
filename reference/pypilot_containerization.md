@@ -3,7 +3,7 @@
 Feasibility study and design record, researched and built 2026-09-02. The
 artifacts are `pypilot/Dockerfile`, `compose-pypilot.yml` (boat shape) and
 `dev/compose-pypilot-dev.yml` (laptop shape); the procedure to run and verify
-them is in `RUNBOOK.md` § pypilot in a container.
+them is in `RUNBOOK.md` § pypilot.
 
 Claims below are **[verified]** (measured here, source named) or
 **[unverified]** (reasoned, not yet tested). The unverified ones are the
@@ -21,7 +21,7 @@ a proof of concept: `symphony-pi` was cut over 2026-09-03, native `pypilot`/
 `pypilot_web` disabled, the container the live service. Measured at cutover:
 95 MB + 39 MB (container) vs. 321 MB (native, same host, same moment) —
 containerized uses well under half the memory, not more. Procedure and
-rollback: `RUNBOOK.md` § "Cut the boat over from native to containerized".
+rollback: `RUNBOOK.md` § "pypilot".
 
 ## What pypilot actually is aboard Symphony
 
