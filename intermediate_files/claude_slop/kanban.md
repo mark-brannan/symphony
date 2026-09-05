@@ -3,30 +3,29 @@
 ## 🔴 OVERRIDING GOAL — the reflash→board→boat pipeline must be bulletproof
 
 **Mark's framing, 2026-09-04: treat this as mission-critical. Test it, refine
-it, repeat until it works perfectly — not "looks done."** Five stages, next
-Pi 4 reflash is the vehicle for proving it:
+it, repeat until it works perfectly — not "looks done."** Two operator
+steps, next Pi 4 reflash is the vehicle for proving it:
 
-1. Flash a fresh card (RPi 4, `Halos-Marine-RPI` image) — Mark's hands, not
-   scriptable; exact recipe in
+1. Flash a fresh card (RPi 4, `Halos-Marine-RPI` image), put it in the bench
+   Pi, wired Ethernet — Mark's hands, not scriptable; exact recipe in
    [halos-fresh-image-rebuild.md](halos-fresh-image-rebuild.md).
-2. `ansible-playbook site.yml` at home — **must be fully non-interactive.**
-   [PR #45](https://github.com/mark-brannan/symphony/pull/45) (install +
-   boot-enabled-assert) and [PR #48](https://github.com/mark-brannan/symphony/pull/48)
-   (the login-is-manual half — release a stale registration, mint a key,
-   `tailscale up`) are both merged and both proven on a genuinely blank Pi 4
-   reflash, twice, 2026-09-05 — see `log.md` for the one bug that surfaced
-   and its fix.
-3. `scripts/halos_preflight.sh` at home — must be deterministic, every line
-   `ok`, zero manual reads required to interpret a result.
-4. Physical swap onto the boat — small, scripted set of changes +
-   verification. This part is *already* the right shape
-   ([dispatch-halos-swap-day.md](dispatch-halos-swap-day.md)); no gap here.
-5. Verification at the boat — same preflight tooling, boat-side checks.
+2. `scripts/halos_card_prepare.sh <lan-ip>` (or no arg once the card is on
+   the tailnet) — bootstrap, apt packages, `site.yml`
+   ([PR #45](https://github.com/mark-brannan/symphony/pull/45),
+   [PR #48](https://github.com/mark-brannan/symphony/pull/48), both merged
+   and proven twice on a blank Pi 4, 2026-09-05 — see `log.md`), SignalK
+   state relayed from the boat, npm build, card overrides, front door,
+   reboot, and ends with `scripts/halos_preflight.sh`. Card is ready when
+   every preflight line reads `ok`; safe to re-run after fixing anything.
+
+Physical swap onto the boat and boat-side verification stay their own
+step, already the right shape
+([dispatch-halos-swap-day.md](dispatch-halos-swap-day.md)); no gap there.
 
 No stage ships as "should work." Run it, find what breaks, fix it in the
 role/script (never by hand on the card), run it again, until a from-blank
-card converges clean without anyone typing a command that isn't in `site.yml`
-or `halos_preflight.sh`.
+card converges clean without anyone typing a command outside
+`halos_card_prepare.sh` and what it calls.
 
 
 This is symphony's board under the global "Open loops" rule: one line per

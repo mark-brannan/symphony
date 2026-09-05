@@ -2555,3 +2555,20 @@ This closes both halves of PR #48's own ask — proven twice, on real
 hardware, against a registration this session's own prior run created.
 Board card deleted. No throwaway auth keys were minted this run (the real
 role's guard needed no workaround), so nothing to revoke.
+
+## 2026-09-05 — swap-day preflight: the fresh card was four layers short; now one command
+
+The bench card was today's PR #48 reflash with only `site.yml` on it: zero
+plugins, no boat config, no databases, no ntfy. Mark's model is two steps
+(flash; prepare), so `scripts/halos_card_prepare.sh` now is step two and
+ends with the preflight. Three full runs on the 2 GB bench Pi 4; run three
+reads ok on all 20 lines. Bugs each run found: `local-plugins` missing
+before the fork rsync; ntfy joined to the dev vcan namespace since PR #42
+(port 80 vs Traefik) — `host/halos/compose-ntfy.yml`; a tagged card cannot
+ssh to the boat — `halos_config_sync.sh` relays via the dev box; npm took
+`signalk-noaa-space-weather` 0.30.11 over the boat's 0.30.10 — card
+`package.json` pinned to the boat's installed versions; the 2 GB bench
+cannot run QuestDB+Grafana next to SignalK — preflight checks them
+enabled-at-boot under 3 GB. Lesson recorded the hard way: never edit a bash
+script while it is running (a subagent did; the run was killed and redone).
+PR #60. DNS dry run not run (classifier); Mark's, per the runbook.

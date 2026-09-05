@@ -13,3 +13,8 @@ EXPECT="signalk-container signalk-to-influxdb2 signalk-to-influxdb-v2-buffer sig
 # own Venus host.
 # shellcheck disable=SC2034  # read by the scripts that source this file
 CONFIG_EXPECT="${EXPECT// /.json|}.json|venus.json"
+
+# Build artifacts and machine state in .signalk: never copied to the card,
+# whichever script does the copy. package.json is handled by each caller.
+# shellcheck disable=SC2034
+SIGNALK_STATE_EXCLUDES="node_modules appstore-cache signalk-server skserver-raw_* *.bak* *.deb ssl-*.pem *.sqlite*"

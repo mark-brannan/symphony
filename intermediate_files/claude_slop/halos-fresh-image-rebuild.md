@@ -206,6 +206,10 @@ still unmeasured.
 
 ## Order for a fresh-card rebuild
 
+The whole order below is now one command, `scripts/halos_card_prepare.sh
+<lan-ip>`. The numbered steps that follow are its contents, kept as the
+record of why each exists.
+
 Every step below has been run verbatim on a fresh card (Pi 4 2026-09-03,
 Pi 5 2026-09-04). `$IP` is the card's DHCP address; `$D` is
 `/var/lib/container-apps/marine-signalk-server-container/data/data`.
