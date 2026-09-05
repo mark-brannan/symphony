@@ -36,7 +36,7 @@ if ! command -v docker >/dev/null 2>&1; then
 		needs="docker, to run the pinned $IMAGE" \
 		blocked_by="pre-commit hook 'gitleaks' (scripts/gitleaks_precommit.sh)" \
 		fix="install Docker, or accept the gap: CI runs the same scanner over full history and cannot be bypassed" \
-		see="RUNBOOK.md, When a hook blocks your commit" || exit 1
+		see="RUNBOOK.md, A hook blocks your commit" || exit 1
 	exit 0
 fi
 
@@ -46,7 +46,7 @@ if ! docker info >/dev/null 2>&1; then
 		needs="a running Docker daemon" \
 		blocked_by="pre-commit hook 'gitleaks' (scripts/gitleaks_precommit.sh)" \
 		fix="start Docker Desktop / dockerd (WSL2: enable integration for this distro), or commit and let CI scan" \
-		see="RUNBOOK.md, When a hook blocks your commit" || exit 1
+		see="RUNBOOK.md, A hook blocks your commit" || exit 1
 	exit 0
 fi
 

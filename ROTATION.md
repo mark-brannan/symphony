@@ -11,7 +11,7 @@
 | 2026-08-07 | Every historical version of every secret-bearing file, plus a full-history gitleaks and trufflehog scan | Clean. Two files were once committed unencrypted (`signalk/security.json` at `7fe7d40`, `signalk-postgsail.json` at `eb04632`), both holding empty values at the time. No live credential has been in this repo's history, so no rotation or history rewrite was needed. |
 
 Re-run with `scripts/scan_verified_secrets.sh` and the gitleaks command in
-`RUNBOOK.md` → "Scanning for leaks by hand".
+`RUNBOOK.md` → "A secret was committed in plaintext".
 
 ## 2026-08-14 — `influxdb_captain_token`
 

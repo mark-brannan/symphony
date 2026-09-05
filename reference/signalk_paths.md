@@ -218,7 +218,7 @@ vessel produces, because `signalk-to-influxdb2` had both `filteringRules` and
 - `<empty>` -- the plugin's sentinel for a delta arriving with an empty path
 
 The NWS alert measurements were the only unbounded growth. `ignoredPaths` in
-RUNBOOK.md ("The signalk-to-influxdb2 change") covers all of these, and is a
+`signalk/plugin-config-data/signalk-to-influxdb2.json` covers all of these, and is a
 larger win on SD-card write volume than the bucket split is.
 
 ## Two Grafanas, two InfluxDBs

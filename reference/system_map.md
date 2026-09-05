@@ -73,6 +73,5 @@ of these on an SD card.
 *Card swap, September 2026:* the `halos` card built on the bench Pi goes
 into the boat Pi for a trial; the `openplotter` card comes home as the
 rollback. Plan: `intermediate_files/claude_slop/halos-swap-plan.md`;
-procedure: [RUNBOOK.md](../RUNBOOK.md) → "Swapping the HALOS card onto the
-boat". Cellular WAN aboard: every package, image and plugin must be on the
+procedure: [runbooks/halos_swap.md](../runbooks/halos_swap.md). Cellular WAN aboard: every package, image and plugin must be on the
 card before it leaves home.
