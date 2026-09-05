@@ -137,6 +137,12 @@ out=$(r "$HOST" 'echo $(systemctl is-active marine-signalk-server-container) $(c
 out=$(r "$HOST" 'systemctl is-active telegraf chrony boat-heartbeat.timer signalk-ble-check.timer marine-signalk-server-container marine-questdb-container marine-grafana-container halos-core-containers | paste -sd" "')
 [ "$out" = "active active active active active active active active" ] && say ok services "8 active" || say FAIL services "telegraf chrony heartbeat.timer ble-check.timer signalk questdb grafana core: $out"
 
+# is-active above proves these are up right now, not that they come back
+# after a power cycle -- that gap is exactly what left the bench card
+# unreachable on 2026-09-04 (tailscaled was up, but not enabled at boot).
+out=$(r "$HOST" 'systemctl is-enabled tailscaled docker ssh chrony telegraf | paste -sd" "')
+[ "$out" = "enabled enabled enabled enabled enabled" ] && say ok autostart "tailscaled docker ssh chrony telegraf all enabled at boot" || say FAIL autostart "tailscaled docker ssh chrony telegraf: $out (want: all enabled)"
+
 out=$(r "$HOST" 'echo $(systemctl is-enabled marine-avnav-container marine-opencpn-container 2>&1 | paste -sd,) $(systemctl is-active marine-avnav-container marine-opencpn-container | paste -sd,) influxdb:$(dpkg-query -W -f="${db:Status-Status}" marine-influxdb-container 2>/dev/null || echo absent)')
 # A fresh Marine image never had AvNav or OpenCPN; not-found is as good as disabled.
 [[ "$out" =~ ^(disabled|not-found),(disabled|not-found)\ inactive,inactive\ influxdb:absent$ ]] && say ok staydown "avnav opencpn absent or disabled, inactive; influxdb app absent" || say FAIL staydown "$out"
