@@ -422,3 +422,11 @@
 - Reproduced the card's overnight hang on the bench and identified the cause:
   the 2 GB test Pi cannot hold QuestDB and Grafana alongside SignalK. With
   those two stopped the card ran six hours clean.
+
+## 2026-09-05
+
+- Proved the unattended Tailscale provisioning twice on a genuinely blank
+  Pi 4 reflash: `site.yml` finds a stale registration under the card's name,
+  releases it, and re-registers unattended, no click in the admin console.
+  Found and fixed a real bug along the way (a comma in the authkey
+  description 400'd Tailscale's mint endpoint on every run).
