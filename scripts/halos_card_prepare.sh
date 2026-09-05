@@ -35,7 +35,7 @@ D=/var/lib/container-apps/marine-signalk-server-container/data/data
 VENUS_HOST=192.168.8.107               # the Cerbo's LAN address; see kanban card "Pick a name for the boat's Venus GX"
 STAGE="${TMPDIR:-/tmp}/halos-prepare-$$"
 PW=$(sops --decrypt --extract '["symphony_halos_pi_password"]' secrets/symphony.sops.yaml)
-. scripts/halos_disabled_plugins.sh    # EXPECT: plugins that stay off on this card
+. scripts/halos_disabled_plugins.sh    # EXPECT, CONFIG_EXPECT, SIGNALK_STATE_EXCLUDES
 
 step() { printf '\n== %s\n' "$*"; }
 sudo_on() { local host=$1; shift; printf '%s\n' "$PW" | ssh "pi@$host" "sudo -S -p '' $*"; }
@@ -72,9 +72,8 @@ wait_ssh "$H"    # the network role put the card on the tailnet; use that name f
 
 step "3. SignalK state from the boat, relayed through this box"
 mkdir -p "$STAGE/sk" "$STAGE/bt"
-rsync -a --exclude node_modules --exclude appstore-cache --exclude signalk-server \
-  --exclude 'skserver-raw_*' --exclude '*.bak*' --exclude '*.deb' --exclude 'ssl-*.pem' --exclude '*.sqlite*' \
-  pi@symphony-pi:.signalk/ "$STAGE/sk/"
+excl=(); for e in $SIGNALK_STATE_EXCLUDES; do excl+=(--exclude "$e"); done
+rsync -a "${excl[@]}" pi@symphony-pi:.signalk/ "$STAGE/sk/"
 rsync -a --exclude node_modules --exclude .git pi@symphony-pi:bt-sensors-plugin-sk/ "$STAGE/bt/"
 # Keep the card's own settings if it already has them (a re-run), else they
 # arrive from the boat and step 5 rewrites them.

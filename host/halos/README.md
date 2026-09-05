@@ -13,6 +13,7 @@ file is not in any role yet and is always placed by hand.
 |---|---|---|
 | `signalk-healthcheck-override.yml` | `/etc/container-apps/marine-signalk-server-container/symphony.override.yml` | Stock HALOS healthcheck: 60 s start period, then 3 probes 30 s apart (150 s in all). This plugin set cold-starts in 3–4 min on a Pi 4, so autoheal restarted it every ~3 min. 15 min start window, 30 s probe timeout, probe by 127.0.0.1. Also grants the host `i2c` gid 988, without which the containerised SignalK cannot open `/dev/i2c-1` at all. |
 | `signalk-unit-override.conf` | `/etc/systemd/system/marine-signalk-server-container.service.d/symphony.conf` | Adds the override file to HALOS's `docker compose` command line. |
+| `compose-ntfy.yml` | run in place from `~/halos-prepare/` by `scripts/halos_card_prepare.sh` (`docker compose -p symphony-ntfy`) | The repo's `compose-ntfy.yml` joins the dev container's vcan namespace, which publishes `:80` and collides with Traefik here. Standalone ntfy on host port 8090, which SignalK (host-network on HALOS) reaches as `localhost:8090`. |
 | `traefik-symphony-signalk-host.yml` | `/etc/halos/traefik-dynamic.d/` | Serves SignalK at the root of `signalk.<boat-domain>` instead of Homarr; `/sso` and `/ca` stay with Authelia and the CA download. Traefik reloads it on write. |
 
 Two host settings go with the files. `ansible/roles/can` and
