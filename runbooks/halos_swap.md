@@ -13,7 +13,7 @@ problem; the baseline exists to tell them apart.
 
 ```bash
 scripts/halos_card_prepare.sh          # card already on the tailnet
-scripts/halos_card_prepare.sh <lan-ip> # virgin card, wired Ethernet on the bench Pi
+scripts/halos_card_prepare.sh 192.168.1.50 # virgin card: use its own LAN IP, wired Ethernet on the bench Pi
 ```
 
 Runs every layer and ends with the preflight. Every preflight line must read
