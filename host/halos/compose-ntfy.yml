@@ -1,0 +1,30 @@
+# ntfy for the HALOS card, standalone. The repo's compose-ntfy.yml joins the
+# dev container's vcan namespace, which publishes port 80 and collides with
+# Traefik here; SignalK on HALOS is host-network, so localhost:8090 is enough.
+#   docker compose -p symphony-ntfy -f host/halos/compose-ntfy.yml up -d
+services:
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    command: serve
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+      - NTFY_LISTEN_HTTP=:8090
+      - NTFY_BEHIND_PROXY=false
+      - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
+      - NTFY_AUTH_DEFAULT_ACCESS=read-write   # LAN is the trust boundary; see reference/security_posture.md
+    ports:
+      - "8090:8090"
+    volumes:
+      - ntfy-data:/var/lib/ntfy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -T 8 -O /dev/null http://127.0.0.1:8090/v1/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    labels:
+      autoheal: "true"
+volumes:
+  ntfy-data:
