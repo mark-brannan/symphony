@@ -8,6 +8,7 @@ services:
     container_name: ntfy
     command: serve
     restart: unless-stopped
+    init: true   # a healthcheck without it can leave zombie processes (ntfy's own docs)
     environment:
       - TZ=UTC
       - NTFY_LISTEN_HTTP=:8090

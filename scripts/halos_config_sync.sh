@@ -22,7 +22,9 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE"
 
 generic_args=(--exclude package.json)
+set -f
 for e in $SIGNALK_STATE_EXCLUDES; do generic_args+=(--exclude "$e"); done
+set +f
 
 rsync -a "${generic_args[@]}" pi@symphony-pi:.signalk/ "$STAGE/"
 
@@ -31,6 +33,9 @@ for f in $(echo "$CONFIG_EXPECT" | tr '|' '\n'); do
   config_args+=(--exclude "plugin-config-data/$f")
 done
 
-rsync -a "${generic_args[@]}" "${config_args[@]}" "$STAGE/" "pi@symphony-halos:$D/" \
+# --delete: a file the boat has since removed must not linger on the card
+# (that's exactly what fails the preflight's `state` line); local-plugins is
+# excluded -- this script doesn't own the fork checkouts there.
+rsync -a --delete --exclude local-plugins "${generic_args[@]}" "${config_args[@]}" "$STAGE/" "pi@symphony-halos:$D/" \
   || { echo "halos_config_sync: rsync failed; not restarting SignalK" >&2; exit 1; }
 printf '%s\n' "$PW" | ssh pi@symphony-halos "sudo -S -p '' systemctl restart marine-signalk-server-container"

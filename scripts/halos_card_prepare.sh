@@ -2,7 +2,7 @@
 # Prepare a freshly flashed HALOS card for the boat. One command, from a
 # tailnet dev box with sops access; the card is in the bench Pi on the LAN.
 #
-#   scripts/halos_card_prepare.sh <lan-ip>       virgin card: bootstrap first
+#   scripts/halos_card_prepare.sh 192.168.1.50   virgin card: bootstrap first (use the card's own LAN IP)
 #   scripts/halos_card_prepare.sh                card already on the tailnet
 #
 # Runs every layer in order and stops at the first failure. Idempotent: a
@@ -72,7 +72,7 @@ wait_ssh "$H"    # the network role put the card on the tailnet; use that name f
 
 step "3. SignalK state from the boat, relayed through this box"
 mkdir -p "$STAGE/sk" "$STAGE/bt"
-excl=(); for e in $SIGNALK_STATE_EXCLUDES; do excl+=(--exclude "$e"); done
+excl=(); set -f; for e in $SIGNALK_STATE_EXCLUDES; do excl+=(--exclude "$e"); done; set +f
 rsync -a "${excl[@]}" pi@symphony-pi:.signalk/ "$STAGE/sk/"
 rsync -a --exclude node_modules --exclude .git pi@symphony-pi:bt-sensors-plugin-sk/ "$STAGE/bt/"
 # Keep the card's own settings if it already has them (a re-run), else they
@@ -82,7 +82,10 @@ for f in $(echo "$CONFIG_EXPECT" | tr '|' ' '); do
   ssh "pi@$H" "test -f $D/plugin-config-data/$f" && keep+=(--exclude "plugin-config-data/$f")
 done
 ssh "pi@$H" "mkdir -p $D/local-plugins"
-rsync -a --exclude package.json "${keep[@]}" "$STAGE/sk/" "pi@$H:$D/"
+# --delete: a file the boat has since removed must not linger on the card
+# (that's exactly what fails the preflight's `state` line); local-plugins is
+# excluded because steps below repopulate it from this box, not from the sync.
+rsync -a --delete --exclude package.json --exclude local-plugins "${keep[@]}" "$STAGE/sk/" "pi@$H:$D/"
 rsync -a "$STAGE/bt/" "pi@$H:$D/local-plugins/bt-sensors-plugin-sk/"
 ssh "pi@$H" "git -C /home/pi/symphony pull -q && rm -rf $D/local-plugins/signalk-plugin-watchdog && cp -r /home/pi/symphony/plugins/signalk-plugin-watchdog $D/local-plugins/"
 # The boat's package.json with every plugin pinned to the version the boat
