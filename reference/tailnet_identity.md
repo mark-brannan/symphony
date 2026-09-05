@@ -73,6 +73,29 @@ The key is used once, within its own play, and never written to disk. When
 through 5 are skipped entirely, which is what keeps a re-run of `site.yml`
 against a working card inert.
 
+### Where it lives
+
+Steps 1 to 5 are the `step 16 | tailnet identity` block in
+`ansible/roles/network/tasks/main.yml`. The two conditions the block turns on —
+whether the card is already itself, and which node may be deleted — are single
+expressions in `ansible/roles/network/vars/main.yml`, because both are guards on
+a destructive call and both are unit-tested against fixture device lists by
+`ansible/tests/test_tailnet_guard.yml`, which needs no host and no network.
+
+Two details the API forced, both measured 2026-09-04. The name to match is the
+first label of a device's `name` (an FQDN); `hostname` is the OS hostname the
+client reports and is not what the coordination server hands out. Offline is
+`connectedToControl`, the field behind the admin console's online dot; a device
+returned without it is treated as online and never deleted.
+
+One case the block deliberately leaves to a human: a card that is logged in,
+under the right name, but with no `tag:symphony-devices` — an interactive
+`tailscale up` produces exactly that. Re-tagging needs `--force-reauth`, which
+drops the ssh session Ansible may be running over, so the play prints the
+command instead of running it. A card logged in under a *suffixed* name needs no
+key: the delete frees the name and the existing `tailscale set --hostname` task
+renames it in place, keeping the node key.
+
 ### Why the guard is in the playbook, not in the scope
 
 There is no delete-only scope to fall back on, and the client's tag does not

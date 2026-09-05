@@ -1,0 +1,52 @@
+# The two expressions the tailnet-provisioning block in tasks/main.yml turns on,
+# kept here rather than inline because both are guards on a destructive call and
+# both are unit-tested: `ansible-playbook tests/test_tailnet_guard.yml` feeds
+# fixture device lists through these exact strings. An expression duplicated in
+# a test is not the expression that runs on the card.
+#
+# See reference/tailnet_identity.md for why the guard lives in the play at all:
+# there is no delete-only API scope, and the client's tag does not narrow which
+# devices it can reach (measured 2026-09-04 -- tagged tag:symphony-devices, it
+# lists every node in the tailnet, symphony-pi and untagged personal devices
+# included).
+
+# True when this card is already registered under its own name AND its own tag,
+# which is what makes a re-run of site.yml against a working card inert.
+#
+# The name has to come from Self.DNSName, not Self.HostName. HostName is the OS
+# hostname the client reports; DNSName's first label is the name the
+# coordination server actually assigned, and those differ in exactly the case
+# this whole mechanism exists for -- when a stale node still holds the name, the
+# new registration becomes `<name>-1` in DNSName while HostName still reads
+# `<name>`. Measured on a live node 2026-09-04: HostName `NucBoxK12`, DNSName
+# `nucboxk12.<tailnet>.ts.net.`.
+#
+# Tags is absent, not empty, on a node registered under a person rather than a
+# tag -- so an interactive `tailscale up` fails this test, which is correct.
+tailnet_identity_ok: >-
+  {{ (tailnet_status.BackendState | default('')) == 'Running'
+     and ((tailnet_status.Self.DNSName | default('')).split('.') | first) == tailscale_hostname
+     and 'tag:symphony-devices' in (tailnet_status.Self.Tags | default([])) }}
+
+# The nodes this play may delete: an EXACT match on the tailnet name label and
+# currently offline. Both conditions, never one; never a prefix, a regex or a
+# startswith. `symphony-halos-1` and `symphony-halos-old` are not
+# `symphony-halos`, and the boat's own node is online, so it fails both tests
+# whenever the target is the HALOS card.
+#
+# The zip is how the exact match stays an exact match: `name` is an FQDN, the
+# name that has to be released is its first label, and Jinja has no way to
+# selectattr on a derived field. So the labels are computed alongside the
+# devices and the equality is a plain `eq` on the pair's second element.
+#
+# connectedToControl is the field behind the admin console's online dot. The
+# `defined` filter in front of rejectattr is deliberate and fail-safe: a device
+# the API returns without that field is treated as online and is never deleted.
+tailnet_stale_nodes: >-
+  {{ (tailnet_devices | default([]))
+     | zip((tailnet_devices | default([])) | map(attribute='name') | map('split', '.') | map('first') | list)
+     | selectattr('1', 'eq', tailscale_hostname)
+     | map(attribute='0')
+     | selectattr('connectedToControl', 'defined')
+     | rejectattr('connectedToControl')
+     | list }}

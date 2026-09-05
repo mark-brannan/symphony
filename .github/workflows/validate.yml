@@ -118,6 +118,33 @@ jobs:
           python-version: "3.x"
       - run: python3 -m py_compile scripts/*.py
 
+  # The network role deletes a Tailscale node. What stops it deleting the boat's
+  # is one expression in roles/network/vars/main.yml, and nothing about a wrong
+  # one looks wrong until a machine is gone -- the provisioning client can reach
+  # every node in the tailnet, symphony-pi included. The playbook below feeds
+  # fixture device lists through that exact expression; it needs no inventory,
+  # no host and no network.
+  ansible:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+      # The full `ansible` package, not ansible-core: --syntax-check resolves
+      # module names, and the roles use community.general and community.sops.
+      - run: pip install ansible
+      - name: tailnet provisioning guards
+        run: ansible-playbook tests/test_tailnet_guard.yml
+        working-directory: ansible
+      # Catches a task-level mistake in any role without needing a card. The
+      # sops lookup in group_vars is lazy, so this runs with no age key.
+      - name: playbook syntax
+        run: ansible-playbook --syntax-check site.yml
+        working-directory: ansible
+
   # The Grafana dashboards are generated (scripts/build_dashboards.py) and the
   # output is committed, so the two can drift -- most easily by someone
   # exporting a UI edit back into the repo. This asserts they haven't, and

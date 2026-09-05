@@ -1,0 +1,163 @@
+# Unit tests for the two guards in roles/network/vars/main.yml -- the exact
+# hostname + offline match that picks which tailnet node the network role is
+# allowed to DELETE, and the check that decides whether the role touches the
+# tailnet at all.
+#
+#   cd ansible && ansible-playbook tests/test_tailnet_guard.yml
+#
+# No inventory, no host, no network: the fixtures are the shapes the Tailscale
+# API and `tailscale status --json` actually return, both captured from the
+# live tailnet on 2026-09-04 and redacted. `vars_files` loads the SAME file the
+# role loads, so these assert the strings that run on the card rather than a
+# copy of them.
+#
+# The case this file exists for is `boat node is never the target`: the guard
+# runs with the provisioning client's token, and that client can delete every
+# node in the tailnet including symphony-pi (measured -- the client's tag
+# governs which tags it may assign, not which devices it may touch).
+- name: tailnet provisioning guards
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../roles/network/vars/main.yml
+
+  vars:
+    tailscale_hostname: symphony-halos
+
+    # The live tailnet's seven nodes, redacted: names replaced, everything the
+    # guard reads kept as it was returned.
+    fixture_tailnet:
+      - {name: "tablet.tailnet.ts.net", id: "n1", connectedToControl: true, lastSeen: "2026-09-05T00:24:22Z"}
+      - {name: "laptop.tailnet.ts.net", id: "n2", connectedToControl: false, tags: ["tag:home-fleet"]}
+      - {name: "desktop.tailnet.ts.net", id: "n3", connectedToControl: true, tags: ["tag:home-fleet"]}
+      - {name: "phone.tailnet.ts.net", id: "n4", connectedToControl: false}
+      - {name: "symphony-halos.tailnet.ts.net", id: "n5", connectedToControl: false, tags: ["tag:symphony-devices"]}
+      - {name: "symphony-pi.tailnet.ts.net", id: "n6", connectedToControl: true, tags: ["tag:symphony-devices"]}
+
+  tasks:
+    # 1. The whole point. The boat's node is online and its name is not this
+    #    card's name; it must fail the guard on both counts at once.
+    - name: the boat's node is never the delete target
+      ansible.builtin.assert:
+        that:
+          - tailnet_stale_nodes | map(attribute='id') | list == ['n5']
+          - "'n6' not in (tailnet_stale_nodes | map(attribute='id') | list)"
+        success_msg: symphony-pi survives a provisioning run aimed at symphony-halos
+      vars:
+        tailnet_devices: "{{ fixture_tailnet }}"
+
+    # 2. And it stays safe with the one variable that could plausibly flip:
+    #    the boat offline, which is its normal state on a cellular link.
+    - name: an OFFLINE boat node is still never the delete target
+      ansible.builtin.assert:
+        that: tailnet_stale_nodes | map(attribute='id') | list == ['n5']
+        success_msg: offline is not enough; the name has to match exactly
+      vars:
+        tailnet_devices: >-
+          {{ fixture_tailnet | rejectattr('id', 'eq', 'n6') | list
+             + [{'name': 'symphony-pi.tailnet.ts.net', 'id': 'n6', 'connectedToControl': false}] }}
+
+    # 3. Exact, not prefix. This is the failure mode the mechanism exists for:
+    #    a suffixed registration sitting next to the name it wants.
+    - name: neighbouring names are not matched
+      ansible.builtin.assert:
+        that: tailnet_stale_nodes | map(attribute='id') | list == ['hit']
+        success_msg: -1, -old and a longer name are all left alone
+      vars:
+        tailnet_devices:
+          - {name: "symphony-halos.tailnet.ts.net", id: "hit", connectedToControl: false}
+          - {name: "symphony-halos-1.tailnet.ts.net", id: "m1", connectedToControl: false}
+          - {name: "symphony-halos-old.tailnet.ts.net", id: "m2", connectedToControl: false}
+          - {name: "symphony-halo.tailnet.ts.net", id: "m3", connectedToControl: false}
+          - {name: "not-symphony-halos.tailnet.ts.net", id: "m4", connectedToControl: false}
+
+    # 4. The name label is the whole label, not a match anywhere in the FQDN.
+    - name: a match inside the domain is not a match
+      ansible.builtin.assert:
+        that: tailnet_stale_nodes == []
+        success_msg: only the first label of `name` is compared
+      vars:
+        tailnet_devices:
+          - {name: "other.symphony-halos.ts.net", id: "m5", connectedToControl: false}
+
+    # 5. Online node with the right name: the name is held by something that is
+    #    still running, which is a state a human should look at, not one this
+    #    play should resolve by deleting a live machine.
+    - name: an online node with the right name is left alone
+      ansible.builtin.assert:
+        that: tailnet_stale_nodes == []
+        success_msg: exact name is not enough; it also has to be offline
+      vars:
+        tailnet_devices:
+          - {name: "symphony-halos.tailnet.ts.net", id: "m6", connectedToControl: true}
+
+    # 6. Fail safe on a field the API stops returning. If connectedToControl
+    #    ever disappears the guard has no offline signal, and the right answer
+    #    is to delete nothing rather than to treat unknown as offline.
+    - name: a device with no connectedToControl is treated as online
+      ansible.builtin.assert:
+        that: tailnet_stale_nodes == []
+        success_msg: a missing online field never authorises a delete
+      vars:
+        tailnet_devices:
+          - {name: "symphony-halos.tailnet.ts.net", id: "m7"}
+
+    - name: an empty tailnet deletes nothing
+      ansible.builtin.assert:
+        that: tailnet_stale_nodes == []
+      vars:
+        tailnet_devices: []
+
+    # 8. The skip gate. Right name AND right tag AND actually running.
+    - name: a correctly registered card is left entirely alone
+      ansible.builtin.assert:
+        that: tailnet_identity_ok | bool
+        success_msg: site.yml is inert against a working card
+      vars:
+        tailnet_status:
+          BackendState: Running
+          Self:
+            HostName: symphony-halos
+            DNSName: symphony-halos.tailnet.ts.net.
+            Tags: ["tag:home-fleet", "tag:symphony-devices"]
+
+    # 9. The collision this whole mechanism exists to undo. HostName still
+    #    reads symphony-halos -- only DNSName shows the suffix, which is why
+    #    the guard reads DNSName.
+    - name: a suffixed registration is not a correct registration
+      ansible.builtin.assert:
+        that: not (tailnet_identity_ok | bool)
+        success_msg: symphony-halos-1 is caught, and HostName would have missed it
+      vars:
+        tailnet_status:
+          BackendState: Running
+          Self:
+            HostName: symphony-halos
+            DNSName: symphony-halos-1.tailnet.ts.net.
+            Tags: ["tag:symphony-devices"]
+
+    # 10. An interactive `tailscale up` registers under a person, with no tags
+    #     key at all -- the node is on the tailnet but outside the policy.
+    - name: an untagged registration is not a correct registration
+      ansible.builtin.assert:
+        that: not (tailnet_identity_ok | bool)
+        success_msg: a personal-identity login does not pass for a provisioned card
+      vars:
+        tailnet_status:
+          BackendState: Running
+          Self: {HostName: symphony-halos, DNSName: "symphony-halos.tailnet.ts.net."}
+
+    - name: a logged-out daemon is not a correct registration
+      ansible.builtin.assert:
+        that: not (tailnet_identity_ok | bool)
+      vars:
+        tailnet_status:
+          BackendState: NeedsLogin
+          Self: {HostName: symphony-halos, DNSName: ""}
+
+    - name: a daemon that did not answer is not a correct registration
+      ansible.builtin.assert:
+        that: not (tailnet_identity_ok | bool)
+        success_msg: the empty from_json fallback does not read as provisioned
+      vars:
+        tailnet_status: {}

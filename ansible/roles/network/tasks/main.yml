@@ -86,6 +86,190 @@
     path: /usr/bin/tailscale
   register: ts_bin
 
+- name: step 16 | tailnet state before provisioning
+  ansible.builtin.command: tailscale status --json
+  register: ts_status_pre
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ts_bin.stat.exists
+
+- name: step 16 | tailnet identity | what the daemon reports now
+  ansible.builtin.set_fact:
+    tailnet_status: "{{ ts_status_pre.stdout | default('') | trim | default('{}', true) | from_json }}"
+  when: ts_bin.stat.exists
+  # `| trim | default('{}', true)` because ts_status_pre is failed_when: false
+  # and a daemon that is down exits non-zero with nothing on stdout; from_json
+  # of an empty string is a hard error, and vars/main.yml then has no
+  # tailnet_status to read.
+
+# Steps 1-5 of reference/tailnet_identity.md: a reflashed card gets its tailnet
+# name and tag back without a click in the admin console. Reached only when the
+# card is not already itself -- see tailnet_identity_ok in vars/main.yml, which
+# is what keeps a converge against a working card inert.
+#
+# Skipped under --check on purpose. The API calls below are not check-mode
+# aware, so the alternative is a block whose first task no-ops and whose rest
+# fails on an undefined var, which would cost site.yml its documented
+# `--check --diff` audit run.
+- name: step 16 | tailnet identity | provisioning would run
+  ansible.builtin.debug:
+    msg: >-
+      This card is not registered as {{ tailscale_hostname }} with
+      tag:symphony-devices; a real run would release the name and re-register
+      it. --check makes no Tailscale API calls, so nothing was verified here.
+  when: ts_bin.stat.exists and not tailnet_identity_ok and ansible_check_mode
+
+- name: step 16 | tailnet identity
+  when:
+    - ts_bin.stat.exists
+    - not tailnet_identity_ok
+    - not ansible_check_mode
+  block:
+    # Every API call is delegated to the control machine: it is where the sops
+    # key already is, so the client secret never crosses the wire to a card
+    # that may be a bare reflash reached over the LAN. no_log on all of them --
+    # the request carries either the client secret or the bearer token in a
+    # header, and a failed task prints its own module arguments.
+    - name: step 16 | tailnet identity | an access token for the provisioning client
+      ansible.builtin.uri:
+        url: https://api.tailscale.com/api/v2/oauth/token
+        method: POST
+        body_format: form-urlencoded
+        body:
+          client_id: "{{ symphony_secrets.tailscale_provision_client_id }}"
+          client_secret: "{{ symphony_secrets.tailscale_provision_client_secret }}"
+      register: ts_oauth
+      delegate_to: localhost
+      become: false
+      no_log: true
+      failed_when: false
+      # The client secret does not expire, so nothing here rotates on a
+      # schedule; the keys it mints below do the expiring. reference/
+      # tailnet_identity.md § Rotation.
+
+    - name: step 16 | tailnet identity | the provisioning client still works
+      ansible.builtin.assert:
+        that: ts_oauth.status == 200
+        fail_msg: >-
+          Tailscale returned {{ ts_oauth.status }} for the client-credentials
+          exchange (401: the secret was rotated or the client deleted; 403: it
+          lost the devices:core or auth_keys scope). RUNBOOK → Adding a secret
+          replaces tailscale_provision_client_{id,secret}.
+      # failed_when: false above plus this assert, because the token task runs
+      # no_log -- letting the uri module fail it directly would stop the play
+      # with the output hidden and no status code to act on.
+
+    - name: step 16 | tailnet identity | every node in the tailnet
+      ansible.builtin.uri:
+        url: https://api.tailscale.com/api/v2/tailnet/-/devices
+        headers:
+          Authorization: "Bearer {{ ts_oauth.json.access_token }}"
+      register: ts_device_list
+      delegate_to: localhost
+      become: false
+      no_log: true
+
+    - name: step 16 | tailnet identity | hand the device list to the guard
+      ansible.builtin.set_fact:
+        tailnet_devices: "{{ ts_device_list.json.devices }}"
+      no_log: true
+      # no_log because the list names Mark's personal phones and laptops, not
+      # because it is a credential. The one derived value the guard produces is
+      # printed in full by the next task.
+
+    - name: step 16 | tailnet identity | nodes holding this card's name, offline
+      ansible.builtin.debug:
+        msg: >-
+          {{ tailnet_stale_nodes | map(attribute='name') | list }}
+      # The audit line for the delete below, which has to run no_log. If this
+      # ever prints a name that is not this card's, stop: the guard in
+      # vars/main.yml is wrong and the next task is about to remove somebody
+      # else's machine.
+
+    - name: step 16 | tailnet identity | release the name from the stale node
+      ansible.builtin.uri:
+        url: "https://api.tailscale.com/api/v2/device/{{ item.id }}"
+        method: DELETE
+        headers:
+          Authorization: "Bearer {{ ts_oauth.json.access_token }}"
+      loop: "{{ tailnet_stale_nodes }}"
+      register: ts_delete
+      delegate_to: localhost
+      become: false
+      no_log: true
+      failed_when: false
+      # Deleting the node is the only thing that frees the name: a node that is
+      # offline, or whose key has expired, still holds it, and `tailscale set
+      # --hostname` against a held name silently registers `<name>-1` instead.
+      # Observed live 2026-09-04.
+
+    - name: step 16 | tailnet identity | the stale node is gone
+      ansible.builtin.assert:
+        that: ts_delete.results | rejectattr('status', 'in', [200]) | list | length == 0
+        fail_msg: >-
+          Tailscale API returned {{ ts_delete.results | map(attribute='status') | list }}
+          deleting {{ tailnet_stale_nodes | map(attribute='name') | list }} (want all 200).
+          Check the provisioning client still has the devices:core scope.
+        success_msg: "released: {{ tailnet_stale_nodes | map(attribute='name') | list }}"
+      when: ts_delete.results is defined
+      # The delete runs no_log, so a non-2xx would otherwise fail the play with
+      # "the output has been hidden". This puts the status codes back without
+      # putting the bearer token back.
+
+    # Registering is only for a card with no identity at all -- the reflash
+    # case. A card that is already logged in under the wrong name needs no key:
+    # the delete above freed the name, and `tailscale set --hostname` further
+    # down renames it in place, which keeps the node key and does not drop the
+    # ssh session this play may be running over. A wrong TAG on a logged-in
+    # card is the one case left for a human; the debug below says so.
+    - name: step 16 | tailnet identity | register this card
+      when: (tailnet_status.BackendState | default('')) != 'Running'
+      block:
+        - name: step 16 | tailnet identity | mint a single-use tagged key
+          ansible.builtin.uri:
+            url: https://api.tailscale.com/api/v2/tailnet/-/keys
+            method: POST
+            body_format: json
+            body:
+              description: "ansible network role, {{ tailscale_hostname }}"
+              expirySeconds: 600
+              capabilities:
+                devices:
+                  create:
+                    reusable: false
+                    ephemeral: false
+                    preauthorized: true
+                    tags: ["tag:symphony-devices"]
+            headers:
+              Authorization: "Bearer {{ ts_oauth.json.access_token }}"
+          register: ts_authkey
+          delegate_to: localhost
+          become: false
+          no_log: true
+          # Not ephemeral, deliberately: this card is staged to become the live
+          # boat card, and an ephemeral node deletes itself after 30-60 minutes
+          # offline, which on a cellular boat link is an ordinary Tuesday.
+          # reference/tailnet_identity.md § Why not an ephemeral key.
+
+        - name: step 16 | tailnet identity | bring the card up under its own name and tag
+          ansible.builtin.command:
+            argv:
+              - tailscale
+              - up
+              - --ssh
+              - "--authkey={{ ts_authkey.json.key }}"
+              - "--hostname={{ tailscale_hostname }}"
+          no_log: true
+          # The key never reaches the card's disk: ansible.cfg sets
+          # pipelining = True, so the module is fed to python over stdin. If
+          # pipelining is ever turned off, this task starts writing the key
+          # into a temp file under ~pi/.ansible/tmp instead.
+
+# Re-read after provisioning so every task below judges the card as it is NOW,
+# not as it was before the block above logged it in. Same `when` as the read at
+# the top of the block, which is what keeps ts_status from being clobbered by a
+# skip result on a card with no tailscale at all.
 - name: step 16 | current tailnet node name
   ansible.builtin.command: tailscale status --json
   register: ts_status
@@ -93,6 +277,20 @@
   failed_when: false
   check_mode: false
   when: ts_bin.stat.exists
+
+- name: step 16 | tailnet identity | the tag needs a human
+  ansible.builtin.debug:
+    msg: >-
+      This card is logged in as
+      {{ (ts_status.stdout | from_json).Self.DNSName | default('?') }} but does
+      not carry tag:symphony-devices, so the tailnet policy does not apply to
+      it. Re-tagging needs a re-authentication, which would drop this play's
+      own ssh session: run `sudo tailscale up --ssh --force-reauth
+      --hostname={{ tailscale_hostname }}` from a console on the card.
+  when: >-
+    ts_bin.stat.exists and ts_status.rc == 0
+    and (ts_status.stdout | from_json).BackendState == "Running"
+    and 'tag:symphony-devices' not in ((ts_status.stdout | from_json).Self.Tags | default([]))
 
 # `Self` is a populated-looking placeholder (HostName present, PublicKey all
 # zeroes) even while logged out -- `Self is defined` is true either way, so
