@@ -232,7 +232,7 @@
             method: POST
             body_format: json
             body:
-              description: "ansible network role, {{ tailscale_hostname }}"
+              description: "ansible network role {{ tailscale_hostname }}"
               expirySeconds: 600
               capabilities:
                 devices:
