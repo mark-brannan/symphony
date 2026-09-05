@@ -103,7 +103,8 @@
 - name: step 16 | rename the tailnet node
   ansible.builtin.command: "tailscale set --hostname={{ tailscale_hostname }}"
   when: >-
-    ts_bin.stat.exists and (ts_status.stdout | from_json).BackendState == "Running"
+    ts_bin.stat.exists and ts_status.rc == 0
+    and (ts_status.stdout | from_json).BackendState == "Running"
     and (ts_status.stdout | from_json).Self.HostName != tailscale_hostname
   # Renaming keeps the node key and the tailnet IP; it is a display name, so
   # this does not re-authenticate the card or disturb an open ssh session.
@@ -116,7 +117,9 @@
       --ssh --hostname={{ tailscale_hostname }}` by hand (RUNBOOK → Remote SSH
       access) -- the browser auth step isn't scriptable; the rename above
       was skipped until then.
-  when: ts_bin.stat.exists and (ts_status.stdout | from_json).BackendState != "Running"
+  when: >-
+    ts_bin.stat.exists and ts_status.rc == 0
+    and (ts_status.stdout | from_json).BackendState != "Running"
 
 # The rename above only proves tailscaled is up right now -- it says nothing
 # about whether it survives a reboot. A bench power-cycle on 2026-09-04 left

@@ -98,7 +98,7 @@
 
 - name: step 26 | assert telegraf/chrony/docker/ssh are enabled
   ansible.builtin.assert:
-    that: "'disabled' not in base_enabled.stdout_lines"
+    that: "base_enabled.stdout_lines | difference(['enabled']) | length == 0"
     fail_msg: "telegraf/chrony/docker/ssh: {{ base_enabled.stdout_lines | join(' ') }}"
     success_msg: "telegraf/chrony/docker/ssh: {{ base_enabled.stdout_lines | join(' ') }}"
   tags: [verify]
