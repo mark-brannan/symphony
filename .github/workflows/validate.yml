@@ -91,6 +91,10 @@ jobs:
               ''
             }}
       - run: python3 scripts/check_encoding_health.py --repo
+      - name: runbook prose budget
+        run: python3 scripts/lint_runbook_prose.py --all
+      - name: runbook prose budget lint's own tests
+        run: python3 scripts/test_lint_runbook_prose.py
 
   shellcheck:
     runs-on: ubuntu-latest
