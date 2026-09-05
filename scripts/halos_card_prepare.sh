@@ -39,7 +39,7 @@ PW=$(sops --decrypt --extract '["symphony_halos_pi_password"]' secrets/symphony.
 
 step() { printf '\n== %s\n' "$*"; }
 sudo_on() { local host=$1; shift; printf '%s\n' "$PW" | ssh "pi@$host" "sudo -S -p '' $*"; }
-wait_ssh() { local i; for i in $(seq 1 60); do ssh -o ConnectTimeout=5 -o BatchMode=yes "pi@$1" true 2>/dev/null && return 0; sleep 5; done; echo "$1 did not come back" >&2; return 1; }
+wait_ssh() { local _; for _ in $(seq 1 60); do ssh -o ConnectTimeout=5 -o BatchMode=yes "pi@$1" true 2>/dev/null && return 0; sleep 5; done; echo "$1 did not come back" >&2; return 1; }
 trap 'rm -rf "$STAGE"' EXIT
 
 if [[ "$TARGET" =~ ^[0-9.]+$ ]]; then
