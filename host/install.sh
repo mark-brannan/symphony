@@ -128,7 +128,7 @@ ENABLE=(
 #
 # The nightly reboot is written commented-out on purpose. It turned out to be
 # covering for the v3d GPU hang rather than preventing anything (RUNBOOK →
-# "Don't autostart a browser on the boat Pi"), so it was disabled on the box.
+# "GPU hang from a desktop browser"), so it was disabled on the box.
 # Leaving it active here would have this installer silently switch it back on.
 # Uncomment both here and on the host if you ever want it running again.
 CRON=(

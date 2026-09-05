@@ -3,7 +3,7 @@
 #
 # The plugin opens a D-Bus connection to org.bluez as it starts. If the
 # handshake dies it never retries, so every BLE sensor stays silent for the
-# life of that process. See RUNBOOK -> "BLE sensors go silent after a reboot".
+# life of that process. See RUNBOOK -> "BLE sensors silent after a reboot".
 # Ordering after bluetooth.service was tried and measured not to help, so this
 # treats the symptom on purpose.
 #

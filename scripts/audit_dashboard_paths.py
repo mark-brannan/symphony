@@ -14,7 +14,7 @@ their panels could never have drawn anything.
 This used to also ask InfluxDB whether each measurement was live. That half
 was never ported when the dashboards moved to QuestDB SQL; the live question
 is now answered end-to-end by scripts/verify_dashboards_live.py, or directly
-by the QuestDB queries in RUNBOOK.md -> "Checking the real thing".
+by the QuestDB queries in RUNBOOK.md -> "Grafana dashboards".
 """
 import glob
 import json

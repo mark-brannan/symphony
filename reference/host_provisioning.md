@@ -128,6 +128,11 @@ retire it only once a run of `site.yml` against a fresh card reproduces the
 box. Until then the two must not both own a file: whichever one is authoritative
 for a given path should be the only one that writes it.
 
+A reflashed card cannot rejoin the tailnet under its own name unattended,
+because the stale node still holds that name. The mechanism that fixes it, and
+why it is an OAuth client rather than an auth key, is in
+[tailnet_identity.md](tailnet_identity.md).
+
 ## Open decisions
 
 - Which host runs the playbooks. Answered provisionally by use: a laptop over
