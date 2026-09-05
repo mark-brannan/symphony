@@ -14,9 +14,9 @@
 # `gitleaks` is on PATH is deliberate: a stale distro build is a different
 # (and differently-spelled) scanner than the one CI runs.
 #
-# Upgrading: this is now the pin `pre-commit autoupdate` used to move. Bump
-# GITLEAKS_VERSION here AND the image tag in .github/workflows/secret-scan.yml
-# together, so laptop and CI keep agreeing on which scanner cleared a commit.
+# The version lives in docker/gitleaks/Dockerfile, not here -- one real
+# manifest Dependabot can open a PR against, read by this script and by
+# .github/workflows/secret-scan.yml, so laptop and CI can't drift apart.
 #
 # CI is unaffected by any of this: the gitleaks job in validate.yml runs the
 # same image over full history on a runner that always has Docker, and is
@@ -27,8 +27,7 @@ cd "$(git rev-parse --show-toplevel)"
 # shellcheck source=scripts/secretguard.sh disable=SC1091
 . "$(pwd)/scripts/secretguard.sh"
 
-GITLEAKS_VERSION="v8.30.1"
-IMAGE="zricethezav/gitleaks:${GITLEAKS_VERSION}"
+IMAGE="$(grep -m1 '^FROM ' docker/gitleaks/Dockerfile | awk '{print $2}')"
 
 if ! command -v docker >/dev/null 2>&1; then
 	secretguard_require "gitleaks did not run: no docker on PATH" \
