@@ -9,36 +9,24 @@ name: Claude PR Review
 # recoverable the way a bad config on the boat is, so that's the one thing
 # this review (and validate.yml) treats as non-negotiable.
 #
-# A run costs real tokens, so it only happens when the PR's content has
-# changed. `synchronize` also fires on every rebase (Mergify's auto-update,
-# a manual `git rebase origin/main`), and PR #38 collected four identical
-# "no content change since last review" runs that way. The gate below
-# hashes the raw tree diff (paths, modes, blob ids) between the merge
-# base and HEAD -- not `git patch-id`, which ignores whitespace inside
-# changed lines -- and remembers each fingerprint it has reviewed in the
-# Actions cache; a matching fingerprint skips the review. A fingerprint
-# is only recorded once a review comment from the bot is actually on the
-# PR, because the action exits green even when it posted nothing (its
-# own workflow-validation skip, for one). The cache is the store rather
-# than a marker in the review comment because it doesn't depend on the
-# model remembering to print anything. An evicted cache entry costs one
-# extra review, never a missed one.
+# The dedup/fingerprint logic, the token-presence check, and the review
+# runner itself now live in the shared reusable workflow at
+# mark-brannan/.github/.github/workflows/claude-review.yml. This file is
+# only the trigger, the draft/fork gate, and symphony's own review brief.
 #
 # Auth: needs the CLAUDE_CODE_OAUTH_TOKEN secret (mint one with
 # `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`).
-# Swap to `anthropic_api_key` for metered API billing instead.
 
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review]
 
-# Queue rather than cancel: a cancelled review has already spent its
-# tokens and never records its fingerprint, so the replacement run would
-# spend them again. The common trigger here is a rebase, which queues
-# behind the running review and then skips on the fingerprint.
-concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+# The called workflow asks for exactly these; a caller may grant no less.
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
 
 jobs:
   review:
@@ -47,144 +35,61 @@ jobs:
     if: >-
       !github.event.pull_request.draft &&
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      pull-requests: write
-      id-token: write
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          persist-credentials: false
+    uses: mark-brannan/.github/.github/workflows/claude-review.yml@main
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    with:
+      prompt: |
+        You are the independent reviewer for this repository, which is
+        the maintenance record and infrastructure config for a real
+        boat -- but development here is intentionally fast-moving, not
+        production-grade, and mistakes that reach the boat are
+        recoverable. The PR was most likely written by another Claude
+        session; your job is a genuine second opinion, not a courtesy
+        rubber-stamp and not a merge gate (this check is advisory, not
+        required). You share no context with the author -- everything
+        you assert must come from the repo, the diff, or something you
+        ran yourself. Flag what's actually wrong; don't invent caution
+        to sound thorough.
 
-      - name: Fingerprint the PR's content
-        id: fp
-        env:
-          BASE: ${{ github.event.pull_request.base.ref }}
-        run: |
-          git fetch -q origin "$BASE"
-          raw=$(git diff-tree -r --no-commit-id "$(git merge-base "origin/$BASE" HEAD)" HEAD)
-          if [ -n "$raw" ]; then id=$(printf '%s\n' "$raw" | sha256sum | cut -d' ' -f1); else id=empty; fi
-          echo "id=$id" >> "$GITHUB_OUTPUT"
-          echo "since=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+        Read CLAUDE.md in full first. It is the gate list for the docs
+        side: RUNBOOK.md is actions-only with no point-in-time status,
+        log.md is append-only and chronological, priorities.md holds
+        only open work, reference/ carries no speculation, and
+        systems/*.md stay unstructured until the owner asks otherwise.
+        Flag any change that breaks those, and any claim about system
+        behavior that reads as inferred rather than verified.
 
-      # Defense in depth: the checkout above is the PR's own HEAD, and a
-      # same-repo PR can edit this script. Overwrite it with the base
-      # branch's version before Claude (holding CLAUDE_CODE_OAUTH_TOKEN and
-      # pull-requests: write) is allowed to execute it, so a PR can't ship
-      # a version of its own summary-posting script and have this workflow
-      # run it with review credentials.
-      - name: Pin the sticky-comment script to the base branch
-        env:
-          BASE: ${{ github.event.pull_request.base.ref }}
-        run: |
-          if git show "origin/$BASE:scripts/post_sticky_pr_comment.sh" > /tmp/pinned-script 2>/dev/null; then
-            mv /tmp/pinned-script scripts/post_sticky_pr_comment.sh
-          else
-            echo "::notice::scripts/post_sticky_pr_comment.sh not on $BASE yet -- using the PR's own copy (expected only on the PR that introduces the script)"
-          fi
-          chmod +x scripts/post_sticky_pr_comment.sh
+        Secrets outrank everything. Files under sops management must
+        still be ciphertext in the diff; no credential, token, key, or
+        password-looking string may land in plaintext anywhere,
+        including in docs and examples. Never attempt to decrypt
+        anything. If something in the diff even resembles a live
+        credential, say so as a blocking finding and do not quote the
+        value back in your comment.
 
-      - name: Skip if this content was already reviewed
-        id: seen
-        uses: actions/cache/restore@v4
-        with:
-          path: .claude-reviewed
-          key: claude-review-pr${{ github.event.pull_request.number }}-${{ steps.fp.outputs.id }}
-          lookup-only: true
+        Validate what a runner can validate, the same way validate.yml
+        does: `cp .env.example .env` then
+        `docker compose config --quiet`, and
+        `python3 scripts/validate_configs.py` (pip install pyyaml
+        first). You can also RUN the test suites --
+        `bash scripts/run_secret_tooling_tests.sh` runs every
+        secret-tooling suite (it is the same entry point CI and the
+        pre-commit hook use; invoke it exactly like that, with no extra
+        arguments, or the permission rule will not match), and
+        `python3 scripts/test_dashboards.py` covers the dashboards.
+        Run what your review touches and say
+        so; "verified" must mean executed, not hand-traced. The services themselves run on the boat and are not
+        reachable from here -- for anything that can only be proven on
+        board, say exactly that instead of guessing. Challenge service
+        or port changes that don't update RUNBOOK.md, and PRs mixing
+        maintenance-log changes with infrastructure changes.
 
-      - if: steps.seen.outputs.cache-hit != 'true'
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          track_progress: true
-          prompt: |
-            REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
-
-            You are the independent reviewer for this repository, which is
-            the maintenance record and infrastructure config for a real
-            boat -- but development here is intentionally fast-moving, not
-            production-grade, and mistakes that reach the boat are
-            recoverable. The PR was most likely written by another Claude
-            session; your job is a genuine second opinion, not a courtesy
-            rubber-stamp and not a merge gate (this check is advisory, not
-            required). You share no context with the author -- everything
-            you assert must come from the repo, the diff, or something you
-            ran yourself. Flag what's actually wrong; don't invent caution
-            to sound thorough.
-
-            Read CLAUDE.md in full first. It is the gate list for the docs
-            side: RUNBOOK.md is actions-only with no point-in-time status,
-            log.md is append-only and chronological, priorities.md holds
-            only open work, reference/ carries no speculation, and
-            systems/*.md stay unstructured until the owner asks otherwise.
-            Flag any change that breaks those, and any claim about system
-            behavior that reads as inferred rather than verified.
-
-            Secrets outrank everything. Files under sops management must
-            still be ciphertext in the diff; no credential, token, key, or
-            password-looking string may land in plaintext anywhere,
-            including in docs and examples. Never attempt to decrypt
-            anything. If something in the diff even resembles a live
-            credential, say so as a blocking finding and do not quote the
-            value back in your comment.
-
-            Validate what a runner can validate, the same way validate.yml
-            does: `cp .env.example .env` then
-            `docker compose config --quiet`, and
-            `python3 scripts/validate_configs.py` (pip install pyyaml
-            first). You can also RUN the test suites --
-            `bash scripts/run_secret_tooling_tests.sh` runs every
-            secret-tooling suite (it is the same entry point CI and the
-            pre-commit hook use; invoke it exactly like that, with no extra
-            arguments, or the permission rule will not match), and
-            `python3 scripts/test_dashboards.py` covers the dashboards.
-            Run what your review touches and say
-            so; "verified" must mean executed, not hand-traced. The services themselves run on the boat and are not
-            reachable from here -- for anything that can only be proven on
-            board, say exactly that instead of guessing. Challenge service
-            or port changes that don't update RUNBOOK.md, and PRs mixing
-            maintenance-log changes with infrastructure changes.
-
-            Post findings as inline comments via
-            mcp__github_inline_comment__create_inline_comment (with
-            `confirmed: true`) anchored to the lines they concern, and one
-            top-level summary piped into
-            `scripts/post_sticky_pr_comment.sh ${{ github.event.pull_request.number }}`
-            -- it updates the same comment on every push instead of leaving
-            a fresh one behind each time, so use it instead of
-            `gh pr comment` for the summary. In the summary, list what you
-            checked and what you ran, even when everything passed. Do not
-            push commits or edit files; you review, the author fixes.
-
-          claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(scripts/post_sticky_pr_comment.sh:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cp .env.example .env),Bash(docker compose config:*),Bash(pip install pyyaml),Bash(python3 scripts/validate_configs.py),Bash(bash scripts/run_secret_tooling_tests.sh),Bash(python3 scripts/test_dashboards.py)"
-
-      - if: steps.seen.outputs.cache-hit != 'true'
-        name: Confirm a review comment actually landed
-        id: posted
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-          SINCE: ${{ steps.fp.outputs.since }}
-        run: |
-          # updated_at, not created_at -- the summary now PATCHes the same
-          # sticky comment in place on a re-review, so a genuine post can be
-          # an update with no new created_at to match.
-          n=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
-                --jq "[.[] | select(.user.login == \"claude[bot]\" and .updated_at >= \"$SINCE\")] | length")
-          echo "posted=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          [ "$n" -gt 0 ] || echo "::warning::no review comment posted; fingerprint not recorded"
-
-      - if: steps.seen.outputs.cache-hit != 'true' && steps.posted.outputs.posted == 'true'
-        name: Remember that this content was reviewed
-        run: echo "${{ steps.fp.outputs.id }}" > .claude-reviewed
-
-      - if: steps.seen.outputs.cache-hit != 'true' && steps.posted.outputs.posted == 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .claude-reviewed
-          key: claude-review-pr${{ github.event.pull_request.number }}-${{ steps.fp.outputs.id }}
+        Post findings as inline comments via
+        mcp__github_inline_comment__create_inline_comment (with
+        `confirmed: true`) anchored to the lines they concern, and one
+        top-level summary via `gh pr comment`. In the summary, list what
+        you checked and what you ran, even when everything passed. Do
+        not push commits or edit files; you review, the author fixes.
+      allowed-tools: mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(cp .env.example .env),Bash(docker compose config:*),Bash(pip install pyyaml),Bash(python3 scripts/validate_configs.py),Bash(bash scripts/run_secret_tooling_tests.sh),Bash(python3 scripts/test_dashboards.py)
+      timeout-minutes: 20
