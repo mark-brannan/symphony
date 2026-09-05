@@ -31,7 +31,7 @@ MSG_FIELDS = [
     ("blocked_by", "pre-commit hook sops-secret-guard"),
     ("fix", "bash scripts/setup-git-filters.sh"),
     ("if_stuck", "git restore --staged <file>"),
-    ("see", "RUNBOOK.md, When a hook blocks your commit"),
+    ("see", "RUNBOOK.md, A hook blocks your commit"),
 ]
 
 

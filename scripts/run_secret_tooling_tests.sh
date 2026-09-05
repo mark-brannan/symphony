@@ -19,7 +19,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 		problem="the pseudonymize/recipients tests were skipped" \
 		needs="python3 on PATH" \
 		blocked_by="pre-commit hook 'secret-tooling-tests' (scripts/run_secret_tooling_tests.sh)" \
-		fix="install python3 (see RUNBOOK.md, Bringing up a host -- Phase 1)" \
+		fix="install python3 (see RUNBOOK.md, Bringing up a host, step 1 Tooling)" \
 		see="bash scripts/check_clone_setup.sh" || exit 1
 	exit 0
 fi

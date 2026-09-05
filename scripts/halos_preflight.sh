@@ -27,13 +27,11 @@ plugins() {
     | python3 -c 'import json,sys
 for p in json.load(sys.stdin): print(p["id"], "on" if p.get("data",{}).get("enabled") else "off", p.get("version",""))' 2>/dev/null | sort
 }
-# Enabled on the boat, disabled on HALOS by decision (halos-swap-plan.md).
-EXPECT="signalk-container signalk-to-influxdb2 signalk-to-influxdb-v2-buffer signalk-notification-player"
-# Their plugin-config-data files differ for the same reason -- the disable is
-# written into the config -- as does venus.json, which carries the HALOS card's
-# own Venus host. Excluded by name: without this the state line FAILs on every
-# card forever, which teaches the operator to skip reading it.
-CONFIG_EXPECT="${EXPECT// /.json|}.json|venus.json"
+# EXPECT / CONFIG_EXPECT: shared with halos_config_sync.sh so the two can't
+# disagree about which files are the card's own settings. Excluded by name in
+# the sync: without this the state line below FAILs on every card forever,
+# which teaches the operator to skip reading it.
+. scripts/halos_disabled_plugins.sh
 # Present on one card only, by the images rather than the build: app-dock is bundled
 # by the boat's npm server but not the HALOS image; polar-performance the reverse;
 # instrument-light is off on the boat and never loads on HALOS (serialport bindings).
@@ -96,7 +94,7 @@ $OVERRIDE_CHECK
 PYEOF
 ")
 [ "$out" = ok ] && say ok overrides "4 plugins disabled, venus MQTT.host 192.168.8.107 (as-built 37, 38)" \
-  || say FAIL overrides "${out:-could not read plugin-config-data} -- the boat rsync reverts these; see RUNBOOK 'final state sync'"
+  || say FAIL overrides "${out:-could not read plugin-config-data} -- the boat rsync reverts these; see runbooks/halos_swap.md 'Sync the SignalK config'"
 
 # The SignalK state was copied from the boat on 2026-09-02 and the boat keeps
 # changing it. Config files (not runtime data) and the *installed* plugin
@@ -112,7 +110,7 @@ if [ -z "$theirs" ] || [ -z "$mine" ]; then
   say FAIL state "could not inventory .signalk (boat $(echo "$theirs" | grep -c .) lines, $HOST $(echo "$mine" | grep -c .) lines)"
 else
   out=$(diff <(echo "$theirs") <(echo "$mine") | grep '^[<>]' | sed 's/^\([<>]\) [0-9a-f]\{16\} /\1 /' | grep -vE "^[<>] (bt-sensors-plugin-sk|signalk-plugin-watchdog|${EXPECT// /|})@" | grep -vE "^[<>] plugin-config-data/(${CONFIG_EXPECT})$" | tr '\n' ' ')
-  [ -z "$out" ] && say ok state "config files and installed plugin versions match the boat (forks, expected-off and venus skipped)" || say FAIL state "differs from the boat (< boat, > halos): $out-- RUNBOOK 'final state sync'"
+  [ -z "$out" ] && say ok state "config files and installed plugin versions match the boat (forks, expected-off and venus skipped)" || say FAIL state "differs from the boat (< boat, > halos): $out-- see runbooks/halos_swap.md 'Sync the SignalK config'"
 fi
 
 boatp=$(plugins "$BOAT"); hostp=$(plugins "$HOST")
