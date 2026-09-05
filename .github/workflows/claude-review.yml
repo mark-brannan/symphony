@@ -89,7 +89,7 @@ jobs:
 
       - name: Skip if this content was already reviewed
         id: seen
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .claude-reviewed
           key: claude-review-pr${{ github.event.pull_request.number }}-${{ steps.fp.outputs.id }}
@@ -184,7 +184,7 @@ jobs:
         run: echo "${{ steps.fp.outputs.id }}" > .claude-reviewed
 
       - if: steps.seen.outputs.cache-hit != 'true' && steps.posted.outputs.posted == 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .claude-reviewed
           key: claude-review-pr${{ github.event.pull_request.number }}-${{ steps.fp.outputs.id }}
