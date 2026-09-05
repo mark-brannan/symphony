@@ -75,12 +75,16 @@ against a working card inert.
 
 ### Why the guard is in the playbook, not in the scope
 
-There is no delete-only scope to fall back on, and Tailscale does not document
-whether a client's tags restrict *which* existing devices it may delete — only
-which tags it may assign. So the destructive step is constrained where the
-constraint can be read and tested: an exact hostname match against a device
-that is currently offline. The boat's own node fails both tests whenever the
-target is the HALOS card, and no prefix or fuzzy match is ever used.
+There is no delete-only scope to fall back on, and the client's tag does not
+narrow what it reaches: tagged `tag:symphony-devices`, it lists every device in
+the tailnet, untagged personal devices and the boat's own node included
+(measured 2026-09-04). The tag governs which tags it may *assign*, not which
+devices it may touch.
+
+So the destructive step is constrained where the constraint can be read and
+tested: an exact hostname match against a device that is currently offline. The
+boat's own node fails both tests whenever the target is the HALOS card, and no
+prefix or fuzzy match is ever used.
 
 ### Rotation
 
