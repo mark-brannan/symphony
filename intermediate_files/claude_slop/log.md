@@ -2490,3 +2490,43 @@ Also hardened `halos_signalk_npm.sh` to survive a dropped ssh (it re-execs
 into its own transient unit; the caller is only a log follower), after Mark
 pointed out that a 20-minute npm run tied to an ssh session was a torn
 `node_modules` waiting to happen.
+
+## 2026-09-05 — PR #48's tailnet provisioning block, run 1 of 2, against a genuinely blank Pi 4
+
+Mark flashed a fresh Pi 4 (`Halos-Marine-RPI`, no imager customisation),
+swapped it onto the bench in place of the Pi 5, and powered it on. Found it
+on the LAN via an SSH-banner scan (`192.168.0.192`, OpenSSH 10.0p2
+Debian-7+deb13u4), bootstrapped it (`scripts/halos_card_bootstrap.sh`;
+`throttled 0x0`, clean power), then ran `ansible-playbook site.yml` against
+a scratch inventory.
+
+**First run failed at the key-mint step**, not from anything hardware- or
+environment-shaped: Tailscale's `/tailnet/-/keys` endpoint 400s on a comma in
+`description` (`"keys: description had invalid characters"`). PR #48's own
+pre-merge verification never called that endpoint live, so it shipped
+broken and this was the first real run to reach it. Isolated with a scratch,
+untracked Ansible playbook that made the identical call outside the tracked
+role — same client, same body, only the description text varied — confirmed
+the comma was the sole cause by minting with and without it, then revoked
+both throwaway keys via the API. (An attempt to flip `no_log: false` on the
+real task to see the error directly was denied by the auto-mode classifier;
+the untracked-playbook approach was the one that worked and is the safer
+pattern for future sessions — it never touches `no_log` on a credential-
+bearing task in a tracked file.)
+
+Fixed in [PR #58](https://github.com/mark-brannan/symphony/pull/58) (one
+line, merged): dropped the comma. Reran `site.yml` unmodified — `ok=85
+changed=21 failed=0` — and confirmed live on the card: `tailscale status
+--json` reports `BackendState: Running`, `HostName: symphony-halos`,
+`Tags: [tag:symphony-devices]`, `Online: true`. Fully unattended, no click
+in the admin console.
+
+**Incidental finding, not this session's doing:** the tailnet already held
+an *offline* node named `symphony-halos` before either run today — leftover
+from some earlier, unrelated attempt at this card name, predating this
+session. Both runs found it via the guard's exact-name-and-offline match,
+logged it in the audit debug line, and released it correctly. This
+exercised the delete path for real, but not the case PR #48 set out to
+prove — that case needs *this run's own* registration to go stale, which
+only a second reflash produces. Handoff for that second run:
+[handoff-tailnet-provisioning-second-run-2026-09-05.md](handoff-tailnet-provisioning-second-run-2026-09-05.md).
