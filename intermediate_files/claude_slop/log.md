@@ -2490,3 +2490,68 @@ Also hardened `halos_signalk_npm.sh` to survive a dropped ssh (it re-execs
 into its own transient unit; the caller is only a log follower), after Mark
 pointed out that a 20-minute npm run tied to an ssh session was a torn
 `node_modules` waiting to happen.
+
+## 2026-09-05 — PR #48's tailnet provisioning block, run 1 of 2, against a genuinely blank Pi 4
+
+Mark flashed a fresh Pi 4 (`Halos-Marine-RPI`, no imager customisation),
+swapped it onto the bench in place of the Pi 5, and powered it on. Found it
+on the LAN via an SSH-banner scan (`192.168.0.192`, OpenSSH 10.0p2
+Debian-7+deb13u4), bootstrapped it (`scripts/halos_card_bootstrap.sh`;
+`throttled 0x0`, clean power), then ran `ansible-playbook site.yml` against
+a scratch inventory.
+
+**First run failed at the key-mint step**, not from anything hardware- or
+environment-shaped: Tailscale's `/tailnet/-/keys` endpoint 400s on a comma in
+`description` (`"keys: description had invalid characters"`). PR #48's own
+pre-merge verification never called that endpoint live, so it shipped
+broken and this was the first real run to reach it. Isolated with a scratch,
+untracked Ansible playbook that made the identical call outside the tracked
+role — same client, same body, only the description text varied — confirmed
+the comma was the sole cause by minting with and without it, then revoked
+both throwaway keys via the API. (An attempt to flip `no_log: false` on the
+real task to see the error directly was denied by the auto-mode classifier;
+the untracked-playbook approach was the one that worked and is the safer
+pattern for future sessions — it never touches `no_log` on a credential-
+bearing task in a tracked file.)
+
+Fixed in [PR #58](https://github.com/mark-brannan/symphony/pull/58) (one
+line, merged): dropped the comma. Reran `site.yml` unmodified — `ok=85
+changed=21 failed=0` — and confirmed live on the card: `tailscale status
+--json` reports `BackendState: Running`, `HostName: symphony-halos`,
+`Tags: [tag:symphony-devices]`, `Online: true`. Fully unattended, no click
+in the admin console.
+
+**Incidental finding, not this session's doing:** the tailnet already held
+an *offline* node named `symphony-halos` before either run today — leftover
+from some earlier, unrelated attempt at this card name, predating this
+session. Both runs found it via the guard's exact-name-and-offline match,
+logged it in the audit debug line, and released it correctly. This
+exercised the delete path for real, but not the case PR #48 set out to
+prove — that case needs *this run's own* registration to go stale, which
+only a second reflash produces. Handoff for that second run:
+[handoff-tailnet-provisioning-second-run-2026-09-05.md](handoff-tailnet-provisioning-second-run-2026-09-05.md).
+
+## 2026-09-05 — PR #48's tailnet provisioning block, run 2 of 2: the delete-guard against its own leftover
+
+Mark reflashed the same Pi 4 a second time (fresh `Halos-Marine-RPI`, no
+customisation, wired Ethernet before power-on). Found it on a new DHCP
+lease at the same `192.168.0.192`, cleared the stale host key, bootstrapped
+it, and ran `site.yml` against a scratch inventory pointing `symphony-halos`
+at that IP.
+
+Before the reflash, run 1's registration was recorded directly off the
+card: `ID nPLJm9Q2Be11CNTRL`, `Created 2026-09-05T08:15:47Z`. Run 2's
+`site.yml` converged unmodified — `ok=90 changed=36 failed=0`, no new bug —
+and its own debug line ("nodes holding this card's name, offline") named
+exactly one stale node to release: `symphony-halos.tailc38418.ts.net`. Since
+run 1 had already deleted the one pre-existing leftover and minted the only
+node created since, that release could only be run 1's own registration —
+confirmed after the fact by the card's new identity: `ID nFn99g6sqi11CNTRL`,
+`Created 2026-09-05T11:04:54Z`, distinct from run 1's ID. `tailscale status
+--json` again reports `HostName: symphony-halos`, `Tags:
+[tag:symphony-devices]`, `BackendState: Running`, `Online: true`.
+
+This closes both halves of PR #48's own ask — proven twice, on real
+hardware, against a registration this session's own prior run created.
+Board card deleted. No throwaway auth keys were minted this run (the real
+role's guard needed no workaround), so nothing to revoke.

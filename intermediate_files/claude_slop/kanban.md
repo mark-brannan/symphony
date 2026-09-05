@@ -10,10 +10,12 @@ Pi 4 reflash is the vehicle for proving it:
    scriptable; exact recipe in
    [halos-fresh-image-rebuild.md](halos-fresh-image-rebuild.md).
 2. `ansible-playbook site.yml` at home — **must be fully non-interactive.**
-   Currently is NOT: a genuinely fresh/reflashed card has no Tailscale node
-   key, so `tailscale up` blocks on Mark's browser login. [PR #45](https://github.com/mark-brannan/symphony/pull/45)
-   added the install+boot-enabled-assert half of this, live-verified; the
-   login-is-manual half is still open — see the card below.
+   [PR #45](https://github.com/mark-brannan/symphony/pull/45) (install +
+   boot-enabled-assert) and [PR #48](https://github.com/mark-brannan/symphony/pull/48)
+   (the login-is-manual half — release a stale registration, mint a key,
+   `tailscale up`) are both merged and both proven on a genuinely blank Pi 4
+   reflash, twice, 2026-09-05 — see `log.md` for the one bug that surfaced
+   and its fix.
 3. `scripts/halos_preflight.sh` at home — must be deterministic, every line
    `ok`, zero manual reads required to interpret a result.
 4. Physical swap onto the boat — small, scripted set of changes +
@@ -121,7 +123,6 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 - [ ] **Confirm the sticky-comment fix to `claude-review.yml` (PR #44, commit `c03887d`) actually works, on the next PR that touches it.** It couldn't self-test on #44 — GitHub's own claude-code-action skipped running because the PR modifies the workflow file it runs under (logged as "Skipping action due to workflow validation," a known pre-existing case per the comment in that workflow already). Watch the first real PR after #44 merges: one `claude[bot]` summary comment should update in place across pushes, not multiply.
 
 ### Infrastructure
-- [ ] **Prove the tailnet provisioning block against a genuinely blank reflash, twice** — the wiring is done in [PR #48](https://github.com/mark-brannan/symphony/pull/48) (stacked on [PR #45](https://github.com/mark-brannan/symphony/pull/45), merge that first), guards unit-tested and the skip path verified against the live bench card. Only the second reflash exercises the stale-node delete, which is the half nothing here can prove without the hardware; design and the one deliberate gap are in [reference/tailnet_identity.md](../../reference/tailnet_identity.md).
 - [ ] Dev-box `grafana` container is in a restart loop since 2026-09-04 02:12 — `Datasource provisioning error: data source not found`; pre-existing, not touched by #41/#42. Read `docker logs grafana` against [grafana/provisioning](../../grafana/provisioning) and fix the datasource reference.
 - [ ] Confirm containerized pypilot on `symphony-pi` survives a reboot — cut over 2026-09-03 (native disabled, container `restart: unless-stopped`), but that policy has never been exercised through an actual host reboot. Check `docker ps` shows `pypilot`/`pypilot-web` `Up` after the next reboot the boat takes for any reason; if not, `RUNBOOK.md` § "Cut the boat over" has the rollback.
 - [ ] **`docker-compose.override.yml` is deployed to the boat, where its own header says it must not be.** It is the dev-box-only file that mounts `dev/plugin-config-overrides/` over SignalK's plugin configs. Compose loads it automatically with no `-f` flag, so it is now in all three boat containers' `com.docker.compose.project.config_files`. Inert today — it defines only the `signalk` service and the boat runs SignalK natively — but it arms itself the day anyone containerises SignalK there, and it would mount dev plugin configs over the real ones with nothing to say why. Found 2026-09-02 while adding container healthchecks; pre-existing and out of that change's scope, so left alone. Fix is probably to move its contents into a `dev`-profiled file or an explicitly-named `-f`, not to delete it.
