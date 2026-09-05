@@ -80,7 +80,11 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.ref }}
         run: |
-          git show "origin/$BASE:scripts/post_sticky_pr_comment.sh" > scripts/post_sticky_pr_comment.sh
+          if git show "origin/$BASE:scripts/post_sticky_pr_comment.sh" > /tmp/pinned-script 2>/dev/null; then
+            mv /tmp/pinned-script scripts/post_sticky_pr_comment.sh
+          else
+            echo "::notice::scripts/post_sticky_pr_comment.sh not on $BASE yet -- using the PR's own copy (expected only on the PR that introduces the script)"
+          fi
           chmod +x scripts/post_sticky_pr_comment.sh
 
       - name: Skip if this content was already reviewed
