@@ -430,3 +430,7 @@
   releases it, and re-registers unattended, no click in the admin console.
   Found and fixed a real bug along the way (a comma in the authkey
   description 400'd Tailscale's mint endpoint on every run).
+- Collapsed the fresh-card preparation into one command,
+  `scripts/halos_card_prepare.sh`, from bootstrap through the preflight.
+  Proven end to end on the bench Pi 4: three full runs, the third `ok` on
+  every preflight line. The boat swap is still ahead.

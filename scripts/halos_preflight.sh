@@ -134,8 +134,16 @@ fi
 out=$(r "$HOST" 'echo $(systemctl is-active marine-signalk-server-container) $(curl -s -m 10 127.0.0.1:3000/signalk | python3 -c "import json,sys; print(json.load(sys.stdin)[\"server\"][\"version\"])" 2>/dev/null) $([ -f /etc/container-apps/marine-signalk-server-container/symphony.override.yml ] && [ -f /etc/systemd/system/marine-signalk-server-container.service.d/symphony.conf ] && echo override) $(grep -q "^Groups:.* 988 " /proc/$(pgrep -f "^node /home/node/signalk" | head -1)/status 2>/dev/null && echo gid988)')
 [[ "$out" == "active 2."*" override gid988" ]] && say ok signalk "$out (healthcheck override installed, i2c gid in the SignalK process)" || say FAIL signalk "got '$out' (want: active <version> override gid988)"
 
-out=$(r "$HOST" 'systemctl is-active telegraf chrony boat-heartbeat.timer signalk-ble-check.timer marine-signalk-server-container marine-questdb-container marine-grafana-container halos-core-containers | paste -sd" "')
-[ "$out" = "active active active active active active active active" ] && say ok services "8 active" || say FAIL services "telegraf chrony heartbeat.timer ble-check.timer signalk questdb grafana core: $out"
+# A card under 3 GB cannot run the databases next to SignalK (measured: the
+# 2 GB bench swaps SignalK to death); there they only have to start at boot.
+small=$(r "$HOST" 'free -m | awk "/Mem:/{print (\$2 < 3000)}"')
+if [ "$small" = 1 ]; then
+  out=$(r "$HOST" 'systemctl is-active telegraf chrony boat-heartbeat.timer signalk-ble-check.timer marine-signalk-server-container halos-core-containers; systemctl is-enabled marine-questdb-container marine-grafana-container' | paste -sd" ")
+  [ "$out" = "active active active active active active enabled enabled" ] && say ok services "6 active; questdb grafana enabled at boot (not run on a <3 GB card)" || say FAIL services "telegraf chrony heartbeat.timer ble-check.timer signalk core questdb grafana: $out"
+else
+  out=$(r "$HOST" 'systemctl is-active telegraf chrony boat-heartbeat.timer signalk-ble-check.timer marine-signalk-server-container marine-questdb-container marine-grafana-container halos-core-containers | paste -sd" "')
+  [ "$out" = "active active active active active active active active" ] && say ok services "8 active" || say FAIL services "telegraf chrony heartbeat.timer ble-check.timer signalk questdb grafana core: $out"
+fi
 
 # is-active above proves these are up right now, not that they come back
 # after a power cycle -- that gap is exactly what left the bench card
@@ -159,7 +167,9 @@ out=$(r "$HOST" 'curl -s -m 10 "127.0.0.1:9000/exec?query=select%20count()%20fro
 import json,sys,datetime; t=json.load(sys.stdin)[\"dataset\"][0][0]
 print(int((datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(t.replace(\"Z\",\"+00:00\"))).total_seconds()))" 2>/dev/null' | paste -sd" ")
 rows=${out%% *}; age=${out##* }
-[ "${rows:-0}" -gt 0 ] 2>/dev/null && [ "${age:-99999}" -lt 600 ] 2>/dev/null && say ok questdb "telegraf cpu rows $rows; newest signalk row ${age} s old" || say FAIL questdb "cpu rows ${rows:-none}, newest signalk row ${age:-none} s old (want >0 and <600)"
+if [ "$small" = 1 ]; then say ok questdb "not run on a <3 GB card; checked at the boat by halos_swap_check.sh"
+elif [ "${rows:-0}" -gt 0 ] 2>/dev/null && [ "${age:-99999}" -lt 600 ] 2>/dev/null; then say ok questdb "telegraf cpu rows $rows; newest signalk row ${age} s old"
+else say FAIL questdb "cpu rows ${rows:-none}, newest signalk row ${age:-none} s old (want >0 and <600)"; fi
 
 code=$(r "$HOST" "curl -s -m 10 -o /dev/null -w '%{http_code}' 127.0.0.1:8090/v1/health")
 [ "$code" = 200 ] && say ok ntfy "health 200" || say FAIL ntfy "http ${code:-none}"
