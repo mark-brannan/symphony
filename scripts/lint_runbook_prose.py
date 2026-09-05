@@ -273,14 +273,9 @@ def main(argv):
             return 0
         findings += check_runbook_only(staged)
         findings += check_sections(checked, lambda p: git_show(":", p))
-        # Rule 2 (net prose delta per commit) is temporarily OFF -- it blocked
-        # a verified correction and got dropped pending a real fix. check_delta
-        # and its tests are untouched; restore with:
-        #   delta, delta_findings = check_delta(checked, base)
-        #   findings += delta_findings
-        #   summary = f"checked {len(checked)} staged runbook file(s), net prose delta {delta:+d}"
-        # Tracked on the symphony kanban.
-        summary = f"checked {len(checked)} staged runbook file(s)"
+        delta, delta_findings = check_delta(checked, base)
+        findings += delta_findings
+        summary = f"checked {len(checked)} staged runbook file(s), net prose delta {delta:+d}"
 
     for f in findings:
         print(f"runbook-prose: {f}")
