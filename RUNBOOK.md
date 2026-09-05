@@ -44,6 +44,7 @@ swap has its own file: [runbooks/halos_swap.md](runbooks/halos_swap.md).
 - [Removing a secret](#removing-a-secret)
 - [Email pseudonyms in security.json](#email-pseudonyms-in-securityjson)
 - [Router config backup](#router-config-backup)
+- [Upgrading the scanners](#upgrading-the-scanners)
 - [SSO login](#sso-login)
 - [SSO one-time setup](#sso-one-time-setup)
 - [SSO access grants](#sso-access-grants)
@@ -582,6 +583,16 @@ docker compose --profile pypilot down
 sudo systemctl enable --now pypilot pypilot_web
 ```
 
+To move `PYPILOT_REF` forward, edit the ARG in `pypilot/Dockerfile`, then:
+
+```bash
+docker compose --profile pypilot up -d --build pypilot pypilot-web
+```
+
+*Verify:* `docker exec pypilot pip show pypilot | head -2` reports the
+version you expect, then re-run the four checks above. Don't bump it on the
+boat first.
+
 ## Testing the DSC / AIS distress chain
 
 **Never press a radio's DSC distress button or activate a SART/MOB/EPIRB to
@@ -853,6 +864,22 @@ Stop if `export ok` doesn't print; an empty export overwrites the backup.
 Restore: `sops --decrypt secrets/router-config.sops.yaml`, feed `uci_export`
 through `uci import` on the router, then `reload_config`. This restores WiFi
 and WAN too.
+
+## Upgrading the scanners
+
+The version pins live in three places and all three must move together, or
+a commit gets cleared by one scanner version and a push by another:
+
+```bash
+grep -n GITLEAKS_VERSION   scripts/gitleaks_precommit.sh    # commit-time
+grep -n TRUFFLEHOG_VERSION scripts/scan_verified_secrets.sh # CI + local
+grep -n zricethezav        .github/workflows/secret-scan.yml # CI
+```
+
+Edit all three to the same tag, then pull the new images **dockside, not
+underway** — the first run after a bump fetches from Docker Hub, and a
+failed fetch mid-passage leaves the commit-time hook degrading to a warning
+just when you can least check it by hand.
 
 ## SSO login
 
