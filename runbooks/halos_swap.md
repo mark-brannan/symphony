@@ -12,21 +12,22 @@ problem; the baseline exists to tell them apart.
 ## Before leaving home
 
 ```bash
-scripts/halos_preflight.sh
+scripts/halos_card_prepare.sh          # card already on the tailnet
+scripts/halos_card_prepare.sh <lan-ip> # virgin card, wired Ethernet on the bench Pi
 ```
 
-Every line must be `ok`. The `services` line needs QuestDB and Grafana up on
-the bench Pi; on the 2 GB bench, stop them again afterward
-(`sudo systemctl stop marine-questdb-container marine-grafana-container`).
+Runs every layer and ends with the preflight. Every preflight line must read
+`ok`; the script is safe to re-run after fixing anything.
 
 ## Sync the SignalK config
 
-A `state` FAIL in the preflight means the boat's SignalK config has moved
-since the card was loaded. Sync, then re-run the preflight. The card's own
-settings (which plugins stay disabled, `venus.json`) are excluded by
-`scripts/halos_disabled_plugins.sh`, the same list the preflight checks
-against, so the two can't drift apart; SignalK re-enables plugins live when
-their config is overwritten, with no error.
+`halos_card_prepare.sh` already relays the boat's SignalK config onto the
+card, so this section is only for a `state` FAIL found later, after the boat's
+config has moved on from what the card has. Sync, then re-run the preflight.
+The card's own settings (which plugins stay disabled, `venus.json`) are
+excluded by `scripts/halos_disabled_plugins.sh`, the same list the preflight
+checks against, so the two can't drift apart; SignalK re-enables plugins live
+when their config is overwritten, with no error.
 
 ```bash
 scripts/halos_config_sync.sh
