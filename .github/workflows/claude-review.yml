@@ -70,6 +70,19 @@ jobs:
           echo "id=$id" >> "$GITHUB_OUTPUT"
           echo "since=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
+      # Defense in depth: the checkout above is the PR's own HEAD, and a
+      # same-repo PR can edit this script. Overwrite it with the base
+      # branch's version before Claude (holding CLAUDE_CODE_OAUTH_TOKEN and
+      # pull-requests: write) is allowed to execute it, so a PR can't ship
+      # a version of its own summary-posting script and have this workflow
+      # run it with review credentials.
+      - name: Pin the sticky-comment script to the base branch
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git show "origin/$BASE:scripts/post_sticky_pr_comment.sh" > scripts/post_sticky_pr_comment.sh
+          chmod +x scripts/post_sticky_pr_comment.sh
+
       - name: Skip if this content was already reviewed
         id: seen
         uses: actions/cache/restore@v4

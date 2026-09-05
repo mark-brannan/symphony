@@ -47,7 +47,23 @@ class ProseCountingTest(unittest.TestCase):
 
     def test_words_attributed_to_enclosing_section(self):
         text = "## A\n\none two\n\n## B\n\nthree four five\n"
-        self.assertEqual(lint.section_word_counts(text), {"A": 2, "B": 3})
+        self.assertEqual(lint.section_word_counts(text), [("A", 2), ("B", 3)])
+
+    def test_repeated_section_titles_stay_separate(self):
+        # Two distinct `## Backup` sections must not merge into one combined
+        # count -- each may be under budget alone while the sum is over.
+        text = "## Backup\n\none two\n\n## Backup\n\nthree four five\n"
+        self.assertEqual(
+            lint.section_word_counts(text), [("Backup", 2), ("Backup", 3)]
+        )
+
+    def test_four_backtick_fence_survives_a_nested_triple_backtick(self):
+        text = "## A\n\n````\nsome prose with ``` inside a fence\n````\n\nafter\n"
+        self.assertEqual(lint.count_prose_words(text), 1)
+
+    def test_table_without_leading_pipes_is_free(self):
+        text = "## A\n\nHeader | Header\n------ | ------\nvalue | value\n\nreal words here\n"
+        self.assertEqual(lint.count_prose_words(text), 3)
 
 
 class GitFixture(unittest.TestCase):

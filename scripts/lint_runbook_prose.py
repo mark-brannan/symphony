@@ -42,7 +42,7 @@ RUNBOOK_COMMIT_ALLOWED = ("RUNBOOK.md", "runbooks/", "README.md", "CLAUDE.md", "
 # Section whose body is a generated navigation index, not prose.
 EXEMPT_SECTIONS = ("Where things are",)
 
-FENCE_RE = re.compile(r"^\s*(```|~~~)")
+FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 WORD_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9'’./_-]*")
 
@@ -52,38 +52,90 @@ def is_checked(path):
     return p == "RUNBOOK.md" or (p.startswith("runbooks/") and p.endswith(".md"))
 
 
+def _is_table_delimiter(stripped):
+    """A '---|---' style delimiter row, with or without a leading pipe."""
+    return "|" in stripped and "-" in stripped and set(stripped) <= set("|-: ")
+
+
 def _prose_lines(text):
-    """Yield (section_title, line) for every prose-bearing line."""
-    section = "(preamble)"
+    """Yield (section_id, section_title, line) for every prose-bearing line.
+
+    section_id increments on each `##` heading, so two sections that happen
+    to share a title (e.g. two `## Backup`) stay distinct rather than
+    merging into one combined count.
+    """
+    section_id = 0
+    section_title = "(preamble)"
     in_fence = False
-    fence_marker = None
+    fence_char = None
+    fence_len = 0
+    in_table = False
+    pending = None  # a line held back in case it's a table header, not prose
+
+    def flush():
+        nonlocal pending
+        if pending is not None:
+            item, pending = pending, None
+            return item
+        return None
+
     for line in text.splitlines():
-        m = FENCE_RE.match(line)
-        if m:
-            if not in_fence:
-                in_fence, fence_marker = True, m.group(1)
-            elif line.strip().startswith(fence_marker):
-                in_fence, fence_marker = False, None
-            continue
         if in_fence:
+            s = line.strip()
+            if s and set(s) == {fence_char} and len(s) >= fence_len:
+                in_fence = False
             # A `#` comment inside a shell fence is prose wearing a costume;
             # count it, or budgets get met by moving sentences into fences.
-            if fence_marker and re.match(r"^\s*#", line) and not line.lstrip().startswith("#!"):
-                yield section, line
+            elif re.match(r"^\s*#", line) and not line.lstrip().startswith("#!"):
+                item = flush()
+                if item:
+                    yield item
+                yield section_id, section_title, line
+            continue
+        m = FENCE_RE.match(line)
+        if m:
+            item = flush()
+            if item:
+                yield item
+            fence_char = m.group(1)[0]
+            fence_len = len(m.group(1))
+            in_fence = True
+            in_table = False
             continue
         h = HEADING_RE.match(line)
         if h:
+            item = flush()
+            if item:
+                yield item
+            in_table = False
             if len(h.group(1)) == 2:
-                section = h.group(2)
+                section_id += 1
+                section_title = h.group(2)
             continue
         stripped = line.strip()
         if not stripped:
+            item = flush()
+            if item:
+                yield item
+            in_table = False
             continue
-        if stripped.startswith("|"):  # table row
+        if _is_table_delimiter(stripped):
+            pending = None  # the line just before this was a header, not prose
+            in_table = True
             continue
-        if set(stripped) <= set("|-: "):  # table rule
+        if in_table:
+            if "|" in stripped:  # a table body row, piped or not
+                continue
+            in_table = False
+        if stripped.startswith("|"):  # a piped row with no delimiter above
             continue
-        yield section, line
+        item = flush()
+        if item:
+            yield item
+        pending = (section_id, section_title, line)
+    item = flush()
+    if item:
+        yield item
 
 
 CODE_SPAN_RE = re.compile(r"`[^`]*`")
@@ -98,19 +150,27 @@ def count_prose_words(text):
     """Total prose words in a document."""
     return sum(
         _words(line)
-        for section, line in _prose_lines(text)
+        for _, section, line in _prose_lines(text)
         if section not in EXEMPT_SECTIONS
     )
 
 
 def section_word_counts(text):
-    """{section title: prose words}, in document order, index excluded."""
+    """[(section title, prose words)], in document order, index excluded.
+
+    A list, not a dict: two sections that share a title (e.g. two separate
+    `## Backup`) must stay separate entries rather than merge their counts.
+    """
+    order = []
     counts = {}
-    for section, line in _prose_lines(text):
-        if section in EXEMPT_SECTIONS:
+    for section_id, title, line in _prose_lines(text):
+        if title in EXEMPT_SECTIONS:
             continue
-        counts[section] = counts.get(section, 0) + _words(line)
-    return counts
+        if section_id not in counts:
+            counts[section_id] = [title, 0]
+            order.append(section_id)
+        counts[section_id][1] += _words(line)
+    return [tuple(counts[sid]) for sid in order]
 
 
 def _git(args):
@@ -144,7 +204,7 @@ def check_sections(paths, read):
         text = read(path)
         if text is None:
             continue
-        for title, count in section_word_counts(text).items():
+        for title, count in section_word_counts(text):
             if count > SECTION_PROSE_MAX:
                 findings.append(
                     f"{path}: section '{title}' has {count} prose words "
