@@ -9,7 +9,7 @@ facet, separate from the host/vessel monitoring in
 **The standing rule frames everything here: the radio's distress button is
 never pressed to test anything** (`maintenance/priorities.md`). Every claim
 below was verified by reading source or by synthetic injection with nothing
-on the air — `RUNBOOK.md` → "Testing the DSC / AIS distress receive chain".
+on the air — `RUNBOOK.md` → "Testing the DSC / AIS distress chain".
 
 ## Hardware aboard
 

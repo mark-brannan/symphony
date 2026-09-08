@@ -5,7 +5,7 @@
       {
         "id": "local",
         "name": "Self-hosted ntfy",
-        "url": "{{ ntfy_url }}",
+        "url": "http://localhost:8090",
         "isDefault": true
       }
     ],

@@ -15,7 +15,7 @@
     },
     "providers": {
       "n2k-can0": {
-        "enabled": false,
+        "enabled": true,
         "deltaWarning": 1,
         "deltaAlarm": 1,
         "checkFrequency": 60,

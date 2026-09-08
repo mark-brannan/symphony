@@ -1,0 +1,17 @@
+# Ordered: the domain has to be re-derived before the container stack reads it,
+# and both have to be right before a new certificate is issued off them.
+- name: re-derive the HALOS domain
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - halos-resolve-domain
+    - halos-core-containers
+  listen: re-derive the HALOS domain
+
+- name: reissue the device certificate
+  ansible.builtin.systemd_service:
+    name: halos-manage-certs
+    state: started
+  listen: re-derive the HALOS domain
+  # A oneshot: `started` runs it. It is a no-op when the SANs already match.

@@ -22,6 +22,21 @@ services:
     # the identity provider on the network in the clear.
     ports:
       - "127.0.0.1:5556:5556"
+    # Dex's own health handler, served under the issuer's path prefix
+    # (`issuer: .../dex` in dex/config.yaml, so `/dex/healthz`, not
+    # `/healthz`). Deliberately not the telemetry port: this config has no
+    # `telemetry:` block, and adding one to get a probe would be a bigger
+    # change than the probe is worth. busybox wget; the image has no curl.
+    # Measured warm restart-to-answering: 4 s. Storage is `memory`, so there
+    # is no database to replay and a cold start is not meaningfully slower.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -T 8 -O /dev/null http://127.0.0.1:5556/dex/healthz"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    labels:
+      autoheal: "true"
     # Dex's log is the only record of who signed in and when, and the default
     # json-file driver never rotates -- on a box whose SD card is the part
     # most likely to fail, an unbounded log is a slow leak. Capped rather

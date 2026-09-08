@@ -1,0 +1,9 @@
+- name: regenerate zram devices
+  ansible.builtin.systemd_service:
+    name: systemd-zram-setup@zram0.service
+    state: restarted
+    daemon_reload: true
+  # The generator runs at boot; restarting the per-device unit re-reads the
+  # config without one. Swapping off a device in use is refused rather than
+  # done destructively, so this is safe on a card that is already swapping.
+  failed_when: false

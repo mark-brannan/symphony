@@ -51,7 +51,7 @@ jobs:
   compose-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Stub .env from .env.example (no secrets needed to validate syntax)
@@ -62,29 +62,18 @@ jobs:
   json-yaml-syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           # Full history, not the default shallow clone: rule_frozen_secrets_untouched
           # (below) needs the pre-push/PR-base commit present locally to diff against.
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - run: pip install pyyaml
       - run: python3 scripts/validate_configs.py
-      # Per-machine values: assert git's copy of every hostvars-covered file
-      # still holds its {{ placeholders }} rather than one machine's literal
-      # value (same relationship to the local hook as the sops checks).
-      #
-      # --all is required, not optional. The pre-commit hook scopes itself to
-      # what a commit stages, so that a bad file cannot block unrelated work;
-      # nothing is staged in CI, so without --all this would pass vacuously
-      # and repo-wide enforcement would quietly disappear. CI is where whole-
-      # repo truth is asserted -- that is the trade the scoping is built on.
-      - run: python3 scripts/hostvars_filter.py check --all
-
-      # Same trade, same reason: both of these scope to the staged set at
+      # Both of these scope to the staged set at
       # commit time and must run unscoped here.
       #
       # HYGIENE_COMMIT_RANGE gives rule_frozen_secrets_untouched something to
@@ -102,11 +91,15 @@ jobs:
               ''
             }}
       - run: python3 scripts/check_encoding_health.py --repo
+      - name: runbook prose budget
+        run: python3 scripts/lint_runbook_prose.py --all
+      - name: runbook prose budget lint's own tests
+        run: python3 scripts/test_lint_runbook_prose.py
 
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: shellcheck
@@ -117,13 +110,40 @@ jobs:
   python-syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - run: python3 -m py_compile scripts/*.py
+
+  # The network role deletes a Tailscale node. What stops it deleting the boat's
+  # is one expression in roles/network/vars/main.yml, and nothing about a wrong
+  # one looks wrong until a machine is gone -- the provisioning client can reach
+  # every node in the tailnet, symphony-pi included. The playbook below feeds
+  # fixture device lists through that exact expression; it needs no inventory,
+  # no host and no network.
+  ansible:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      # The full `ansible` package, not ansible-core: --syntax-check resolves
+      # module names, and the roles use community.general and community.sops.
+      - run: pip install ansible
+      - name: tailnet provisioning guards
+        run: ansible-playbook tests/test_tailnet_guard.yml
+        working-directory: ansible
+      # Catches a task-level mistake in any role without needing a card. The
+      # sops lookup in group_vars is lazy, so this runs with no age key.
+      - name: playbook syntax
+        run: ansible-playbook --syntax-check site.yml
+        working-directory: ansible
 
   # The Grafana dashboards are generated (scripts/build_dashboards.py) and the
   # output is committed, so the two can drift -- most easily by someone
@@ -135,10 +155,10 @@ jobs:
   dashboards:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - run: python3 scripts/test_dashboards.py

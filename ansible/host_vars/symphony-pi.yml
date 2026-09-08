@@ -1,0 +1,10 @@
+# The current boat card (OpenPlotter, native SignalK). No play targets it yet;
+# this file exists so its heartbeat check URL is recorded next to the HALOS
+# card's rather than living only inside host/boat-heartbeat.json, which has
+# room for exactly one.
+symphony_hostname: signalk
+tailscale_hostname: symphony-pi
+
+ansible_become: true
+
+heartbeat_url: "{{ symphony_secrets.heartbeat_url_symphony_pi }}"

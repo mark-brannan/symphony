@@ -1,0 +1,5 @@
+# Runtime state: pypilot.conf, RTIMULib.ini (compass calibration) and
+# signalk-token (a credential). Nothing here is tracked.
+*
+!.gitignore
+!.gitkeep

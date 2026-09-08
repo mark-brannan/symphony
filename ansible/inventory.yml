@@ -1,0 +1,24 @@
+# Symphony's boat cards, reached over Tailscale. `symphony-halos` is the
+# tailnet name; there is no plain-DNS name for either card off the LAN.
+#
+# Two groups because the two cards are different machines running different
+# stacks, not two instances of one thing:
+#
+#   halos_cards      Debian 13 + HALOS, containerised SignalK. site.yml
+#                    targets this group and only this group.
+#   openplotter_cards  the current boat card: OpenPlotter, native SignalK.
+#                    Carried here for its per-host values (the heartbeat
+#                    check URL below is the one `host/install.sh` used to
+#                    write onto BOTH cards). No play targets it yet -- the
+#                    roles in this tree assume HALOS paths. See
+#                    reference/host_provisioning.md.
+all:
+  children:
+    halos_cards:
+      hosts:
+        symphony-halos:
+    openplotter_cards:
+      hosts:
+        symphony-pi:
+  vars:
+    ansible_user: pi

@@ -29,6 +29,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/log-host-commands.sh"
+          }
+        ]
+      }
     ]
   },
   "crossSessionInbound": "hold",

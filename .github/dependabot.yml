@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Scanner version pins -- each Dockerfile is never built, just read by the
+  # scripts and workflow that run these tools. See docker/*/Dockerfile.
+  - package-ecosystem: docker
+    directory: /docker/gitleaks
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /docker/trufflehog
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -12,7 +12,7 @@
 #
 #   bash scripts/check_clone_setup.sh
 #
-# See also: README.md (Setup) and RUNBOOK.md "When a hook blocks your commit".
+# See also: README.md (Setup) and RUNBOOK.md "A hook blocks your commit".
 set -uo pipefail
 
 if ! command -v git >/dev/null 2>&1; then
@@ -91,13 +91,13 @@ if have python3; then
 		ok "pyyaml" "importable"
 	else
 		gap "pyyaml" "python3 cannot import yaml" \
-			"the sops/hostvars filters and several scripts can't parse .sops.yaml; the unit-test hook is skipped" \
+			"the sops filter and several scripts can't parse .sops.yaml; the unit-test hook is skipped" \
 			"pip install pyyaml"
 	fi
 else
 	blocker "python3" "not found" \
 		"both git filters are python scripts -- covered files cannot be cleaned or smudged at all" \
-		"install python3 (see RUNBOOK.md, Bringing up a host -- Phase 1)"
+		"install python3 (see RUNBOOK.md, Bringing up a host, step 1 Tooling)"
 	unknown "pyyaml" "no python3 to ask"
 fi
 
@@ -111,7 +111,7 @@ if [ -n "$sops_path" ]; then
 else
 	gap "sops" "not found ($(secretguard_sops_locations))" \
 		"secret-bearing files stay ciphertext on disk; you cannot read or edit a secret" \
-		"see RUNBOOK.md, Bringing up a host -- Phase 1 (or skip it: contributors don't need secrets)"
+		"see RUNBOOK.md, Bringing up a host, step 1 Tooling (or skip it: contributors don't need secrets)"
 fi
 
 if have age; then
@@ -119,7 +119,7 @@ if have age; then
 else
 	gap "age" "not found" \
 		"you cannot generate or inspect the key sops decrypts with" \
-		"see RUNBOOK.md, Bringing up a host -- Phase 2"
+		"see RUNBOOK.md, Bringing up a host, step 2 Key material"
 fi
 
 if have pre-commit; then
@@ -149,16 +149,15 @@ section "Git configuration for this clone"
 echo "  (filter *commands* live in .git/config, which git never versions --"
 echo "   every clone has to wire its own)"
 
-for f in sops hostvars; do
-	cmd="$(git config --get "filter.$f.clean" 2>/dev/null)"
-	if [ -n "$cmd" ]; then
-		ok "filter.$f.clean" "configured"
-	else
-		blocker "filter.$f.clean" "not set in git config" \
-			".gitattributes declares filter=$f, so covered files would commit UNTRANSFORMED -- and the repo-hygiene pre-commit hook fails every commit, including a typo fix in a markdown file" \
-			"bash scripts/setup-git-filters.sh"
-	fi
-done
+f=sops
+cmd="$(git config --get "filter.$f.clean" 2>/dev/null)"
+if [ -n "$cmd" ]; then
+	ok "filter.$f.clean" "configured"
+else
+	blocker "filter.$f.clean" "not set in git config" \
+		".gitattributes declares filter=$f, so covered files would commit UNTRANSFORMED -- and the repo-hygiene pre-commit hook fails every commit, including a typo fix in a markdown file" \
+		"bash scripts/setup-git-filters.sh"
+fi
 
 hooks_path="$(git config --get core.hooksPath 2>/dev/null)"
 if [ -n "$hooks_path" ]; then
@@ -188,15 +187,7 @@ elif [ -f "$HOME/.config/sops/age/keys.txt" ]; then
 else
 	gap "age key" "no key at ~/.config/sops/age/keys.txt and SOPS_AGE_KEY_FILE unset" \
 		"secret-bearing files smudge as ciphertext, and staging one is blocked rather than committed in the clear" \
-		"see RUNBOOK.md, Bringing up a host -- Phase 2 (contributors don't need one)"
-fi
-
-if [ -f hostvars.local.yaml ]; then
-	ok "hostvars.local.yaml" "present"
-else
-	gap "hostvars.local.yaml" "missing" \
-		"per-machine values (the ntfy server URL) stay as {{ placeholders }} on disk and SignalK reads them literally" \
-		"cp hostvars.local.yaml.example hostvars.local.yaml && \$EDITOR hostvars.local.yaml"
+		"see RUNBOOK.md, Bringing up a host, step 2 Key material (contributors don't need one)"
 fi
 
 # --- what is actually on disk -----------------------------------------------
@@ -230,33 +221,12 @@ else
 fi
 [ "$whole_files" -gt 0 ] && ok "sops whole-file stores" "$whole_files under secrets/ (ciphertext at rest is correct)"
 
-pending=0
-checked_hv=0
-while IFS= read -r p; do
-	[ -n "$p" ] || continue
-	[ -f "$p" ] || continue
-	checked_hv=$((checked_hv + 1))
-	if grep -qE '"\{\{ *[A-Za-z_]' "$p" 2>/dev/null; then
-		pending=$((pending + 1))
-	fi
-done < <(filtered_paths hostvars)
-
-if [ "$checked_hv" -eq 0 ]; then
-	unknown "hostvars files" "none listed in .gitattributes"
-elif [ "$pending" -eq 0 ]; then
-	ok "hostvars files" "$checked_hv file(s), placeholders expanded"
-else
-	gap "hostvars files" "$pending of $checked_hv still hold {{ placeholders }}" \
-		"SignalK reads the placeholder text literally -- e.g. it posts to the URL '{{ ntfy_url }}'" \
-		"create hostvars.local.yaml, then: bash scripts/setup-git-filters.sh"
-fi
-
 # --- verdict ----------------------------------------------------------------
 section "Summary"
 if [ "$blockers" -gt 0 ]; then
 	echo "  $blockers thing(s) will stop you committing, $gaps other gap(s)."
 	echo "  Start with: bash scripts/setup-git-filters.sh"
-	echo "  Still stuck? RUNBOOK.md, \"When a hook blocks your commit\"."
+	echo "  Still stuck? RUNBOOK.md, \"A hook blocks your commit\"."
 elif [ "$gaps" -gt 0 ]; then
 	echo "  Commits should work. $gaps gap(s) above limit what you can do"
 	echo "  locally. None of them are needed to contribute -- CI"

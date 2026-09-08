@@ -16,15 +16,17 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-TRUFFLEHOG_VERSION="3.97.0"
+# Version lives in docker/trufflehog/Dockerfile -- one real manifest
+# Dependabot can bump, instead of a bash variable it can't see.
+IMAGE="$(grep -m1 '^FROM ' docker/trufflehog/Dockerfile | awk '{print $2}')"
 REPORT="$(mktemp)"
 trap 'rm -f "$REPORT"' EXIT
 
-echo "Scanning full history for verified-live secrets (trufflehog ${TRUFFLEHOG_VERSION})..."
+echo "Scanning full history for verified-live secrets (${IMAGE})..."
 
 # --fail is deliberately NOT passed: we want the JSON regardless, and this
 # script decides the exit status after redacting.
-docker run --rm -v "$PWD:/repo" "trufflesecurity/trufflehog:${TRUFFLEHOG_VERSION}" \
+docker run --rm -v "$PWD:/repo" "$IMAGE" \
   git file:///repo --results=verified --json --no-update >"$REPORT" 2>/dev/null || true
 
 python3 - "$REPORT" <<'PY'

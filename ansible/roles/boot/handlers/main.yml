@@ -1,0 +1,15 @@
+- name: reboot the card
+  ansible.builtin.reboot:
+    # A Pi 4 answers ssh long before SignalK finishes its 3-4 minute cold
+    # start; the play only needs sshd and the unit manager back.
+    reboot_timeout: 300
+  when: symphony_allow_reboot | bool
+
+- name: warn that a reboot is pending
+  ansible.builtin.debug:
+    msg: >-
+      Boot configuration changed and symphony_allow_reboot is false.
+      /boot/firmware is correct but the running kernel is not; reboot the card
+      before trusting anything downstream of it.
+  when: not (symphony_allow_reboot | bool)
+  listen: reboot the card

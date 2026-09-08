@@ -36,7 +36,7 @@ Wants `sops`, `age`, `python3` and an age key. RUNBOOK.md § *Bringing up a host
 covers installing them and provisioning the key. Safe to re-run at any time.
 
 Either way, if a hook blocks a commit: `bash scripts/check_clone_setup.sh` first,
-then RUNBOOK.md § *When a hook blocks your commit*.
+then RUNBOOK.md § *A hook blocks your commit*.
 
 ## Symphony — Maintenance & Improvement Tracking
 Working log of deferred maintenance, in-progress

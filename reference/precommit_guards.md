@@ -38,7 +38,7 @@ unrelated settings file, on a machine that had no way to fix it.
 
 The repo-wide checking didn't disappear. It moved to GitHub, which runs the
 same programs over everything with their repo-wide switches — `--all` for
-the hostvars and hygiene checks, `--repo` for the encoding one. Your laptop checks your change;
+the hygiene check, `--repo` for the encoding one. Your laptop checks your change;
 GitHub checks the whole repo.
 
 Know when that happens, because it is not "after every push":
@@ -106,31 +106,6 @@ Every failure message now has the same five parts, in this order:
 3. **what's actually wrong** — in words, not the rule's name
 4. **the command that fixes it** — copy and paste it
 5. **what to do if you can't run that command** — the important one
-
-### `hostvars-placeholders` — "your private URL is about to overwrite everyone's"
-
-**What it's for.** One settings file has to say `http://ntfy:80` on the dev
-machine and `http://localhost:8090` on the boat. Git stores a blank —
-`{{ ntfy_url }}` — and each machine fills it in from a private file called
-`hostvars.local.yaml`. This check makes sure the blank, not your filled-in
-value, is what goes into git.
-
-**How it fails.** If you don't have `hostvars.local.yaml`, the blank can't
-be put back, and your literal value ends up in the commit.
-
-**The trap it used to be.** It told you to run `hostvars_filter.py refresh`.
-`refresh` needs `hostvars.local.yaml`. If you don't have that file, you
-can't run the fix — and the fix was the only thing it mentioned. A circle
-with no exit. **This is the one that cost you days.**
-
-**What happens now.** It only speaks up if the settings file is in *your*
-commit. If it is, it says: set the value and run refresh — *and* "no
-`hostvars.local.yaml`? Then just take this one file out of the commit:
-`git restore --staged <file>`, and everything else goes through."
-
-**If it blocks you:** you almost certainly didn't mean to commit that
-settings file. Drop it with `git restore --staged` — your copy on disk is
-untouched — and commit the rest.
 
 ### `repo-hygiene` — "this clone can't encrypt, and you're committing a secret"
 
@@ -268,6 +243,5 @@ exception rather than leaving `--no-verify` as the only response.
 | A check named a file you didn't mean to commit | `git restore --staged <file>` — your copy on disk is safe |
 | One check is wrong, the rest are fine | `SKIP=<check-name> git commit ...` |
 | Mangled characters in a file you edited | `python3 scripts/check_encoding_health.py --fix <file>` |
-| Your private URL got into the commit | `git restore --staged signalk/plugin-config-data/signalk-ntfy.json` |
 | Everything's on fire and you need the commit | `git commit --no-verify` — then tell someone |
 | A check blocked you with no way out | **That's a bug. Say so.** |

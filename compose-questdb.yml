@@ -51,6 +51,35 @@ services:
       - "127.0.0.1:8812:8812"   # PGWire (Grafana's QuestDB datasource)
     volumes:
       - questdb-data:/var/lib/questdb
+    # `unless-stopped` only fires when the process *exits*. On 2026-09-02
+    # QuestDB wedged instead: 250 % CPU, frozen docker I/O counters, /exec
+    # accepting the socket in 0.5 ms and then never answering, and no log line
+    # for eleven hours -- all while `docker ps` said `Up 12 days`. Nothing on
+    # the box could see it; a session found it by hand.
+    #
+    # So the probe runs a real query rather than hitting `/` or opening the
+    # port. Both of those stayed up through the whole wedge; `select 1` is the
+    # cheapest thing that exercises the SQL engine that stopped.
+    #
+    # Measured warm restart-to-answering: 17 s (2026-09-02, boat Pi, load 2.7).
+    # `start_period` is 300 s anyway -- a dirty-WAL replay after a power cut,
+    # on a contended cold boot, is the case that matters and it is not the one
+    # that was measured. Getting this too tight is the expensive mistake: a
+    # 60 s window against a 3-4 min cold start had autoheal restarting HALOS's
+    # SignalK every ~3 min (host/halos/signalk-healthcheck-override.yml).
+    # A healthy query answers in ~50 ms, so 15 s is not a tightness anyone
+    # trips over.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf --max-time 15 -o /dev/null 'http://127.0.0.1:9000/exec?query=select%201'"]
+      interval: 30s
+      timeout: 20s
+      start_period: 300s
+      retries: 3
+    labels:
+      # Opt in to autoheal (compose-autoheal.yml). Explicit rather than
+      # autoheal's `all` mode, so a hand-run container on the same host is
+      # never restarted by something the compose stack started.
+      autoheal: "true"
     logging:
       driver: json-file
       options:

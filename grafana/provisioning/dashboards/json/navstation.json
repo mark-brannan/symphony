@@ -8,9 +8,22 @@
   "links": [],
   "panels": [
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "panels": [],
+      "title": "Navigation",
+      "type": "row"
+    },
+    {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -19,6 +32,8 @@
           },
           "decimals": 1,
           "mappings": [],
+          "max": 12,
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -33,75 +48,13 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
+        "h": 7,
+        "w": 6,
         "x": 0,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
-          },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"navigation.speedOverGround\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 1.9438444924406 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
-        }
-      ],
-      "title": "SOG",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "unit": "degree"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 4,
-        "y": 0
+        "y": 1
       },
       "id": 3,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -110,25 +63,91 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"navigation.courseOverGroundTrue\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 57.29577951308232 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 1.9438444924406 AS value\nFROM signalk\nWHERE path = 'navigation.speedOverGround' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
-      "title": "COG",
-      "type": "stat"
+      "title": "SOG",
+      "type": "gauge"
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "max": 360,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "degree"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 57.29577951308232 AS value\nFROM signalk\nWHERE path = 'navigation.headingMagnetic' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
+        }
+      ],
+      "title": "Heading (M)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -151,69 +170,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 8,
-        "y": 0
-      },
-      "id": 4,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
-          },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"navigation.headingMagnetic\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 57.29577951308232 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
-        }
-      ],
-      "title": "Heading (M)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "unit": "degree"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 4,
+        "h": 7,
+        "w": 6,
         "x": 12,
-        "y": 0
+        "y": 1
       },
       "id": 5,
       "options": {
@@ -233,11 +193,76 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"navigation.attitude.roll\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 57.29577951308232 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 57.29577951308232 AS value\nFROM signalk\nWHERE path = 'navigation.courseOverGroundTrue' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
+        }
+      ],
+      "title": "COG",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "degree"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 57.29577951308232 AS value\nFROM signalk\nWHERE path = 'navigation.attitude.roll' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Heel",
@@ -245,8 +270,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -269,12 +294,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 16,
-        "y": 0
+        "h": 4,
+        "w": 12,
+        "x": 0,
+        "y": 8
       },
-      "id": 6,
+      "id": 7,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -292,11 +317,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"navigation.trip.log\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value / 1852.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value / 1852.0 AS value\nFROM signalk\nWHERE path = 'navigation.trip.log' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Trip log",
@@ -304,8 +332,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -327,12 +355,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 0
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 8
       },
-      "id": 7,
+      "id": 8,
       "options": {
         "colorMode": "none",
         "graphMode": "none",
@@ -350,20 +378,36 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"navigation.state\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value_str AS value\nFROM signalk_str\nWHERE path = 'navigation.state' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 1
         }
       ],
       "title": "Vessel state",
       "type": "stat"
     },
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "id": 9,
+      "panels": [],
+      "title": "Power",
+      "type": "row"
+    },
+    {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -372,6 +416,8 @@
           },
           "decimals": 0,
           "mappings": [],
+          "max": 100,
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -398,16 +444,13 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
+        "h": 7,
+        "w": 6,
         "x": 0,
-        "y": 5
+        "y": 13
       },
-      "id": 8,
+      "id": 10,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -416,25 +459,29 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.house.capacity.stateOfCharge\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 100.0 AS value\nFROM signalk\nWHERE path = 'electrical.batteries.house.capacity.stateOfCharge' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "House SOC",
-      "type": "stat"
+      "type": "gauge"
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -465,12 +512,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 4,
-        "y": 5
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 13
       },
-      "id": 9,
+      "id": 11,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -488,11 +535,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.house.voltage\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'electrical.batteries.house.voltage' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "House volts",
@@ -500,8 +550,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -524,12 +574,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 8,
-        "y": 5
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 13
       },
-      "id": 10,
+      "id": 12,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -547,11 +597,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.venus.dcPower\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'electrical.venus.dcPower' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "DC power",
@@ -559,8 +612,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -583,12 +636,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 12,
-        "y": 5
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 13
       },
-      "id": 11,
+      "id": 13,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -606,20 +659,160 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.house.capacity.timeRemaining\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'electrical.batteries.house.capacity.timeRemaining' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Time remaining",
       "type": "stat"
     },
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 14,
+      "panels": [],
+      "title": "Weather and tide",
+      "type": "row"
+    },
+    {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 40,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "velocityknot"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 0,
+        "y": 21
+      },
+      "id": 15,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 1.9438444924406 AS value\nFROM signalk\nWHERE path = 'environment.wind.speedTrue' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
+        }
+      ],
+      "title": "Wind speed",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "max": 360,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "degree"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 21
+      },
+      "id": 16,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 57.29577951308232 AS value\nFROM signalk\nWHERE path = 'environment.wind.directionTrue' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
+        }
+      ],
+      "title": "Wind direction",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -642,304 +835,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 16,
-        "y": 5
-      },
-      "id": 12,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
-          },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.outside.pressure\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value / 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
-        }
-      ],
-      "title": "Barometer",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 5
-      },
-      "id": 13,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
-          },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.outside.pressure.trend.tendency\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
-        }
-      ],
-      "title": "Tendency",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "unit": "velocityknot"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 0,
-        "y": 10
-      },
-      "id": 14,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
-          },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.wind.speedTrue\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 1.9438444924406 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
-        }
-      ],
-      "title": "Wind speed",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "unit": "degree"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 4,
-        "y": 10
-      },
-      "id": 15,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
-          },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.wind.directionTrue\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 57.29577951308232 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
-        }
-      ],
-      "title": "Wind direction",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "unit": "fahrenheit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 8,
-        "y": 10
-      },
-      "id": 16,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
-          },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.outside.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
-        }
-      ],
-      "title": "Outside",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "unit": "fahrenheit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 4,
+        "h": 7,
+        "w": 6,
         "x": 12,
-        "y": 10
+        "y": 21
       },
       "id": 17,
       "options": {
@@ -959,11 +858,138 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.outside.feelsLikeTemperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value / 100.0 AS value\nFROM signalk\nWHERE path = 'environment.outside.pressure' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
+        }
+      ],
+      "title": "Barometer",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "fahrenheit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 21
+      },
+      "id": 18,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, (value - 273.15) * 9.0 / 5.0 + 32.0 AS value\nFROM signalk\nWHERE path = 'environment.outside.temperature' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
+        }
+      ],
+      "title": "Outside",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "fahrenheit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 28
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, (value - 273.15) * 9.0 / 5.0 + 32.0 AS value\nFROM signalk\nWHERE path = 'environment.outside.feelsLikeTemperature' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Feels like",
@@ -971,8 +997,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1007,12 +1033,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 16,
-        "y": 10
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 28
       },
-      "id": 18,
+      "id": 20,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -1030,11 +1056,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.inside.refrigerator.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, (value - 273.15) * 9.0 / 5.0 + 32.0 AS value\nFROM signalk\nWHERE path = 'environment.inside.refrigerator.temperature' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Fridge",
@@ -1042,8 +1071,69 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 28
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
+          },
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value_str AS value\nFROM signalk_str\nWHERE path = 'environment.outside.pressure.trend.tendency' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 1
+        }
+      ],
+      "title": "Tendency",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1066,12 +1156,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 10
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 28
       },
-      "id": 19,
+      "id": 22,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -1089,11 +1179,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.tide.heightNow\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 3.280839895 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 3.280839895 AS value\nFROM signalk\nWHERE path = 'environment.tide.heightNow' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Tide now",
@@ -1101,8 +1194,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1154,9 +1247,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 15
+        "y": 32
       },
-      "id": 20,
+      "id": 23,
       "options": {
         "legend": {
           "calcs": [
@@ -1176,11 +1269,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"navigation.speedOverGround\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value * 1.9438444924406 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) * 1.9438444924406 AS value\nFROM signalk\nWHERE path = 'navigation.speedOverGround' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Speed over ground",
@@ -1188,8 +1284,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1253,9 +1349,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 15
+        "y": 32
       },
-      "id": 21,
+      "id": 24,
       "options": {
         "legend": {
           "calcs": [
@@ -1275,19 +1371,25 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.house.capacity.stateOfCharge\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) * 100.0 AS value\nFROM signalk\nWHERE path = 'electrical.batteries.house.capacity.stateOfCharge' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"electrical.batteries.house.current\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) AS value\nFROM signalk\nWHERE path = 'electrical.batteries.house.current' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         }
       ],
       "title": "House bank",
@@ -1295,8 +1397,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1348,9 +1450,9 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 15
+        "y": 32
       },
-      "id": 22,
+      "id": 25,
       "options": {
         "legend": {
           "calcs": [
@@ -1370,11 +1472,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.outside.pressure\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value / 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, avg(value) / 100.0 AS value\nFROM signalk\nWHERE path = 'environment.outside.pressure' AND context = 'self' AND $__timeFilter(ts)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Barometer",

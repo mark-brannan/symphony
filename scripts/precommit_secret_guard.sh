@@ -109,7 +109,7 @@ while IFS= read -r path; do
         needs="$(missing_capability)" \
         blocked_by="pre-commit hook 'sops-secret-guard' (scripts/precommit_secret_guard.sh)" \
         fix="bash scripts/setup-git-filters.sh, then: git reset \"$path\" && git add \"$path\"" \
-        see="RUNBOOK.md, When a hook blocks your commit" || fail=1
+        see="RUNBOOK.md, A hook blocks your commit" || fail=1
     fi
   fi
 done < <(inplace_paths)

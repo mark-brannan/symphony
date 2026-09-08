@@ -1,0 +1,17 @@
+[Unit]
+Description=Fetch origin for the boat's symphony checkout
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The checkout, deploy key and known_hosts all live under /home/pi.
+User=pi
+# BatchMode so a changed host key fails instead of hanging on stdin.
+Environment="GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=20"
+ExecStart=/usr/local/bin/boat-hourly-sync
+# The script logs its own result; systemd's pair would be journal noise hourly.
+LogLevelMax=notice
+
+[Install]
+WantedBy=multi-user.target

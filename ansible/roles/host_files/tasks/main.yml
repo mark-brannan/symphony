@@ -1,0 +1,59 @@
+# as-built v1 steps 22 (second half) and 23: run the repo's own host-file
+# installer.
+#
+# Ansible does NOT reimplement install.sh. host_provisioning.md's migration
+# path is explicit that the two must not both own a file, and install.sh is
+# still the authoritative writer for everything in its INSTALL array -- the
+# watchdog drop-in, chrony's conf.d file, the heartbeat and BLE-check units and
+# timers, the apt unattended-upgrade confs. Porting those into roles is the
+# next slice, tracked on the board; today this role's job is to invoke it and
+# to fail honestly when it does not finish.
+
+- name: step 22 | run the host-file installer
+  ansible.builtin.command: ./host/install.sh
+  args:
+    chdir: "{{ symphony_repo_dir }}"
+  register: install_sh
+  # install.sh is idempotent by design -- it re-places files, re-enables timers
+  # and rewrites only the cron lines it owns -- so it is run unconditionally
+  # and reports its own actions in stdout rather than through Ansible's changed
+  # flag. Marking it changed on every run would make the play never converge.
+  changed_when: false
+  # step 23: the claude-resident user-unit step fails on a HALOS card, and
+  # install.sh runs under `set -e`, so it exits non-zero there. Everything
+  # before that point has already been done; what is lost is the root crontab
+  # section, whose only entry is a deliberately commented-out nightly reboot.
+  # Tolerated by name, so any OTHER failure still fails the play.
+  failed_when: >-
+    install_sh.rc != 0 and
+    'claude-resident' not in (install_sh.stdout | default('')) ~ (install_sh.stderr | default(''))
+
+- name: step 22 | installer output
+  ansible.builtin.debug:
+    var: install_sh.stdout_lines | default(['not run (check mode)'])
+  tags: [verify]
+
+- name: step 23 | note when the installer stopped early
+  ansible.builtin.debug:
+    msg: >-
+      host/install.sh exited {{ install_sh.rc }} at the claude-resident user
+      unit, which does not start on a HALOS card. Files, service restarts and
+      timer enables all completed; the root crontab section did not run. Its
+      only entry is the commented-out nightly reboot, so nothing is missing.
+  when: install_sh.rc | default(0) != 0
+  tags: [verify]
+
+- name: step 26 | the installer's timers are enabled and running
+  ansible.builtin.command: systemctl is-active boat-heartbeat.timer signalk-ble-check.timer
+  register: installer_timers
+  changed_when: false
+  # Read-only, so it must still run under --check; otherwise the assertions
+  # below have nothing to read and --check cannot be used to audit a card.
+  check_mode: false
+  failed_when: false
+  tags: [verify]
+
+- name: step 26 | report the timers
+  ansible.builtin.debug:
+    msg: "boat-heartbeat.timer / signalk-ble-check.timer: {{ installer_timers.stdout_lines | join(' ') }}"
+  tags: [verify]

@@ -6,6 +6,14 @@ infrastructure. Conventions below cover the maintenance side
 (`RUNBOOK.md`, `reference/software_stack.md`). Ansible practices aren't
 covered here.
 
+## Changes made on a host
+A change made on a host is not done until its literal command or file
+content is captured in `host/`, `ansible/`, a `RUNBOOK.md` step, or the
+current plan's as-built file — in the same commit as the session that made
+it. Narrative in `intermediate_files/claude_slop/` doesn't count: it records
+what a session did, not what the host now runs, and nobody reads it to
+rebuild the box.
+
 ## Files
 - `maintenance/log.md` — chronological ship's-log record of work done.
 - `maintenance/priorities.md` — current backlog and triage.
@@ -146,6 +154,23 @@ covered here.
   into a lie within days. Durable config traps are fine; snapshots aren't.
 - Don't editorialize about the system's design, security posture, or
   industry practice. State the trap and the fix.
+- **The reader is the operator, not an agent.** An entry stays only if
+  Mark would run it in an emergency or on the day-to-day critical path.
+  Agent-only procedures, session findings and one-off migrations already
+  done go in the PR and the slop log, never here. A single-purpose
+  procedure lives in `runbooks/<name>.md`; only Mark promotes it.
+- **Before adding to the runbook, try to make the entry unnecessary.** A
+  script that is idempotent and prints its own verification, a unit that
+  self-heals, a check that names its fix. The runbook line is then one
+  command. Add prose only for what can't be automated.
+- **Before finishing any change to a host, a service or a secret, ask
+  whether the operator would be stuck without a runbook line.** Key
+  handling, filter and smudge setup, and anything that fails silently
+  qualify. Missing those has cost real time; that is the one case where
+  adding is the right answer.
+- Runbook edits land in their own commit, and `scripts/lint_runbook_prose.py`
+  budgets prose per section and per commit. Cutting earns credit; tune the
+  constants at the top of the script rather than arguing with it.
 
 ## reference/*.md
 - Explanatory material lives here: architecture, design rationale, known
@@ -161,10 +186,10 @@ covered here.
   hostname is Tailscale's; plain `symphony` doesn't resolve. Both of Mark's
   dev machines already hold the credentials, so don't go hunting for keys or
   IPs. This has cost several sessions the same detour; the details are in
-  `RUNBOOK.md` § Reaching the boat over Tailscale.
+  `RUNBOOK.md` § SSH to the boat.
 - If ssh is refused by *policy* rather than by the host, read the two
   distinct Tailscale refusals and the tag-vs-`autogroup:self` trap in
-  `RUNBOOK.md` § SSH users and the periodic check before touching anything.
+  `RUNBOOK.md` § When Tailscale refuses the connection before touching anything.
   `scripts/tailscale_policy.sh` prints the live policy read-only; applying a
   change is Mark's paste into the admin console, never a session's.
 

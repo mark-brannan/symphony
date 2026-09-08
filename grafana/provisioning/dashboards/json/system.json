@@ -22,8 +22,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -69,11 +69,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.rpi.cpu.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, (value - 273.15) * 9.0 / 5.0 + 32.0 AS value\nFROM signalk\nWHERE path = 'environment.rpi.cpu.temperature' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "CPU temperature",
@@ -81,8 +84,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -140,11 +143,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.rpi.memory.utilisation\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 100.0 AS value\nFROM signalk\nWHERE path = 'environment.rpi.memory.utilisation' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Memory used",
@@ -152,8 +158,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -211,11 +217,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.rpi.sd.utilisation\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value * 100.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value * 100.0 AS value\nFROM signalk\nWHERE path = 'environment.rpi.sd.utilisation' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "SD card used",
@@ -223,8 +232,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -270,11 +279,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.rpi.gpu.temperature\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: (r._value - 273.15) * 9.0 / 5.0 + 32.0 }))\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, (value - 273.15) * 9.0 / 5.0 + 32.0 AS value\nFROM signalk\nWHERE path = 'environment.rpi.gpu.temperature' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "GPU temperature",
@@ -282,8 +294,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -329,11 +341,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"signalk\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"environment.rpi.uptime\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> filter(fn: (r) => r[\"self\"] == \"true\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT ts AS time, value AS value\nFROM signalk\nWHERE path = 'environment.rpi.uptime' AND context = 'self' AND $__timeFilter(ts)\nORDER BY ts DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Uptime",
@@ -341,8 +356,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -388,11 +403,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"system\")\n  |> filter(fn: (r) => r[\"_field\"] == \"load1\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, load1 AS value\nFROM system\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Load (1 m)",
@@ -413,8 +431,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -486,11 +504,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"rpi_health\")\n  |> filter(fn: (r) => r[\"_field\"] == \"under_voltage_now\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, under_voltage_now AS value\nFROM rpi_health\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Under-voltage now",
@@ -498,8 +519,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -571,11 +592,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"rpi_health\")\n  |> filter(fn: (r) => r[\"_field\"] == \"throttled_now\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, throttled_now AS value\nFROM rpi_health\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Throttled now",
@@ -583,8 +607,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -656,11 +680,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"rpi_health\")\n  |> filter(fn: (r) => r[\"_field\"] == \"freq_capped_now\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, freq_capped_now AS value\nFROM rpi_health\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Freq capped now",
@@ -668,8 +695,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -741,11 +768,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"rpi_health\")\n  |> filter(fn: (r) => r[\"_field\"] == \"soft_temp_limit_now\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, soft_temp_limit_now AS value\nFROM rpi_health\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Soft temp limit now",
@@ -753,8 +783,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -826,11 +856,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"rpi_health\")\n  |> filter(fn: (r) => r[\"_field\"] == \"under_voltage_since_boot\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, under_voltage_since_boot AS value\nFROM rpi_health\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Under-voltage since boot",
@@ -838,8 +871,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -911,11 +944,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"rpi_health\")\n  |> filter(fn: (r) => r[\"_field\"] == \"throttled_since_boot\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, throttled_since_boot AS value\nFROM rpi_health\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Throttled since boot",
@@ -923,8 +959,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -996,11 +1032,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"rpi_health\")\n  |> filter(fn: (r) => r[\"_field\"] == \"freq_capped_since_boot\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, freq_capped_since_boot AS value\nFROM rpi_health\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Freq capped since boot",
@@ -1008,8 +1047,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1081,11 +1120,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"rpi_health\")\n  |> filter(fn: (r) => r[\"_field\"] == \"soft_temp_limit_since_boot\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, soft_temp_limit_since_boot AS value\nFROM rpi_health\nWHERE $__timeFilter(timestamp)\nORDER BY timestamp DESC\nLIMIT 1",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Soft temp limit since boot",
@@ -1106,8 +1148,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1193,19 +1235,25 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mem\")\n  |> filter(fn: (r) => r[\"_field\"] == \"used_percent\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(used_percent) AS value\nFROM mem\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"mem\")\n  |> filter(fn: (r) => r[\"_field\"] == \"available\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(available) AS value\nFROM mem\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         }
       ],
       "title": "Memory",
@@ -1213,8 +1261,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1288,11 +1336,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"swap\")\n  |> filter(fn: (r) => r[\"_field\"] == \"used_percent\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(used_percent) AS value\nFROM swap\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Swap used",
@@ -1313,8 +1364,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1412,27 +1463,36 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"cpu\")\n  |> filter(fn: (r) => r[\"_field\"] == \"usage_active\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(usage_active) AS value\nFROM cpu\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"cpu\")\n  |> filter(fn: (r) => r[\"_field\"] == \"usage_iowait\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(usage_iowait) AS value\nFROM cpu\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"cpu\")\n  |> filter(fn: (r) => r[\"_field\"] == \"usage_system\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "C"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(usage_system) AS value\nFROM cpu\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "C",
+          "selectedFormat": 0
         }
       ],
       "title": "CPU usage",
@@ -1440,8 +1500,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1551,35 +1611,47 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"system\")\n  |> filter(fn: (r) => r[\"_field\"] == \"load1\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(load1) AS value\nFROM system\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"system\")\n  |> filter(fn: (r) => r[\"_field\"] == \"load5\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(load5) AS value\nFROM system\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"system\")\n  |> filter(fn: (r) => r[\"_field\"] == \"load15\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "C"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(load15) AS value\nFROM system\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "C",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"processes\")\n  |> filter(fn: (r) => r[\"_field\"] == \"blocked\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "D"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(blocked) AS value\nFROM processes\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "D",
+          "selectedFormat": 0
         }
       ],
       "title": "Load average and blocked processes",
@@ -1600,8 +1672,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1675,11 +1747,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"disk\")\n  |> filter(fn: (r) => r[\"_field\"] == \"used_percent\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(used_percent) AS value\nFROM disk\nWHERE $__timeFilter(timestamp) AND path = '/'\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "Disk used",
@@ -1687,8 +1762,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1774,109 +1849,28 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"diskio\")\n  |> filter(fn: (r) => r[\"_field\"] == \"write_bytes\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, max(write_bytes) AS value\nFROM diskio\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"diskio\")\n  |> filter(fn: (r) => r[\"_field\"] == \"read_bytes\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, max(read_bytes) AS value\nFROM diskio\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         }
       ],
       "title": "Disk write volume",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "axisPlacement": "auto",
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "lineWidth": 1,
-            "pointSize": 4,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "A"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Series"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 31
-      },
-      "id": 27,
-      "options": {
-        "legend": {
-          "calcs": [
-            "min",
-            "max",
-            "lastNotNull"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
-          },
-          "query": "from(bucket: \"influxdb\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"storage_bucket_series_num\")\n  |> filter(fn: (r) => r[\"_field\"] == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
-        }
-      ],
-      "title": "InfluxDB series cardinality",
       "type": "timeseries"
     },
     {
@@ -1887,15 +1881,15 @@
         "x": 0,
         "y": 39
       },
-      "id": 28,
+      "id": 27,
       "panels": [],
       "title": "Clock and recording",
       "type": "row"
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -1949,7 +1943,7 @@
         "x": 0,
         "y": 40
       },
-      "id": 29,
+      "id": 28,
       "options": {
         "legend": {
           "calcs": [
@@ -1969,11 +1963,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"chrony\")\n  |> filter(fn: (r) => r[\"_field\"] == \"last_offset\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(last_offset) AS value\nFROM chrony\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         }
       ],
       "title": "chrony offset",
@@ -1981,8 +1978,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -2060,7 +2057,7 @@
         "x": 8,
         "y": 40
       },
-      "id": 30,
+      "id": 29,
       "options": {
         "legend": {
           "calcs": [
@@ -2080,27 +2077,36 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"internal_write\")\n  |> filter(fn: (r) => r[\"_field\"] == \"metrics_dropped\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(metrics_dropped) AS value\nFROM internal_write\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"internal_write\")\n  |> filter(fn: (r) => r[\"_field\"] == \"write_errors\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(write_errors) AS value\nFROM internal_write\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"internal_write\")\n  |> filter(fn: (r) => r[\"_field\"] == \"buffer_size\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "C"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(buffer_size) AS value\nFROM internal_write\nWHERE $__timeFilter(timestamp)\nSAMPLE BY $__sampleByInterval",
+          "refId": "C",
+          "selectedFormat": 0
         }
       ],
       "title": "Telegraf write health",
@@ -2108,8 +2114,8 @@
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -2175,7 +2181,7 @@
         "x": 16,
         "y": 40
       },
-      "id": 31,
+      "id": 30,
       "options": {
         "legend": {
           "calcs": [
@@ -2195,22 +2201,28 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"net\")\n  |> filter(fn: (r) => r[\"_field\"] == \"bytes_recv\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, max(bytes_recv) AS value\nFROM net\nWHERE $__timeFilter(timestamp) AND interface = 'eth0'\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"net\")\n  |> filter(fn: (r) => r[\"_field\"] == \"bytes_sent\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, max(bytes_sent) AS value\nFROM net\nWHERE $__timeFilter(timestamp) AND interface = 'eth0'\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         }
       ],
-      "title": "Network throughput",
+      "title": "Network throughput (eth0)",
       "type": "timeseries"
     },
     {
@@ -2221,15 +2233,15 @@
         "x": 0,
         "y": 48
       },
-      "id": 32,
+      "id": 31,
       "panels": [],
       "title": "Per-service memory",
       "type": "row"
     },
     {
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-symphony"
+        "type": "questdb-questdb-datasource",
+        "uid": "questdb-symphony"
       },
       "fieldConfig": {
         "defaults": {
@@ -2331,7 +2343,7 @@
         "x": 0,
         "y": 49
       },
-      "id": 33,
+      "id": 32,
       "options": {
         "legend": {
           "calcs": [
@@ -2351,43 +2363,58 @@
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"procstat\")\n  |> filter(fn: (r) => r[\"_field\"] == \"memory_rss\")\n  |> filter(fn: (r) => r[\"systemd_unit\"] == \"signalk.service\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "A"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(memory_rss) AS value\nFROM procstat\nWHERE $__timeFilter(timestamp) AND systemd_unit = 'signalk.service'\nSAMPLE BY $__sampleByInterval",
+          "refId": "A",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"procstat\")\n  |> filter(fn: (r) => r[\"_field\"] == \"memory_rss\")\n  |> filter(fn: (r) => r[\"systemd_unit\"] == \"influxdb.service\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "B"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(memory_rss) AS value\nFROM procstat\nWHERE $__timeFilter(timestamp) AND systemd_unit = 'influxdb.service'\nSAMPLE BY $__sampleByInterval",
+          "refId": "B",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"procstat\")\n  |> filter(fn: (r) => r[\"_field\"] == \"memory_rss\")\n  |> filter(fn: (r) => r[\"systemd_unit\"] == \"grafana-server.service\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "C"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(memory_rss) AS value\nFROM procstat\nWHERE $__timeFilter(timestamp) AND systemd_unit = 'grafana-server.service'\nSAMPLE BY $__sampleByInterval",
+          "refId": "C",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"procstat\")\n  |> filter(fn: (r) => r[\"_field\"] == \"memory_rss\")\n  |> filter(fn: (r) => r[\"systemd_unit\"] == \"caddy.service\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "D"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(memory_rss) AS value\nFROM procstat\nWHERE $__timeFilter(timestamp) AND systemd_unit = 'caddy.service'\nSAMPLE BY $__sampleByInterval",
+          "refId": "D",
+          "selectedFormat": 0
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-symphony"
+            "type": "questdb-questdb-datasource",
+            "uid": "questdb-symphony"
           },
-          "query": "from(bucket: \"telegraf\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"procstat\")\n  |> filter(fn: (r) => r[\"_field\"] == \"memory_rss\")\n  |> filter(fn: (r) => r[\"systemd_unit\"] == \"dex.service\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])",
-          "refId": "E"
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT timestamp AS time, avg(memory_rss) AS value\nFROM procstat\nWHERE $__timeFilter(timestamp) AND systemd_unit = 'dex.service'\nSAMPLE BY $__sampleByInterval",
+          "refId": "E",
+          "selectedFormat": 0
         }
       ],
       "title": "Resident memory by service",

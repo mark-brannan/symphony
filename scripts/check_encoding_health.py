@@ -139,7 +139,7 @@ def tracked_text_files(only=None):
     editing, and the difference is not cosmetic in either direction:
     reading the working tree can pass a commit whose recorded bytes are
     damaged, and can block a commit over damage it does not contain.
-    scripts/hostvars_filter.py's `check` reads `git show :path` for the
+    scripts/sops_filter.py's checks read `git show :path` for the
     same reason -- what is being judged is what git will store.
 
     The unscoped run (CI's --repo) has no index to speak of and is a

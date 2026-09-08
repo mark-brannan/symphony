@@ -14,4 +14,3 @@ services:
   signalk:
     volumes:
       - ./dev/plugin-config-overrides/signalk-pushover-notification-relay.json:/home/node/.signalk/plugin-config-data/signalk-pushover-notification-relay.json:ro
-      - ./dev/plugin-config-overrides/signalk-healthcheck.json:/home/node/.signalk/plugin-config-data/signalk-healthcheck.json:ro

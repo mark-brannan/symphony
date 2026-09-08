@@ -163,7 +163,7 @@ if [ "${hits:-0}" -gt 0 ]; then
 		blocked_by="pre-push hook 'prepush-secret-scan' (scripts/prepush_secret_scan.sh)" \
 		fix="find them with: git log -p -U0 $range -- '*.json' '*.yaml' '.env*' | grep -iE '\"(password|token|apikey)\"' -- then scripts/add_inplace_secret.sh <file> <field>" \
 		if_stuck="a genuine false positive (a test fixture, a deliberate wrong-password case)? git push --no-verify, and add the exclusion so the next person does not hit it" \
-		see="RUNBOOK.md, When a hook blocks your commit" || fail=1
+		see="RUNBOOK.md, A hook blocks your commit" || fail=1
 fi
 
 if [ "$fail" -ne 0 ]; then

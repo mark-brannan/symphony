@@ -1,0 +1,17 @@
+# as-built v1 step 29, in order: clear the failure counter, then restart. A unit
+# that hit its start-limit refuses to restart until it is reset, and the refusal
+# reads like the restart simply did nothing.
+- name: clear the SignalK unit's failure state
+  ansible.builtin.command: systemctl reset-failed marine-signalk-server-container.service
+  changed_when: true
+  listen: restart the SignalK container unit
+
+- name: restart the SignalK container unit
+  ansible.builtin.systemd_service:
+    name: marine-signalk-server-container.service
+    state: restarted
+    daemon_reload: true
+  listen: restart the SignalK container unit
+  # The systemd unit, never `docker compose` directly: the unit is what builds
+  # the compose command line carrying the override, so a bare `docker compose
+  # restart` brings the container back WITHOUT it and the fix silently vanishes.

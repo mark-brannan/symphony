@@ -214,7 +214,7 @@ def clean(path):
             blocked_by="the sops clean filter (scripts/sops_filter.py)",
             fix=f"git checkout -- {path} to discard the edit, or provision a "
                 f"key and run: bash scripts/setup-git-filters.sh",
-            see="RUNBOOK.md, When a hook blocks your commit",
+            see="RUNBOOK.md, A hook blocks your commit",
         )
         sys.exit(1)
 
@@ -230,7 +230,7 @@ def clean(path):
             blocked_by="the sops clean filter (scripts/sops_filter.py)",
             fix="bash scripts/setup-git-filters.sh (after installing what "
                 "'needs' lists), or unstage the file",
-            see="RUNBOOK.md, When a hook blocks your commit",
+            see="RUNBOOK.md, A hook blocks your commit",
         )
         sys.exit(1)
 

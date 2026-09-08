@@ -7,9 +7,9 @@ being aboard.
     python3 scripts/seed_dev_influx.py --url http://localhost:8086 \
         --token dev-token --org symphony
 
-Buckets are created if absent and chosen per measurement by the same routing
-the dashboards use (build_dashboards.bucket_for), so seeded data lands where
-the panels look for it.
+Buckets are created if absent and chosen per measurement by bucket_for()
+below. That routing used to be shared with the dashboards; since they moved
+to QuestDB SQL it is local to this script, which still targets InfluxDB.
 
 NOT for the boat. It writes to whatever bucket you point it at, and the
 values are invented. Point it at a throwaway InfluxDB.
@@ -32,7 +32,24 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from audit_dashboard_paths import referenced_measurements  # noqa: E402
-from build_dashboards import bucket_for  # noqa: E402
+
+# Bucket routing used to come from build_dashboards.bucket_for(). The
+# dashboards are QuestDB SQL now and QuestDB has no buckets, so the routing
+# lives here instead -- this seeder still fills a development InfluxDB, and
+# porting the dev stack's history store is its own step.
+INFLUX_INTERNAL_PREFIXES = (
+    "storage_", "task_", "qc_", "http_", "service_", "influxdb_", "go_",
+    "boltdb_", "query_", "influxql_",
+)
+
+
+def bucket_for(measurement, self_only):
+    if measurement.startswith(INFLUX_INTERNAL_PREFIXES):
+        return "influxdb"
+    if self_only:
+        return "signalk"
+    return "telegraf"
+
 
 # Plausible SI ranges per path, so a seeded dashboard looks like a boat rather
 # than like noise. (low, high) for a slow sinusoid plus jitter.
@@ -40,6 +57,7 @@ RANGES = {
     "navigation.speedOverGround": (0.0, 4.0),
     "navigation.courseOverGroundTrue": (0.0, 6.28),
     "navigation.headingMagnetic": (0.0, 6.28),
+    "navigation.headingTrue": (0.0, 6.28),
     "navigation.magneticVariation": (0.24, 0.29),
     "navigation.attitude.roll": (-0.25, 0.25),
     "navigation.attitude.pitch": (-0.08, 0.08),

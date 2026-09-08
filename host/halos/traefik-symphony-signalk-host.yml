@@ -1,0 +1,15 @@
+# Symphony: serve SignalK at the root of signalk.<boat-domain> (HALOS puts
+# Homarr there and SignalK on :4430). Traefik watches this directory.
+http:
+  routers:
+    symphony-signalk-host:
+      rule: "Host(`signalk.symphony.dark-star-llc.com`) && !PathPrefix(`/sso/`) && !PathPrefix(`/ca/`) && !Path(`/sso`) && !Path(`/ca`)"
+      entrypoints: [websecure]
+      tls: {}
+      priority: 50
+      service: symphony-signalk
+  services:
+    symphony-signalk:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:3000"

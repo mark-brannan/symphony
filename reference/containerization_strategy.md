@@ -38,6 +38,19 @@ host-layer Ansible, monitoring plumbing) and **defer work that only pays
 in one** (more Dex/Caddy glue pays only in C/D; HALOS-specific config
 pays only in A/B).
 
+## Plan shift, 2026-09-01: the trial moves to the boat
+
+The HALOS card built on the bench Pi goes into the boat Pi for a live trial;
+the boat card is the rollback. A2–A4 therefore happen aboard, on real buses
+and a 4 GB Pi. B1–B3 and the Telegraf dual-write are done: QuestDB is the
+only *live* store — `signalk-to-influxdb2` is still installed and erroring
+every cycle on the boat (blocked on a `file:` dependency quirk), and the
+`telegraf.conf` InfluxDB-output removal hasn't been deployed there. Both are
+open cleanups, not done, tracked in `intermediate_files/claude_slop/kanban.md`.
+B6 and B7 are moot if HALOS is adopted. Plan and
+decisions: `intermediate_files/claude_slop/halos-swap-plan.md`. Everything
+below predates the shift and is kept for its reasoning.
+
 ## Critical review: which prior conclusions survive
 
 Re-examined per Mark's request, taking nothing in

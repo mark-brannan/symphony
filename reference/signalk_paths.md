@@ -218,7 +218,7 @@ vessel produces, because `signalk-to-influxdb2` had both `filteringRules` and
 - `<empty>` -- the plugin's sentinel for a delta arriving with an empty path
 
 The NWS alert measurements were the only unbounded growth. `ignoredPaths` in
-RUNBOOK.md ("The signalk-to-influxdb2 change") covers all of these, and is a
+`signalk/plugin-config-data/signalk-to-influxdb2.json` covers all of these, and is a
 larger win on SD-card write volume than the bucket split is.
 
 ## Two Grafanas, two InfluxDBs
@@ -245,9 +245,9 @@ in `scripts/build_dashboards.py`. The generated JSON is committed, because
 Grafana provisioning reads files and the boat has no build step; edit the spec
 and regenerate rather than editing the JSON.
 
-`scripts/audit_dashboard_paths.py` checks every measurement the dashboards
-reference against what InfluxDB has actually seen, and exits non-zero on
-anything missing or stale. It has to run on the boat — it reads the InfluxDB
-token from the live plugin config. A panel pointed at a path nothing publishes
-does not error; it draws an empty graph, which looks exactly like a quiet
-sensor. That is how the ported dashboards sat here looking plausible.
+`scripts/audit_dashboard_paths.py` lists every measurement the dashboards
+reference and the panel that references it. `scripts/verify_dashboards_live.py`
+is the one that answers whether the data is there, by running each panel's
+query through a live Grafana. A panel pointed at a path nothing publishes does
+not error; it draws an empty graph, which looks exactly like a quiet sensor.
+That is how the ported dashboards sat here looking plausible.

@@ -58,6 +58,41 @@ v_clock=$(chronyc tracking 2>/dev/null | awk -F': *' '/^System time/ {print $2}'
 v_failed=$(systemctl list-units --state=failed --no-legend --plain 2>/dev/null | awk '{print $1}' | paste -sd, - || echo "unknown")
 [ -n "$v_failed" ] || v_failed="none"
 
+# Checkout drift, diagnostics only -- being behind origin is the normal state
+# of a boat that deploys deliberately, so it never alarms. Local refs only, so
+# no network work here; boat-hourly-sync.timer does the fetching. The fetch age
+# is what separates a failing fetch from a merely undeployed change.
+repo_state() {
+	_dir=$1; _ref=$2; _fh=$3
+	[ -d "$_dir" ] || { printf 'absent'; return; }
+	# safe.directory: this runs as root against pi's checkout. left=ahead,
+	# right=behind -- a deploy checkout should never be ahead, so say when it is.
+	_c=$(git -c safe.directory='*' --git-dir="$_dir" \
+		rev-list --left-right --count "HEAD...$_ref" 2>/dev/null) || _c=
+	_a=${_c%%	*}; _n=${_c##*	}
+	case "$_a$_n" in ''|*[!0-9]*) printf 'unknown'; return ;; esac
+	_age=""
+	if [ -f "$_fh" ]; then
+		_m=$(stat -c %Y "$_fh" 2>/dev/null)
+		case "$_m" in ''|*[!0-9]*) ;; *) _age=$(( ( $(date +%s) - _m ) / 60 )) ;; esac
+	fi
+	if   [ "$_a" != 0 ] && [ "$_n" != 0 ]; then printf 'DIVERGED %s ahead %s behind' "$_a" "$_n"
+	elif [ "$_a" != 0 ];                   then printf 'AHEAD %s' "$_a"
+	elif [ "$_n" != 0 ];                   then printf '%s behind' "$_n"
+	else                                        printf 'current'
+	fi
+	[ -n "$_age" ] && printf ', fetched %sm ago' "$_age"
+}
+v_symphony=$(repo_state /home/pi/symphony/.git origin/main /home/pi/symphony/.git/FETCH_HEAD)
+v_dotfiles=$(repo_state /home/pi/.local/share/yadm/repo.git origin/main /home/pi/.local/share/yadm/repo.git/FETCH_HEAD)
+# A rolled-back autostash leaves only a stash entry as evidence; yadm reports
+# exit 0. Anything but 0 wants a human.
+# wc -l would mask a git failure as "0", so take git's status first.
+_sl=$(git -c safe.directory='*' --git-dir=/home/pi/.local/share/yadm/repo.git \
+	--work-tree=/home/pi stash list 2>/dev/null) && v_stash=$(printf '%s' "$_sl" | grep -c .) || v_stash=unknown
+case "$v_stash" in ''|*[!0-9]*) v_stash="unknown" ;; esac
+[ "$v_stash" = 0 ] || v_dotfiles="$v_dotfiles, ${v_stash} stashed"
+
 # Thresholds. Silence tells you the box is gone; these tell you it is in
 # trouble while still alive, which is the gap nothing else off-boat covers.
 # 400 MB matches what this project already calls real memory pressure, and is
@@ -140,8 +175,9 @@ else
 	PING_URL="$URL"
 fi
 
-BODY=$(printf 'status: %s\nuptime: %s\nload: %s\nmem available: %s\ndisk: %s\ntemp: %s\nthrottled: %s\nclock: %s\nfailed units: %s\n' \
-	"$v_status" "$v_uptime" "$v_load" "$v_mem" "$v_disk" "$v_temp" "$v_throttled" "$v_clock" "$v_failed")
+BODY=$(printf 'status: %s\nuptime: %s\nload: %s\nmem available: %s\ndisk: %s\ntemp: %s\nthrottled: %s\nclock: %s\nfailed units: %s\nsymphony: %s\ndotfiles: %s\n' \
+	"$v_status" "$v_uptime" "$v_load" "$v_mem" "$v_disk" "$v_temp" "$v_throttled" "$v_clock" "$v_failed" \
+	"$v_symphony" "$v_dotfiles")
 
 # A boat loses its uplink routinely. A missed ping is the expected case, not a
 # fault, so this exits 0 either way rather than leaving a failed unit behind

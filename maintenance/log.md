@@ -340,6 +340,11 @@
   been re-run there. Re-rendered and recreated the `dex` container (the only
   one on that host consuming a rotated secret); native SignalK and the
   desktop's grafana/influxdb were unaffected.
+- Boat Pi rebooted with `cgroup_enable=memory cgroup_memory=1` on the kernel
+  command line, so container memory limits are enforced. QuestDB now holds to
+  its 768 MB cap.
+- Grafana's provisioned dashboards ported from InfluxDB Flux to QuestDB SQL,
+  and a true-heading panel added.
 
 ## 2026-08-21
 - Redeployed signalk-plugin-watchdog to the boat; the code had been silently
@@ -375,3 +380,61 @@
   done 2026-08-15): identity allowlists beside the existing group mapping.
   Branch `oidc-identity-permissions` on the fork, preview PR
   mark-brannan/signalk-server#1. Nothing sent upstream yet.
+
+## 2026-09-02
+- Landed the HALOS card-swap procedure, its check scripts and the host
+  override files (PR #33). The bench card passed every preflight check
+  after a reboot with the full stack running.
+- Fixed the pypilot web UI on the boat Pi and re-enabled it; it had been
+  serving nothing while flooding the journal at 720 lines/min since before
+  it was disabled earlier the same day.
+- Capped the boat Pi's journal at 1 GB, about ten days of history at its
+  measured rate. Journal 1.4 GB to 992 MB, root filesystem 76% to 74%.
+- Added a containerized pypilot proof of concept: an image built from
+  pinned upstream source, compose files for the boat and the dev box, and a
+  runbook procedure. Built and run on the dev box only; the boat still runs
+  pypilot natively.
+- Built `ansible/` for the HALOS card: nine roles covering boot config, `can0`,
+  wifi and hostname identity, packages, host files and the SignalK container
+  overrides. Converged against `symphony-halos`; two consecutive runs at zero
+  changes, preflight all `ok`. Each card now writes its own heartbeat check
+  URL, which `host/install.sh` used to overwrite.
+- Proved the containerized pypilot on the bench Pi: builds on arm64 in seven
+  minutes, reaches the i2c bus from inside the container, drives a real IMU
+  and serves its web UI. Still to check against the boat's own IMU and its
+  existing autopilot settings.
+- Confirmed the containerized pypilot against the boat's own hardware and
+  settings: it read the boat's autopilot state and IMU calibration without
+  changes and drove the boat's actual compass sensor correctly. The boat
+  still runs pypilot natively; nothing has switched over.
+- Cut the boat over from native to containerized pypilot. Native disabled;
+  the container uses well under half the memory (134 MB vs. 321 MB,
+  measured on the same host back to back).
+- Added a suppress button for the off-boat alarms: one command pauses the
+  boat's healthchecks.io check before planned work, and the boat un-silences
+  itself on its first heartbeat afterwards.
+
+## 2026-09-04
+
+- Validated the HALOS card end to end before the swap. The card now matches
+  the boat's SignalK config and plugin versions, the journal survives a
+  reboot, and the DNS cutover was exercised in both directions from home.
+- Found and fixed two faults that would have travelled to the boat: the
+  documented config sync overwrote the card's own plugin settings, and a
+  package install silently removed the Bluetooth library, leaving the card
+  running with no BLE sensors and no error.
+- Reproduced the card's overnight hang on the bench and identified the cause:
+  the 2 GB test Pi cannot hold QuestDB and Grafana alongside SignalK. With
+  those two stopped the card ran six hours clean.
+
+## 2026-09-05
+
+- Proved the unattended Tailscale provisioning twice on a genuinely blank
+  Pi 4 reflash: `site.yml` finds a stale registration under the card's name,
+  releases it, and re-registers unattended, no click in the admin console.
+  Found and fixed a real bug along the way (a comma in the authkey
+  description 400'd Tailscale's mint endpoint on every run).
+- Collapsed the fresh-card preparation into one command,
+  `scripts/halos_card_prepare.sh`, from bootstrap through the preflight.
+  Proven end to end on the bench Pi 4: three full runs, the third `ok` on
+  every preflight line. The boat swap is still ahead.
