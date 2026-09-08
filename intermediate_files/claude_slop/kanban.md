@@ -118,7 +118,7 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 ## Claude's
 
 ### Repo & tooling
-- [ ] **Restore [PR #44](https://github.com/mark-brannan/symphony/pull/44)'s per-commit prose-delta rule (rule 2)** once PR #44 is merged and closed out — Mark's call, temporary drop only. `scripts/lint_runbook_prose.py`'s `main()` has the exact 3-line restore in a comment right above where `check_delta` used to be called; `check_delta` and its tests were left in place. Also restore `.pre-commit-config.yaml`'s `runbook-prose` hook name/comment (currently says "per section" only).
+- [x] **Restore [PR #44](https://github.com/mark-brannan/symphony/pull/44)'s per-commit prose-delta rule (rule 2)** — done; PR #44 was closed unmerged and the rule is back on. It now lives in `.prose-budgets.json` as `delta.max_words`, enforced by the shared `prose-budget` engine.
 - [ ] **Confirm the sticky-comment fix to `claude-review.yml` (PR #44, commit `c03887d`) actually works, on the next PR that touches it.** It couldn't self-test on #44 — GitHub's own claude-code-action skipped running because the PR modifies the workflow file it runs under (logged as "Skipping action due to workflow validation," a known pre-existing case per the comment in that workflow already). Watch the first real PR after #44 merges: one `claude[bot]` summary comment should update in place across pushes, not multiply.
 
 ### Infrastructure
