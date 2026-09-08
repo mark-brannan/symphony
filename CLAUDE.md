@@ -168,9 +168,10 @@ rebuild the box.
   handling, filter and smudge setup, and anything that fails silently
   qualify. Missing those has cost real time; that is the one case where
   adding is the right answer.
-- Runbook edits land in their own commit, and `scripts/lint_runbook_prose.py`
-  budgets prose per section and per commit. Cutting earns credit; tune the
-  constants at the top of the script rather than arguing with it.
+- Runbook edits land in their own commit, and `prose-budget` (at commit
+  via `--staged`, and in CI) budgets prose per section and per commit. The
+  thresholds are `.prose-budgets.json`; tune the numbers there rather than
+  arguing with it.
 
 ## reference/*.md
 - Explanatory material lives here: architecture, design rationale, known

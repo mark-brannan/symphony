@@ -154,9 +154,12 @@ repos:
       # added per commit. Code fences, tables and the index are free.
       # Also keeps runbook edits in their own commit, so one can be
       # reviewed and rejected without holding up the code beside it.
-      - id: runbook-prose
-        name: runbook prose budget (per section, per commit)
-        entry: python3 scripts/lint_runbook_prose.py
+      # The engine is `prose-budget` from dotfiles (.local/bin, on PATH);
+      # the thresholds are .prose-budgets.json. --staged judges the index,
+      # like every other hook here.
+      - id: prose-budget
+        name: prose budget (runbook sections, net prose per commit)
+        entry: prose-budget --staged
         language: system
         pass_filenames: false
         always_run: true
