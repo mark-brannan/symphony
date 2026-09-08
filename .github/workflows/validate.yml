@@ -100,7 +100,6 @@ jobs:
     uses: mark-brannan/.github/.github/workflows/prose-budget.yml@main
     with:
       config: .prose-budgets.json
-      dotfiles-ref: claude/prose-budget
       require-config: true
       warn-only: false
 
