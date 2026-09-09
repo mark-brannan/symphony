@@ -118,7 +118,6 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 ## Claude's
 
 ### Repo & tooling
-- [ ] **README needs a real pass, not just deletions.** [62e8add](https://github.com/mark-brannan/symphony/commit/62e8add), [ca2ff62](https://github.com/mark-brannan/symphony/commit/ca2ff62), [9d38c91](https://github.com/mark-brannan/symphony/commit/9d38c91) cut the stale/false "Open items" and "Workflow" sections outright rather than fixing them — Mark's call, not the time for it. What's left (Setup, Structure, Links) may still have other rot; review it properly.
 - [ ] **Confirm the sticky-comment fix to `claude-review.yml` (PR #44, commit `c03887d`) actually works, on the next PR that touches it.** It couldn't self-test on #44 — GitHub's own claude-code-action skipped running because the PR modifies the workflow file it runs under (logged as "Skipping action due to workflow validation," a known pre-existing case per the comment in that workflow already). Watch the first real PR after #44 merges: one `claude[bot]` summary comment should update in place across pushes, not multiply.
 
 ### Infrastructure
