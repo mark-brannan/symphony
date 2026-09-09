@@ -244,6 +244,11 @@ def block():
     s.append(txt(680, 892, "protects the run to", 11.5, anchor="middle", fill=MUTE))
     s.append(txt(680, 908, "the fixture, both paths", 11.5, anchor="middle", fill=MUTE))
 
+    # the masthead group, marked on both sides: one fixture, and the three
+    # bypass positions that can energise two of its legs at once
+    s.append(box(502, 202, 56, 256, "none", GRN, 2.4, 6))
+    s.append(txt(530, 472, "one leg at a time", 10.5, anchor="middle",
+                 fill=GRN, weight="bold"))
     s.append(box(770, 180, 232, 262, "none", ORA, 2, 8, "7 5"))
     s.append(txt(885, 456, "one fixture, one cable", 11.5, anchor="middle",
                  fill=ORA, weight="bold"))

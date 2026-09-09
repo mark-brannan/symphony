@@ -258,8 +258,8 @@ For the bypass block specifically. Those indicator LEDs sit in parallel with
 each fuse position and light when the fuse is open — which, in this block, is
 the normal state of every position. Each one would then trickle its indicator
 current through the fixture to ground: enough to make a modern LED nav light
-glow faintly, permanently, and enough to make the block look like five blown
-fuses all the time. Use a plain block.
+glow faintly, permanently, and enough to make the block look like a full set of
+blown fuses all the time. Use a plain block.
 
 ## Fusing
 
