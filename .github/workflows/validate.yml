@@ -97,7 +97,7 @@ jobs:
   # per-commit rules apply; on a push it checks tree state only. Advisory,
   # like everything else in this workflow.
   prose-budget:
-    uses: mark-brannan/.github/.github/workflows/prose-budget.yml@main
+    uses: mark-brannan/.github/.github/workflows/prose-budget.yml@v1
     with:
       config: .prose-budgets.json
       require-config: true
