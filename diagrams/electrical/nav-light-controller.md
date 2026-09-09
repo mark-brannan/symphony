@@ -179,7 +179,8 @@ Not a part number — the envelope any candidate has to clear:
 
 ## Incandescent or LED
 
-The fixtures are incandescent today and being replaced piecemeal. **Nothing in
+The fixtures are probably incandescent today and are being replaced
+piecemeal; that is the owner's recollection, not an inspection. **Nothing in
 the topology changes either way.** What changes is entirely in the numbers that
 were deferred anyway — gauge, fuse ratings, the MOSFET part — plus one firmware
 rule and one SOA check. Take the incandescent case as the design case: a circuit
