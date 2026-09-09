@@ -54,10 +54,6 @@ work, and planned improvements.
 - Move items between In Progress / Blocked / Backlog / Someday-Maybe in `priorities.md` as status changes; keep In Progress small
 - `systems/*.md` are living reference, edited in place — git tracks the history
 
-### Open items
-- Electrical/IoT sensor and SignalK-integration tasks live in the SignalK / IoT section of `priorities.md`, separate from the physical-work items above them. Those physical items are the historical copy; Evernote is the authoritative list now, and they get pruned from here over time.
-- Physical specs that also live as SignalK config (calibration curves, sensor mappings) aren't yet reconciled between this repo and the SignalK/Ansible repo.
-
 ## Links
 - [Sailboatdata — Hans Christian 38T](https://sailboatdata.com/sailboat/hans-christian-38t/)
 - [Good Old Boat — Hans Christian 38T](https://goodoldboat.com/saildata/boat/hans-christian-38t/)
