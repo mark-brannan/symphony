@@ -54,10 +54,9 @@ def hop_h(x, y, color, w=2.6):
 def res_v(x, y, color, label, lx=None, size=12.5):
     """Vertical resistor centred on (x, y); label to the right unless lx given."""
     s = box(x - 11, y - 24, 22, 48, "#ffffff", color, 2.2, 2)
-    if lx is None:
-        s += txt(x + 17, y + 5, label, size)
-    else:
-        s += txt(lx, y + 5, label, size, anchor="end")
+    if label:  # empty = the caller places its own label elsewhere
+        s += (txt(x + 17, y + 5, label, size) if lx is None
+              else txt(lx, y + 5, label, size, anchor="end"))
     return s
 
 
@@ -76,8 +75,9 @@ def fuse_h(x, y, color, label, above=True):
     """Horizontal blade-fuse symbol centred on (x, y)."""
     s = [box(x - 24, y - 15, 48, 30, "#ffffff", color, 2.2, 3),
          poly([(x - 24, y), (x + 24, y)], color, 2.2)]
-    s.append(txt(x, y - 22 if above else y + 32, label, 12,
-                 anchor="middle", weight="bold"))
+    if label:  # the block sheet's fuse rows are named by their column header
+        s.append(txt(x, y - 22 if above else y + 32, label, 12,
+                     anchor="middle", weight="bold"))
     return "".join(s)
 
 
