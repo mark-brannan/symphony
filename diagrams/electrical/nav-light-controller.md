@@ -1,6 +1,6 @@
 # 12 V navigation-light controller — ESP32 + optocouplers, with a manual fuse bypass
 
-Six 12 V lighting channels switched by an ESP32 through optocouplers, each
+Seven 12 V lighting channels switched by an ESP32 through optocouplers, each
 one paralleled by a blade-fuse slot that turns the light on unconditionally
 when a fuse is inserted. The electronics are the convenience; the fuse block
 is what gets the boat legally lit when they fail.
@@ -18,7 +18,7 @@ placeholder chosen to make the topology concrete, not a specification.
 
 | | |
 |---|---|
-| [System block](nav-light-block.svg) | six channels, both fuse blocks, one ESP32 |
+| [System block](nav-light-block.svg) | seven channels, both fuse blocks, one ESP32 |
 | [One channel in detail](nav-light-channel.svg) | gate network, optocoupler, both current paths |
 | [Feedback options](nav-light-feedback.svg) | what the ESP32 can know about a channel |
 
@@ -32,12 +32,13 @@ python3 diagrams/electrical/nav-light-diagrams.py
 
 | | Channel | Fixture | Run, one-way (*stand-in*) |
 |---|---|---|---|
-| CH1 | Masthead, sail-only | tricolour, or a red-over-green pair | 18 m |
-| CH2 | Anchor light | all-round white 360° | 18 m |
-| CH3 | Sidelights | port + starboard, one channel | 6 m |
-| CH4 | Stern light | white 135° | 7 m |
-| CH5 | Steaming light | forward-facing white 225° | 14 m |
-| CH6 | Spare | brought out to terminals, uncommitted | — |
+| CH1 | Masthead, leg 1 | mode-select leg of the masthead unit | 18 m |
+| CH2 | Masthead, leg 2 | mode-select leg of the masthead unit | 18 m |
+| CH3 | Masthead, leg 3 | mode-select leg of the masthead unit | 18 m |
+| CH4 | Sidelights | port + starboard, one channel | 6 m |
+| CH5 | Stern light | white 135° | 7 m |
+| CH6 | Steaming light | forward-facing white 225° | 14 m |
+| CH7 | Spreader lights | deck work light — not a navigation light | 10 m |
 
 Run lengths are derived from the vessel's own particulars — 37' 11" LOA, mast
 54.5 ft above DWL (`reference/specs.md`) — plus routing allowance. They are
@@ -47,39 +48,68 @@ measured.
 Port and starboard sidelights share one channel deliberately: they are never
 shown independently, so splitting them would double the parts for no operating
 case. If they are separate fixtures with separate runs, they still branch after
-CH3's branch fuse.
+CH4's branch fuse.
 
-### CH1 is deliberately not identified
+### The masthead is three channels, not one
 
-**The board does not know what any channel is connected to.** All six are the
+**The board does not know what any channel is connected to.** All seven are the
 same circuit; the names in the table are labels on a terminal strip and rows in
-a firmware table, not design decisions. That is worth saying out loud for CH1,
-where the masthead fixture is not confirmed and may be replaced.
+a firmware table, not design decisions.
 
-Both of the plausible answers are one channel:
+That matters most at the masthead. The fixture up there is a combination unit
+whose mode is selected by *which powered leg is energised* against a shared
+negative — all-round white, coloured, and a flashing mode, in some
+combination. Exactly which is not established, and it may be replaced. So the
+masthead is modelled as **three identical channels feeding one fixture**, and
+nothing in the wiring depends on knowing what each leg does:
 
-- A **tricolour** is one lamp, switched on or off.
-- A **red-over-green pair** is two lamps, but COLREGS Rule 25(c) specifies them
-  as a vertical pair shown together — never one without the other — so they are
-  one channel for the same reason the two sidelights are one channel. Wire both
-  lamps to CH1's terminals and let them branch at the masthead.
+- Each leg is one high-side switch, the same as every other channel.
+- Any leg that turns out not to exist is simply an unused channel. A leg
+  costs one MOSFET, one optocoupler, four resistors and two fuse positions.
+- A tricolour, a red-over-green pair and a plain anchor light are all *one leg
+  each* — a red-over-green pair is specified by COLREGS Rule 25(c) as a
+  vertical pair always shown together, never one without the other, so it wires
+  like the two sidelights do: both lamps on one leg, branching at the masthead.
 
-Where the two differ is entirely in firmware, and they differ in *opposite*
-directions, which is the reason not to bake either into the drawing:
+**This is why the switching had to be high-side.** A mode-select fixture with a
+common negative cannot be switched on its return leg at all — there is only one
+return, shared by every mode. Switching the positive leg of each mode is the
+only topology that works, which the design already does for unrelated reasons.
 
-- A tricolour **replaces** the deck-level sidelights and stern light — Rule
-  25(b) — so CH1 on means CH3 and CH4 off.
-- Red-over-green is shown **in addition to** the sidelights and stern light —
-  Rule 25(c) — so CH1 on means CH3 and CH4 *also* on. Rule 25(c) further forbids
-  showing it together with a tricolour, so on this board the two readings are
-  never both true.
+**Cable to the masthead:** one conductor per leg plus the common negative, so
+four conductors for a three-mode unit, split at the masthead. One run, not
+three.
 
-If the masthead turns out to carry neither, CH1 is simply an unused channel,
-like CH6. Nothing in the wiring is wrong in any of the three cases.
+### The masthead legs must be mutually exclusive — and the bypass can defeat that
 
-**CH1 and CH2 share a mast cable** regardless of which fixture is up there:
-both runs end at the same place, so two switched conductors and a common
-negative go up in one cable and split at the masthead.
+Energising two legs of a mode-select fixture at once is at best undefined and
+may back-feed through the fixture's internal wiring. Firmware must treat CH1–CH3
+as a radio group: exactly one on, or none.
+
+The bypass block can break that rule, and this is the one place where the
+bypass's unconditional nature bites. Two bypass fuses fitted in the masthead
+group energise two legs simultaneously with nothing to stop them. Mitigations,
+in the order they are worth doing:
+
+1. Group the three masthead positions together in the bypass block, at one end,
+   with a single label: **one at a time**.
+2. Keep only one spare fuse for the masthead group in the boat's spares kit, so
+   the obvious action is the correct one.
+
+No hardware interlock. An interlock would have to be defeatable by the bypass
+fuse to be safe in the case the bypass exists for, and something defeatable is
+not an interlock. Confirming what the fixture actually does when two legs are
+hot is worth doing on the bench before this ever matters at sea.
+
+### Spreader lights are the biggest load on the board
+
+CH7 is not a navigation light and has no COLREGS mode. It is on the board
+because it is a switched 12 V circuit that wants remote control, and because
+the channel was already there.
+
+Size Q7 for it separately: a pair of spreader floods can draw several times any
+single nav light, which makes CH7 — not the masthead — the channel that sets
+the board's worst-case dissipation and its share of the main run.
 
 **Stern is on the board.** Its wire run goes to the transom rather than the
 mast, which is a wiring question, not a switching one. Keeping it here means
@@ -238,7 +268,7 @@ Two things are added here.
 | | |
 |---|---|
 | **F-LOGIC**, 1 A (*stand-in*) | the tap feeding the ESP32's buck converter |
-| **F1–F6**, per channel (*stand-in*) | branch protection, sized to each run's conductor |
+| **F1–F7**, per channel (*stand-in*) | branch protection, sized to each run's conductor |
 
 The branch fuses sit **downstream of where the MOSFET and the bypass fuse
 join**, so one fuse protects the run to the fixture no matter which path is
@@ -321,37 +351,45 @@ Which combinations are legal is a firmware question. No hardware interlock:
 an interlock would have to be defeatable by the bypass fuse to be safe, and
 something defeatable is not an interlock.
 
-The three modes that do not depend on what CH1 is:
+The modes that hold regardless of what the masthead legs turn out to be:
 
-| Mode | CH1 | CH2 anchor | CH3 sidelights | CH4 stern | CH5 steaming |
+| Mode | Masthead | CH4 sidelights | CH5 stern | CH6 steaming | CH7 spreaders |
 |---|---|---|---|---|---|
-| Under power | off | off | on | on | on |
-| Under sail, deck lights | off | off | on | on | off |
-| At anchor | off | on | off | off | off |
+| Under power | none | on | on | on | off |
+| Under sail, deck lights | none | on | on | off | off |
+| At anchor | the all-round white leg | off | off | off | off |
 
-CH1 adds one more mode, and which one depends on the fixture. Firmware needs
-whichever row matches what is actually at the masthead — the wiring is the same
-for both:
+The remaining modes need a leg identified first, and only then does the table
+resolve. What the fixture's coloured mode *is* changes the row in opposite
+directions, which is why none of this is in the wiring:
 
-| CH1 is | Mode | CH1 | CH2 | CH3 | CH4 | CH5 |
-|---|---|---|---|---|---|---|
-| a tricolour | Under sail, tricolour | **on** | off | **off** | **off** | off |
-| red-over-green | Under sail, signalling | **on** | off | **on** | **on** | off |
+| If the coloured leg is | Masthead | CH4 sidelights | CH5 stern | CH6 steaming |
+|---|---|---|---|---|
+| a **tricolour** | that leg on | **off** | **off** | off |
+| a **red-over-green** pair | that leg on | **on** | **on** | off |
 
-Note the sidelights and stern columns invert between the two. A tricolour
-*replaces* them; red-over-green is shown *in addition to* them. Getting this
-backwards is a lights-wrong-for-the-vessel error, not a cosmetic one, so it
-should be a single named constant in firmware rather than a condition repeated
-in several places.
+A tricolour *replaces* the deck-level sidelights and stern light — COLREGS
+Rule 25(b). Red-over-green is shown *in addition to* them — Rule 25(c), which
+also forbids showing it together with a tricolour, so a given fixture is only
+ever one of these. The sidelight and stern columns invert between the two rows,
+and getting it backwards is a lights-wrong-for-the-vessel error rather than a
+cosmetic one. Make it one named constant, not a condition repeated in several
+places.
 
 Combinations to refuse outright:
 
+- **More than one masthead leg at once.** CH1–CH3 are a radio group. This is
+  the hard one, because the bypass block can defeat it — see above.
 - **Anchor plus anything else.** At anchor is at anchor.
-- **CH1 plus CH5.** Either reading of CH1 is a sailing vessel's signal; the
-  steaming light says power-driven. Never both.
-- **Tricolour plus sidelights or stern**, if CH1 is a tricolour. If it is
-  red-over-green this combination is required rather than forbidden, which is
-  the same inversion as above.
+- **Any masthead sailing signal plus CH6.** The steaming light says
+  power-driven; a tricolour or red-over-green says sailing vessel. Never both.
+- **A tricolour leg plus CH4 or CH5** — but only if that leg *is* a tricolour.
+  For a red-over-green leg the same combination is required rather than
+  forbidden. Same inversion as the table above.
+
+CH7 has no mode. Spreader lights are not a navigation light and should not be
+tied to any of these rows; showing them underway at night ruins night vision
+and can be misread from another vessel.
 
 Under sail with a tricolour there are two legal answers — masthead or deck
 level — and which to prefer is an operating choice, not a rule: the tricolour
@@ -364,7 +402,7 @@ Two GPIO details that are hardware constraints on the firmware:
   reset and some pulse during boot; a pin that glitches high for a few
   milliseconds flashes a nav light every time the board resets.
 - R4's pulldown covers the window between power-on and the first
-  `pinMode`/`digitalWrite`. Firmware should still drive all six pins low as
+  `pinMode`/`digitalWrite`. Firmware should still drive all seven pins low as
   its first action.
 - Space channel turn-ons by ~100 ms while the fixtures are incandescent, per
   the inrush section above.
@@ -391,11 +429,14 @@ its holder, a bus bar, and a TVS across the board's 12 V input.
 
 ## Open questions
 
-- **What is on CH1 — a tricolour, a red-over-green pair, or nothing?** This
-  does not gate the board; it selects which of the two under-sail rows firmware
-  uses. Answer it before the firmware ships, not before the board is cut.
-- Whether the masthead carries a tricolour/anchor combination unit, which
-  decides whether CH1 and CH2 share a cable by necessity or by choice.
+- **What are the masthead unit's legs, and how many?** Three channels are
+  allocated on the assumption of three; a fourth would need a channel and a
+  conductor. This does not gate the board — spare legs cost one channel each —
+  but it does gate the firmware and the mast cable.
+- **What does that fixture do if two legs are hot at once?** Worth establishing
+  on the bench, because the bypass block makes it reachable by hand. If the
+  answer is "damage" rather than "undefined," the labelling above stops being
+  housekeeping.
 - Whether the ESP32 is dedicated to this board or already carries other
   sensors, which decides whether the GPIO-strapping constraint is a free choice
   or a scheduling problem.
