@@ -2572,3 +2572,25 @@ cannot run QuestDB+Grafana next to SignalK — preflight checks them
 enabled-at-boot under 3 GB. Lesson recorded the hard way: never edit a bash
 script while it is running (a subagent did; the run was killed and redone).
 PR #60. DNS dry run not run (classifier); Mark's, per the runbook.
+
+## 2026-09-08 — README: reverted a false claim, then cut two sloppy sections outright
+
+Commit 209f037 (2026-08-14) had claimed the "SignalK/Ansible repo" a
+README line used to point at was `tkurki/marinepi-provisioning` — never
+true; Mark used meri-imperiumi/curiosity for ideas, never tkurki's.
+Reverted to prior wording (62e8add). Traced the phrase further: no
+separate SignalK/Ansible repo has ever existed — this has been one repo
+since the initial commit, and this repo's own `ansible/` wasn't added
+until 2026-09-02, over a month after the line was written. Root cause was
+staleness, not malice on the original author's side.
+
+Rather than patch the phrase, Mark had the whole "Open items" section cut
+(ca2ff62) — the Evernote-authority bullet was agent bookkeeping already
+covered in this repo's own CLAUDE.md, not something a newcomer needs. Then
+the "Workflow" bullet list went too (9d38c91): written 2026-07-30 against
+an older four-way `priorities.md` split (In Progress/Blocked/Backlog/
+Someday-Maybe) that no longer exists (now In Progress/Backlog/
+Someday-Maybe, no Blocked) — stale, and Mark judged it didn't earn its
+keep regardless. Explicit call: not the time to rewrite these sections
+properly, so cut rather than fix. Card filed (8a30386) for the real pass
+later.
