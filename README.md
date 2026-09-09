@@ -49,11 +49,6 @@ work, and planned improvements.
 - `reference/specs.md` — vessel identity, registration, and physical particulars
 - `reference/vendors-parts.md` — vendor contacts and parts sourcing
 
-### Workflow
-- Append to `log.md`; use whatever date precision is actually known (day, month, or year) — don't force false precision
-- Move items between In Progress / Blocked / Backlog / Someday-Maybe in `priorities.md` as status changes; keep In Progress small
-- `systems/*.md` are living reference, edited in place — git tracks the history
-
 ## Links
 - [Sailboatdata — Hans Christian 38T](https://sailboatdata.com/sailboat/hans-christian-38t/)
 - [Good Old Boat — Hans Christian 38T](https://goodoldboat.com/saildata/boat/hans-christian-38t/)
