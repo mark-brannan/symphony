@@ -36,9 +36,9 @@ up.
 
 **A live credential leak is the urgent case.** If a report or a scan surfaces
 a working credential — a token, a password, an API key — treat it as already
-compromised: it gets rotated before anything else, following the mint →
-migrate → verify → revoke order in [ROTATION.md](ROTATION.md), which also
-records every rotation done so far and why.
+compromised: it gets rotated before anything else, following the
+mint-before-revoke discipline recorded in [ROTATION.md](ROTATION.md), which
+also records every rotation done so far and why.
 
 ## What is in scope
 
