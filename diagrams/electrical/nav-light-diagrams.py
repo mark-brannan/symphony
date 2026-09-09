@@ -143,21 +143,22 @@ LEG = [(RED, "+12 V, from the panel"), (ORA, "switched 12 V to the fixture"),
        (GRN, "manual bypass (blade fuse)"), (BLU, "3.3 V logic"),
        (BLK, "negative / common ground")]
 
-CHANNELS = [("CH1", "Steaming light", "masthead, forward white 225°"),
+CHANNELS = [("CH1", "Masthead tricolour", "360° in three sectors — assumed"),
             ("CH2", "Anchor light", "all-round white 360°"),
             ("CH3", "Sidelights", "port + stbd, one channel"),
             ("CH4", "Stern light", "white 135°"),
-            ("CH5", "Spare", "brought out to terminals, unused")]
+            ("CH5", "Steaming light", "forward white 225°, under power"),
+            ("CH6", "Spare", "brought out to terminals, unused")]
 
 
 # ------------------------------------------------------------------ block sheet
 def block():
     """System block diagram: five channels, both fuse blocks, one ESP32."""
-    W, H = 1250, 860
+    W, H = 1250, 960
     XBUS, XGND = 230.0, 1060.0
-    ROWS = [210.0, 310.0, 410.0, 510.0, 610.0]
+    ROWS = [210.0, 310.0, 410.0, 510.0, 610.0, 710.0]
     s = [head(W, H, "12 V navigation-light controller — system block",
-              "Five channels. Each is an opto-driven high-side P-MOSFET, "
+              "Six channels. Each is an opto-driven high-side P-MOSFET, "
               "paralleled by a manual blade-fuse bypass.")]
 
     # +12 V feed and bus
@@ -166,33 +167,33 @@ def block():
              % (200, 143, 200, 157, 216, 150, RED))
     s.append(txt(60, 133, "to panel — +12 V main run, protected at the source",
                  12.5, fill=MUTE))
-    s.append(poly([(XBUS, 150), (XBUS, 700)], RED, 5))
+    s.append(poly([(XBUS, 150), (XBUS, 800)], RED, 5))
 
     # negative bus
-    s.append(poly([(XGND, 190), (XGND, 760)], BLK, 5))
+    s.append(poly([(XGND, 190), (XGND, 860)], BLK, 5))
     s.append(txt(XGND + 10, 180, "to negative bus", 12, fill=BLK, weight="bold"))
 
     # ESP32
-    s.append(box(40, 190, 160, 460, "#f3f7fd", BLU, 2.4, 6))
+    s.append(box(40, 190, 160, 560, "#f3f7fd", BLU, 2.4, 6))
     s.append(txt(120, 222, "ESP32", 15, anchor="middle", weight="bold", fill=BLU))
-    s.append(txt(120, 244, "5 × GPIO out", 12, anchor="middle", fill=MUTE))
+    s.append(txt(120, 244, "6 × GPIO out", 12, anchor="middle", fill=MUTE))
     s.append(txt(120, 262, "each with a", 11.5, anchor="middle", fill=MUTE))
     s.append(txt(120, 278, "10 kΩ pulldown", 11.5, anchor="middle", fill=MUTE))
-    s.append(txt(120, 610, "GPIO low or", 11.5, anchor="middle", fill=MUTE))
-    s.append(txt(120, 626, "unpowered =", 11.5, anchor="middle", fill=MUTE))
-    s.append(txt(120, 642, "all lights off", 11.5, anchor="middle",
+    s.append(txt(120, 710, "GPIO low or", 11.5, anchor="middle", fill=MUTE))
+    s.append(txt(120, 726, "unpowered =", 11.5, anchor="middle", fill=MUTE))
+    s.append(txt(120, 742, "all lights off", 11.5, anchor="middle",
                  fill=RED, weight="bold"))
 
     # ESP32 supply tap off the bus
-    s.append(poly([(XBUS, 700), (140, 700), (140, 730)], RED))
-    s.append(dot(XBUS, 700, RED))
-    s.append(fuse_h(178, 700, RED, "F-LOGIC 1 A", above=True))
-    s.append(box(60, 730, 140, 46, "#ffffff", RED, 2.2, 4))
-    s.append(txt(130, 758, "12 V → 5 V buck", 12, anchor="middle"))
-    s.append(poly([(80, 730), (80, 650)], RED))
+    s.append(poly([(XBUS, 800), (140, 800), (140, 830)], RED))
+    s.append(dot(XBUS, 800, RED))
+    s.append(fuse_h(178, 800, RED, "F-LOGIC 1 A", above=True))
+    s.append(box(60, 830, 140, 46, "#ffffff", RED, 2.2, 4))
+    s.append(txt(130, 858, "12 V → 5 V buck", 12, anchor="middle"))
+    s.append(poly([(80, 830), (80, 750)], RED))
 
     # ESP32 / board ground
-    s.append(poly([(170, 776), (170, 806), (XGND, 806), (XGND, 760)], BLK))
+    s.append(poly([(170, 876), (170, 906), (XGND, 906), (XGND, 860)], BLK))
 
     for i, y in enumerate(ROWS):
         cid, name, sub = CHANNELS[i]
@@ -229,20 +230,20 @@ def block():
         s.append(dot(XGND, y, BLK))
 
     # fuse-block groupings
-    s.append(box(496, 178, 68, 480, "none", GRN, 2, 8, "7 5"))
+    s.append(box(496, 178, 68, 580, "none", GRN, 2, 8, "7 5"))
     s.append(txt(530, 168, "BYPASS BLOCK", 12, anchor="middle",
                  weight="bold", fill=GRN))
-    s.append(txt(530, 676, "normally EMPTY", 11.5, anchor="middle", fill=GRN))
-    s.append(txt(530, 692, "fuse in = light on,", 11.5, anchor="middle", fill=MUTE))
-    s.append(txt(530, 708, "ESP32 overridden", 11.5, anchor="middle", fill=MUTE))
-    s.append(box(648, 178, 64, 480, "none", ORA, 2, 8, "7 5"))
+    s.append(txt(530, 776, "normally EMPTY", 11.5, anchor="middle", fill=GRN))
+    s.append(txt(530, 792, "fuse in = light on,", 11.5, anchor="middle", fill=MUTE))
+    s.append(txt(530, 808, "ESP32 overridden", 11.5, anchor="middle", fill=MUTE))
+    s.append(box(648, 178, 64, 580, "none", ORA, 2, 8, "7 5"))
     s.append(txt(680, 168, "BRANCH FUSES", 12, anchor="middle",
                  weight="bold", fill=ORA))
-    s.append(txt(680, 676, "always fitted", 11.5, anchor="middle", fill=ORA))
-    s.append(txt(680, 692, "protects the run to", 11.5, anchor="middle", fill=MUTE))
-    s.append(txt(680, 708, "the fixture, both paths", 11.5, anchor="middle", fill=MUTE))
+    s.append(txt(680, 776, "always fitted", 11.5, anchor="middle", fill=ORA))
+    s.append(txt(680, 792, "protects the run to", 11.5, anchor="middle", fill=MUTE))
+    s.append(txt(680, 808, "the fixture, both paths", 11.5, anchor="middle", fill=MUTE))
 
-    s.append(legend(800, 690, LEG))
+    s.append(legend(800, 790, LEG))
     s.append("</svg>")
     return "".join(s)
 

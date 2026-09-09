@@ -1,6 +1,6 @@
 # 12 V navigation-light controller — ESP32 + optocouplers, with a manual fuse bypass
 
-Five 12 V lighting channels switched by an ESP32 through optocouplers, each
+Six 12 V lighting channels switched by an ESP32 through optocouplers, each
 one paralleled by a blade-fuse slot that turns the light on unconditionally
 when a fuse is inserted. The electronics are the convenience; the fuse block
 is what gets the boat legally lit when they fail.
@@ -18,7 +18,7 @@ placeholder chosen to make the topology concrete, not a specification.
 
 | | |
 |---|---|
-| [System block](nav-light-block.svg) | five channels, both fuse blocks, one ESP32 |
+| [System block](nav-light-block.svg) | six channels, both fuse blocks, one ESP32 |
 | [One channel in detail](nav-light-channel.svg) | gate network, optocoupler, both current paths |
 | [Feedback options](nav-light-feedback.svg) | what the ESP32 can know about a channel |
 
@@ -32,11 +32,12 @@ python3 diagrams/electrical/nav-light-diagrams.py
 
 | | Channel | Fixture | Run, one-way (*stand-in*) |
 |---|---|---|---|
-| CH1 | Steaming light | masthead, forward-facing white 225° | 14 m |
+| CH1 | Masthead tricolour | 360° in three sectors — **assumed, not confirmed** | 18 m |
 | CH2 | Anchor light | all-round white 360° | 18 m |
 | CH3 | Sidelights | port + starboard, one channel | 6 m |
 | CH4 | Stern light | white 135° | 7 m |
-| CH5 | Spare | brought out to terminals, uncommitted | — |
+| CH5 | Steaming light | forward-facing white 225° | 14 m |
+| CH6 | Spare | brought out to terminals, uncommitted | — |
 
 Run lengths are derived from the vessel's own particulars — 37' 11" LOA, mast
 54.5 ft above DWL (`reference/specs.md`) — plus routing allowance. They are
@@ -47,6 +48,27 @@ Port and starboard sidelights share one channel deliberately: they are never
 shown independently, so splitting them would double the parts for no operating
 case. If they are separate fixtures with separate runs, they still branch after
 CH3's branch fuse.
+
+### Why six and not five
+
+The masthead fixture was originally listed as one channel among four. Reading
+it as a **tricolour** rather than a steaming light adds a channel rather than
+renaming one, because a tricolour and a steaming light are not alternatives:
+
+- A masthead tricolour may only be shown by a sailing vessel **under sail**,
+  and it replaces the deck-level sidelights and stern light while it is lit.
+- Under power the same vessel is a power-driven vessel and must show a
+  **steaming light**, sidelights and a stern light — the tricolour must be off.
+
+So a tricolour boat carries both fixtures and needs both channels. CH5 covers
+the steaming light and CH6 stays a genuine spare. If CH1 turns out to be a
+plain steaming light after all, delete CH5 and this is the original five-channel
+board; nothing else changes.
+
+**CH1 and CH2 share a mast cable.** Tricolour-plus-anchor combination fixtures
+are common, and even as separate fixtures both runs go to the same place. Two
+switched conductors and a common negative in one cable up the mast, split at
+the masthead — one run, not two.
 
 **Stern is on the board.** Its wire run goes to the transom rather than the
 mast, which is a wiring question, not a switching one. Keeping it here means
@@ -114,11 +136,54 @@ Not a part number — the envelope any candidate has to clear:
 | R_DS(on) | low enough that I²R at maximum load stays a small fraction of a watt |
 | Inrush | must sit inside the SOA curve for the cold-filament surge if any fixture is incandescent |
 
-Incandescent fixtures pull roughly ten times their steady current for the first
-few milliseconds. LED fixtures do not, but many contain a switching converter
-with an input capacitor, which produces its own brief surge. Neither is a
-problem for a part sized as above; both are a problem for a part sized to the
-steady current.
+## Incandescent or LED
+
+The fixtures are incandescent today and being replaced piecemeal. **Nothing in
+the topology changes either way.** What changes is entirely in the numbers that
+were deferred anyway — gauge, fuse ratings, the MOSFET part — plus one firmware
+rule and one SOA check. Take the incandescent case as the design case: a circuit
+sized for filaments is over-specified but correct once LEDs arrive, and the
+reverse is not true.
+
+Working *stand-in*: 25 W per fixture, so **2.1 A** steady at 12 V. An LED
+replacement of the same fixture is typically a fifth to a tenth of that.
+
+**Inrush.** Tungsten's cold resistance is roughly a tenth to a fifteenth of its
+hot resistance, so a filament draws **20–30 A** on the first few milliseconds
+and settles over 50–150 ms. Four consequences:
+
+- *Conductor and branch fuse.* Both are sized by the steady incandescent
+  current, which is where the 5–10× difference from LED actually bites. This
+  is the deferred ampacity work, and it should be done against filaments.
+- *Fuse type.* ATC/ATO blade fuses have enough I²t to ride the surge at any
+  sane rating, so no slow-blow part is needed. Sizing to the conductor — which
+  is what ABYC wants regardless — settles this without a separate calculation.
+- *MOSFET SOA, not just I_D.* Q1 spends its turn-on transition in the linear
+  region carrying that surge. R2 at 22 kΩ supplies roughly 8 V / 22 kΩ ≈
+  **360 µA** of gate current at the Miller plateau; against a ~40 nC gate-drain
+  charge that is a **~110 µs** transition. At a mean 6 V across the device and
+  21 A through it, that is ~130 W for 110 µs — about 14 mJ. A TO-220 part's
+  100 µs SOA line allows several hundred watts at 6 V, so this passes with
+  margin. It passes *because it was checked*, and with LED fixtures it would
+  not have needed checking. Check it against the real part.
+- *Stagger the turn-ons.* Switching to "under power" lights three channels at
+  once — 60–90 A of combined inrush for a tenth of a second on the main run.
+  Firmware should space channel turn-ons by ~100 ms. It costs nothing and it
+  keeps a mode change from looking like a fault to anything upstream.
+
+**Voltage drop matters more with filaments.** Luminous flux from a tungsten
+lamp goes roughly as V³·⁴, so a 5 % drop on the masthead run costs about 16 %
+of the light — against a fixture whose visibility range is rated at nominal
+voltage. Hold incandescent channels to a 3 % drop. A regulated LED driver is
+flat until it drops out entirely, so the same run is far more forgiving once
+the fixture is swapped.
+
+**One thing to watch when swapping.** Feedback option B reads cleanly against a
+filament, because a lamp's low DC resistance pulls the sense node firmly to
+zero when the channel is off. Some LED fixtures present a high-impedance input
+in standby, which can let a 122 kΩ divider hold that node up and read a false
+"energised." If option B is fitted and a fixture goes LED, re-check the
+off-state reading rather than trusting it.
 
 ## The manual bypass
 
@@ -162,7 +227,7 @@ Two things are added here.
 | | |
 |---|---|
 | **F-LOGIC**, 1 A (*stand-in*) | the tap feeding the ESP32's buck converter |
-| **F1–F5**, per channel (*stand-in*) | branch protection, sized to each run's conductor |
+| **F1–F6**, per channel (*stand-in*) | branch protection, sized to each run's conductor |
 
 The branch fuses sit **downstream of where the MOSFET and the bypass fuse
 join**, so one fuse protects the run to the fixture no matter which path is
@@ -245,13 +310,23 @@ Which combinations are legal is a firmware question. No hardware interlock:
 an interlock would have to be defeatable by the bypass fuse to be safe, and
 something defeatable is not an interlock.
 
-| Mode | CH1 steaming | CH2 anchor | CH3 sidelights | CH4 stern |
-|---|---|---|---|---|
-| Under power | on | off | on | on |
-| Under sail | off | off | on | on |
-| At anchor | off | on | off | off |
+| Mode | CH1 tricolour | CH2 anchor | CH3 sidelights | CH4 stern | CH5 steaming |
+|---|---|---|---|---|---|
+| Under power | off | off | on | on | on |
+| Under sail, tricolour | **on** | off | off | off | off |
+| Under sail, deck lights | off | off | on | on | off |
+| At anchor | off | on | off | off | off |
 
-The one combination worth refusing outright is anchor plus anything else.
+Two combinations are wrong rather than merely unusual, and firmware should
+refuse both: **tricolour together with sidelights or stern** — it is one or the
+other, never both — and **tricolour together with the steaming light**, which
+would show a sailing vessel's lights and a power-driven vessel's at once.
+Anchor plus anything else is the third.
+
+Under sail there are two legal answers, and which one to prefer is an operating
+choice, not a rule: the tricolour is visible further off and draws less, the
+deck-level set is better in close quarters where the masthead is above a
+lookout's line of sight.
 
 Two GPIO details that are hardware constraints on the firmware:
 
@@ -259,8 +334,10 @@ Two GPIO details that are hardware constraints on the firmware:
   reset and some pulse during boot; a pin that glitches high for a few
   milliseconds flashes a nav light every time the board resets.
 - R4's pulldown covers the window between power-on and the first
-  `pinMode`/`digitalWrite`. Firmware should still drive all five pins low as
+  `pinMode`/`digitalWrite`. Firmware should still drive all six pins low as
   its first action.
+- Space channel turn-ons by ~100 ms while the fixtures are incandescent, per
+  the inrush section above.
 
 ## Bill of materials, per channel
 
@@ -284,11 +361,12 @@ its holder, a bus bar, and a TVS across the board's 12 V input.
 
 ## Open questions
 
-- **Is CH1 a steaming light or a masthead tricolour?** The circuit is identical
-  either way; only the mode table changes. A tricolour is mutually exclusive
-  with CH3 and CH4 rather than complementary to them.
-- Load type per fixture — incandescent or LED — which decides whether the
-  inrush line in the MOSFET envelope binds.
+- **Is CH1 actually a masthead tricolour?** Assumed here, unconfirmed. If it is
+  a plain steaming light, CH5 is redundant and the board goes back to five
+  channels. Everything else is unaffected. Worth settling by looking at the
+  fixture before any board is cut.
+- Whether the masthead fixture is a tricolour/anchor combination unit, which
+  decides whether CH1 and CH2 share a cable by necessity or by choice.
 - Whether the ESP32 is dedicated to this board or already carries other
   sensors, which decides whether the GPIO-strapping constraint is a free choice
   or a scheduling problem.
