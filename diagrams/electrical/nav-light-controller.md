@@ -32,7 +32,7 @@ python3 diagrams/electrical/nav-light-diagrams.py
 
 | | Channel | Fixture | Run, one-way (*stand-in*) |
 |---|---|---|---|
-| CH1 | Masthead tricolour | 360° in three sectors — **assumed, not confirmed** | 18 m |
+| CH1 | Masthead, sail-only | tricolour, or a red-over-green pair | 18 m |
 | CH2 | Anchor light | all-round white 360° | 18 m |
 | CH3 | Sidelights | port + starboard, one channel | 6 m |
 | CH4 | Stern light | white 135° | 7 m |
@@ -49,26 +49,37 @@ shown independently, so splitting them would double the parts for no operating
 case. If they are separate fixtures with separate runs, they still branch after
 CH3's branch fuse.
 
-### Why six and not five
+### CH1 is deliberately not identified
 
-The masthead fixture was originally listed as one channel among four. Reading
-it as a **tricolour** rather than a steaming light adds a channel rather than
-renaming one, because a tricolour and a steaming light are not alternatives:
+**The board does not know what any channel is connected to.** All six are the
+same circuit; the names in the table are labels on a terminal strip and rows in
+a firmware table, not design decisions. That is worth saying out loud for CH1,
+where the masthead fixture is not confirmed and may be replaced.
 
-- A masthead tricolour may only be shown by a sailing vessel **under sail**,
-  and it replaces the deck-level sidelights and stern light while it is lit.
-- Under power the same vessel is a power-driven vessel and must show a
-  **steaming light**, sidelights and a stern light — the tricolour must be off.
+Both of the plausible answers are one channel:
 
-So a tricolour boat carries both fixtures and needs both channels. CH5 covers
-the steaming light and CH6 stays a genuine spare. If CH1 turns out to be a
-plain steaming light after all, delete CH5 and this is the original five-channel
-board; nothing else changes.
+- A **tricolour** is one lamp, switched on or off.
+- A **red-over-green pair** is two lamps, but COLREGS Rule 25(c) specifies them
+  as a vertical pair shown together — never one without the other — so they are
+  one channel for the same reason the two sidelights are one channel. Wire both
+  lamps to CH1's terminals and let them branch at the masthead.
 
-**CH1 and CH2 share a mast cable.** Tricolour-plus-anchor combination fixtures
-are common, and even as separate fixtures both runs go to the same place. Two
-switched conductors and a common negative in one cable up the mast, split at
-the masthead — one run, not two.
+Where the two differ is entirely in firmware, and they differ in *opposite*
+directions, which is the reason not to bake either into the drawing:
+
+- A tricolour **replaces** the deck-level sidelights and stern light — Rule
+  25(b) — so CH1 on means CH3 and CH4 off.
+- Red-over-green is shown **in addition to** the sidelights and stern light —
+  Rule 25(c) — so CH1 on means CH3 and CH4 *also* on. Rule 25(c) further forbids
+  showing it together with a tricolour, so on this board the two readings are
+  never both true.
+
+If the masthead turns out to carry neither, CH1 is simply an unused channel,
+like CH6. Nothing in the wiring is wrong in any of the three cases.
+
+**CH1 and CH2 share a mast cable** regardless of which fixture is up there:
+both runs end at the same place, so two switched conductors and a common
+negative go up in one cable and split at the masthead.
 
 **Stern is on the board.** Its wire run goes to the transom rather than the
 mast, which is a wiring question, not a switching one. Keeping it here means
@@ -310,23 +321,42 @@ Which combinations are legal is a firmware question. No hardware interlock:
 an interlock would have to be defeatable by the bypass fuse to be safe, and
 something defeatable is not an interlock.
 
-| Mode | CH1 tricolour | CH2 anchor | CH3 sidelights | CH4 stern | CH5 steaming |
+The three modes that do not depend on what CH1 is:
+
+| Mode | CH1 | CH2 anchor | CH3 sidelights | CH4 stern | CH5 steaming |
 |---|---|---|---|---|---|
 | Under power | off | off | on | on | on |
-| Under sail, tricolour | **on** | off | off | off | off |
 | Under sail, deck lights | off | off | on | on | off |
 | At anchor | off | on | off | off | off |
 
-Two combinations are wrong rather than merely unusual, and firmware should
-refuse both: **tricolour together with sidelights or stern** — it is one or the
-other, never both — and **tricolour together with the steaming light**, which
-would show a sailing vessel's lights and a power-driven vessel's at once.
-Anchor plus anything else is the third.
+CH1 adds one more mode, and which one depends on the fixture. Firmware needs
+whichever row matches what is actually at the masthead — the wiring is the same
+for both:
 
-Under sail there are two legal answers, and which one to prefer is an operating
-choice, not a rule: the tricolour is visible further off and draws less, the
-deck-level set is better in close quarters where the masthead is above a
-lookout's line of sight.
+| CH1 is | Mode | CH1 | CH2 | CH3 | CH4 | CH5 |
+|---|---|---|---|---|---|---|
+| a tricolour | Under sail, tricolour | **on** | off | **off** | **off** | off |
+| red-over-green | Under sail, signalling | **on** | off | **on** | **on** | off |
+
+Note the sidelights and stern columns invert between the two. A tricolour
+*replaces* them; red-over-green is shown *in addition to* them. Getting this
+backwards is a lights-wrong-for-the-vessel error, not a cosmetic one, so it
+should be a single named constant in firmware rather than a condition repeated
+in several places.
+
+Combinations to refuse outright:
+
+- **Anchor plus anything else.** At anchor is at anchor.
+- **CH1 plus CH5.** Either reading of CH1 is a sailing vessel's signal; the
+  steaming light says power-driven. Never both.
+- **Tricolour plus sidelights or stern**, if CH1 is a tricolour. If it is
+  red-over-green this combination is required rather than forbidden, which is
+  the same inversion as above.
+
+Under sail with a tricolour there are two legal answers — masthead or deck
+level — and which to prefer is an operating choice, not a rule: the tricolour
+is seen from further off and draws less, the deck-level set is better in close
+quarters, where the masthead can sit above a nearby lookout's line of sight.
 
 Two GPIO details that are hardware constraints on the firmware:
 
@@ -361,11 +391,10 @@ its holder, a bus bar, and a TVS across the board's 12 V input.
 
 ## Open questions
 
-- **Is CH1 actually a masthead tricolour?** Assumed here, unconfirmed. If it is
-  a plain steaming light, CH5 is redundant and the board goes back to five
-  channels. Everything else is unaffected. Worth settling by looking at the
-  fixture before any board is cut.
-- Whether the masthead fixture is a tricolour/anchor combination unit, which
+- **What is on CH1 — a tricolour, a red-over-green pair, or nothing?** This
+  does not gate the board; it selects which of the two under-sail rows firmware
+  uses. Answer it before the firmware ships, not before the board is cut.
+- Whether the masthead carries a tricolour/anchor combination unit, which
   decides whether CH1 and CH2 share a cable by necessity or by choice.
 - Whether the ESP32 is dedicated to this board or already carries other
   sensors, which decides whether the GPIO-strapping constraint is a free choice

@@ -143,7 +143,7 @@ LEG = [(RED, "+12 V, from the panel"), (ORA, "switched 12 V to the fixture"),
        (GRN, "manual bypass (blade fuse)"), (BLU, "3.3 V logic"),
        (BLK, "negative / common ground")]
 
-CHANNELS = [("CH1", "Masthead tricolour", "360° in three sectors — assumed"),
+CHANNELS = [("CH1", "Masthead, sail-only", "tricolour or red-over-green pair"),
             ("CH2", "Anchor light", "all-round white 360°"),
             ("CH3", "Sidelights", "port + stbd, one channel"),
             ("CH4", "Stern light", "white 135°"),
