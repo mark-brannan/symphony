@@ -23,8 +23,9 @@ bash scripts/dev_stack.sh up        # QuestDB + InfluxDB + Grafana locally, thro
 Commits work without `sops`, `age` or a key. The secret-bearing files stay
 ciphertext on disk; you don't need to read them. `.github/workflows/validate.yml`
 and `secret-scan.yml` need no secrets and run on every push and pull request, so
-local hooks are fast feedback and CI is the backstop. Neither is a required
-check — main takes direct pushes — so a red run is visible rather than blocking.
+local hooks are fast feedback rather than the gate. Their eight jobs are
+required checks on `main`, which also takes changes only through a squashed
+pull request, so a red run blocks the merge.
 
 **Maintaining** — the boat's hosts, or anything that touches a secret.
 
