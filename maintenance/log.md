@@ -376,6 +376,10 @@
 - Fixed bt-sensors-plugin-sk so sensor data resumes after a D-Bus drop
   without a SignalK restart; verified on the boat, pushed to the fork and
   upstream PR #189.
+- Wrote an upstream signalk-server change for the SSO-admin problem (work
+  done 2026-08-15): identity allowlists beside the existing group mapping.
+  Branch `oidc-identity-permissions` on the fork, preview PR
+  mark-brannan/signalk-server#1. Nothing sent upstream yet.
 
 ## 2026-09-02
 - Landed the HALOS card-swap procedure, its check scripts and the host
