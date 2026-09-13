@@ -1,0 +1,7 @@
+name: Non-empty diff
+
+on: pull_request
+
+jobs:
+  nonempty:
+    uses: mark-brannan/.github/.github/workflows/nonempty-diff.yml@main
