@@ -2,6 +2,9 @@ name: Non-empty diff
 
 on: pull_request
 
+permissions:
+  contents: read
+
 jobs:
   nonempty:
     uses: mark-brannan/.github/.github/workflows/nonempty-diff.yml@main
