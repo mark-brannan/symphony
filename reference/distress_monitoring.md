@@ -9,7 +9,7 @@ facet, separate from the host/vessel monitoring in
 **The standing rule frames everything here: the radio's distress button is
 never pressed to test anything** (`maintenance/priorities.md`). Every claim
 below was verified by reading source or by synthetic injection with nothing
-on the air — `RUNBOOK.md` → "Testing the DSC / AIS distress chain".
+on the air — [runbooks/distress_test.md](../runbooks/distress_test.md).
 
 ## Hardware aboard
 
@@ -102,7 +102,7 @@ the alarm. Consequences, all observed directly:
 Mitigation paths, in preference order:
 
 1. **Upstream fix in signalk-server** — the bug is in path-bus creation vs.
-   wildcard-subscriber attachment; the repro in the RUNBOOK section is
+   wildcard-subscriber attachment; the repro in `runbooks/distress_test.md` is
    minimal and deterministic. Not yet reported as of 2026-08-19.
 2. **Plugin-side workaround** — emitting meta (or registering the PUT
    handler) *before* the first values push makes the meta delta create the
