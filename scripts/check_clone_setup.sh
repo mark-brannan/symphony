@@ -97,7 +97,7 @@ if have python3; then
 else
 	blocker "python3" "not found" \
 		"both git filters are python scripts -- covered files cannot be cleaned or smudged at all" \
-		"install python3 (see runbooks/host_bringup.md, step 1 Tooling)"
+		"install python3 (see RUNBOOK.md, Bringing up a host, step 1 Tooling)"
 	unknown "pyyaml" "no python3 to ask"
 fi
 
@@ -111,7 +111,7 @@ if [ -n "$sops_path" ]; then
 else
 	gap "sops" "not found ($(secretguard_sops_locations))" \
 		"secret-bearing files stay ciphertext on disk; you cannot read or edit a secret" \
-		"see runbooks/host_bringup.md, step 1 Tooling (or skip it: contributors don't need secrets)"
+		"see RUNBOOK.md, Bringing up a host, step 1 Tooling (or skip it: contributors don't need secrets)"
 fi
 
 if have age; then
@@ -119,7 +119,7 @@ if have age; then
 else
 	gap "age" "not found" \
 		"you cannot generate or inspect the key sops decrypts with" \
-		"see runbooks/host_bringup.md, step 2 Key material"
+		"see RUNBOOK.md, Bringing up a host, step 2 Key material"
 fi
 
 if have pre-commit; then
@@ -187,7 +187,7 @@ elif [ -f "$HOME/.config/sops/age/keys.txt" ]; then
 else
 	gap "age key" "no key at ~/.config/sops/age/keys.txt and SOPS_AGE_KEY_FILE unset" \
 		"secret-bearing files smudge as ciphertext, and staging one is blocked rather than committed in the clear" \
-		"see runbooks/host_bringup.md, step 2 Key material (contributors don't need one)"
+		"see RUNBOOK.md, Bringing up a host, step 2 Key material (contributors don't need one)"
 fi
 
 # --- what is actually on disk -----------------------------------------------
