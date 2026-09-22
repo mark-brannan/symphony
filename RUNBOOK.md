@@ -53,7 +53,7 @@ Find the symptom in the index, run the section. Design and rationale:
 
 ```bash
 ssh pi@symphony-pi          # boat card
-ssh pi@symphony-halos       # HALOS card, on the bench at home until it is swapped in
+ssh pi@symphony-halos       # HALOS card
 ```
 
 Tailscale SSH, so no key files. Plain `symphony` does not resolve. Only
@@ -147,8 +147,8 @@ returns; accept it. An owner login landing as `readonly` is an SSO fault:
 ## Two deployments
 
 Commands here are written for compose. On the boat Pi, SignalK, InfluxDB,
-Grafana and Caddy are systemd units; Dex, QuestDB, ntfy and autoheal are
-containers. Translate:
+Grafana and Caddy are systemd units; Dex, QuestDB, ntfy, autoheal and
+pypilot are containers. Translate:
 
 | Compose | Boat Pi |
 |---|---|
