@@ -147,8 +147,8 @@ returns; accept it. An owner login landing as `readonly` is an SSO fault:
 ## Two deployments
 
 Commands here are written for compose. On the boat Pi, SignalK, InfluxDB,
-Grafana and Caddy are systemd units; Dex, QuestDB, ntfy, autoheal and
-pypilot are containers. Translate:
+Grafana and Caddy are systemd units; Dex, QuestDB, ntfy, autoheal,
+pypilot and pypilot-web are containers. Translate:
 
 | Compose | Boat Pi |
 |---|---|
