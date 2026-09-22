@@ -466,6 +466,7 @@ carries its drift line. `behind` is normal; `ahead`, `diverged` or any
 `stashed` count needs a person before you pull.
 
 ```bash
+systemctl status boat-hourly-sync.timer                  # active, and a next run scheduled
 journalctl -t boat-hourly-sync -n 5 --no-pager -o cat   # symphony: fetched, N behind origin/main
 sudo -u pi GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=20' git -C /home/pi/symphony fetch origin   # on `fetch failed`
 ~/.local/bin/dotfiles-sync.sh --status                  # dotfiles sync separately
