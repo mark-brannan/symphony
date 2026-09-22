@@ -20,37 +20,39 @@ planned — `dispatch-halos-swap-day.md` is still valid.
 
 ## Bench, at home — in order
 
-1. **Read first, touch nothing.** Hat Labs docs for the HALPI2: how the
-   OS lands on eMMC/SSD (CM5 eMMC needs `rpiboot`/usbboot; SSD may image
-   like a Pi 5 — unverified), the power-controller daemon the RP2040 needs
-   on the OS side (unverified whether the HALOS HALPI2 image ships it),
-   the CAN overlay for the integrated NMEA 2000 port (**not** the PiCAN-M
-   `mcp2515-can0` lines the `boot`/`can` roles write — wrong for this board
-   until proven otherwise), and what the isolated NMEA 0183 port enumerates
-   as.
-2. **Power from a bench DC supply at 12–13.8 V, not USB-C.** The Pi 5 run
-   died on USB-C brownout and needed a CPU cap
-   (`halos-fresh-image-rebuild.md` § Power); the HALPI2's 10–32 V input is
-   the fix. The CPU-cap card on the board is re-evaluated for this board,
-   not carried over.
-3. **Flash the HALOS HALPI2 image**, first boot on the home LAN, join the
-   tailnet as a *new* node named `symphony-halpi2`. The Tailscale
-   reflash-identity design card is now live: this is the third name and the
-   one that becomes the boat.
-4. **Add it to `ansible/inventory.yml` under `halos_cards`** with its own
-   `host_vars`, run `site.yml`. The Pi 5 run went clean after one fix; the
-   HALPI2 will surface whatever is CM5- or board-specific (item 1's CAN
-   overlay, the power daemon). Each fix goes into the role, not the box.
-5. **SignalK state layer**: the B3 script (`halos-b3-findings-2026-09-02.md`
-   recipe), then `scripts/halos_preflight.sh` — expect the same two
-   home-only FAILs (LAN/CAN) as the Pi 5 run and nothing else. Memory is no
-   longer the constraint: run QuestDB and Grafana together and record
-   `free -m` under load for the reference doc.
-6. **`scripts/halos_swap_check.sh symphony-halpi2`** as the bench baseline.
-   Then leave it running for days — the soak the 2 GB card never could.
-7. **Second heartbeat check.** `/etc/boat-heartbeat.json` on this box points
-   at the existing `SignalK Symphony (halos card)` check (dead since
-   2026-09-05, free to repurpose) or a new one.
+The unit ships with the current HALOS on its SSD. **No reflash.** The
+premise is that `ansible/site.yml` takes a stock HALOS box to a boat card;
+the HALPI2 is the first true test of that premise, since both earlier cards
+were hand-imaged and hand-fixed first. Anything Ansible cannot do from a
+stock image is a gap in a role, fixed in the role.
+
+1. **First boot as shipped.** Bench DC supply at 12–13.8 V into the DC
+   input, ethernet to the home LAN. Log in via HALOS's first-boot path
+   (Cockpit or console — check Hat Labs' docs), set the `pi` password from
+   sops, get SSH. Record the image version and what packages are already
+   present (`dpkg -l | grep -i halos`, `docker ps`) before touching anything;
+   that snapshot is the "stock" baseline the roles are measured against.
+2. **Tailnet join** as `symphony-halpi2`, by hand or via the `identity` role
+   if it already handles a fresh node — this is where the reflash-identity
+   design card becomes concrete, and the answer here is the boat's answer.
+3. **Inventory + host_vars**, then `ansible-playbook site.yml --limit
+   symphony-halpi2 --check --diff` first. Read the diff: the `boot` and
+   `can` roles will try to write PiCAN-M overlays (`mcp2515-can0`) that are
+   wrong for the integrated N2K port; the power-controller daemon for the
+   RP2040 may already be in the image. Fix the roles (a per-board variable,
+   not a fork), then run for real. Repeat until a second run is idempotent.
+4. **SignalK state layer**: the B3 script, then `scripts/halos_preflight.sh`
+   — expect only the two home-only FAILs (LAN/CAN).
+5. **`scripts/halos_swap_check.sh symphony-halpi2`** as the bench baseline,
+   then leave it running for days with QuestDB and Grafana up; record
+   `free -m` under load.
+6. **Heartbeat**: point `/etc/boat-heartbeat.json` at the dead
+   `SignalK Symphony (halos card)` check, repurposed, or a new one.
+
+Unverified until the docs are read, and checked before step 1: what the
+first-boot login path is, whether the RP2040 daemon ships in the image,
+which overlay the integrated N2K port uses, and what the isolated NMEA 0183
+port enumerates as.
 
 ## What the bench cannot answer (unchanged)
 
