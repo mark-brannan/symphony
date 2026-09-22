@@ -106,6 +106,8 @@ sops --set "[\"influxdb_captain_token\"] \"$NEW\"" secrets/symphony.sops.yaml
 python3 scripts/render.py
 ```
 
+A hit under `/etc/telegraf/` is root-owned: `sudoedit` it before the restart.
+
 Restart consumers and prove writes land before revoking:
 
 ```bash
@@ -195,6 +197,6 @@ Stop if `export ok` doesn't print; an empty export overwrites the backup.
 
 *Verify:* `sops --decrypt --extract '["uci_export"]' secrets/router-config.sops.yaml | head -3`, then commit.
 
-Restore: `sops --decrypt secrets/router-config.sops.yaml`, feed `uci_export`
-through `uci import` on the router, then `reload_config`. This restores WiFi
+Restore: `sops --decrypt --extract '["uci_export"]' secrets/router-config.sops.yaml`,
+piped through `uci import` on the router, then `reload_config`. This restores WiFi
 and WAN too.

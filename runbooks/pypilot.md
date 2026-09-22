@@ -31,6 +31,6 @@ docker exec pypilot pip show pypilot | head -2        # the version you expect, 
 Roll back to native:
 
 ```bash
-docker compose --profile pypilot down
+docker compose --profile pypilot stop pypilot pypilot-web
 sudo systemctl enable --now pypilot pypilot_web
 ```

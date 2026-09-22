@@ -73,7 +73,7 @@ From a laptop on the tailnet, with `sops`, the age key, and ssh to `pi@symphony-
 sudo apt install ansible
 ansible-galaxy collection list community.sops community.general
 ssh pi@symphony-halos 'cd /home/pi/symphony && bash scripts/setup-git-filters.sh'   # once per card
-cd ansible && ansible-playbook site.yml
+(cd ansible && ansible-playbook site.yml)
 ```
 
 Variants: `--check --diff` (no changes), `--tags verify` (audit only),
