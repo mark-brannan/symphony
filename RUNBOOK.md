@@ -200,8 +200,7 @@ sudo systemctl stop influxdb grafana-server
 docker compose stop questdb
 ```
 
-Stop, never `disable`: they come back at the next reboot, which is what we
-want. The pressure is normally transient — an `npm install`, a rebuild.
+Stop, never `disable`: they come back at the next reboot. The pressure is normally transient — an `npm install`, a rebuild.
 
 ## The Pi keeps hard-resetting
 

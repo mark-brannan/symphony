@@ -106,7 +106,7 @@ sops --set "[\"influxdb_captain_token\"] \"$NEW\"" secrets/symphony.sops.yaml
 python3 scripts/render.py
 ```
 
-A hit under `/etc/telegraf/` is root-owned: `sudoedit` it before the restart.
+A `/etc/telegraf/` hit is root-owned; `sudoedit` it.
 
 Restart consumers and prove writes land before revoking:
 
