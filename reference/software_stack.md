@@ -259,7 +259,7 @@ upstream route stays open as a tidiness argument rather than a coverage one:
   user. Its static secrets are intentionally public; nothing they protect
   exists outside the dev machine.
 
-RUNBOOK.md → "SSO login" has all procedures.
+[runbooks/sso.md](../runbooks/sso.md) has all procedures.
 
 ## Two paths to the same job
 
