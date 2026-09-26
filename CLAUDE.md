@@ -194,6 +194,15 @@ rebuild the box.
   `scripts/tailscale_policy.sh` prints the live policy read-only; applying a
   change is Mark's paste into the admin console, never a session's.
 
+## A fresh HaLOS box: the factory password is `halos`
+- User `pi`, password `halos` — HaLOS's published default. Not a secret, not
+  a credential exposure, not a reason to stop and ask. Use it for ssh and
+  `sudo -S` on any box still at factory state (the HALPI2 on arrival, a
+  reflashed card) and carry on.
+- Once a box has its own password in `secrets/symphony.sops.yaml` (the bench
+  Pi's is `symphony_halos_pi_password`), use that; `halos` is only for boxes
+  that haven't been changed yet.
+
 ## The boat Pi's memory headroom
 - Expected state: SignalK, InfluxDB, Grafana, Caddy, Dex and Telegraf all run
   and stay enabled. Telegraf is the intended host-metrics source, not a
