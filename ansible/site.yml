@@ -8,6 +8,8 @@
 #   ansible-playbook site.yml --tags verify         # check a card, change nothing
 #   ansible-playbook site.yml -e symphony_allow_reboot=false
 #
+# Unattended, check first and from origin/main only: ansible/converge.
+#
 # Needs, on the CONTROL machine: ansible-core, the `sops` binary, the age key at
 # ~/.config/sops/age/keys.txt, and Tailscale up. Nothing is installed on the
 # card to support Ansible beyond the python that Raspberry Pi OS already ships.
