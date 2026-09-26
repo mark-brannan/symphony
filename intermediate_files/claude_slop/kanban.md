@@ -111,7 +111,7 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 
 ### Boat Pi / hardware
 - [ ] Pause the `SignalK Symphony (halos card)` check on healthchecks.io (down since 2026-09-05, the bench card is off) or accept the standing red — it will otherwise trip again the day the bench card boots.
-- [ ] **Bring the 32 GB card home once the swap succeeds** (decided 2026-09-02; conditional on a successful swap — if it fails the card goes back in the boat). It holds the only copies of `~/influx-export` (1.4 GB) and `~/keep-before-purge/grafana.db`, neither of which can cross the WAN. Copy those and the `symphony_questdb-data` volume off before the card is reused (plan S3 / P7).
+- [ ] **Bring the 32 GB card home once the swap succeeds** (decided 2026-09-02; conditional on a successful swap — if it fails the card goes back in the boat). **The data half is done:** all three S3/P7 artifacts were copied off over the LAN on 2026-09-26 and verified (`~/influx-export` sha256 OK, `grafana.db` sha256 OK, `symphony_questdb-data` tarred with the container stopped, 3m35s ingest gap) — they live at `~/symphony-card-salvage/` on the Mac; see [log.md](log.md#2026-09-2526--s3p7-salvage-copied-off-the-boat-over-the-lan). What remains is only the physical card, which is your call.
 - [ ] [Decide whether to track openplotter.conf in git](kanban-detail.md#track-openplotteropenplotterconf-in-git-or-not) — its `soundignore` key is load-bearing and lives only on the boat.
 - [ ] [Decide whether to pursue a read-only root filesystem](kanban-detail.md#read-only-root-filesystem-for-the-boat-pi) — real workflow change, not a config toggle.
 

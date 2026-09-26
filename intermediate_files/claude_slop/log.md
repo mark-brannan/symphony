@@ -2605,3 +2605,51 @@ lines) before vacuuming, then ran `journalctl --vacuum-size=200M` (freed
 ~824M archived journals) and `docker image prune -f` / `docker builder
 prune -f` (dangling only — the 267M of tagged images and remaining build
 cache were left in place). Result: 85% used, 4.2G free. Card closed.
+
+## 2026-09-25/26 — S3/P7 salvage copied off the boat over the LAN
+
+The Mac was on Symphony's LAN, so the tailnet path to `symphony-pi` was
+direct (`192.168.8.240:41641`, 5 ms, ~3.9 MB/s measured) rather than the
+~30-50 KB/s DERP relay that made this a carry-the-card-home job. All three
+S3 artifacts are now at `~/symphony-card-salvage/` on the Mac, outside any
+repo:
+
+| Artifact | On the Pi | Local | Verification |
+| --- | --- | --- | --- |
+| `~/influx-export/` (2 files) | 1.4 G | 1.4 G | both entries in the bundled `SHA256SUMS` verify `OK` |
+| `~/keep-before-purge/grafana.db` | 2.2 M | 2.2 M | sha256 matches the Pi |
+| `symphony_questdb-data` volume | 3.5 G | 289 M gzipped | `tar exit=0`, `gzip -t` OK, 21 tables + `sys.*` present |
+
+The QuestDB volume is 3.5 G, not the 1.8 G the swap plan recorded. It
+compresses ~12x because most of it is per-column-file preallocation — the
+same behaviour behind the 2026-08 disk-fill incident.
+
+**A first attempt against the live volume failed**, exactly as expected:
+`tar: symphony_questdb-data/_data/db/signalk_str~91/2026-09-26.482125/value_str.i:
+file changed as we read it`, exit 1. The 288 M partial was deleted rather
+than kept as a copy nobody could trust. The second attempt stopped the
+container first, with the restart in a `trap ... EXIT INT TERM HUP` on the
+remote shell so a dropped ssh could not leave QuestDB down:
+
+```
+ssh pi@symphony-pi 'docker stop questdb >/dev/null; trap "docker start questdb >/dev/null 2>&1" EXIT INT TERM HUP; sudo tar -C /var/lib/docker/volumes -czf - symphony_questdb-data' > symphony_questdb-data.tar.gz
+```
+
+**QuestDB was down 2026-09-26T01:49:13Z–01:52:48Z (3m35s)** — that window
+is simply absent from the history. `docker ps` reads `healthy` again and
+`select count() from tables()` returns 23.
+
+`SNAPSHOT PREPARE` would have avoided the downtime but holds a checkpoint
+while writes continue, and boat root is at 85% / 4.2 G free on a box with a
+prior disk-fill incident. The ingest gap was judged the cheaper failure mode.
+
+Diffing the tar against the live volume afterwards leaves no unexplained
+entries: 670 of the 671 remote-only paths are rotated WAL segments and
+`.lock` files, and the 671st is QuestDB's own `hello.txt` banner, rewritten
+at 18:53 on the restart. The 644 tar-only paths are the WAL segments that
+rotated away. Committed table partitions match.
+
+Still on the boat and not copied, offered to Mark without an answer:
+`.openplotter/openplotter.conf`, boat-side `signalk/security.json`,
+`~/signalk_backup_20260806.zip` (449 M) and `~/migration_snapshot_20260811`
+(109 M).
