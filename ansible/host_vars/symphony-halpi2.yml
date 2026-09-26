@@ -1,0 +1,16 @@
+# The HALPI2 (Hat Labs, CM5, stock HALOS on its SSD), staged to become the boat
+# card. Hostname on the box is `signalk`, the same as the card it replaces, so
+# the device certificate and the OIDC issuer carry over at the swap;
+# `symphony-halpi2` is only the tailnet node name.
+symphony_hostname: signalk
+tailscale_hostname: symphony-halpi2
+
+# Like the other HALOS cards, `pi` has no passwordless sudo, so every privileged
+# step goes through sudo with the one HALOS card password in sops.
+ansible_become: true
+ansible_become_password: "{{ symphony_secrets.symphony_halos_pi_password }}"
+
+# The halos card's check, repurposed for this card (arrival plan step 6). If
+# both cards are ever powered at once they share one check, and whichever pings
+# last hides the other going quiet.
+heartbeat_url: "{{ symphony_secrets.heartbeat_url_symphony_halos }}"
