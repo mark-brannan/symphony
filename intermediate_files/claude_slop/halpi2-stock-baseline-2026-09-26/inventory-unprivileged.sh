@@ -9,7 +9,7 @@ s apt-sources; grep -rh '^[^#]' /etc/apt/sources.list /etc/apt/sources.list.d/ 2
 s block-devices; lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,LABEL
 s disk; df -h / /boot/firmware 2>/dev/null
 s memory; free -m
-s cpu-model; cat /proc/device-tree/model 2>/dev/null; echo; cat /proc/cpuinfo | grep -E 'Revision|Serial' 
+s cpu-model; cat /proc/device-tree/model 2>/dev/null | tr -d '\0'; echo; cat /proc/cpuinfo | grep -E 'Revision|Serial' 
 s eeprom; sudo -n rpi-eeprom-update 2>/dev/null | head -8 || echo 'rpi-eeprom-update needs sudo/not present'
 s network; ip -br addr; ip route; cat /etc/hostname; nmcli -t dev status 2>/dev/null; nmcli -t con show 2>/dev/null
 s hotspot; nmcli -t con show 2>/dev/null | grep -i -E 'hotspot|halos|ap' ; ls /etc/NetworkManager/system-connections/ 2>/dev/null

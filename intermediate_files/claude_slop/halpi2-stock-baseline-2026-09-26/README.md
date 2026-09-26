@@ -22,11 +22,17 @@ redacted in the `.txt` files; the `.sh` files are the exact commands run.
 
 ## Access as shipped
 
-- SSH password auth, `pi` / published default; `pi` is in `sudo` (with
+- SSH password auth, `pi` / the default published in the
+  [halos-org/halos README](https://github.com/halos-org/halos) (verified:
+  that login is what produced these dumps); `pi` is in `sudo` (with
   password), `docker` group not included. No `authorized_keys`.
 - Hotspot `Halos-5D47` on `wlan0ap` (10.42.0.1/24, NM `method=shared`),
-  published default PSK; `wlan0` STA unconfigured. Ethernet DHCP.
-- Web: Traefik 80/443 → Authelia SSO (`admin`, published default), Homarr
+  PSK as published in the
+  [HALPI2 software guide](https://docs.hatlabs.fi/halpi2/user-guide/software/)
+  (not verified here: nothing joined the hotspot); `wlan0` STA
+  unconfigured. Ethernet DHCP.
+- Web: Traefik 80/443 → Authelia SSO (`admin`, default per the same
+  halos README; not verified here, no web login attempted), Homarr
   dashboard, Cockpit 9090, Signal K direct on 3000 / TLS 4430; NMEA 0183
   TCP 10110; gpsd 2947.
 - Desktop variant: lightdm + wayvnc autologin on tty, not headless.
