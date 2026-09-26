@@ -26,6 +26,15 @@
 #
 # See reference/host_provisioning.md for why the line is drawn there.
 
+# Its own play so it runs before fact gathering, which already needs root.
+# Tagged always: a --tags run still has to become root.
+- name: Symphony HALOS card | sudo password
+  hosts: halos_cards
+  gather_facts: false
+  tags: [always]
+  roles:
+    - pi_password
+
 - name: Symphony HALOS card
   hosts: halos_cards
   gather_facts: true

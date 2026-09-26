@@ -1,0 +1,78 @@
+# The card's own sudo password, from sops, replacing HaLOS's published factory
+# default. Runs before anything else in site.yml (its own play, no fact
+# gathering) because every other task becomes root with the sops password from
+# host_vars, and a card fresh out of the box does not have it yet.
+#
+# The probes turn become off with a task var, not the `become:` keyword:
+# host_vars sets ansible_become, and a variable outranks a keyword.
+#
+# Both probes feed the password to `sudo -S` on stdin, never on a command line:
+# ansible.cfg sets pipelining, so the module and its stdin reach python over
+# the ssh session and nothing lands on the card's disk or in `ps`.
+
+- name: the card accepts its own sudo password
+  ansible.builtin.command:
+    argv: [sudo, -S, -k, -p, "", "true"]
+    stdin: "{{ symphony_secrets.symphony_halos_pi_password }}"
+  vars: {ansible_become: false}
+  register: pi_password_own
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+- name: the card still accepts the factory password
+  ansible.builtin.command:
+    argv: [sudo, -S, -k, -p, "", "true"]
+    stdin: halos
+  vars: {ansible_become: false}
+  register: pi_password_factory
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: pi_password_own.rc != 0
+
+- name: one of the two passwords works
+  ansible.builtin.assert:
+    that: pi_password_own.rc == 0 or pi_password_factory.rc == 0
+    fail_msg: >-
+      sudo on this card refuses both symphony_halos_pi_password and the HaLOS
+      factory default. Someone set a third password by hand; nothing in this
+      playbook can become root until it is reset to one of the two.
+    quiet: true
+
+- name: still at factory state
+  when: pi_password_own.rc != 0
+  block:
+    # set_fact outranks host_vars, so every task below -- this play and the
+    # next -- becomes root with the password that works right now.
+    - name: become with the factory password for now
+      ansible.builtin.set_fact:
+        ansible_become_password: halos
+
+    - name: set the card's own password
+      ansible.builtin.command:
+        argv: [chpasswd]
+        stdin: "pi:{{ symphony_secrets.symphony_halos_pi_password }}"
+      become: true
+      changed_when: true
+      no_log: true
+      # Skipped under --check (command has no check mode), which leaves the
+      # factory password in force for the rest of a check run.
+
+    - name: become with the card's own password from here on
+      ansible.builtin.set_fact:
+        ansible_become_password: "{{ symphony_secrets.symphony_halos_pi_password }}"
+      no_log: true
+      when: not ansible_check_mode
+
+    - name: the card accepts its own sudo password now
+      ansible.builtin.command:
+        argv: [sudo, -S, -k, -p, "", "true"]
+        stdin: "{{ symphony_secrets.symphony_halos_pi_password }}"
+      vars: {ansible_become: false}
+      register: pi_password_after
+      changed_when: false
+      failed_when: pi_password_after.rc != 0
+      no_log: true
+      when: not ansible_check_mode
