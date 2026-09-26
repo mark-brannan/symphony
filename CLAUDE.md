@@ -325,27 +325,26 @@ cheap. Symphony-specific instances of those:
   iterative commits, each one verified before the next. Push as soon as a
   commit is verified rather than batching. Don't create a branch because the
   work feels large — break it into smaller commits on main instead.
-- **Branch-vs-main is a rule, not a judgment call — don't ask.** Commit
-  straight to main unless at least one of these is true:
-  - The work can't be landed in a working state at every intermediate
-    commit (a multi-step migration, a rename/restructure spanning several
-    files, anything where a push mid-sequence would leave the repo broken).
-  - It touches infra with real blast radius if left half-applied —
-    Ansible, docker-compose, systemd units, SignalK security/plugin
-    config, `.env`, or sops-encrypted secrets.
-  - The owner explicitly asks for it to be reviewed as a PR, or the work
-    is large enough to want follow-up discussion/tracking (several
-    unrelated files, a new system brought online, anything you'd want a
-    second look at before it's final).
-  - **Explicit phrase** — the owner says "make this a feature," "make this
-    a branch," or "this needs review." Branch immediately, no metric check.
-  - **Metric threshold crossed** (placeholders, tune later): >50 lines of
-    code changed (excluding docs), >200 lines of docs changed, session
-    >100k tokens, or session >30 min wall clock.
+- **Main-vs-branch is a rule, not a judgment call — don't ask.** Default to a
+  branch and a PR. A commit goes straight to main in exactly two cases:
+  - **Every path in it matches `intermediate_files/claude_slop/**`** — the
+    session's own board and journal, which nobody reviews. Verify this,
+    don't estimate it: `git diff --cached --name-only`.
+  - **Mark asked for this change to land on main, and it is a single file.**
+    His explicit ask, not an inference from "just fix it"; one named file,
+    not a batch that happened to feel small.
 
-  Everything else — a single doc/reference edit, a log entry, a small
-  RUNBOOK.md or CLAUDE.md fix, a one-file config tweak that's correct as
-  soon as it's written — goes straight to main, no branch, no asking.
+  Everything else branches, however small the edit — and **top-level
+  `README.md`, `RUNBOOK.md` and `CLAUDE.md` most of all.** Mark reads those
+  files; changing one without warning is the specific thing he doesn't want,
+  and a one-line fix is not an exception to it.
+
+  No line counts, no token counts, no wall clock. The thresholds that used to
+  sit here were placeholders nobody tuned, and a session obeying them to the
+  letter is how unsigned, unreviewed commits landed on main (`151a308`,
+  `a3e5a34`, `238e5da`): 49 lines of docs cleared a 200-line bar, so the rule
+  said push. A rule you can satisfy while doing the wrong thing is worse than
+  no rule.
   When a branch *is* warranted under this rule, always open the PR
   yourself as part of finishing the work, **as a draft, with no reviewer
   requested** — don't leave a pushed branch without one, and don't wait to
