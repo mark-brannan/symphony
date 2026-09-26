@@ -1,7 +1,8 @@
 # HALPI2 stock baseline — 2026-09-26
 
-Read-only inventory of the HALPI2 as shipped, taken on its first boot at
-home (ethernet to the home router, nothing changed on the box). This is the
+Read-only inventory of the HALPI2 as shipped, taken on its first boot on
+the boat LAN (ethernet to the boat router, 192.168.8.0/24; nothing changed on
+the box). This is the
 "stock" state `ansible/site.yml` is measured against and the state a later
 reset aims to reproduce. Identifiers (serial, MACs, machine-id, LAN IP, hotspot SSID suffix)
 are redacted in the `.txt` files; the `.sh` files are the exact commands run.
