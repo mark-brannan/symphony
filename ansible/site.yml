@@ -8,6 +8,10 @@
 #   ansible-playbook site.yml --tags verify         # check a card, change nothing
 #   ansible-playbook site.yml -e symphony_allow_reboot=false
 #
+# halos_cards holds every HALOS card, joined to the tailnet or not; a bare run
+# hits UNREACHABLE on any card that is still on the bench LAN only. Add
+# --limit <host>, or -e ansible_host=<lan-ip> for the card that has not joined.
+#
 # Unattended, check first and from origin/main only: ansible/converge.
 #
 # Needs, on the CONTROL machine: ansible-core, the `sops` binary, the age key at

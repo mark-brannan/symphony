@@ -50,7 +50,8 @@ done
 [[ "$host" =~ ^[a-z0-9-]+$ ]] || die "host '$host' is not an inventory name" 64
 IFS=, read -r -a tag_list <<<"$tags"
 for t in "${tag_list[@]}"; do
-  [[ " ${TAGS[*]} " == *" $t "* ]] || die "tag '$t' is not one of: ${TAGS[*]}" 64
+  [[ "$t" =~ ^[a-z_]+$ && " ${TAGS[*]} " == *" $t "* ]] \
+    || die "tag '$t' is not one of: ${TAGS[*]}" 64
 done
 if [ -n "$via" ] && ! [[ "$via" =~ ^[A-Za-z0-9.:-]+$ ]]; then
   die "--via '$via' is not an address or hostname" 64
