@@ -16,7 +16,7 @@ machine, not from the machine.
 | bench Pi | Pi 4, 2 GB | home LAN, `192.168.0.193` | the `halos` card, while it is being built |
 | dev machines | Windows (WSL2), Mac | home | the `dev` stack |
 | Cerbo GX | Venus OS Large | aboard, `192.168.8.107` (`venus.local`) | Victron's own stack; SignalK reads it over MQTT |
-| HALPI2 | Pi 5 marine computer, Hat Labs | home, bench | stock HaLOS from first boot; candidate for `halos` |
+| HALPI2 | Pi 5 marine computer, Hat Labs | home, on the bench being prepared | stock HaLOS from first boot; candidate for `halos` |
 | HALMET | ESP32 engine-monitor board, Hat Labs, with enclosure, connectors and glands | home, bench; planned for the engine compartment | `symphony-halmet` firmware, in development |
 
 ## Host configurations

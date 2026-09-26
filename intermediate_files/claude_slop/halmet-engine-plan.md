@@ -28,28 +28,45 @@ Co-existence with existing senders: supported by design. A switch-type sender
 resistive sender goes to an analog input with the current-source jumper out;
 calibrate the curve against the gauge once, on the boat.
 
-## Open questions (asked 2026-09-26, answers pending)
+## Mark's answers, 2026-09-26 (to the six questions asked the same day)
 
-1. Panel: stock Yanmar switches (lamp + buzzer) or aftermarket gauges with
-   resistive senders? Photo of the panel back + senders answers it.
-   Default until known: switches → D2 oil pressure, D3 coolant temp.
-2. Tach: electric (alternator W / tach terminal) or mechanical cable?
-   Default: alternator W → D1, fused.
-3. Does the N2K backbone reach, or could reach, the engine compartment?
-   Default: yes → bus power + bus data, WiFi as second path, no separate 12 V run.
-4. Existing engine-room ESP32 (DHT22 + flame, `~/symphony-sensesp` env
-   `engine-room`): deployed, bench, or never? Default: fold its jobs into the
-   HALMET when convenient; not a blocker.
-5. Enclosure and connector inventory (IP rating, gland count) → number of
-   cable runs the layout designs for.
-6. Gas sensors: default is a **separate** vented box with its own cheap ESP32
-   (MQ heaters ~150 mA each; the HALMET box stays sealed), BME688 rides along
-   on its I2C. `~/sensesp-mq-gas-sensors` is the starting point. Tethered
-   breakout from the HALMET stays open as an option.
+1. **Panel: probably all stock** (Yanmar switches → lamp/buzzer). The oil
+   sender may be dead; wiring may be crusty. → D2 oil-pressure switch, D3
+   coolant-temp switch, wired in parallel with the lamps. Troubleshooting
+   the senders is a boat step in its own right (continuity + switch test
+   with a meter, before the HALMET is blamed for anything).
+2. **Tach: not the alternator.** Mark doesn't trust it (a future smart
+   alternator can stop pulsing on command). There is a sender on the
+   flywheel now, function unknown. → Step one is to identify it and scope
+   its output (a magnetic pickup gives a small AC sine whose amplitude falls
+   with RPM; a Hall or optical sender gives a clean square wave). The
+   HALMET's digital input wants edges of about 1.5 V or more, so a weak
+   pickup may need conditioning or replacing with a Hall-effect sender on
+   the flywheel or a pulley. Open; D1 either way.
+3. **Power: separate 12 V, not bus power.** 3–6 ft from where the house
+   wiring terminates; waterproof 12 V connectors already on hand; the N2K
+   connector for the enclosure isn't. → 12 V + WiFi to Signal K. N2K output
+   stays compiled in and can be added later by pulling a drop; reversible.
+4. **Nothing is installed on the boat**; the earlier compartment-monitor
+   ESP32 (DHT22 + flame sensor, in `~/symphony-sensesp`) was home
+   experiments. → Fold its jobs into the HALMET when convenient.
+5. **Enclosure: IP65 or better, from Hat Labs**, PG7 glands plus SP-series
+   circular connectors: 2-pin (DC), 3-pin (DS18B20), one 5-pin. → Cable
+   runs: 12 V in (2-pin), one DS18B20 chain (3-pin), tach (2-pin or gland),
+   two switch senders (gland), spare 5-pin for a thermocouple or I2C tether.
+6. **Gas sensors: separate project**, its own box and ESP32, but kicked off
+   now — see [gas-sensor-box-plan.md](gas-sensor-box-plan.md).
 
-Thermocouple: not for now. A DS18B20 strapped to the exhaust hose just past
-the raw-water injection catches lost raw-water flow, the failure that
-matters. K-type (MAX31855) is a later nice-to-have for dry-elbow EGT.
+Firmware repo: local `~/symphony-halmet` is fine. When it gets a GitHub
+remote it goes under Mark's own account, not the organisation the earlier
+SensESP repos were put under; that placement was a mistake.
+
+Thermocouples: Mark has K-types (with SPI interface boards, probably
+MAX6675/MAX31855) on hand. DS18B20 tops out at 125 °C, so it is fine on the
+wet exhaust hose and the block, and not fine on the dry exhaust manifold or
+the elbow before water injection, which run well past that. → K-type for the
+manifold/dry elbow, DS18B20 elsewhere; a bench experiment to prove the
+thermocouple chain is a nice-to-try step in its own right.
 
 ## Temperature points (DS18B20 chain, default set)
 
@@ -57,7 +74,7 @@ matters. K-type (MAX31855) is a later nice-to-have for dry-elbow EGT.
 - exhaust hose after injection → `propulsion.main.exhaustTemperature`
 - alternator case → `electrical.alternators.main.temperature`
 - raw-water pump body or intake hose (flow proxy)
-- engine-room ambient → `environment.inside.engineRoom.temperature`
+- compartment ambient → `environment.inside.engineRoom.temperature`
 
 ## Firmware
 
@@ -66,23 +83,25 @@ hatlabs/HALMET-example-firmware (remote `upstream`), SensESP 3.5, ESP-IDF
 dual-framework build (`pio run -e halmet_espidf` is the one to flash;
 `-e halmet` is the fast compile check). Kept separate from `~/symphony-sensesp`
 because the espidf build carries its own sdkconfig/CMake and the monorepo is
-plain esp32dev + arduino. No GitHub remote yet — Mark's call whether it goes
-under Dark-Star-LLC like the others.
+plain esp32dev + arduino. No GitHub remote yet.
 
 Done: hostname `symphony-halmet`. The example already does D1 tach → PGN
 127488 + SK, D2/D3 alarms → PGN 127489, A1 tank level.
 
 ## Sequence
 
-1. Bench, step zero: flash the example as-is, join WiFi, see it in the dev
-   stack's Signal K. `esptool flash_id` for the real flash size. Confirm the
-   1-Wire GPIO from the schematic. Test D1 with the built-in 380 Hz test pin
-   (GPIO 33 → D1). (session, Mark plugs in USB)
-2. Bench: 1-Wire DS18B20 chain, N2K senders for coolant/exhaust/alternator
-   temps, SK paths above; remove the tank code; alarms named for oil/coolant.
-   (session)
-3. Answers to Q1–Q3 → analog-input decisions and the cable-run list. (Mark)
-4. Boat: mount, N2K drop or 12 V, D1 to alternator W via fuse, switch
-   senders in parallel to D2/D3, probes clamped on. (Mark's hands; session
-   writes the checklist and verifies over Signal K)
-5. Later: gas-sensor box; thermocouple if wanted.
+1. Bench, step zero: flash the example as-is (`pio run -e halmet_espidf -t
+   upload`), join WiFi, see it in the dev stack's Signal K. `esptool
+   flash_id` for the real flash size. Confirm the 1-Wire GPIO from the
+   schematic. Test D1 with the built-in 380 Hz test pin (GPIO 33 → D1).
+   (session, Mark plugs in USB; `pio run -e halmet` already compiles clean
+   on the WSL box, 2026-09-26)
+2. Bench: 1-Wire DS18B20 chain to the SK paths above; drop the tank code;
+   alarms named oil-pressure / coolant-temp; optional MAX31855 K-type on
+   SPI as the thermocouple experiment. (session)
+3. Boat, diagnostics before install: identify and scope the flywheel tach
+   sender; meter the oil-pressure and coolant switches and their wiring.
+   (Mark's hands, session writes the checklist)
+4. Boat, install: mount, 12 V run, tach to D1, switches in parallel to
+   D2/D3, probes clamped on; verify over Signal K. (Mark's hands)
+5. Gas-sensor box runs as its own track; N2K drop later if wanted.
