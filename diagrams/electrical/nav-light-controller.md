@@ -156,8 +156,9 @@ and a fresh look at the whole gate network.
 Switching the +12 V leg rather than the negative leg leaves every fixture's
 negative permanently bonded to the common negative bus. That matters here
 because masthead fixtures often ground through mast hardware and because a
-low-side switch leaves the fixture's chassis floating whenever the light is
-off — an invitation to galvanic mischief and to confusing meter readings.
+low-side switch leaves the fixture's negative sitting at +12 V, through the
+lamp, whenever the light is off — an invitation to galvanic mischief and to
+confusing meter readings.
 
 A MOSFET over a relay: no coil current for the hours these lights are on, no
 contacts to film over in salt air, no click, and nothing mechanical at the top
@@ -223,9 +224,10 @@ the fixture is swapped.
 **One thing to watch when swapping.** Feedback option B reads cleanly against a
 filament, because a lamp's low DC resistance pulls the sense node firmly to
 zero when the channel is off. Some LED fixtures present a high-impedance input
-in standby, which can let a 122 kΩ divider hold that node up and read a false
-"energised." If option B is fitted and a fixture goes LED, re-check the
-off-state reading rather than trusting it.
+in standby, and then the only things on that node are Q1's off-state leakage
+and the sense divider's own 122 kΩ to ground: a few microamps of leakage is
+enough to lift it into a false "energised." If option B is fitted and a
+fixture goes LED, re-check the off-state reading rather than trusting it.
 
 ## The manual bypass
 
@@ -381,7 +383,7 @@ Combinations to refuse outright:
 
 - **More than one masthead leg at once.** CH1–CH3 are a radio group. This is
   the hard one, because the bypass block can defeat it — see above.
-- **Anchor plus anything else.** At anchor is at anchor.
+- **Anchor plus any other navigation light (CH1–CH6).** At anchor is at anchor.
 - **Any masthead sailing signal plus CH6.** The steaming light says
   power-driven; a tricolour or red-over-green says sailing vessel. Never both.
 - **A tricolour leg plus CH4 or CH5** — but only if that leg *is* a tricolour.
