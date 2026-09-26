@@ -92,13 +92,27 @@ Done: hostname `symphony-halmet`. The example already does D1 tach → PGN
 
 1. Bench, step zero: flash the example as-is (`pio run -e halmet_espidf -t
    upload`), join WiFi, see it in the dev stack's Signal K. `esptool
-   flash_id` for the real flash size. Confirm the 1-Wire GPIO from the
-   schematic. Test D1 with the built-in 380 Hz test pin (GPIO 33 → D1).
-   (session, Mark plugs in USB; `pio run -e halmet` already compiles clean
-   on the WSL box, 2026-09-26)
+   flash_id` for the real flash size. Test D1 with the built-in 380 Hz test
+   pin (GPIO 33 → D1). (session, Mark plugs in USB; `pio run -e halmet`
+   already compiles clean on the WSL box, 2026-09-26; still waiting on the
+   board)
+   - 1-Wire GPIO **confirmed as GPIO4** from `HALMET.kicad_sch`/
+     `onewire.kicad_sch` (DQ net traced to the ESP32-WROOM-32 IO4 pin, rev
+     1.0.1) rather than benched — done from the schematic without the board
+     in hand, 2026-09-26.
 2. Bench: 1-Wire DS18B20 chain to the SK paths above; drop the tank code;
    alarms named oil-pressure / coolant-temp; optional MAX31855 K-type on
    SPI as the thermocouple experiment. (session)
+   - Code done 2026-09-26 (`~/symphony-halmet` `8a2471e`, compile-checked
+     with `pio run -e halmet`): `halmet_onewire.{h,cpp}` reads the five
+     default points by 1-Wire bus-scan index (no probes on hand yet to get
+     real addresses) and publishes Kelvin to the plan's SK paths; tank
+     sender code removed; D2/D3 alarms renamed to `alarm.oil-pressure` /
+     `alarm.coolant-temp`. Raw-water intake has no settled SK path
+     convention — `propulsion.main.rawWaterTemperature` is a guess, flagged
+     in the code. Still needs the actual chain on the bench to switch from
+     index- to address-based lookup. MAX31855 K-type experiment not
+     started.
 3. Boat, diagnostics before install: identify and scope the flywheel tach
    sender; meter the oil-pressure and coolant switches and their wiring.
    (Mark's hands, session writes the checklist)
