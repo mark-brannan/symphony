@@ -82,6 +82,17 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
   is a 2 GB Pi 4 sitting at ~358 MB available under load, so anything
   container-heavy on that hardware is memory-bound.
 
+- **Two things ruled not-defects on 2026-09-25, don't re-raise them as
+  findings.** The boat's `.openplotter/openplotter.conf` sets `soundignore`
+  across every severity including `emergency` — no speaker is connected yet, so
+  it changes nothing, and OpenPlotter's alert handling has bitten this project
+  before; changing it needs deep verification and intent, not a drive-by fix.
+  Separately, the live SignalK `security.json` and the repo's copy disagree (the
+  repo carries a `screenshots` user and two device grants the boat lacks) — the
+  repo's extras are for local testing on the home LAN, extra users and grants
+  are not a concern in themselves, and a full reconcile is noise. Neither is a
+  card.
+
 ## Yours
 
 ### Repo & tooling
