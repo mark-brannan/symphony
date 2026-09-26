@@ -176,58 +176,53 @@ Not a part number — the envelope any candidate has to clear:
 | V_GS | ±20 V minimum |
 | I_D continuous | ≥ 4× the channel's steady draw, at the case's real temperature |
 | R_DS(on) | low enough that I²R at maximum load stays a small fraction of a watt |
-| Inrush | must sit inside the SOA curve for the cold-filament surge if any fixture is incandescent |
+| Inrush | only if a filament is still fitted: must sit inside the SOA curve for the cold-filament surge |
 
-## Incandescent or LED
+## LED is the design case
 
-The fixtures are probably incandescent today and are being replaced
-piecemeal; that is the owner's recollection, not an inspection. **Nothing in
-the topology changes either way.** What changes is entirely in the numbers that
-were deferred anyway — gauge, fuse ratings, the MOSFET part — plus one firmware
-rule and one SOA check. Take the incandescent case as the design case: a circuit
-sized for filaments is over-specified but correct once LEDs arrive, and the
-reverse is not true.
+The fixtures will be LED (owner's decision, 2026-09-26): whatever filaments
+remain today are being replaced, and may be gone before this board is ever
+installed. **Nothing in the topology depends on it.** What it decides is the
+deferred numbers — gauge, fuse ratings, the MOSFET part — and one check on the
+feedback option.
 
-Working *stand-in*: 25 W per fixture, so **2.1 A** steady at 12 V. An LED
-replacement of the same fixture is typically a fifth to a tenth of that.
+Working *stand-in*: an LED nav light draws **0.2–0.5 A** at 12 V; a pair of
+LED spreader floods **2–3 A**, which is why CH7 sizes the board. Do the
+ampacity work against these, plus whatever margin the run's voltage drop
+wants; a regulated LED driver is flat down to its dropout, so the run is
+forgiving of drop until it suddenly isn't.
 
-**Inrush.** Tungsten's cold resistance is roughly a tenth to a fifteenth of its
-hot resistance, so a filament draws **20–30 A** on the first few milliseconds
-and settles over 50–150 ms. Four consequences:
+**Option B needs checking against the actual fixtures.** A filament pulls the
+sense node firmly to zero when the channel is off. Some LED fixtures present a
+high-impedance input in standby, and then the only things on that node are
+Q1's off-state leakage and the sense divider's own 122 kΩ to ground: a few
+microamps of leakage is enough to lift it into a false "energised." Measure the
+off-state reading with the real fixtures before trusting option B, and if it
+floats, a lower-value divider or a small bleed resistor at the fixture end
+fixes it.
 
-- *Conductor and branch fuse.* Both are sized by the steady incandescent
-  current, which is where the 5–10× difference from LED actually bites. This
-  is the deferred ampacity work, and it should be done against filaments.
-- *Fuse type.* ATC/ATO blade fuses have enough I²t to ride the surge at any
-  sane rating, so no slow-blow part is needed. Sizing to the conductor — which
-  is what ABYC wants regardless — settles this without a separate calculation.
-- *MOSFET SOA, not just I_D.* Q1 spends its turn-on transition in the linear
-  region carrying that surge. R2 at 22 kΩ supplies roughly 8 V / 22 kΩ ≈
-  **360 µA** of gate current at the Miller plateau; against a ~40 nC gate-drain
-  charge that is a **~110 µs** transition. At a mean 6 V across the device and
-  21 A through it, that is ~130 W for 110 µs — about 14 mJ. A TO-220 part's
-  100 µs SOA line allows several hundred watts at 6 V, so this passes with
-  margin. It passes *because it was checked*, and with LED fixtures it would
-  not have needed checking. Check it against the real part.
-- *Stagger the turn-ons.* Switching to "under power" lights three channels at
-  once — 60–90 A of combined inrush for a tenth of a second on the main run.
-  Firmware should space channel turn-ons by ~100 ms. It costs nothing and it
-  keeps a mode change from looking like a fault to anything upstream.
+### If a filament is still fitted at install
 
-**Voltage drop matters more with filaments.** Luminous flux from a tungsten
-lamp goes roughly as V³·⁴, so a 5 % drop on the masthead run costs about 16 %
-of the light — against a fixture whose visibility range is rated at nominal
-voltage. Hold incandescent channels to a 3 % drop. A regulated LED driver is
-flat until it drops out entirely, so the same run is far more forgiving once
-the fixture is swapped.
+A tungsten lamp changes two things, both temporary. Its steady draw is
+5–10× an LED's (a 25 W fixture is **2.1 A**), and its cold resistance is a
+tenth or so of its hot resistance, so it draws **20–30 A** for the first few
+milliseconds. Consequences, for as long as any channel still has one:
 
-**One thing to watch when swapping.** Feedback option B reads cleanly against a
-filament, because a lamp's low DC resistance pulls the sense node firmly to
-zero when the channel is off. Some LED fixtures present a high-impedance input
-in standby, and then the only things on that node are Q1's off-state leakage
-and the sense divider's own 122 kΩ to ground: a few microamps of leakage is
-enough to lift it into a false "energised." If option B is fitted and a
-fixture goes LED, re-check the off-state reading rather than trusting it.
+- *Conductor and branch fuse* on that channel are sized to the filament's
+  steady current. ATC/ATO blade fuses have enough I²t to ride the surge at any
+  sane rating; no slow-blow part is needed.
+- *MOSFET SOA.* Q1 spends its turn-on transition in the linear region carrying
+  the surge. R2 at 22 kΩ supplies roughly 8 V / 22 kΩ ≈ **360 µA** of gate
+  current at the Miller plateau; against a ~40 nC gate-drain charge that is a
+  **~110 µs** transition. At a mean 6 V across the device and 21 A through it,
+  that is ~130 W for 110 µs — about 14 mJ, well inside a TO-220 part's 100 µs
+  SOA line. Passes for any sensible candidate, but check it against the real
+  part if a filament channel is ever built.
+- *Stagger turn-ons* by ~100 ms in firmware so a mode change that lights three
+  filaments does not put 60–90 A of combined inrush on the main run at once.
+  Harmless to leave in once the filaments are gone.
+- *Voltage drop.* Tungsten flux goes roughly as V³·⁴, so a 5 % drop costs about
+  16 % of the light. Hold a filament channel to 3 %.
 
 ## The manual bypass
 
@@ -407,8 +402,8 @@ Two GPIO details that are hardware constraints on the firmware:
 - R4's pulldown covers the window between power-on and the first
   `pinMode`/`digitalWrite`. Firmware should still drive all seven pins low as
   its first action.
-- Space channel turn-ons by ~100 ms while the fixtures are incandescent, per
-  the inrush section above.
+- Space channel turn-ons by ~100 ms. Only needed while a filament is fitted,
+  and harmless after.
 
 ## Bill of materials, per channel
 
