@@ -117,7 +117,7 @@ jobs:
       - name: shellcheck
         run: |
           command -v shellcheck || (sudo apt-get update && sudo apt-get install -y shellcheck)
-          shellcheck scripts/*.sh
+          shellcheck scripts/*.sh ansible/converge
 
   python-syntax:
     runs-on: ubuntu-latest

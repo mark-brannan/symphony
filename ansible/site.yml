@@ -8,6 +8,12 @@
 #   ansible-playbook site.yml --tags verify         # check a card, change nothing
 #   ansible-playbook site.yml -e symphony_allow_reboot=false
 #
+# halos_cards holds every HALOS card, joined to the tailnet or not; a bare run
+# hits UNREACHABLE on any card that is still on the bench LAN only. Add
+# --limit <host>, or -e ansible_host=<lan-ip> for the card that has not joined.
+#
+# Unattended, check first and from origin/main only: ansible/converge.
+#
 # Needs, on the CONTROL machine: ansible-core, the `sops` binary, the age key at
 # ~/.config/sops/age/keys.txt, and Tailscale up. Nothing is installed on the
 # card to support Ansible beyond the python that Raspberry Pi OS already ships.
@@ -25,6 +31,15 @@
 #                              Ansible runs after those, never instead of them.
 #
 # See reference/host_provisioning.md for why the line is drawn there.
+
+# Its own play so it runs before fact gathering, which already needs root.
+# Tagged always: a --tags run still has to become root.
+- name: Symphony HALOS card | sudo password
+  hosts: halos_cards
+  gather_facts: false
+  tags: [always]
+  roles:
+    - pi_password
 
 - name: Symphony HALOS card
   hosts: halos_cards

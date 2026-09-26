@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Converge one HALOS card from origin/main: a --check --diff run, then the real
+# run only if the check was clean, then proof the card answers on the tailnet.
+#
+#   ~/symphony/ansible/converge <host> --tags <tag[,tag]> [--via <lan-addr>]
+#                               [--check-only] [--no-reboot]
+#
+#   ~/symphony/ansible/converge symphony-halpi2 --tags network --via 192.0.2.10
+#
+#   <host>        a host in the halos_cards group of inventory.yml
+#   --tags        which roles; required, from the fixed list in TAGS below
+#   --via         reach the card at this address instead of its tailnet name,
+#                 for a card that has not joined the tailnet yet
+#   --check-only  stop after the check run
+#   --no-reboot   symphony_allow_reboot=false, for a card carrying live data
+#
+# Meant to be allowed as one permission rule, so it is the boundary: the caller
+# chooses a host, a scope and an address, and nothing else. It runs only the
+# playbook on origin/main (never the working tree it was launched from), clears
+# ANSIBLE_* from the environment, and refuses to run if this file differs from
+# origin/main's copy. No secret passes through its arguments: the become
+# password comes from sops inside the play, and a card still at the HaLOS
+# factory password is moved onto the sops one by roles/pi_password.
+#
+# Logs, one directory per run: ~/.local/state/symphony/converge/<time>-<host>/
+# Exit: 0 converged, 1 check failed, 2 apply failed, 3 not reachable on the
+# tailnet afterwards, 64 bad arguments, 69 cannot set up the run.
+set -euo pipefail
+
+TAGS=(boot can network identity base_os base repo host_files monitoring
+      host_services signalk_container verify)
+
+usage() { sed -n '4,15p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 64; }
+die() { echo "converge: $1" >&2; exit "${2:-69}"; }
+
+host="" tags="" via="" check_only=false reboot=true
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --tags) [ $# -ge 2 ] || usage; tags="$2"; shift 2 ;;
+    --via) [ $# -ge 2 ] || usage; via="$2"; shift 2 ;;
+    --check-only) check_only=true; shift ;;
+    --no-reboot) reboot=false; shift ;;
+    -h|--help) usage ;;
+    -*) usage ;;
+    *) [ -z "$host" ] || usage; host="$1"; shift ;;
+  esac
+done
+{ [ -n "$host" ] && [ -n "$tags" ]; } || usage
+
+[[ "$host" =~ ^[a-z0-9-]+$ ]] || die "host '$host' is not an inventory name" 64
+IFS=, read -r -a tag_list <<<"$tags"
+for t in "${tag_list[@]}"; do
+  [[ "$t" =~ ^[a-z_]+$ && " ${TAGS[*]} " == *" $t "* ]] \
+    || die "tag '$t' is not one of: ${TAGS[*]}" 64
+done
+if [ -n "$via" ] && ! [[ "$via" =~ ^[A-Za-z0-9.:-]+$ ]]; then
+  die "--via '$via' is not an address or hostname" 64
+fi
+
+for v in $(env | sed -n 's/^\(ANSIBLE_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$v"; done
+
+repo=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+git -C "$repo" fetch -q origin main \
+  || echo "converge: fetch failed; using the origin/main already on disk" >&2
+commit=$(git -C "$repo" rev-parse --verify "origin/main^{commit}") \
+  || die "no origin/main in $repo"
+[ "$(git -C "$repo" rev-parse "$commit:ansible/converge" 2>/dev/null)" \
+  = "$(git hash-object "$0")" ] \
+  || die "this converge differs from origin/main's; run the reviewed copy"
+
+run="${XDG_STATE_HOME:-$HOME/.local/state}/symphony/converge/$(date +%Y%m%dT%H%M%S)-$host"
+mkdir -p "$run/tree"
+trap 'rm -rf "$run/tree"' EXIT
+git -C "$repo" archive "$commit" ansible secrets | tar -x -C "$run/tree"
+echo "$commit" >"$run/commit"
+cd "$run/tree/ansible"
+export ANSIBLE_CONFIG="$PWD/ansible.cfg" ANSIBLE_FORCE_COLOR=0
+
+exec 9>"${XDG_STATE_HOME:-$HOME/.local/state}/symphony/converge/.$host.lock"
+flock -n 9 || die "another converge of $host is running"
+
+ansible halos_cards --list-hosts </dev/null 2>/dev/null \
+  | sed 's/^ *//' | grep -qx "$host" \
+  || die "$host is not in halos_cards at ${commit:0:7}" 64
+
+args=(site.yml --limit "$host" --tags "$tags" --diff)
+[ -n "$via" ] && args+=(-e "ansible_host=$via")
+$reboot || args+=(-e symphony_allow_reboot=false)
+
+# Clean means the exit status is 0 AND the recap has no failed or unreachable
+# host: a play with ignore_errors or an unreachable host can still exit 0.
+play() {
+  local log="$1"; shift
+  echo "converge: $* -> $log"
+  set +e
+  ansible-playbook "$@" </dev/null 2>&1 | tee "$log"
+  local rc=${PIPESTATUS[0]}
+  set -e
+  [ "$rc" -eq 0 ] && grep -Eq "^$host +: .*unreachable=0 +failed=0" "$log"
+}
+
+echo "converge: $host at origin/main ${commit:0:7}, tags $tags, logs in $run"
+play "$run/check.log" "${args[@]}" --check || die "check run failed; nothing applied. $run/check.log" 1
+$check_only && { echo "converge: check clean, --check-only, stopping"; exit 0; }
+play "$run/apply.log" "${args[@]}" || die "apply failed partway. $run/apply.log" 2
+
+case ",$tags," in *,network,*) ;; *) echo "converge: $host converged. $run"; exit 0 ;; esac
+
+# A new process, the tailnet name and the host_vars become password: proves the
+# card joined, and that the password roles/pi_password set is the one in sops.
+set +e
+ansible "$host" -m ansible.builtin.command -a "tailscale status --self=true --peers=false" \
+  </dev/null 2>&1 | tee "$run/reach.log"
+rc=${PIPESTATUS[0]}
+set -e
+[ "$rc" -eq 0 ] || die "applied, but $host does not answer on the tailnet with its sops password. $run/reach.log" 3
+echo "converge: $host converged and reachable as itself. $run"
