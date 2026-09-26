@@ -2594,3 +2594,14 @@ Someday-Maybe, no Blocked) — stale, and Mark judged it didn't earn its
 keep regardless. Explicit call: not the time to rewrite these sections
 properly, so cut rather than fix. Card filed (8a30386) for the real pass
 later.
+
+## 2026-09-25 — symphony-pi disk cleanup, card closed
+
+Ran the safe cleanup rather than waiting for the card swap: swap timing is
+open-ended and 3.3G free (88%) would re-trip the 90% alarm soon regardless.
+Copied `journalctl --since 2026-09-20 --until 2026-09-25` (the outage window)
+to local `/tmp/symphony-pi-outage-logs/journal_2026-09-20_to_25.log` (19580
+lines) before vacuuming, then ran `journalctl --vacuum-size=200M` (freed
+~824M archived journals) and `docker image prune -f` / `docker builder
+prune -f` (dangling only — the 267M of tagged images and remaining build
+cache were left in place). Result: 85% used, 4.2G free. Card closed.
