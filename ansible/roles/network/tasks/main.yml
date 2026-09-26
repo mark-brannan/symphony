@@ -17,6 +17,7 @@
     - {name: Symphony_5G, key: nm_symphony_5g_nmconnection}
   loop_control:
     label: "{{ item.name }}"
+  register: nm_profiles_written
   no_log: true
   notify: reload NetworkManager profiles
   # 0600 is not cosmetic: NetworkManager refuses to load a keyfile that is
@@ -369,3 +370,7 @@
       - "'Halos-AP' in nm_conns.stdout_lines"
     success_msg: Symphony, Symphony_5G and Halos-AP are all known to NetworkManager
   tags: [verify]
+  # Under --check a card that lacks the profiles cannot pass: the task above
+  # reported it would write them and did not. Skip only that case, so --check
+  # still audits a card that already has them.
+  when: not (ansible_check_mode and (nm_profiles_written | default({})) is changed)

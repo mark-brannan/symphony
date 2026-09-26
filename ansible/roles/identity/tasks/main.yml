@@ -4,6 +4,7 @@
 - name: step 12 | hostname
   ansible.builtin.hostname:
     name: "{{ symphony_hostname }}"
+  register: identity_hostname
   notify: re-derive the HALOS domain
 
 - name: step 13 | the 127.0.1.1 line carries the FQDN first, then the short name
@@ -14,6 +15,7 @@
     owner: root
     group: root
     mode: "0644"
+  register: identity_hosts
   notify: re-derive the HALOS domain
   # FQDN first is what makes `hostname -d` answer, which is step 1 of HALOS's
   # domain resolution chain and therefore where ${domain} and ${fqdn} below
@@ -27,6 +29,7 @@
     owner: root
     group: root
     mode: "0644"
+  register: identity_list
   notify: re-derive the HALOS domain
   # Copied whole, vendor comment header included, because the file is a dpkg
   # conffile: owning only the active lines would mean either markers in a file
@@ -36,6 +39,15 @@
 
 - name: step 15 | apply the identity change before verifying it
   ansible.builtin.meta: flush_handlers
+
+# Under --check the handlers above did not run, so a card whose identity is
+# about to change cannot pass the step 17 asserts. They skip in exactly that
+# case and still audit a card that is already right.
+- name: step 15 | identity change pending under --check
+  ansible.builtin.set_fact:
+    identity_pending: >-
+      {{ ansible_check_mode and (identity_hostname is changed
+         or identity_hosts is changed or identity_list is changed) }}
 
 - name: step 17 | HALOS resolved the domain
   ansible.builtin.slurp:
@@ -51,6 +63,7 @@
       /run/halos/domain.env does not name this card. The certificate will carry
       the wrong SANs and SSO will fail on the name people actually type.
   tags: [verify]
+  when: not (identity_pending | default(false))
 
 - name: step 17 | device certificate SANs
   ansible.builtin.shell: >-
@@ -79,3 +92,4 @@
       - "boat_domain in cert_sans.stdout"
     success_msg: "device cert SANs cover .local, the FQDN and the apex"
   tags: [verify]
+  when: not (identity_pending | default(false))
