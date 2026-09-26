@@ -286,7 +286,7 @@ autoconnect=true
 autoconnect-priority=-100
 [wifi]
 mode=ap
-ssid=Halos-5D47
+ssid=Halos-<ap-suffix>
 band=bg
 [wifi-security]
 key-mgmt=wpa-psk

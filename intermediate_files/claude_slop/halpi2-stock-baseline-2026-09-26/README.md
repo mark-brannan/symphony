@@ -3,8 +3,8 @@
 Read-only inventory of the HALPI2 as shipped, taken on its first boot at
 home (ethernet to the home router, nothing changed on the box). This is the
 "stock" state `ansible/site.yml` is measured against and the state a later
-reset aims to reproduce. Identifiers (serial, MACs, machine-id, LAN IP) are
-redacted in the `.txt` files; the `.sh` files are the exact commands run.
+reset aims to reproduce. Identifiers (serial, MACs, machine-id, LAN IP, hotspot SSID suffix)
+are redacted in the `.txt` files; the `.sh` files are the exact commands run.
 
 ## Identity
 
@@ -26,15 +26,14 @@ redacted in the `.txt` files; the `.sh` files are the exact commands run.
   [halos-org/halos README](https://github.com/halos-org/halos) (verified:
   that login is what produced these dumps); `pi` is in `sudo` (with
   password), `docker` group not included. No `authorized_keys`.
-- Hotspot `Halos-5D47` on `wlan0ap` (10.42.0.1/24, NM `method=shared`),
-  PSK as published in the
-  [HALPI2 software guide](https://docs.hatlabs.fi/halpi2/user-guide/software/)
-  (not verified here: nothing joined the hotspot); `wlan0` STA
-  unconfigured. Ethernet DHCP.
+- Hotspot `Halos-<xxxx>` on `wlan0ap` (10.42.0.1/24, NM `method=shared`);
+  the suffix is per-device, so it is redacted like the MACs. PSK as
+  published in the same halos README (not verified here: nothing joined
+  the hotspot); `wlan0` STA unconfigured. Ethernet DHCP.
 - Web: Traefik 80/443 → Authelia SSO (`admin`, default per the same
   halos README; not verified here, no web login attempted), Homarr
   dashboard, Cockpit 9090, Signal K direct on 3000 / TLS 4430; NMEA 0183
-  TCP 10110; gpsd 2947.
+  TCP 10110; gpsd 2947 (loopback only).
 - Desktop variant: lightdm + wayvnc autologin on tty, not headless.
 
 ## Containers as shipped
@@ -74,7 +73,7 @@ Two options, from cheapest to most exact:
    ssh: `sfdisk -d /dev/nvme0n1` (partition table), `dd` of the 512 MB
    boot partition, and `e2image -ra -p /dev/nvme0n1p2 -` piped through
    `zstd` for the root fs — reads only allocated blocks, ~10 GB, so it is
-   a ~10 GB pull over wifi rather than 931 GB. Restore is the same rpiboot
+   a ~10 GB pull over the LAN rather than 931 GB. Restore is the same rpiboot
    path with `dd`. This is a read of the disk, not a change, but it is
    not free: ~10 GB on the Mac and tens of minutes of transfer.
 
