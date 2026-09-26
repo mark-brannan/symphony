@@ -283,14 +283,11 @@ cheap. Symphony-specific instances of those:
   — `action: "remove"` for a clean exit, `discard_changes: true` if you're
   sure nothing in it is worth keeping. Outside this harness, the equivalent is
   `git worktree add ../symphony-<slug> -b claude/<slug> origin/main`.
-- **A worktree's own branch is not "branching" in the sense of the rule
-  below.** It's always short-lived, always merged back to `main` same-session,
-  and never left pushed on its own — push each verified commit from it
-  straight to `origin main` (fast-forward) as you go, per "Work on main"
-  below. If `origin/main` moved since you branched, `git fetch && git rebase
-  origin/main` inside the worktree and push again — that rewrites only your
-  own not-yet-shared commits, never anyone else's history, so it doesn't need
-  asking.
+- **A worktree is where you work, not where the commit lands.** Taking one
+  doesn't answer main-vs-branch; the rule below does. If `origin/main` moved
+  since you branched, `git fetch && git rebase origin/main` inside the
+  worktree and push again — that rewrites only your own not-yet-shared
+  commits, never anyone else's history, so it doesn't need asking.
 - **Inside your own worktree, the destructive-command ban further down
   doesn't apply** — `git stash`, `git reset --hard`, `git checkout -- .`, all
   fine, because the only thing at risk is your own uncommitted work in a
@@ -321,71 +318,32 @@ cheap. Symphony-specific instances of those:
 - Never `git add -A` / `git add .` in this repo — it holds infra config and
   secrets (`.env`, `signalk/security.json`) alongside the maintenance docs.
   Stage files explicitly by name.
-- **Work on main.** Default to committing straight to main in small,
-  iterative commits, each one verified before the next. Push as soon as a
-  commit is verified rather than batching. Don't create a branch because the
-  work feels large — break it into smaller commits on main instead.
+- **Small, verified commits, pushed as they land.** Commit in small
+  increments, each verified before the next, and push as soon as one is
+  verified instead of batching. Size doesn't pick the destination; the next
+  bullet does.
 - **Main-vs-branch is a rule, not a judgment call — don't ask.** Default to a
-  branch and a PR. A commit goes straight to main in exactly two cases:
-  - **Every path in it matches `intermediate_files/claude_slop/**`** — the
-    session's own board and journal, which nobody reviews. Verify this,
-    don't estimate it: `git diff --cached --name-only`.
-  - **Mark asked for this change to land on main, and it is a single file.**
-    His explicit ask, not an inference from "just fix it"; one named file,
-    not a batch that happened to feel small.
-
-  Everything else branches, however small the edit — and **top-level
-  `README.md`, `RUNBOOK.md` and `CLAUDE.md` most of all.** Mark reads those
-  files; changing one without warning is the specific thing he doesn't want,
-  and a one-line fix is not an exception to it.
-
-  No line counts, no token counts, no wall clock. The thresholds that used to
-  sit here were placeholders nobody tuned, and a session obeying them to the
-  letter is how unsigned, unreviewed commits landed on main (`151a308`,
-  `a3e5a34`, `238e5da`): 49 lines of docs cleared a 200-line bar, so the rule
-  said push. A rule you can satisfy while doing the wrong thing is worse than
-  no rule.
-  When a branch *is* warranted under this rule, always open the PR
-  yourself as part of finishing the work, **as a draft, with no reviewer
-  requested** — don't leave a pushed branch without one, and don't wait to
-  be asked. **A branch opened under this rule only ends one way: merged
-  via PR — never folded back to main and deleted instead.** If you're
-  deciding whether a branch was warranted, you're mid-work; don't
-  retroactively un-decide it once it's pushed.
-- **Cloud sessions: a pre-assigned `claude/*` branch name is not, by
-  itself, a decision to branch.** Some task setups hand a session a branch
-  name before any content decision gets made. Apply the branch-vs-main rule
-  above as normal — if nothing crosses a trigger, land the work with
-  `git push origin HEAD:main`, pushed early and often, rather than treating
-  the assigned name as the destination; don't manufacture a PR to justify a
-  branch name you didn't choose. This does **not** apply when a session's
-  own task instructions separately name one specific branch and say to stay
-  on it — that instruction is for that session only and takes precedence;
-  finish that branch with a PR as usual.
-  Standing grant, confirmed 2026-08-19; ported from
-  `dotfiles/.claude/rules/code.md`, see
-  `claude_prompts_scratch/state/global/log/2026-08-19-git-hygiene-branch-override.md`.
-  Supersedes the earlier "fold it back to main (fast-forward, no PR)"
-  handling of this case — the fix is now not branching in the first place,
-  which also settles the 2026-08-19 split where two sessions resolved the
-  same situation oppositely (one folded back, one opened PR #9 to ban
-  folding back outright); see `maintenance/log.md`. **The reason has
-  changed as of 2026-08-20**: this used to lean on "cloud sessions can't
-  reliably delete their own remote branches" as the justification — true,
-  but no longer the operative one. With "Automatically delete head
-  branches" now on (see next bullet), a branch that actually goes through
-  a PR merge cleans itself up with no git command from any session. The
-  rule stands for a cleaner reason: below the branch-vs-main threshold, a
-  branch is unneeded ceremony, not an unclearable liability.
-- **Automatically delete head branches: keep it on.** It works, and it is
-  confirmed by a merge you can check: PR #24 and PR #26 were both merged on
-  2026-08-20 and both head branches were gone immediately after, with no
-  session action. It fires on an actual *merge* event only, so a branch
-  whose PR is closed unmerged, or that never gets a PR at all, is untouched
-  — that is the whole of the leftover-branch population, not a failure of
-  the setting. Branches merged before the setting was switched on also stay
-  (PR #1's `claude/ecoworthy-signalk-telemetry-vy82ta`, merged 2026-08-04,
-  is still on the remote).
+  branch and a PR. Straight to main in exactly two cases: every path in the
+  commit is under `intermediate_files/claude_slop/**` — check it, don't
+  estimate it (`git diff --cached --name-only`) — or Mark asked for this
+  change to land on main and it is a single named file. Everything else
+  branches, however small the edit, and top-level `README.md`, `RUNBOOK.md`
+  and `CLAUDE.md` most of all: Mark reads those, and changing one without
+  warning is the specific thing he objects to. No line counts, no token
+  counts, no wall clock.
+- **Open the PR yourself, ready for review, and let it end in a merge.** Don't
+  leave a pushed branch without a PR, don't wait to be asked, and don't fold a
+  branch back to main instead of merging it. A draft is not a hand-over —
+  Mark doesn't read drafts.
+- **A pre-assigned `claude/*` branch name is not a decision to branch.** Some
+  cloud task setups hand a session a branch name before any content decision
+  exists; apply the rule above as normal. The exception is a session whose own
+  task instructions name one branch and say to stay on it — that takes
+  precedence, and it finishes with a PR as usual.
+- **Automatically delete head branches: keep it on.** It fires on an actual
+  merge only, so a branch whose PR was closed unmerged, or that never had one,
+  stays behind — that is the whole leftover-branch population, not a failure
+  of the setting.
 - **Reading merge state from the API: use `merged_at`, never `merged`.**
   GitHub's *list* pull-requests endpoint does not return the `merged`
   boolean at all — only the single-PR GET does — so every row in a list
