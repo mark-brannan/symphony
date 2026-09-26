@@ -1,0 +1,490 @@
+
+===== hostname =====
+halos
+ Static hostname: halos
+       Icon name: computer
+      Machine ID: <machine-id>
+         Boot ID: <boot-id>
+Operating System: Debian GNU/Linux 13 (trixie)
+          Kernel: Linux 6.18.39+rpt-rpi-2712
+    Architecture: arm64
+
+===== os =====
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+VERSION_ID="13"
+VERSION="13 (trixie)"
+Linux halos 6.18.39+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.18.39-1+rpt1 (2026-07-29) aarch64 GNU/Linux
+
+===== halos-version =====
+ca
+hostnames.conf
+oidc-clients.d
+port-registry
+routing.d
+traefik-dynamic.d
+webapps.d
+
+===== halos-packages =====
+cockpit 337-1+deb13u1
+cockpit-apt 0.3.10-1
+cockpit-authelia-users 0.2.4-1
+cockpit-bridge 337-1+deb13u1
+cockpit-container-apps 0.2.2-3
+cockpit-networkmanager-halos 0.2.3-7
+cockpit-packagekit 337-1+deb13u1
+cockpit-storaged 337-1+deb13u1
+cockpit-system 337-1+deb13u1
+cockpit-ws 337-1+deb13u1
+docker-buildx 0.13.1+ds1-3
+docker-cli 26.1.5+dfsg1-9+deb13u1
+docker-compose 2.26.1-4
+docker.io 26.1.5+dfsg1-9+deb13u1
+halos 0.3.7-2
+halos-browser-trust 0.1.0-2
+halos-cockpit-config 0.5.8-2
+halos-core-containers 0.7.1-3
+halos-desktop 0.3.7-2
+halos-desktop-marine 0.3.7-2
+halos-halpi-desktop-branding 0.1.1-2
+halos-halpi2 0.3.7-2
+halos-halpi2-desktop 0.1.0-1
+halos-halpi2-marine 0.3.7-2
+halos-headless 0.3.7-2
+halos-homarr-branding 0.2.6-2
+halos-marine 0.3.7-2
+halos-ublox-config 0.2.1-2
+halpi2-firmware 3.3.1-1
+halpid 5.1.1-1
+homarr-container-adapter 0.4.9-3
+marine-container-store 0.3.1-1
+marine-signalk-server-container 2.31.1-5
+signalk-halpi 0.1.6-1
+
+===== apt-sources =====
+Types: deb
+URIs: http://archive.raspberrypi.com/debian/
+Suites: trixie
+Components: main
+Signed-By: /usr/share/keyrings/raspberrypi-archive-keyring.pgp
+deb https://apt.hatlabs.fi trixie-stable hatlabs
+Types: deb
+URIs: http://deb.debian.org/debian/
+Suites: trixie trixie-updates
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
+Types: deb
+URIs: http://deb.debian.org/debian-security/
+Suites: trixie-security
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
+deb https://apt.halos.fi trixie-stable main
+
+===== block-devices =====
+NAME          SIZE TYPE FSTYPE MOUNTPOINT     LABEL
+loop0           2G loop swap                  origin:rpi-swap
+zram0           2G disk swap   [SWAP]         zram0
+nvme0n1     931.5G disk                       
+├─nvme0n1p1   512M part vfat   /boot/firmware bootfs
+└─nvme0n1p2   931G part ext4   /              rootfs
+
+===== disk =====
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  917G  9.9G  870G   2% /
+/dev/nvme0n1p1  505M   87M  418M  18% /boot/firmware
+
+===== memory =====
+               total        used        free      shared  buff/cache   available
+Mem:            8062        1927        4821          36        1437        6135
+Swap:           2047           0        2047
+
+===== cpu-model =====
+Raspberry Pi Compute Module 5 Lite Rev 1.0
+Revision	: d041a0
+Serial		: <cm5-serial>
+
+===== eeprom =====
+
+===== network =====
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+eth0             UP             <lan-ip>/24 <ipv6-ll>/64 
+can0             UP             
+wlan0            DOWN           
+wlan0ap          UP             10.42.0.1/24 <ipv6-ll>/64 
+docker0          DOWN           172.17.0.1/16 
+br-07c3a0a77590  UP             172.18.0.1/16 <ipv6-ll>/64 
+br-23bc2cb23644  UP             172.19.0.1/16 <ipv6-ll>/64 
+veth9e59f2a@if9  UP             <ipv6-ll>/64 
+veth042f854@if11 UP             <ipv6-ll>/64 
+vetha838246@if13 UP             <ipv6-ll>/64 
+veth42040c4@if15 UP             <ipv6-ll>/64 
+vethece1359@if17 UP             <ipv6-ll>/64 
+vethe52748a@if19 UP             <ipv6-ll>/64 
+default via <lan-ip> dev eth0 proto dhcp src <lan-ip> metric 100 
+10.42.0.0/24 dev wlan0ap proto kernel scope link src 10.42.0.1 metric 600 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-07c3a0a77590 proto kernel scope link src 172.18.0.1 
+172.19.0.0/16 dev br-23bc2cb23644 proto kernel scope link src 172.19.0.1 
+<lan-ip>/24 dev eth0 proto kernel scope link src <lan-ip> metric 100 
+halos
+wlan0ap:wifi:connected:Halos-AP
+eth0:ethernet:connected:Wired connection 1
+br-07c3a0a77590:bridge:connected (externally):br-07c3a0a77590
+br-23bc2cb23644:bridge:connected (externally):br-23bc2cb23644
+lo:loopback:connected (externally):lo
+docker0:bridge:connected (externally):docker0
+wlan0:wifi:disconnected:
+p2p-dev-wlan0:wifi-p2p:disconnected:
+p2p-dev-wlan0ap:wifi-p2p:disconnected:
+can0:can:unmanaged:
+veth042f854:ethernet:unmanaged:
+veth42040c4:ethernet:unmanaged:
+veth9e59f2a:ethernet:unmanaged:
+vetha838246:ethernet:unmanaged:
+vethe52748a:ethernet:unmanaged:
+vethece1359:ethernet:unmanaged:
+Halos-AP:87e1e800-3f8c-3844-9113-1ddff68346fa:802-11-wireless:wlan0ap
+Wired connection 1:49810312-9d52-3b3e-9791-b0b2de586d62:802-3-ethernet:eth0
+br-07c3a0a77590:d54fc8e4-c510-4ae3-af31-d6fbe15dbbd4:bridge:br-07c3a0a77590
+br-23bc2cb23644:b20b2488-5ac4-4902-9623-b6e381145767:bridge:br-23bc2cb23644
+lo:8d368f82-c92f-4bb9-ac05-91166423527d:loopback:lo
+docker0:39ace8d0-09a9-4296-8384-978c55482744:bridge:docker0
+
+===== hotspot =====
+Halos-AP:87e1e800-3f8c-3844-9113-1ddff68346fa:802-11-wireless:wlan0ap
+Halos-AP.nmconnection
+
+===== config-txt =====
+dtparam=audio=on
+camera_auto_detect=1
+display_auto_detect=1
+auto_initramfs=1
+dtoverlay=vc4-kms-v3d
+max_framebuffers=2
+disable_fw_kms_setup=1
+arm_64bit=1
+disable_overscan=1
+arm_boost=1
+[cm4]
+otg_mode=1
+[cm5]
+dtoverlay=dwc2,dr_mode=host
+[pi5]
+dtoverlay=nospi10
+[all]
+[all]
+dtparam=i2c_arm=on
+[all]
+dtparam=ant2
+[all]
+dtoverlay=spi0-2cs,cs1_pin=6
+dtoverlay=mcp251xfd,spi0-1,interrupt=26,oscillator=40000000
+[all]
+dtoverlay=uart4-pi5
+[all]
+dtparam=sd=off
+[all]
+dtparam=uart0=on
+
+===== cmdline =====
+console=serial0,115200 console=tty1 root=PARTUUID=64e33800-02 rootfstype=ext4 fsck.repair=yes rootwait cfg80211.ieee80211_regdom=GB quiet splash plymouth.ignore-serial-consoles
+
+===== overlays-loaded =====
+can0             UP             <NOARP,UP,LOWER_UP,ECHO> 
+
+===== users =====
+nobody 65534 /nonexistent /usr/sbin/nologin
+pi 1000 /home/pi /bin/bash
+uid=1000(pi) gid=1000(pi) groups=1000(pi),4(adm),20(dialout),24(cdrom),27(sudo),29(audio),44(video),46(plugdev),60(games),100(users),102(netdev),108(lpadmin),960(halpid),986(gpio),988(i2c),989(spi),992(render),996(input)
+passwordless sudo: no
+
+===== ssh =====
+0
+
+===== services-enabled =====
+cups.path
+halos-oidc-clients-reload.path
+accounts-daemon.service
+ap-bridge-fwd.service
+ap-bridge-watchdog.service
+apparmor.service
+avahi-daemon.service
+bluetooth.service
+cloud-config.service
+cloud-final.service
+cloud-init-local.service
+cloud-init-main.service
+cloud-init-network.service
+configure-ublox-marine.service
+console-setup.service
+containerd.service
+create-ap-interface.service
+cron.service
+cups.service
+docker.service
+e2scrub_reap.service
+getty@.service
+glamor-test.service
+halos-core-containers.service
+halos-manage-certs.service
+halos-oidc-clients-reload.service
+halos-resolve-domain.service
+halpid.service
+homarr-container-adapter.service
+keyboard-setup.service
+lightdm.service
+marine-signalk-server-container.service
+NetworkManager-dispatcher.service
+NetworkManager-wait-online.service
+NetworkManager.service
+nfs-blkmap.service
+regenerate_ssh_host_keys.service
+restrict-preconfigured-wifi.service
+rp1-test.service
+rpcbind.service
+rpi-eeprom-update.service
+ssh.service
+sshd-keygen.service
+sshswitch.service
+systemd-network-generator.service
+systemd-networkd-wait-online.service
+systemd-networkd.service
+systemd-pstore.service
+systemd-timesyncd.service
+udisks2.service
+wayvnc-control.service
+wpa_supplicant.service
+avahi-daemon.socket
+cloud-init-hotplugd.socket
+cockpit.socket
+cups.socket
+docker.socket
+gpsd.socket
+rpcbind.socket
+systemd-networkd.socket
+nfs-client.target
+remote-fs.target
+apt-daily-upgrade.timer
+apt-daily.timer
+dpkg-db-backup.timer
+e2scrub_all.timer
+fstrim.timer
+halos-manage-certs.timer
+logrotate.timer
+man-db.timer
+
+===== services-failed =====
+
+===== docker =====
+
+===== docker-images =====
+
+===== docker-volumes =====
+
+===== halos-config-dirs =====
+/etc/halos:
+total 44
+drwxr-xr-x   7 root root  4096 Sep 18 15:58 .
+drwxr-xr-x 143 root root 12288 Sep 26 04:42 ..
+drwx------   2 root root  4096 Aug 20 18:59 ca
+-rw-r--r--   1 root root  1678 Aug 10 12:23 hostnames.conf
+drwxr-xr-x   2 root root  4096 Sep 18 15:58 oidc-clients.d
+-rw-r--r--   1 root root    20 Sep 18 15:58 port-registry
+drwxr-xr-x   2 root root  4096 Aug 20 19:01 routing.d
+drwxr-xr-x   2 root root  4096 Sep 18 15:58 traefik-dynamic.d
+drwxr-xr-x   2 root root  4096 Aug 20 19:01 webapps.d
+
+/srv:
+total 8
+drwxr-xr-x  2 root root 4096 Aug 20 18:54 .
+drwxr-xr-x 18 root root 4096 Aug 20 18:55 ..
+
+/var/lib/halos:
+total 12
+drwxr-xr-x  2 root root 4096 Sep 18 15:58 .
+drwxr-xr-x 52 root root 4096 Aug 20 19:04 ..
+-rw-r--r--  1 root root    3 Sep 18 15:58 resolved-domain
+-rw-r--r--  1 root root    0 Aug 20 19:03 wifi-sta-ap-configured
+/etc/halos-homarr-branding
+/etc/container-apps/halos-core-containers
+/etc/halos
+/etc/halpid
+/etc/halpid/halpid.conf
+/var/lib/halos-homarr-branding
+/var/lib/container-apps/halos-core-containers
+/var/lib/halos
+
+===== listening =====
+127.0.0.1:7575 
+127.0.0.1:2947 
+0.0.0.0:80 
+0.0.0.0:111 
+0.0.0.0:22 
+10.42.0.1:53 
+0.0.0.0:4430 
+0.0.0.0:4431 
+0.0.0.0:4440 
+0.0.0.0:4441 
+0.0.0.0:4442 
+0.0.0.0:4443 
+0.0.0.0:4444 
+0.0.0.0:4445 
+0.0.0.0:4446 
+0.0.0.0:4447 
+0.0.0.0:4432 
+0.0.0.0:4433 
+0.0.0.0:4434 
+0.0.0.0:4435 
+0.0.0.0:4436 
+0.0.0.0:4437 
+0.0.0.0:4438 
+0.0.0.0:4439 
+0.0.0.0:4448 
+0.0.0.0:4449 
+0.0.0.0:4450 
+127.0.0.1:45957 
+0.0.0.0:443 
+[::1]:2947 
+*:3000 users:(("MainThread",pid=2542,fd=28))
+*:10110 users:(("MainThread",pid=2542,fd=21))
+[::]:80 
+[::]:111 
+[::]:22 
+*:8375 users:(("MainThread",pid=2542,fd=22))
+[::]:4430 
+[::]:4431 
+[::]:4440 
+[::]:4441 
+[::]:4442 
+[::]:4443 
+[::]:4444 
+[::]:4445 
+[::]:4446 
+[::]:4447 
+[::]:4432 
+[::]:4433 
+[::]:4434 
+[::]:4435 
+[::]:4436 
+[::]:4437 
+[::]:4438 
+[::]:4439 
+[::]:4448 
+[::]:4449 
+[::]:4450 
+[::]:443 
+*:9090 
+
+===== halpi-daemon =====
+  halos-oidc-clients-reload.path                                                                                                                                 loaded    active   waiting   Watch OIDC client snippets for changes
+  ap-bridge-fwd.service                                                                                                                                          loaded    active   exited    HaLOS bridged-AP: allow br0 client forwarding past Docker's FORWARD DROP
+  ap-bridge-watchdog.service                                                                                                                                     loaded    inactive dead      HaLOS AP bridged-mode safety watchdog (boot verdict)
+● halos-authelia-container.service                                                                                                                               not-found inactive dead      halos-authelia-container.service
+  halos-core-containers.service                                                                                                                                  loaded    active   running   HaLOS Core Containers (Traefik, Authelia, Homarr)
+  halos-manage-certs.service                                                                                                                                     loaded    inactive dead      Provision and maintain HaLOS device CA + leaf TLS certificate
+  halos-oidc-clients-reload.service                                                                                                                              loaded    inactive dead      Merge OIDC client snippets into Authelia's client registration
+  halos-resolve-domain.service                                                                                                                                   loaded    inactive dead      Resolve HaLOS canonical hostname and publish HALOS_DOMAIN
+  halpid.service                                                                                                                                                 loaded    active   running   HALPI2 Power Monitoring and Watchdog Daemon
+  plymouth-poweroff.service                                                                                                                                      loaded    inactive dead      Show Plymouth Power Off Screen
+  systemd-poweroff.service                                                                                                                                       loaded    inactive dead      System Power Off
+  poweroff.target                                                                                                                                                loaded    inactive dead      System Power Off
+  halos-manage-certs.timer                                                                                                                                       loaded    active   waiting   Periodic HaLOS device cert renewal check
+/usr/bin/halpi
+/usr/bin/halpid
+/dev/i2c-1
+/dev/i2c-13
+/dev/i2c-14
+/dev/ttyAMA0
+/dev/ttyAMA10
+/dev/ttyAMA4
+
+===== usb =====
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 002 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 003 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 004 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 004 Device 002: ID 045b:0209 Hitachi, Ltd 
+Bus 005 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 005 Device 002: ID 045b:0210 Hitachi, Ltd 
+
+===== tailscale =====
+tailscale: not installed
+
+===== timers =====
+systemd-tmpfiles-clean.service systemd-tmpfiles-clean.timer
+halos-manage-certs.service halos-manage-certs.timer
+logrotate.service logrotate.timer
+fstrim.service fstrim.timer
+apt-daily-upgrade.service apt-daily-upgrade.timer
+rpi-zram-writeback.service rpi-zram-writeback.timer
+apt-daily.service apt-daily.timer
+man-db.service man-db.timer
+dpkg-db-backup.service dpkg-db-backup.timer
+e2scrub_all.service e2scrub_all.timer
+
+===== uptime =====
+ 04:44:01 up 2 min,  3 users,  load average: 0.30, 0.18, 0.07
+
+===== home =====
+total 76
+drwx------ 13 pi   pi   4096 Sep 26 04:41 .
+drwxr-xr-x  3 root root 4096 Aug 20 18:55 ..
+-rw-r--r--  1 pi   pi    220 Aug 20 18:55 .bash_logout
+-rw-r--r--  1 pi   pi   3523 Aug 20 18:55 .bashrc
+drwx------  4 pi   pi   4096 Aug 20 19:04 .cache
+drwx------  6 pi   pi   4096 Aug 20 19:04 .config
+drwxrwxr-x  2 pi   pi   4096 Aug 20 19:03 Desktop
+drwxr-xr-x  2 pi   pi   4096 Aug 20 19:04 Documents
+drwxr-xr-x  2 pi   pi   4096 Aug 20 19:04 Downloads
+drwx------  4 pi   pi   4096 Aug 20 19:04 .local
+drwxr-xr-x  2 pi   pi   4096 Aug 20 19:04 Music
+drwxr-xr-x  2 pi   pi   4096 Aug 20 19:04 Pictures
+-rw-r--r--  1 pi   pi    807 Aug 20 18:55 .profile
+drwxr-xr-x  2 pi   pi   4096 Aug 20 19:04 Public
+drwxr-xr-x  2 pi   pi   4096 Aug 20 19:04 Templates
+drwxr-xr-x  2 pi   pi   4096 Aug 20 19:04 Videos
+-rw-------  1 pi   pi     50 Sep 26 04:41 .Xauthority
+-rw-------  1 pi   pi   3176 Sep 26 04:42 .xsession-errors
+-rw-------  1 pi   pi   3176 Sep 26 04:21 .xsession-errors.old
+
+===== etc-recently-modified =====
+/etc/python3/debian_config
+/etc/nsswitch.conf
+/etc/initramfs-tools/update-initramfs.conf
+/etc/initramfs-tools/modules
+/etc/initramfs-tools/initramfs.conf
+/etc/dictionaries-common/ispell-default
+/etc/udev/rules.d/80-can.rules
+/etc/udev/rules.d/99-rpi-keyboard.rules
+/etc/locale.gen
+/etc/.updated
+/etc/timezone
+/etc/hosts.allow
+/etc/mailcap
+/etc/shadow
+/etc/firefox/firefox.js
+/etc/group
+/etc/bluetooth/network.conf
+/etc/bluetooth/main.conf
+/etc/bluetooth/input.conf
+/etc/hp/hplip.conf
+/etc/console-setup/cached_setup_terminal.sh
+/etc/console-setup/cached_setup_keyboard.sh
+/etc/console-setup/cached_UTF-8_del.kmap.gz
+/etc/console-setup/cached_setup_font.sh
+/etc/console-setup/cached_Uni2-Fixed16.psf.gz
+/etc/avahi/avahi-daemon.conf
+/etc/subuid
+/etc/locale.conf
+/etc/modules
+/etc/hosts.deny
+/etc/pam.d/common-session-noninteractive
+/etc/pam.d/common-password
+/etc/pam.d/common-auth
+/etc/pam.d/common-account
+/etc/pam.d/common-session
+/etc/pam.d/vncserver
+/etc/python3.13/sitecustomize.py
+/etc/udisks2/udisks2.conf
+/etc/udisks2/mount_options.conf.example
+/etc/profile

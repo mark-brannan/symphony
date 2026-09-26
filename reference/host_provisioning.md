@@ -10,13 +10,13 @@ as-built record and converged against `symphony-halos` on 2026-09-02 (two
 consecutive runs at `changed=0`). Nine roles cover boot config and `can0`,
 NetworkManager and hostname/certificate identity, packages and swap, the repo
 checkout, `host/install.sh`, telegraf and the heartbeat, and the SignalK
-container overrides. `RUNBOOK.md` → "Provisioning a HALOS card with Ansible" is
+container overrides. `runbooks/host_bringup.md` → "Provisioning a HALOS card with Ansible" is
 how to run it.
 
 The two mechanisms that preceded it are both still in place, and one of them is
 still authoritative:
 
-**`RUNBOOK.md` → "Bringing up a host"** is four phases of commands typed by
+**`runbooks/host_bringup.md`** is four phases of commands typed by
 hand: tooling (Docker, pre-commit, sops, age), key material, repo and git
 filters, then services. It is accurate and it works, but it is a procedure a
 person executes, so it drifts from what the hosts actually have and it cannot

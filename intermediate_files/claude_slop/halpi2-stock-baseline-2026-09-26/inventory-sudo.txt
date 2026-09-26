@@ -1,0 +1,329 @@
+
+===== image-id =====
+HaLOS Desktop Marine HALPI2 AP 2026-08-20.0
+Generated using pi-gen, https://github.com/halos-org/halos-pi-gen, 0c7cd7324a97d4a169c047de06fbe88d88fb6f3d, stage-export
+/boot/firmware/cmdline.txt
+/boot/firmware/config.txt
+/boot/firmware/issue.txt
+HaLOS Desktop Marine HALPI2 AP 2026-08-20.0
+Generated using pi-gen, https://github.com/halos-org/halos-pi-gen, 0c7cd7324a97d4a169c047de06fbe88d88fb6f3d, stage-export
+
+===== boots =====
+IDX BOOT ID                          FIRST ENTRY                 LAST ENTRY
+  0 <boot-id> Sat 2026-09-26 04:41:20 BST Sat 2026-09-26 04:44:56 BST
+
+
+===== machine-id-and-hostkeys =====
+-r--r--r-- 1 root root  33 2026-08-20 19:03 /etc/machine-id
+-rw-r--r-- 1 root root 172 2026-08-20 19:03 /etc/ssh/ssh_host_ecdsa_key.pub
+-rw-r--r-- 1 root root  92 2026-08-20 19:03 /etc/ssh/ssh_host_ed25519_key.pub
+-rw-r--r-- 1 root root 564 2026-08-20 19:03 /etc/ssh/ssh_host_rsa_key.pub
+
+===== cloud-init =====
+status: done
+extended_status: degraded done
+boot_status_code: enabled-by-generator
+last_update: Thu, 01 Jan 1970 00:00:21 +0000
+detail: DataSourceNoCloud [seed=ds_config_seedfrom,file:///boot/firmware][dsmode=local]
+errors: []
+recoverable_errors:
+WARNING:
+	- Failed at merging in cloud config part from part-001: empty cloud config
+	- Failed at merging in cloud config part from part-001: empty cloud config
+	- Failed at merging in cloud config part from part-001: empty cloud config
+	- Could not find module named cc_netplan_nm_patch (searched ['cc_netplan_nm_patch', 'cloudinit.config.cc_netplan_nm_patch'])
+/var/lib/cloud/instance/:
+total 64
+drwxr-xr-x 5 root root  4096 Sep 26 04:41 .
+drwxr-xr-x 3 root root  4096 Aug 20 19:03 ..
+-rw-r--r-- 1 root root    50 Sep 26 04:41 boot-finished
+-rw------- 1 root root    77 Sep 26 04:41 cloud-config.txt
+-rw-r--r-- 1 root root    99 Sep 26 04:41 datasource
+drwxr-xr-x 2 root root  4096 Aug 20 19:03 handlers
+-r-------- 1 root root 13522 Sep 26 04:41 obj.pkl
+drwxr-xr-x 2 root root  4096 Aug 20 19:03 scripts
+drwxr-xr-x 2 root root  4096 Sep 18 15:58 sem
+-rw------- 1 root root  3277 Sep 26 04:41 user-data.txt
+-rw------- 1 root root  3582 Sep 26 04:41 user-data.txt.i
+-rw------- 1 root root     0 Sep 26 04:41 vendor-data2.txt
+-rw------- 1 root root   308 Sep 26 04:41 vendor-data2.txt.i
+-rw------- 1 root root     0 Sep 26 04:41 vendor-data.txt
+-rw------- 1 root root   308 Sep 26 04:41 vendor-data.txt.i
+
+/var/lib/cloud/instances/:
+total 12
+drwxr-xr-x 3 root root 4096 Aug 20 19:03 .
+drwxr-xr-x 8 root root 4096 Sep 26 04:41 ..
+drwxr-xr-x 5 root root 4096 Sep 26 04:41 nocloud
+#cloud-config
+
+# This is the user-data configuration file for cloud-init. By default this sets
+# up an initial user called "ubuntu" with password "ubuntu", which must be
+# changed at first login. However, many additional actions can be initiated on
+# first boot from this file. The cloud-init documentation has more details:
+#
+# https://cloudinit.readthedocs.io/
+#
+# Please note that the YAML format employed by this file is sensitive to
+# differences in whitespace; if you are editing this file in an editor (like
+# Notepad) which uses literal tabs, take care to only use spaces for
+# indentation. See the following link for more details:
+#
+# https://en.wikipedia.org/wiki/YAML
+#
+# Some additional examples are provided in comments below the default
+# configuration.
+
+## Set the system's hostname. Please note that, unless you have a local DNS
+## setup where the hostname is derived from DHCP requests (as with dnsmasq),
+## setting the hostname here will not make the machine reachable by this name.
+## You may also wish to install avahi-daemon (see the "packages:" key below)
+## to make your machine reachable by the .local domain
+#hostname: raspberrypi
+
+## Set up the keyboard layout. See localectl(1), in particular the various
+## list-x11-* sub-commands, to determine the available models, layouts,
+## variants, and options
+#keyboard:
+#  model: pc105
+#  layout: gb
+#  variant:
+#  options: ctrl:nocaps
+
+# Controls password authentication with the SSH daemon; the default here can
+# prevent logging into SSH with a password. Changing this is a security risk
+# and you should at the very least ensure a different default password is
+# specified above
+#ssh_pwauth: false
+05_logging.cfg
+99_raspberry-pi.cfg
+README
+meta-data
+network-config
+user-data
+
+===== halos-state =====
+hal
+signalk-server=4430
+
+${hostname}.local
+${fqdn}
+/etc/halos/oidc-clients.d/:
+total 16
+drwxr-xr-x 2 root root 4096 Sep 18 15:58 .
+drwxr-xr-x 7 root root 4096 Sep 18 15:58 ..
+-rw-r--r-- 1 root root  499 Sep 26 04:42 homarr.yml
+-rw-r--r-- 1 root root  342 Sep 26 04:41 signalk.yml
+
+/etc/halos/routing.d/:
+total 12
+drwxr-xr-x 2 root root 4096 Aug 20 19:01 .
+drwxr-xr-x 7 root root 4096 Sep 18 15:58 ..
+-rw-r--r-- 1 root root  470 Aug 20 17:46 signalk-server.yml
+
+/etc/halos/traefik-dynamic.d/:
+total 44
+drwxr-xr-x 2 root root 4096 Sep 18 15:58 .
+drwxr-xr-x 7 root root 4096 Sep 18 15:58 ..
+-rw-r--r-- 1 root root  447 Sep 26 04:42 authelia.yml
+-rw-r--r-- 1 root root 1250 Sep 26 04:42 cockpit.yml
+-rw-r--r-- 1 root root  346 Sep 26 04:42 insecure-transport.yml
+-rw-r--r-- 1 root root  656 Sep 26 04:42 localhost-redirect.yml
+-rw-r--r-- 1 root root 1581 Sep 26 04:41 redirect-signalk-server.yml
+-rw-r--r-- 1 root root  186 Sep 26 04:42 redirects.yml
+-rw-r--r-- 1 root root 1620 Sep 26 04:42 signalk-server-icons.yml
+-rw-r--r-- 1 root root  934 Sep 26 04:42 strip-hsts.yml
+-rw-r--r-- 1 root root  214 Sep 26 04:42 tls-default.yml
+
+/etc/halos/webapps.d/:
+total 20
+drwxr-xr-x 2 root root 4096 Aug 20 19:01 .
+drwxr-xr-x 7 root root 4096 Sep 18 15:58 ..
+-rw-r--r-- 1 root root  980 Aug 10 12:23 ca-download.toml
+-rw-r--r-- 1 root root  650 Jun 15 22:51 cockpit.toml
+-rw-r--r-- 1 root root  654 Aug 20 17:46 marine-signalk-server-container.toml
+total 8
+drwx------ 2 root root 4096 Aug 20 18:59 .
+drwxr-xr-x 7 root root 4096 Sep 18 15:58 ..
+
+===== docker =====
+NAMES             IMAGE                                                     STATUS
+homarr            ghcr.io/hatlabs/homarr:v1.60.0-halos.1                    Up 2 minutes (healthy)
+traefik           traefik:v3.7.1                                            Up 2 minutes (healthy)
+authelia          authelia/authelia:4.39.19                                 Up 3 minutes (healthy)
+ca-download       busybox:1.37                                              Up 3 minutes (healthy)
+autoheal          willfarrell/autoheal:1.2.0                                Up 3 minutes (healthy)
+authelia-valkey   valkey/valkey:9.0.4-alpine                                Up 3 minutes (healthy)
+signalk-server    ghcr.io/halos-org/signalk-server-docker:v2.31.1-halos.3   Up 3 minutes (healthy)
+
+===== docker-images =====
+ghcr.io/halos-org/signalk-server-docker:v2.31.1-halos.3 1.4GB 5 weeks ago
+valkey/valkey:9.0.4-alpine 43.5MB 2 months ago
+traefik:v3.7.1 171MB 4 months ago
+ghcr.io/hatlabs/homarr:v1.60.0-halos.1 433MB 4 months ago
+authelia/authelia:4.39.19 71.8MB 5 months ago
+busybox:<none> 4.11MB 24 months ago
+willfarrell/autoheal:1.2.0 8.54MB 5 years ago
+
+===== docker-volumes =====
+
+===== container-apps =====
+/etc/container-apps/:
+total 28
+drwxr-xr-x   5 root root  4096 Aug 20 19:01 .
+drwxr-xr-x 143 root root 12288 Sep 26 04:42 ..
+drwxr-xr-x   2 root root  4096 Sep 26 04:42 halos-core-containers
+drwxr-xr-x   2 root root  4096 Aug 20 19:01 marine-signalk-server-container
+drwxr-xr-x   2 root root  4096 Aug 20 19:01 stores
+
+/var/lib/container-apps/:
+total 16
+drwxr-xr-x  4 root root 4096 Aug 20 19:01 .
+drwxr-xr-x 52 root root 4096 Aug 20 19:04 ..
+drwxr-xr-x  4 root root 4096 Aug 20 18:59 halos-core-containers
+drwxr-xr-x  4 root root 4096 Aug 20 19:01 marine-signalk-server-container
+/etc/container-apps
+/etc/container-apps/stores
+/etc/container-apps/stores/marine.yaml
+/etc/container-apps/marine-signalk-server-container
+/etc/container-apps/marine-signalk-server-container/env.defaults
+/etc/container-apps/marine-signalk-server-container/env
+/etc/container-apps/halos-core-containers
+/etc/container-apps/halos-core-containers/env.defaults
+/etc/container-apps/halos-core-containers/env
+/var/lib/container-apps
+/var/lib/container-apps/marine-signalk-server-container
+/var/lib/container-apps/marine-signalk-server-container/docker-compose.yml
+/var/lib/container-apps/marine-signalk-server-container/metadata.yaml
+/var/lib/container-apps/marine-signalk-server-container/data
+/var/lib/container-apps/marine-signalk-server-container/env.user-template
+/var/lib/container-apps/marine-signalk-server-container/prestart.sh
+/var/lib/container-apps/marine-signalk-server-container/default-data
+/var/lib/container-apps/marine-signalk-server-container/app-prestart.sh
+/var/lib/container-apps/marine-signalk-server-container/config.yml
+/var/lib/container-apps/marine-signalk-server-container/env.template
+/var/lib/container-apps/halos-core-containers
+/var/lib/container-apps/halos-core-containers/docker-compose.yml
+/var/lib/container-apps/halos-core-containers/assets
+/var/lib/container-apps/halos-core-containers/metadata.yaml
+/var/lib/container-apps/halos-core-containers/data
+/var/lib/container-apps/halos-core-containers/prestart.sh
+/var/lib/container-apps/halos-core-containers/config.yml
+
+===== halpi =====
+halpi 5.1.1
+
+hardware_version                      N/A
+firmware_version                    3.3.1
+device_id                <halpi-device-id>
+
+state                     OperationalCoOp
+5v_output_enabled                    true
+watchdog_enabled                     true
+watchdog_timeout                     10.0 s
+watchdog_elapsed                      0.0 s
+
+V_in                                 12.2 V
+I_in                                 0.34 A
+T_mcu                                44.0 °C
+T_pcb                                32.9 °C
+
+i2c-bus: 1
+i2c-addr: 0x6D
+socket: /run/halpid/halpid.sock
+blackout-time-limit: 5.0
+blackout-voltage-limit: 9.0
+poweroff: /sbin/poweroff
+
+===== eeprom =====
+*** UPDATE AVAILABLE ***
+
+Run "sudo rpi-eeprom-update -a" to install this update without a prompt.
+
+To configure the bootloader update policy run "sudo raspi-config"
+
+BOOTLOADER: update available
+   CURRENT: Mon 11 May 11:20:02 UTC 2026 (1778498402)
+
+===== halos-cli =====
+/usr/bin/configure-container-routing
+/usr/bin/reload-oidc-clients
+/usr/share/halos:
+wallpapers
+
+===== signalk-data =====
+/var/lib/container-apps/halos-core-containers/:
+total 60
+drwxr-xr-x 4 root root  4096 Aug 20 18:59 .
+drwxr-xr-x 4 root root  4096 Aug 20 19:01 ..
+drwxr-xr-x 6 root root  4096 Aug 20 18:59 assets
+-rw-r--r-- 1 root root   437 Aug 10 12:23 config.yml
+drwxr-xr-x 6 root root  4096 Aug 20 18:59 data
+-rw-r--r-- 1 root root 12271 Aug 10 12:23 docker-compose.yml
+-rw-r--r-- 1 root root  1438 Aug 10 12:23 metadata.yaml
+-rwxr-xr-x 1 root root 20793 Aug 10 12:23 prestart.sh
+
+/var/lib/container-apps/marine-signalk-server-container/:
+total 72
+drwxr-xr-x 4 root root  4096 Aug 20 19:01 .
+drwxr-xr-x 4 root root  4096 Aug 20 19:01 ..
+-rwxr-xr-x 1 root root 32614 Aug 20 17:46 app-prestart.sh
+-rw-r--r-- 1 root root    27 Aug 20 17:46 config.yml
+drwxr-xr-x 3 root root  4096 Sep 18 15:58 data
+drwxr-xr-x 3 root root  4096 Aug 20 19:01 default-data
+-rw-r--r-- 1 root root  2069 Aug 20 17:46 docker-compose.yml
+-rw-r--r-- 1 root root   451 Aug 20 17:46 env.template
+-rw-r--r-- 1 root root   431 Aug 20 17:46 env.user-template
+-rw-r--r-- 1 root root  2434 Aug 20 17:46 metadata.yaml
+-rwxr-xr-x 1 root root  1992 Aug 20 17:46 prestart.sh
+
+===== ap-config =====
+[connection]
+id=Halos-AP
+type=wifi
+interface-name=wlan0ap
+autoconnect=true
+autoconnect-priority=-100
+[wifi]
+mode=ap
+ssid=Halos-<ap-suffix>
+band=bg
+[wifi-security]
+key-mgmt=wpa-psk
+[ipv4]
+method=shared
+[ipv6]
+method=ignore
+/etc/NetworkManager/conf.d/:
+
+/etc/NetworkManager/dispatcher.d/:
+90-ap-nat
+no-wait.d
+pre-down.d
+pre-up.d
+
+===== ssh-hostkeys-regen =====
+○ regenerate_ssh_host_keys.service - Regenerate SSH host keys
+     Loaded: loaded (/usr/lib/systemd/system/regenerate_ssh_host_keys.service; enabled; preset: enabled)
+     Active: inactive (dead)
+  Condition: start condition unmet at Sat 2026-09-26 04:41:21 BST; 3min 36s ago
+
+
+===== big-dirs =====
+2.3G	/var/lib/docker
+1.3M	/var/lib/container-apps
+2.3M	/home
+5.2G	/usr
+308K	/var/log
+
+===== shadow-age =====
+Last password change					: Aug 20, 2026
+Password expires					: never
+Password inactive					: never
+
+===== wifi-country =====
+global
+country GB: DFS-ETSI
+	(2400 - 2483 @ 40), (N/A, 20), (N/A)
+                Time zone: Europe/London (BST, +0100)
+              NTP service: active

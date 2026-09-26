@@ -82,6 +82,17 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
   is a 2 GB Pi 4 sitting at ~358 MB available under load, so anything
   container-heavy on that hardware is memory-bound.
 
+- **Two things ruled not-defects on 2026-09-25, don't re-raise them as
+  findings.** The boat's `.openplotter/openplotter.conf` sets `soundignore`
+  across every severity including `emergency` — no speaker is connected yet, so
+  it changes nothing, and OpenPlotter's alert handling has bitten this project
+  before; changing it needs deep verification and intent, not a drive-by fix.
+  Separately, the live SignalK `security.json` and the repo's copy disagree (the
+  repo carries a `screenshots` user and two device grants the boat lacks) — the
+  repo's extras are for local testing on the home LAN, extra users and grants
+  are not a concern in themselves, and a full reconcile is noise. Neither is a
+  card.
+
 ## Yours
 
 ### Repo & tooling
@@ -111,8 +122,9 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 - [ ] [Hand over Symphony Plumbing Library.xml](kanban-detail.md#symphony-plumbing-libraryxml) when plumbing diagramming starts (Google Drive only, not fetchable).
 
 ### Boat Pi / hardware
-- [ ] **Power-cycle the Cerbo GX at the panel** (DC feed off ~30 s), then confirm Settings → Services → MQTT on LAN (SSL) is still on; if it stays dark it is a failed unit, not a config problem. Re-checked from the boat 2026-09-02: no ICMP reply and 80/443/1883/8883/22 all closed, but ARP for `5c:c5:63:0a:df:52` is `REACHABLE` — the NIC answers, nothing above it does. SignalK's Victron client is still in SYN-SENT to 192.168.8.107:8883 since 2026-09-01 21:06Z; Victron data is dead on both cards until then ([execution file](halos-swap-execution-2026-09-02.md)).
-- [ ] **Bring the 32 GB card home once the swap succeeds** (decided 2026-09-02; conditional on a successful swap — if it fails the card goes back in the boat). It holds the only copies of `~/influx-export` (1.4 GB) and `~/keep-before-purge/grafana.db`, neither of which can cross the WAN. Copy those and the `symphony_questdb-data` volume off before the card is reused (plan S3 / P7).
+- [ ] **HALPI2 is on the home LAN — resume [halpi2-arrival-plan.md](halpi2-arrival-plan.md) at step 2** (Tailscale join as a new node `symphony-halpi2`, then inventory/host_vars and `ansible-playbook site.yml --limit symphony-halpi2 --check --diff`). Step 1 done, see https://github.com/mark-brannan/symphony/pull/81 (stock-baseline capture). Plan landed in https://github.com/mark-brannan/symphony/pull/76; wrongly dropped from the board afterward, restored 2026-09-26.
+- [ ] Pause the `SignalK Symphony (halos card)` check on healthchecks.io (down since 2026-09-05, the bench card is off) or accept the standing red — it will otherwise trip again the day the bench card boots.
+- [ ] **Bring the 32 GB card home once the swap succeeds** (decided 2026-09-02; conditional on a successful swap — if it fails the card goes back in the boat). **The data half is done:** all three S3/P7 artifacts were copied off over the LAN on 2026-09-26 and verified (`~/influx-export` sha256 OK, `grafana.db` sha256 OK, `symphony_questdb-data` tarred with the container stopped, 3m35s ingest gap) — they live at `~/symphony-card-salvage/` on the Mac; see [log.md](log.md#2026-09-2526--s3p7-salvage-copied-off-the-boat-over-the-lan). What remains is only the physical card, which is your call.
 - [ ] [Decide whether to track openplotter.conf in git](kanban-detail.md#track-openplotteropenplotterconf-in-git-or-not) — its `soundignore` key is load-bearing and lives only on the boat.
 - [ ] [Decide whether to pursue a read-only root filesystem](kanban-detail.md#read-only-root-filesystem-for-the-boat-pi) — real workflow change, not a config toggle.
 
@@ -124,7 +136,7 @@ cards (the rebuild fork, the WAN, the HALPI2) were pulled off his board.
 
 ### Infrastructure
 - [ ] Dev-box `grafana` container is in a restart loop since 2026-09-04 02:12 — `Datasource provisioning error: data source not found`; pre-existing, not touched by #41/#42. Read `docker logs grafana` against [grafana/provisioning](../../grafana/provisioning) and fix the datasource reference.
-- [ ] Confirm containerized pypilot on `symphony-pi` survives a reboot — cut over 2026-09-03 (native disabled, container `restart: unless-stopped`), but that policy has never been exercised through an actual host reboot. Check `docker ps` shows `pypilot`/`pypilot-web` `Up` after the next reboot the boat takes for any reason; if not, `RUNBOOK.md` § "Cut the boat over" has the rollback.
+- [ ] Confirm containerized pypilot on `symphony-pi` survived the 2026-09-20 09:14Z reboot — cut over 2026-09-03 (native disabled, container `restart: unless-stopped`); that reboot is the first real exercise of the policy. When the Pi is reachable again, check `docker ps` shows `pypilot`/`pypilot-web` `Up`; if not, `RUNBOOK.md` § "Cut the boat over" has the rollback.
 - [ ] **`docker-compose.override.yml` is deployed to the boat, where its own header says it must not be.** It is the dev-box-only file that mounts `dev/plugin-config-overrides/` over SignalK's plugin configs. Compose loads it automatically with no `-f` flag, so it is now in all three boat containers' `com.docker.compose.project.config_files`. Inert today — it defines only the `signalk` service and the boat runs SignalK natively — but it arms itself the day anyone containerises SignalK there, and it would mount dev plugin configs over the real ones with nothing to say why. Found 2026-09-02 while adding container healthchecks; pre-existing and out of that change's scope, so left alone. Fix is probably to move its contents into a `dev`-profiled file or an explicitly-named `-f`, not to delete it.
 - [ ] Capture the SignalK-state hand changes that Ansible deliberately does not own — native-module rebuild recipe, `node_modules` reinstall, the four `"enabled": false` edits, ntfy `.env` values ([halos-b3-findings-2026-09-02.md](halos-b3-findings-2026-09-02.md)). The heartbeat URL, zram config, `hostnames.conf` body and the card's repo checkout are now in `ansible/` ([halos-build-v2-asbuilt.md](halos-build-v2-asbuilt.md)); these four are the remainder, and per `reference/host_provisioning.md` they belong in a documented script, not a role.
 - [ ] Delete the stray file on main whose name is a mangled Python heredoc (`", d[enabled])\nw=os.path.join(...` — one tracked file at the repo root, from a session's broken `python3 - <<EOF`). Confirm with `git ls-files | grep 'd\[enabled\]'` before removing; nothing references it.

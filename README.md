@@ -33,8 +33,9 @@ pull request, so a red run blocks the merge.
 bash scripts/setup-git-filters.sh   # git filters, pre-commit hooks, decrypt in place
 ```
 
-Wants `sops`, `age`, `python3` and an age key. RUNBOOK.md § *Bringing up a host*
-covers installing them and provisioning the key. Safe to re-run at any time.
+Wants `sops`, `age`, `python3` and an age key.
+[runbooks/host_bringup.md](runbooks/host_bringup.md) covers installing them and
+provisioning the key. Safe to re-run at any time.
 
 Either way, if a hook blocks a commit: `bash scripts/check_clone_setup.sh` first,
 then RUNBOOK.md § *A hook blocks your commit*.
@@ -44,7 +45,7 @@ then RUNBOOK.md § *A hook blocks your commit*.
 **The stack aboard**
 - [reference/system_map.md](reference/system_map.md) — what runs where: machines, host configurations, services, one row each. Start here.
 - [reference/software_stack.md](reference/software_stack.md) — how it is put together, and why.
-- [RUNBOOK.md](RUNBOOK.md) — what to do when something breaks or needs deploying. Procedures only.
+- [RUNBOOK.md](RUNBOOK.md) — what to do when something breaks or needs deploying; the index is by symptom. Longer, planned procedures are in [runbooks/](runbooks/).
 - [reference/](reference/) — the rest of the design record: compute hardware, monitoring posture, security posture, SignalK paths, plugin behavior.
 
 **The source it is built from**
