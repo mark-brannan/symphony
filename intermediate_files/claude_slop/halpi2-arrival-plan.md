@@ -4,6 +4,15 @@ Written before the unit arrives. Everything below that names a HALPI2 fact
 not already in `reference/compute_hardware.md` is **unverified** and marked
 so; the first bench session verifies against Hat Labs' docs before acting.
 
+## Status — 2026-09-26
+
+- Step 1 half done: the stock inventory is banked
+  ([PR #81](https://github.com/mark-brannan/symphony/pull/81),
+  [baseline](halpi2-stock-baseline-2026-09-26/README.md)). Still open from
+  step 1: the `pi` password is the published default, no `authorized_keys`,
+  and no restorable snapshot of the stock disk has been taken.
+- The unit is now on the home LAN; steps 2–6 not started, no inventory entry.
+
 ## Recommendation
 
 **Skip the Pi 4 card swap. The HALPI2 is the swap.** The 2026-09-04 HALOS
