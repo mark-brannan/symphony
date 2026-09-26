@@ -2655,7 +2655,7 @@ Still on the boat and not copied, offered to Mark without an answer:
 (109 M).
 
 ## 2026-09-26 — HALPI2 arrival plan restored to the board
-`e9767b5` (2026-08-19) dropped the HALPI2 card as a not-yet-blocking purchase
+`e9767b5` (2026-09-02) dropped the HALPI2 card as a not-yet-blocking purchase
 decision. The purchase happened and PR #76 (2026-09-22) landed
 `halpi2-arrival-plan.md`, a live bench procedure, not a decision — dropping it
 from the board was wrong. Step 1 (first boot, stock snapshot) is done: PR #81
