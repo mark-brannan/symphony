@@ -5,7 +5,8 @@ Everything here needs the machine: compiled artifacts, installed files,
 which units are enabled, which devices exist. CI has none of that, so
 these rules would fail there for the wrong reason and get muted.
 
-Repo-only rules live in scripts/lint_repo_hygiene.py.
+Repo-only rules live in scripts/lint_boat_rules.py and the shared
+repo-hygiene hook (mark-brannan/pre-commit-hooks).
 
 Usage:  python3 scripts/lint_host_state.py
 Exit:   0 clean or warnings only, 1 if something is actually wrong.

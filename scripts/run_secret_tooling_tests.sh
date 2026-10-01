@@ -24,10 +24,9 @@ if ! command -v python3 >/dev/null 2>&1; then
 	exit 0
 fi
 
-# These two need nothing but the stdlib, so they run before the pyyaml gate
+# This one needs nothing but the stdlib, so it runs before the pyyaml gate
 # below rather than being skipped along with the suites that do need it.
-python3 scripts/test_repo_hygiene.py -q
-python3 scripts/test_encoding_health.py -q
+python3 scripts/test_boat_rules.py -q
 
 if ! python3 -c 'import yaml' >/dev/null 2>&1; then
 	secretguard_require "secret-tooling tests did not run: pyyaml is missing" \

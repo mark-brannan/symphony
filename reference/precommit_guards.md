@@ -242,6 +242,6 @@ exception rather than leaving `--no-verify` as the only response.
 |---|---|
 | A check named a file you didn't mean to commit | `git restore --staged <file>` — your copy on disk is safe |
 | One check is wrong, the rest are fine | `SKIP=<check-name> git commit ...` |
-| Mangled characters in a file you edited | `python3 scripts/check_encoding_health.py --fix <file>` |
+| Mangled characters in a file you edited | the `fix:` line of the block message (it prints the full path to the shared script) |
 | Everything's on fire and you need the commit | `git commit --no-verify` — then tell someone |
 | A check blocked you with no way out | **That's a bug. Say so.** |
