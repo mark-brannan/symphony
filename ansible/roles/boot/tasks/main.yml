@@ -24,10 +24,7 @@
     regexp: "^#?\\s*{{ item.rsplit('=', 1)[0] | regex_escape }}\\s*="
     line: "{{ item }}"
     insertafter: '^\[all\]'
-  loop:
-    - dtparam=i2c_arm=on
-    - dtparam=spi=on
-    - enable_uart=1
+  loop: "{{ boot_firmware_params }}"
   notify: reboot the card
 
 - name: step 2 | device tree overlays
@@ -38,9 +35,7 @@
     regexp: "^#?\\s*dtoverlay={{ item.split('=')[1].split(',')[0] | regex_escape }}\\b"
     line: "{{ item }}"
     insertafter: '^\[all\]'
-  loop:
-    - dtoverlay=mcp2515-can0,oscillator=16000000,interrupt=25
-    - dtoverlay=spi-bcm2835-overlay
+  loop: "{{ boot_dtoverlays }}"
   notify: reboot the card
 
 - name: step 3 | wifi regulatory domain is US, not the image default
@@ -103,6 +98,11 @@
   check_mode: false
   tags: [verify]
 
+- name: step 8 | the running kernel is not right yet -- a real run reboots here
+  ansible.builtin.debug:
+    msg: "check mode: the running kernel lacks a device or setting; a real run reboots the card at this step"
+  when: ansible_check_mode and running_kernel.rc != 0
+
 - name: step 8 | the files are right but the running kernel is not -- reboot
   ansible.builtin.reboot:
     reboot_timeout: 300
@@ -112,6 +112,9 @@
   ansible.builtin.shell: *running_kernel
   changed_when: false
   check_mode: false
+  # Under --check the reboot above was skipped, so this would only re-read the
+  # same old kernel; the reboot is reported instead.
+  when: not (ansible_check_mode and running_kernel.rc != 0)
   # Running with symphony_allow_reboot=false after a firmware change fails
   # here, correctly: /boot/firmware is right, this boot is not.
   tags: [verify]
