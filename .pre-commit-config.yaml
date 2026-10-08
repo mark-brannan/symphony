@@ -8,7 +8,7 @@
 # that blocks a one-line doc edit over a file you never touched is not
 # safer, it just gets bypassed; that cost days once already.
 #
-# Two deliberate exceptions, both in scripts/lint_repo_hygiene.py, and both
+# Two deliberate exceptions, both in the shared repo-hygiene hook, and both
 # about a clone that is unsafe rather than a commit that is:
 #   - rule_plaintext_secrets_are_protectable blocks EVERY commit when real
 #     secrets are decrypted on disk and this machine can't re-encrypt them.
@@ -31,11 +31,13 @@
 # full history plus a verified-live scan, on a push to ANY branch, and
 # .github/workflows/validate.yml covers syntax and config on main and PRs.
 #
-# Every hook here is `repo: local`, so `pre-commit autoupdate` has nothing
-# to fetch and installing them needs no network. That is deliberate: the
-# gitleaks scanner version is pinned in scripts/gitleaks_precommit.sh
-# instead (see its header for how to upgrade, and why it isn't the upstream
-# gitleaks-docker hook any more).
+# The portable hooks (gitleaks, prepush-secret-scan, repo-hygiene,
+# encoding-health) come from mark-brannan/pre-commit-hooks at a pinned
+# commit; installing them fetches that repo once. Bump `rev` with
+# `pre-commit autoupdate --freeze --repo https://github.com/mark-brannan/pre-commit-hooks`.
+# The gitleaks scanner version is still pinned here, in
+# docker/gitleaks/Dockerfile, which the shared wrapper reads when present.
+# Everything that knows this repo's layout stays `repo: local` below.
 #
 # Missing local tooling degrades rather than blocking: see
 # scripts/secretguard.sh. A clone with no age key is in "contributor"
@@ -75,14 +77,10 @@ repos:
   # --redact is non-negotiable: without it gitleaks prints the secret it
   # found into the terminal and CI logs, turning a near-miss into a real
   # exposure.
-  - repo: local
+  - repo: https://github.com/mark-brannan/pre-commit-hooks
+    rev: 0296010e6d99b1a79e78217cba4cab0d5b53e8c5
     hooks:
       - id: gitleaks
-        name: gitleaks (scan staged changes for secrets)
-        entry: scripts/gitleaks_precommit.sh
-        language: system
-        pass_filenames: false
-        always_run: true
 
       # Push is the irreversible moment -- a commit is on your laptop, a
       # push is on GitHub. Scans every commit in the range being pushed,
@@ -93,13 +91,23 @@ repos:
       # deliberately -- it is the layer that has to work when everything
       # else has degraded.
       - id: prepush-secret-scan
-        name: pre-push secret scan (every commit being published)
-        entry: scripts/prepush_secret_scan.sh
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
 
+      # Repo hygiene and encoding health: see the shared repo's hook
+      # headers for the incidents. Both judge only what this commit stages;
+      # the manual-stage aliases are what CI runs repo-wide (validate.yml).
+      - id: repo-hygiene
+      - id: repo-hygiene
+        alias: repo-hygiene-all
+        args: [--all]
+        stages: [manual]
+      - id: encoding-health
+      - id: encoding-health
+        alias: encoding-health-repo
+        args: [--repo]
+        stages: [manual]
+
+  - repo: local
+    hooks:
       # .sops.yaml is the single source of truth for which files carry
       # secrets. This asserts .gitattributes still agrees with it -- a file
       # with a sops rule but no filter entry commits as PLAINTEXT, silently.
@@ -131,19 +139,18 @@ repos:
         entry: scripts/run_secret_tooling_tests.sh
         language: system
         pass_filenames: false
-        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|secretguard|lint_repo_hygiene|check_encoding_health|test_.*)\.py|scripts/secretguard\.sh|scripts/run_secret_tooling_tests\.sh|\.sops\.yaml|\.pseudonyms\.yaml)$'
+        files: '^(scripts/(pseudonymize|sops_recipients|sops_paths|secretguard|lint_boat_rules|test_.*)\.py|scripts/secretguard\.sh|scripts/run_secret_tooling_tests\.sh|\.sops\.yaml|\.pseudonyms\.yaml)$'
 
       # Rules whose absence has already cost real downtime on this boat. Each
       # one carries its incident in its docstring. Repo-only and CI-safe;
       # the host-state equivalents are scripts/lint_host_state.py, which needs
       # the machine and is run there by hand.
       #
-      # The one that earns its place on its own: a .gitattributes filter that
-      # git has no config for. Found unconfigured here on 2026-08-14, which is
-      # the state in which a secret commits to a public repo in cleartext.
-      - id: repo-hygiene
-        name: repo hygiene (declared filters, alarm scope)
-        entry: python3 scripts/lint_repo_hygiene.py
+      # The generic rules (unconfigured .gitattributes filters) are the
+      # shared repo-hygiene hook above.
+      - id: boat-rules
+        name: boat rules (alarm scope, frozen secrets)
+        entry: python3 scripts/lint_boat_rules.py
         language: system
         pass_filenames: false
         always_run: true
@@ -160,22 +167,6 @@ repos:
       - id: prose-budget
         name: prose budget (runbook sections, net prose per commit)
         entry: prose-budget --staged
-        language: system
-        pass_filenames: false
-        always_run: true
-
-      # The boat Pi's locale has no codeset (LANG=en_US), so glibc falls back
-      # to ISO-8859-1 and Python inherits it for file I/O. A script that opens
-      # a UTF-8 document without an explicit encoding reads it as latin-1 and
-      # writes latin-1 back, turning an em dash into mojibake in a committed
-      # file. This catches the damage at the commit rather than in review.
-      # Repo layer only -- the host and process checks need the machine.
-      # --staged, not --repo: one file damaged by an old latin-1 round-trip
-      # used to block every commit in the repo, by someone who did not cause
-      # it. CI runs --repo. `--fix <path>` repairs a file.
-      - id: encoding-health
-        name: encoding (tracked files are UTF-8, no mojibake)
-        entry: python3 scripts/check_encoding_health.py --staged
         language: system
         pass_filenames: false
         always_run: true
