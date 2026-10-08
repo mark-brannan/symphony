@@ -28,7 +28,10 @@
     state: present
   # Under --check the InfluxData repo above is not really added, so a card
   # without telegraf yet cannot resolve it; that is not a finding.
-  ignore_errors: "{{ ansible_check_mode }}"
+  register: base_packages
+  failed_when: >-
+    base_packages.failed
+    and not (ansible_check_mode and 'telegraf' in (base_packages.msg | default('')))
   # chrony's install removes systemd-timesyncd. That is wanted: timesyncd
   # cannot step a clock that is hours out, which is exactly the state a card
   # with no RTC boots into after a week on the hard.
