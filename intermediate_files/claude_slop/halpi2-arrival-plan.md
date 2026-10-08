@@ -12,6 +12,12 @@ so; the first bench session verifies against Hat Labs' docs before acting.
   step 1: the `pi` password is the published default, no `authorized_keys`,
   and no restorable snapshot of the stock disk has been taken.
 - The unit is now on the home LAN; steps 2–6 not started, no inventory entry.
+- Until the tailnet join, find it by LAN scan, not mDNS (`halos.local`
+  doesn't resolve from the WSL box): it is the host with ssh (Debian 13
+  banner) plus 9090 and 3000 open — 192.168.0.110 on 2026-10-08, DHCP.
+- 2026-10-08: snapshot taken (docker stopped during the pull) to
+  `~/halpi2-snapshot-2026-10-08/` on the WSL box; restore is the rpiboot
+  path in the baseline README.
 
 ## Recommendation
 
@@ -58,10 +64,10 @@ stock image is a gap in a role, fixed in the role.
 6. **Heartbeat**: point `/etc/boat-heartbeat.json` at the dead
    `SignalK Symphony (halos card)` check, repurposed, or a new one.
 
-Unverified until the docs are read, and checked before step 1: what the
-first-boot login path is, whether the RP2040 daemon ships in the image,
-which overlay the integrated N2K port uses, and what the isolated NMEA 0183
-port enumerates as.
+Settled by the [stock baseline](halpi2-stock-baseline-2026-09-26/README.md),
+no doc research needed: login is ssh `pi`/`halos` (cloud-init NoCloud is the
+first-boot hook); `halpid` ships in the image; the N2K port is `mcp251xfd`
+on `spi0-1`; the 0183 port is `uart4-pi5`, `/dev/ttyAMA4`.
 
 ## What the bench cannot answer (unchanged)
 
