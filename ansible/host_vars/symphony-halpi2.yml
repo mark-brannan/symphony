@@ -14,3 +14,10 @@ ansible_become_password: "{{ symphony_secrets.symphony_halos_pi_password }}"
 # both cards are ever powered at once they share one check, and whichever pings
 # last hides the other going quiet.
 heartbeat_url: "{{ symphony_secrets.heartbeat_url_symphony_halos }}"
+
+# The HALOS image for this board already sets i2c, its integrated CAN
+# (mcp251xfd on spi0-1) and its UARTs; the PiCAN-M lines would add a second,
+# wrong CAN controller.
+boot_firmware_params:
+  - dtparam=i2c_arm=on
+boot_dtoverlays: []
