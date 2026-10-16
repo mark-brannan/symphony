@@ -510,12 +510,12 @@ def rule_log_bullets_are_short() -> None:
     path = ROOT / LOG_PATH
     if not path.is_file():
         return
-    scope = in_scope()
     only: set[int] | None = None
-    if scope is not None:
-        if LOG_PATH not in scope:
+    # The env var, not the scope, picks the diff: CI runs --all with a range.
+    commit_range = os.environ.get("HYGIENE_COMMIT_RANGE", "").strip()
+    if commit_range or not SCOPE_ALL:
+        if not commit_range and LOG_PATH not in (in_scope() or set()):
             return
-        commit_range = os.environ.get("HYGIENE_COMMIT_RANGE", "").strip()
         cmd = (["git", "diff", commit_range] if commit_range
                else ["git", "diff", "--cached"]) + ["-U0", "--", LOG_PATH]
         diff = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,

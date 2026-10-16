@@ -24,6 +24,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -282,6 +283,40 @@ class LogBulletWarnTest(unittest.TestCase):
             try:
                 with mock.patch.object(lint, "in_scope", return_value={"maintenance/log.md"}), \
                      mock.patch.object(lint.subprocess, "run", return_value=fake):
+                    lint.rule_log_bullets_are_short()
+            finally:
+                lint.SCOPE_ALL, lint.ROOT = saved
+        self.assertEqual(len(lint.warnings), 1)
+        self.assertIn("log.md:3", lint.warnings[0])
+        lint.warnings.clear()
+
+    def test_ci_range_with_all_warns_only_on_touched_bullets(self):
+        import subprocess
+        long_ = "- " + "word " * 80 + "\n"
+        saved = (lint.SCOPE_ALL, lint.ROOT)
+        env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "maintenance").mkdir()
+            log = root / "maintenance/log.md"
+
+            def git(*a):
+                subprocess.run(["git", *a], cwd=root, check=True,
+                               capture_output=True, env={**{k: v for k, v in os.environ.items()
+                                       if not k.startswith("GIT_")}, **env})
+
+            git("init", "-q")
+            log.write_text(long_ + "- ok\n")
+            git("add", "."); git("commit", "-qm", "a")
+            log.write_text(long_ + "- ok\n" + long_)
+            git("commit", "-qam", "b")
+            lint.ROOT, lint.SCOPE_ALL = root, True
+            lint.warnings.clear()
+            try:
+                clean = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+                clean["HYGIENE_COMMIT_RANGE"] = "HEAD~1..HEAD"  # hooks leak GIT_DIR
+                with mock.patch.dict(os.environ, clean, clear=True):
                     lint.rule_log_bullets_are_short()
             finally:
                 lint.SCOPE_ALL, lint.ROOT = saved
