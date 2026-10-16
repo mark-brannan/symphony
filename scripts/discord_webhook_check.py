@@ -54,11 +54,13 @@ def main(argv=None):
         sent = payloads(now - timedelta(hours=2, minutes=5))
         mid = dn.send("POST", f"{hook}?wait=true", sent["opened"], dn.urllib.request.urlopen)["id"]
         print(f"posted {mid}; editing through verdict, agent, recovered")
-        for event in ("verdict", "agent", "recovered"):
-            dn.send("PATCH", f"{hook}/messages/{mid}", sent[event], dn.urllib.request.urlopen)
-        if not args.keep:
-            dn.send("DELETE", f"{hook}/messages/{mid}", None, dn.urllib.request.urlopen)
-            print("deleted the sample message")
+        try:
+            for event in ("verdict", "agent", "recovered"):
+                dn.send("PATCH", f"{hook}/messages/{mid}", sent[event], dn.urllib.request.urlopen)
+        finally:
+            if not args.keep:
+                dn.send("DELETE", f"{hook}/messages/{mid}", None, dn.urllib.request.urlopen)
+                print("deleted the sample message")
     except urllib.error.HTTPError as e:
         print(f"discord: HTTP {e.code}" + (" (webhook deleted or token wrong)" if e.code in (401, 404) else ""))
         return 1
