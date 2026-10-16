@@ -7,7 +7,7 @@ SESSION=claude
 DIR=/home/pi/symphony
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
-	exit 0
+    exit 0
 fi
 
 # Resume the last conversation rather than starting cold, so a reboot doesn't
@@ -18,10 +18,10 @@ fi
 transcripts="$HOME/.claude/projects/$(printf '%s' "$DIR" | tr / -)"
 resume=""
 if [ -n "$(find "$transcripts" -maxdepth 1 -name '*.jsonl' -print -quit 2>/dev/null)" ]; then
-	resume="--continue"
+    resume="--continue"
 fi
 
 # The trailing shell keeps the pane alive if claude exits, so the session is
 # still there to attach to and restart from.
 exec tmux new-session -d -s "$SESSION" -c "$DIR" \
-	"claude $resume --remote-control symphony-pi; echo; echo \"[claude exited - restart with: claude --continue --remote-control symphony-pi]\"; exec bash -l"
+    "claude $resume --remote-control symphony-pi; echo; echo \"[claude exited - restart with: claude --continue --remote-control symphony-pi]\"; exec bash -l"
