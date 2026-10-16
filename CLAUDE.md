@@ -240,7 +240,7 @@ rebuild the box.
   `influxdb_captain_password` in `secrets/symphony.sops.yaml` are frozen at
   Mark's instruction until his own hardening pass. Don't rotate, split, or
   "helpfully" strengthen them — and don't offer to; the offer itself is what
-  he asked to stop. `scripts/lint_repo_hygiene.py` fails any commit whose
+  he asked to stop. `scripts/lint_boat_rules.py` fails any commit whose
   diff touches them.
 
 ## Working style, generally

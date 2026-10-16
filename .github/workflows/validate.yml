@@ -76,9 +76,15 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
-      - run: pip install pyyaml
+      - run: pip install pyyaml pre-commit
       - run: python3 scripts/validate_configs.py
-      # Both of these scope to the staged set at
+      # The shared hooks run through pre-commit at the rev pinned in
+      # .pre-commit-config.yaml, so CI and laptops run the same code.
+      - name: repo hygiene (shared)
+        run: pre-commit run --hook-stage manual repo-hygiene-all --all-files
+      - name: encoding health (shared)
+        run: pre-commit run --hook-stage manual encoding-health-repo --all-files
+      # Like the shared hooks, this scopes to the staged set at
       # commit time and must run unscoped here.
       #
       # HYGIENE_COMMIT_RANGE gives rule_frozen_secrets_untouched something to
@@ -86,8 +92,8 @@ jobs:
       # would pass on every run regardless of what changed. Falls back to no
       # range (that rule's existing, harmless-here vacuous read) on
       # workflow_dispatch or a first push with no prior commit to diff.
-      - name: repo hygiene
-        run: python3 scripts/lint_repo_hygiene.py --all
+      - name: boat rules
+        run: python3 scripts/lint_boat_rules.py --all
         env:
           HYGIENE_COMMIT_RANGE: >-
             ${{
@@ -95,7 +101,6 @@ jobs:
               (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000') && format('{0}..{1}', github.event.before, github.sha) ||
               ''
             }}
-      - run: python3 scripts/check_encoding_health.py --repo
 
   # Runbook prose budgets (.prose-budgets.json), run by the shared engine
   # from mark-brannan/dotfiles. On a PR it diffs base...HEAD, so the
