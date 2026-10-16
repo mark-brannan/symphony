@@ -15,3 +15,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261016t045725z
 - A triage run whose diagnostics or agent log cannot be saved to the scratch repo fails the job visibly instead of passing green. Undo: Drop the exit 1 on the missing-log branches; the issue comment still shows what was saved. ([#99](https://github.com/mark-brannan/symphony/pull/99))
+
+### 20261016t060101z
+- A Discord notification that fails never fails the watch or the triage: the notifier always exits 0 and prints a warning. Undo: run the notifier with check=True and let a Discord or gh failure fail the step ([#112](https://github.com/mark-brannan/symphony/pull/112))
