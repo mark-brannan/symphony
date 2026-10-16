@@ -3,13 +3,14 @@
 # settings. Relayed through this box (rsync boat -> temp -> card): a
 # provisioned card is tagged symphony-devices and Tailscale policy refuses
 # its ssh straight to symphony-pi. Run from a tailnet machine with sops
-# access; needs ssh to symphony-halos and symphony-pi.
+# access; needs ssh to the card and to symphony-pi.
 #
-#   scripts/halos_config_sync.sh
+#   scripts/halos_config_sync.sh [host]      default host: symphony-halos
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+HOST="${1:-symphony-halos}"
 D=/var/lib/container-apps/marine-signalk-server-container/data/data
 STAGE="${TMPDIR:-/tmp}/halos-config-sync-$$"
 PW=$(sops --decrypt --extract '["symphony_halos_pi_password"]' secrets/symphony.sops.yaml)
@@ -34,8 +35,8 @@ for f in $(echo "$CONFIG_EXPECT" | tr '|' '\n'); do
 done
 
 # --delete: a file the boat has since removed must not linger on the card
-# (that's exactly what fails the preflight's `state` line); local-plugins is
+# (that's exactly what fails the preflight's `state` line); local-plugins and system-plugins are
 # excluded -- this script doesn't own the fork checkouts there.
-rsync -a --delete --exclude local-plugins "${generic_args[@]}" "${config_args[@]}" "$STAGE/" "pi@symphony-halos:$D/" \
+rsync -a --delete --exclude local-plugins --exclude system-plugins "${generic_args[@]}" "${config_args[@]}" "$STAGE/" "pi@$HOST:$D/" \
   || { echo "halos_config_sync: rsync failed; not restarting SignalK" >&2; exit 1; }
-printf '%s\n' "$PW" | ssh pi@symphony-halos "sudo -S -p '' systemctl restart marine-signalk-server-container"
+printf '%s\n' "$PW" | ssh pi@$HOST "sudo -S -p '' systemctl restart marine-signalk-server-container"
