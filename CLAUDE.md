@@ -53,8 +53,8 @@ rebuild the box.
   edits it when real feature-level work completes or the owner asks — never
   to park session state, evidence dumps, "done" annotations, or rules for
   other sessions. All of that lives under
-  `intermediate_files/claude_slop/` (`kanban.md` for cards, `kanban-detail.md`
-  for their detail, `log.md` for history).
+  `intermediate_files/claude_slop/` (`kanban-detail.md` for card
+  detail, `log.md` for history; cards live on the global work-item board).
 - Kanban-flavored, not GTD: **In Progress** (keep this small — WIP limit of
   roughly 2-3 items, matching the owner's stated preference for steady
   completion over a sprawling backlog) / **Backlog** (ordered —
@@ -63,8 +63,8 @@ rebuild the box.
   from this file, so it always reflects only what's still open.
 - The **SignalK / IoT — high level** section is the human summary; the
   detailed working state for each item is in
-  `intermediate_files/claude_slop/kanban-detail.md`, linked from a card in
-  `kanban.md`. Update both when an item opens or closes; update only the
+  `intermediate_files/claude_slop/kanban-detail.md`, linked from a card on
+  the global work-item board. Update both when an item opens or closes; update only the
   board for anything smaller.
 
 ## Claude session state — `intermediate_files/claude_slop/`
@@ -72,14 +72,14 @@ rebuild the box.
   content in `maintenance/` and `reference/`. The owner chose this location
   and the name deliberately (2026-08-19): if a future session thinks a file
   here deserves promotion, that's a proposal to Mark, not a move to make.
-- `kanban.md` is this project's board under the global **Open loops** rule
-  (`~/.claude/CLAUDE.md` § Open loops — the standing-orders file, not this
-  repo). That rule owns the mechanics: `## Yours` / `## Claude's`, one line
-  per card (a link plus the action in the imperative), `blocked:` only when
+- Cards live on the global work-item board (state repo; `worklist`), under
+  the global **Open loops** rule (`~/.claude/CLAUDE.md` § Open loops — the
+  standing-orders file, not this repo). That rule owns the mechanics: one
+  line per card (a link plus the action in the imperative), `blocked:` only when
   the card is actually blocked, cards deleted on completion rather than
   logged in place. Write the card the moment a loop is found, not at
   wrap-up — by wrap-up the detail that made it actionable is gone. Pull from
-  it to start work; it also carries the detailed state behind
+  the board to start work; it also carries the detailed state behind
   `priorities.md`'s high-level SignalK/IoT list.
 - **A wrap-up ends with zero unmeasured decisions** (owner's rule,
   2026-08-19). Every open question is either executed in-session or put to
@@ -270,8 +270,8 @@ cheap. Symphony-specific instances of those:
   session; without it, nothing in this repo enforces the rule mechanically.
 - One-watcher-per-PR has bitten this repo concretely: two sessions babysat
   PR #8 while four triggers queued against it.
-- Open questions park in `intermediate_files/claude_slop/kanban.md` under
-  Blocked — that's this repo's "durable" per the dotfiles rule.
+- Open questions park on the global work-item board (state repo;
+  `worklist`) — that's this repo's "durable" per the dotfiles rule.
 
 ## Git hygiene
 - At the start of every session, before doing any work: `git fetch` and check
