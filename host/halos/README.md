@@ -6,12 +6,16 @@ that HALOS never touches.
 
 Who places each file, so no two things own one:
 
-| File | Owner | `host/install.sh` |
-|---|---|---|
-| `signalk-healthcheck-override.yml`, `signalk-unit-override.conf` | `ansible/roles/signalk_container` (overwrites on every run, restarts the unit) | places only if absent, then restarts the unit; skips if present |
-| `traefik-symphony-signalk-host.yml` | `scripts/halos_card_prepare.sh` step 6 (overwrites on every run) | places only if absent; Traefik reloads it |
-| `compose-ntfy.yml` | `scripts/halos_card_prepare.sh` step 6 (runs it from `~/halos-prepare/`) | does not touch it |
-| `signalk-plugin-pins.txt` | `scripts/halos_card_prepare.sh` step 3 (read on the dev box) | does not touch it |
+| File | Owner |
+|---|---|
+| `signalk-healthcheck-override.yml`, `signalk-unit-override.conf` | `ansible/roles/signalk_container` (overwrites each run, restarts the unit) |
+| `traefik-symphony-signalk-host.yml` | `scripts/halos_card_prepare.sh` step 6 (overwrites each run) |
+| `compose-ntfy.yml` | `scripts/halos_card_prepare.sh` step 6, run from `~/halos-prepare/` |
+| `signalk-plugin-pins.txt` | `scripts/halos_card_prepare.sh` step 3, read on the dev box |
+
+`host/install.sh` places the first three files (the two overrides and the
+Traefik route) only if absent, restarting the unit for the overrides; it never
+touches the last two.
 
 `install.sh` does this only where `signalk-unit.sh` detects the containerised
 SignalK; on the OpenPlotter boat card it does nothing for this directory. A
