@@ -80,6 +80,8 @@ step "2. ansible site.yml (host layer; may reboot the card)"
 wait_ssh "$H"    # the network role put the card on the tailnet; use that name from here
 
 step "3. SignalK state from the boat, relayed through this box"
+# The cache holds the boat's security.json; keep it private, and a failed run keeps it for resume.
+mkdir -p "$CACHE"; chmod 700 "$CACHE"
 mkdir -p "$STAGE" "$CACHE/sk" "$CACHE/bt" "$CACHE/uptime"
 excl=(); set -f; for e in $SIGNALK_STATE_EXCLUDES; do excl+=(--exclude "$e"); done; set +f
 rsync -a --partial --delete "${excl[@]}" pi@symphony-pi:.signalk/ "$CACHE/sk/"
@@ -122,6 +124,7 @@ for fork in ("bt-sensors-plugin-sk", "signalk-plugin-watchdog", "signalk-rpi-upt
 json.dump(pkg, sys.stdout, indent=2)
 PY
 ssh "pi@$H" "grep -c 'file:local-plugins/' $D/package.json" | grep -qx 3 || { echo "fork pins missing in package.json" >&2; exit 1; }
+rm -rf "$CACHE"    # state is on the card now; nothing else reads the cache
 
 step "4. npm build (about 19 min on a Pi 4; survives a dropped ssh)"
 sudo_on "$H" "/home/pi/symphony/scripts/halos_signalk_npm.sh install"
