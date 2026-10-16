@@ -57,8 +57,8 @@ calibrate the curve against the gauge once, on the boat.
 6. **Gas sensors: separate project**, its own box and ESP32, but kicked off
    now — see [gas-sensor-box-plan.md](gas-sensor-box-plan.md).
 
-Firmware: lives in symphony `firmware/halmet/` (local working copy
-`~/symphony-halmet`), not a separate repo under the organisation: the
+Firmware: lives in symphony `firmware/halmet/`, the one source of truth;
+build and flash from there. Not a separate repo under the organisation: the
 earlier SensESP repos were put there by mistake.
 
 Thermocouples: Mark has K-types (with SPI interface boards, probably
@@ -78,7 +78,8 @@ thermocouple chain is a nice-to-try step in its own right.
 
 ## Firmware
 
-Lives in symphony `firmware/halmet/`; `~/symphony-halmet` is the local working copy, imported from
+Lives in symphony `firmware/halmet/` (the one source; `~/symphony-halmet` is
+retired), imported from
 hatlabs/HALMET-example-firmware (remote `upstream`), SensESP 3.5, ESP-IDF
 dual-framework build (`pio run -e halmet_espidf` is the one to flash;
 `-e halmet` is the fast compile check). Kept separate from `~/symphony-sensesp`
