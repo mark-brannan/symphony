@@ -47,7 +47,9 @@ bash scripts/provision_influxdb.sh
 ```
 
 On the boat, skip the `--profile tls` line ([sso.md](sso.md)). If
-`provision_influxdb.sh` minted `influx_token`, re-render and recreate grafana.
+`provision_influxdb.sh` minted `influx_token`, re-render and recreate grafana;
+if it minted `influxdb_signalk_token`, put it in
+`signalk/plugin-config-data/signalk-to-influxdb2.json` and restart SignalK.
 
 *Verify:* `bash scripts/test_integration.sh`
 
