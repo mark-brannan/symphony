@@ -4,7 +4,7 @@
 # Ansible does NOT reimplement install.sh. host_provisioning.md's migration
 # path is explicit that the two must not both own a file, and install.sh is
 # still the authoritative writer for everything in its INSTALL array -- the
-# watchdog drop-in, chrony's conf.d file, the heartbeat and BLE-check units and
+# watchdog drop-in, the heartbeat and BLE-check units and
 # timers, the apt unattended-upgrade confs. Porting those into roles is the
 # next slice, tracked on the board; today this role's job is to invoke it and
 # to fail honestly when it does not finish.

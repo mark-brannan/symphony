@@ -91,7 +91,7 @@ That distinction is what made the first attempt at GPS time wrong. The usual
 recipe — `refclock SHM`, reading the NTP shared-memory segments gpsd
 publishes into — assumes a serial receiver this boat does not have, so the
 segments are never written and the refclock sat at Reach 0 having never
-received a sample. It has been removed; `host/chrony.conf` now carries no
+received a sample. It has been removed; `ansible/roles/clock/files/symphony.conf` now carries no
 refclock and chrony tracks internet NTP alone. The GPS time it was reaching
 for is on the N2K bus in `126992` and `129029` — and now reaches SignalK as
 `navigation.datetime`, which is the likely bridge — but getting it to chrony
