@@ -14,7 +14,8 @@ permissions:
 
 jobs:
   recovered:
-    if: contains(github.event.issue.body, '<!-- discord:')
+    # Labels need triage rights, so an outsider's issue with a forged marker never posts to the channel.
+    if: contains(github.event.issue.labels.*.name, 'boat-down') && contains(github.event.issue.body, '<!-- discord:')
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
