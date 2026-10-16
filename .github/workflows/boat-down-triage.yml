@@ -1,0 +1,87 @@
+name: Boat down triage
+
+# healthchecks.io alerts once per outage and then goes quiet; an outage of the
+# halos card ran 40 days that way. This keeps an open `boat-down` issue for
+# each outage until the check recovers, and sends an agent over the tailnet to
+# triage each new one. The triage job is skipped until the Tailscale OAuth
+# client secrets exist.
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: boat-down-triage
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      triage: ${{ steps.watch.outputs.triage }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: watch
+        run: python3 scripts/boat_down_watch.py
+        env:
+          HC_API_KEY: ${{ secrets.HEALTHCHECKS_API_KEY_READ_ONLY }}
+          GH_TOKEN: ${{ github.token }}
+
+  triage:
+    needs: watch
+    if: needs.watch.outputs.triage != '' && needs.watch.outputs.triage != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        item: ${{ fromJSON(needs.watch.outputs.triage) }}
+    steps:
+      - id: gate
+        run: echo "run=${{ secrets.TS_OAUTH_CLIENT_ID != '' }}" >> "$GITHUB_OUTPUT"
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v7
+      - if: steps.gate.outputs.run == 'true'
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:cloud-ephemeral
+      - if: steps.gate.outputs.run == 'true'
+        run: |
+          mkdir -p ~/.ssh
+          printf 'Host symphony-*\n  User pi\n  StrictHostKeyChecking accept-new\n  ConnectTimeout 15\n' >> ~/.ssh/config
+      - if: steps.gate.outputs.run == 'true'
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --model claude-sonnet-5-5 --max-turns 40
+            --allowedTools "Bash(ssh:*),Bash(tailscale status:*),Bash(tailscale ping:*),Bash(gh issue comment:*),Read,Grep,Glob"
+          prompt: |
+            The healthchecks.io heartbeat for `${{ matrix.item.host }}` stopped
+            at ${{ matrix.item.since }}. Issue #${{ matrix.item.issue }} in
+            ${{ github.repository }} tracks it. Triage it; do not fix it.
+
+            1. `tailscale status` and `tailscale ping ${{ matrix.item.host }}`:
+               is the node online on the tailnet, and when was it last seen?
+            2. If reachable, `ssh ${{ matrix.item.host }}` and read only:
+               uptime, `systemctl status boat-heartbeat.timer boat-heartbeat.service`,
+               `journalctl -u boat-heartbeat --since '${{ matrix.item.since }}'`,
+               `systemctl --failed`, `free -m`, `df -h`, network reachability
+               of healthchecks.io. Use RUNBOOK.md and reference/monitoring_posture.md
+               in this checkout to know what normal looks like.
+            3. Change nothing on the host: no restarts, no edits, no installs.
+
+            Post one comment on issue #${{ matrix.item.issue }} with
+            `gh issue comment`: the most likely cause, the evidence for it,
+            and the next step a human should take. This repo is public:
+            summarise in your own words, quote at most a few log lines, and
+            never paste config, environment, tokens, keys or passwords.
+            Open the comment with `🤖 ` and end it with
+            `🤖 claude-sonnet-5-5 · triage · run ${{ github.run_id }}`.
