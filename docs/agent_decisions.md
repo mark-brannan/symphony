@@ -21,3 +21,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261016t060106z
 - One Discord message per outage, edited in place, embed only, mentions disabled; the shared channel sees four edits, not four posts. Undo: post a fresh message per event and drop the marker on the issue ([#112](https://github.com/mark-brannan/symphony/pull/112))
+
+### 20261016t060109z
+- The Discord message id is stored on the public GitHub issue body as an HTML comment marker; it identifies a message, not a credential. Undo: keep the id in the workflow run or a scratch-repo file instead ([#112](https://github.com/mark-brannan/symphony/pull/112))
