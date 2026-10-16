@@ -61,7 +61,6 @@ signalk_unit_detect
 # one card's version and overwriting the other card's is a silent regression.
 INSTALL=(
 	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755:root:root"
-	"systemd-watchdog.conf:/etc/systemd/system.conf.d/watchdog.conf:0644:root:root"
 	"signalk-after-bluetooth.conf:/etc/systemd/system/$SIGNALK_UNIT.d/after-bluetooth.conf:0644:root:root"
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
