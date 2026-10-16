@@ -180,3 +180,17 @@ and router DNS overrides, Cerbo MQTT. All of that is swap day.
 The boat Pi has had no uplink since 2026-09-20. The Cerbo reboot result,
 the disk-90 % alarm and the pypilot-survives-reboot check all wait on the
 next boat visit or the router coming back. Cards on the board.
+
+## As-built 2026-10-15: SignalK hand changes scripted
+
+- Card overrides (four plugins `"enabled": false`, Venus host) moved out of
+  `halos_card_prepare.sh` step 5 into `scripts/halos_card_overrides.py`:
+  writes only on difference, prints `changed: N`; SignalK restarts only if N > 0.
+- `scripts/halos_signalk_npm.sh install` now exits early when
+  `$D/.halos-npm-stamp` equals the sha256 of `$D/package.json` (`FORCE=1`
+  overrides). The stamp is written at the end of a clean build.
+- HALPI2 host change: stamped the existing, already-built tree with
+  `sha256sum < $D/package.json > $D/.halos-npm-stamp` (undo: delete that file;
+  the next `install` then rebuilds). Proof: overrides script run twice over
+  ssh, both `changed: 0`; npm script run twice, both no-op; SignalK active,
+  HTTP 200 on :3000/signalk.

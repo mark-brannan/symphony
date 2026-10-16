@@ -99,7 +99,7 @@ ssh "pi@$H" "mkdir -p $D/local-plugins"
 # (that's exactly what fails the preflight's `state` line); local-plugins is
 # excluded because steps below repopulate it from this box, not from the sync.
 # system-plugins is root-owned HaLOS image content (signalk-halpi on the HALPI2); --delete cannot, and must not, remove it.
-rsync -a --delete --exclude package.json --exclude local-plugins --exclude system-plugins "${keep[@]}" "$CACHE/sk/" "pi@$H:$D/"
+rsync -a --delete --exclude package.json --exclude .halos-npm-stamp --exclude local-plugins --exclude system-plugins "${keep[@]}" "$CACHE/sk/" "pi@$H:$D/"
 rsync -a "$CACHE/bt/" "pi@$H:$D/local-plugins/bt-sensors-plugin-sk/"
 rsync -a --delete "$CACHE/uptime/" "pi@$H:$D/local-plugins/signalk-rpi-uptime/"
 ssh "pi@$H" "git -C /home/pi/symphony pull -q && rm -rf $D/local-plugins/signalk-plugin-watchdog && cp -r /home/pi/symphony/plugins/signalk-plugin-watchdog $D/local-plugins/"
@@ -136,18 +136,10 @@ step "4. npm build (about 19 min on a Pi 4; survives a dropped ssh)"
 sudo_on "$H" "/home/pi/symphony/scripts/halos_signalk_npm.sh install"
 
 step "5. card overrides: ${EXPECT} off, venus host $VENUS_HOST"
-ssh "pi@$H" "python3 - $D/plugin-config-data '$EXPECT' $VENUS_HOST" <<'PY'
-import json, sys
-d, names, venus = sys.argv[1], sys.argv[2].split(), sys.argv[3]
-for n in names:
-    p = f"{d}/{n}.json"
-    c = json.load(open(p)); c["enabled"] = False
-    json.dump(c, open(p, "w"), indent=2)
-p = f"{d}/venus.json"
-c = json.load(open(p)); c["configuration"]["MQTT"]["host"] = venus
-json.dump(c, open(p, "w"), indent=2)
-PY
-sudo_on "$H" "systemctl restart marine-signalk-server-container"
+out=$(ssh "pi@$H" "python3 - $D/plugin-config-data '$EXPECT' $VENUS_HOST" < scripts/halos_card_overrides.py)
+echo "$out"
+# Restart only when a file changed: the edit is idempotent, so a re-run leaves SignalK alone.
+case "$out" in *"changed: 0") ;; *) sudo_on "$H" "systemctl restart marine-signalk-server-container" ;; esac
 
 step "6. front door: ntfy (the SignalK Traefik route is placed by ansible/roles/signalk_container)"
 # From this checkout, not the card's: the card's clone may be behind.
