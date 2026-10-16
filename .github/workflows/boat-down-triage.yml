@@ -53,7 +53,8 @@ jobs:
 
   triage:
     needs: watch
-    if: needs.watch.outputs.triage != '' && needs.watch.outputs.triage != '[]'
+    # !cancelled(): issues the watch opened before failing still get triaged.
+    if: ${{ !cancelled() && needs.watch.outputs.triage != '' && needs.watch.outputs.triage != '[]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
