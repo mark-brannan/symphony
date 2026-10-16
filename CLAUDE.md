@@ -242,6 +242,11 @@ rebuild the box.
   "helpfully" strengthen them — and don't offer to; the offer itself is what
   he asked to stop. `scripts/lint_repo_hygiene.py` fails any commit whose
   diff touches them.
+- **The age key encrypts the sops secrets files and nothing else;** the
+  global standing orders carry the rule. It exists because a boat-triage
+  workflow once encrypted its agent log to the sops public keys, caught
+  before merge and replaced with a PAT push to the private scratch repo
+  (#99).
 
 ## Working style, generally
 - No unsolicited notes, hedges, or "this may have changed" commentary
