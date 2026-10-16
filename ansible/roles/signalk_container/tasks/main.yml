@@ -33,6 +33,22 @@
   # The override file above does nothing on its own -- HALOS's unit does not
   # know about it. This is the half that wires it in.
 
+- name: SignalK route | Traefik's dynamic directory exists
+  ansible.builtin.stat:
+    path: /etc/halos/traefik-dynamic.d
+  register: signalk_route_dir
+
+- name: SignalK route | Traefik file router for signalk.<boat-domain>
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../host/halos/traefik-symphony-signalk-host.yml"
+    dest: /etc/halos/traefik-dynamic.d/symphony-signalk-host.yml
+    owner: root
+    group: root
+    mode: "0644"
+  when: signalk_route_dir.stat.isdir | default(false)
+  # Sole owner of this file: scripts/halos_card_prepare.sh no longer writes it.
+  # Traefik watches the directory, so no handler; skipped where HALOS Traefik is absent (as install.sh does).
+
 - name: step 29 | apply the overrides before verifying them
   ansible.builtin.meta: flush_handlers
 
