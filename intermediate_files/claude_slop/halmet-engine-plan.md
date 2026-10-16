@@ -21,7 +21,7 @@ https://github.com/hatlabs/discussions/discussions/107
 | 1-Wire | 1 header | pull-up and protection on board; DQ on **GPIO4** (traced in the schematic, rev 1.0.1; not silkscreened) | DS18B20 chain |
 | I2C | Qwiic + 2.54 mm header | shares the bus with the onboard ADS1115 (0x4b) | optional BME688 |
 | NMEA 2000 | 4-pin screw terminal | bus-powered, 5–32 V | power + data if the backbone reaches (Q3) |
-| Flash | ? | documented as 4, 8 and 16 MB in three places; example firmware builds for 8 MB | `esptool flash_id` on the bench settles it |
+| Flash | 16 MB | documented as 4, 8 and 16 MB in three places; example firmware builds for 8 MB | measured: `esptool flash_id` 2026-10-15: ESP32-D0WD-V3 rev 3.1, Manufacturer a1 Device 4018 |
 
 Co-existence with existing senders: supported by design. A switch-type sender
 (lamp/buzzer) goes to a digital input in parallel with the lamp. A gauge-type
@@ -57,9 +57,9 @@ calibrate the curve against the gauge once, on the boat.
 6. **Gas sensors: separate project**, its own box and ESP32, but kicked off
    now — see [gas-sensor-box-plan.md](gas-sensor-box-plan.md).
 
-Firmware repo: local `~/symphony-halmet` is fine. When it gets a GitHub
-remote it goes under Mark's own account, not the organisation the earlier
-SensESP repos were put under; that placement was a mistake.
+Firmware: lives in symphony `firmware/halmet/` (local working copy
+`~/symphony-halmet`), not a separate repo under the organisation: the
+earlier SensESP repos were put there by mistake.
 
 Thermocouples: Mark has K-types (with SPI interface boards, probably
 MAX6675/MAX31855) on hand. DS18B20 tops out at 125 °C, so it is fine on the
@@ -78,12 +78,12 @@ thermocouple chain is a nice-to-try step in its own right.
 
 ## Firmware
 
-`~/symphony-halmet` — local git repo, imported from
+Lives in symphony `firmware/halmet/`; `~/symphony-halmet` is the local working copy, imported from
 hatlabs/HALMET-example-firmware (remote `upstream`), SensESP 3.5, ESP-IDF
 dual-framework build (`pio run -e halmet_espidf` is the one to flash;
 `-e halmet` is the fast compile check). Kept separate from `~/symphony-sensesp`
 because the espidf build carries its own sdkconfig/CMake and the monorepo is
-plain esp32dev + arduino. No GitHub remote yet.
+plain esp32dev + arduino. Its GitHub home is this repo's `firmware/halmet/`; no separate remote.
 
 Done: hostname `symphony-halmet`. The example already does D1 tach → PGN
 127488 + SK, D2/D3 alarms → PGN 127489, A1 tank level.
@@ -96,6 +96,12 @@ Done: hostname `symphony-halmet`. The example already does D1 tach → PGN
    pin (GPIO 33 → D1). (session, Mark plugs in USB; `pio run -e halmet`
    already compiles clean on the WSL box, 2026-09-26; still waiting on the
    board)
+   - Done 2026-10-15: flashed `halmet_espidf` over USB (the board's USB-serial
+     chip is a CH340, attached with `scripts/halmet_usb_attach.sh`); it joined
+     the home WiFi, found the HALPI2's Signal K by mDNS at 192.168.0.110:4430
+     (wss) and filed an access request, PENDING the owner's approval in the
+     Signal K admin UI. The D1 380 Hz test is not done (no GPIO33→D1 jumper on
+     the bench).
    - 1-Wire GPIO **confirmed as GPIO4** from `HALMET.kicad_sch`/
      `onewire.kicad_sch` (DQ net traced to the ESP32-WROOM-32 IO4 pin, rev
      1.0.1) rather than benched — done from the schematic without the board
