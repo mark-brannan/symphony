@@ -5,6 +5,10 @@
 #   scripts/halos_card_prepare.sh 192.168.1.50   virgin card: bootstrap first (use the card's own LAN IP)
 #   scripts/halos_card_prepare.sh                card already on the tailnet
 #
+# Another card (the HALPI2): CARD_NAME is its inventory/tailnet name, CARD_SSH
+# the address ssh uses when the tailnet name is unusable from this box:
+#   CARD_NAME=symphony-halpi2 CARD_SSH=192.168.0.110 scripts/halos_card_prepare.sh
+#
 # Runs every layer in order and stops at the first failure. Idempotent: a
 # re-run after a fix picks up where the card is. Ends with the preflight; the
 # card is ready when every preflight line reads ok and nothing else.
@@ -30,10 +34,13 @@ for tool in sops ansible-playbook rsync ssh; do
 done
 
 TARGET="${1:-symphony-halos}"
-H=symphony-halos                       # tailnet name once the network role ran
+CARD_NAME="${CARD_NAME:-symphony-halos}"   # inventory and tailnet name
+H="${CARD_SSH:-$CARD_NAME}"                # what ssh and rsync connect to
 D=/var/lib/container-apps/marine-signalk-server-container/data/data
 VENUS_HOST=192.168.8.107               # the Cerbo's LAN address; see kanban card "Pick a name for the boat's Venus GX"
 STAGE="${TMPDIR:-/tmp}/halos-prepare-$$"
+# The boat's state copy survives between runs, so a dropped slow link resumes (--partial) instead of restarting.
+CACHE="${TMPDIR:-/tmp}/halos-prepare-cache"
 PW=$(sops --decrypt --extract '["symphony_halos_pi_password"]' secrets/symphony.sops.yaml)
 . scripts/halos_disabled_plugins.sh    # EXPECT, CONFIG_EXPECT, SIGNALK_STATE_EXCLUDES
 
@@ -49,7 +56,7 @@ if [[ "$TARGET" =~ ^[0-9.]+$ ]]; then
   cat >"$INV" <<EOF
 all:
   children:
-    halos_cards: { hosts: { symphony-halos: { ansible_host: $TARGET } } }
+    halos_cards: { hosts: { $CARD_NAME: { ansible_host: $TARGET } } }
   vars:
     ansible_user: pi
     ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
@@ -63,18 +70,24 @@ fi
 
 step "1. app packages (QuestDB, Grafana) on $CARD"
 sudo_on "$CARD" "sh -c 'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq marine-questdb-container marine-grafana-container'"
-# 2 GB bench cannot hold the databases next to the build; back up for the preflight.
-sudo_on "$CARD" "systemctl stop marine-questdb-container marine-grafana-container marine-influxdb-container" || true
+# A card under 3 GB cannot hold the databases next to the build; an 8 GB one runs them.
+sudo_on "$CARD" "systemctl stop marine-influxdb-container" || true
+[ "$(ssh "pi@$CARD" "free -m | awk '/^Mem/{print \$2}'")" -ge 3000 ] || sudo_on "$CARD" "systemctl stop marine-questdb-container marine-grafana-container" || true
 
 step "2. ansible site.yml (host layer; may reboot the card)"
-(cd ansible && ansible-playbook "${ANSIBLE_ARGS[@]}" site.yml -l symphony-halos)
+[ "$H" = "$CARD_NAME" ] || [[ "$TARGET" =~ ^[0-9.]+$ ]] || ANSIBLE_ARGS+=(-e "ansible_host=$H")
+(cd ansible && ansible-playbook "${ANSIBLE_ARGS[@]}" site.yml -l "$CARD_NAME")
 wait_ssh "$H"    # the network role put the card on the tailnet; use that name from here
 
 step "3. SignalK state from the boat, relayed through this box"
-mkdir -p "$STAGE/sk" "$STAGE/bt"
+# The cache holds the boat's security.json; keep it private, and a failed run keeps it for resume.
+mkdir -p "$CACHE"; chmod 700 "$CACHE"
+mkdir -p "$STAGE" "$CACHE/sk" "$CACHE/bt" "$CACHE/uptime"
 excl=(); set -f; for e in $SIGNALK_STATE_EXCLUDES; do excl+=(--exclude "$e"); done; set +f
-rsync -a "${excl[@]}" pi@symphony-pi:.signalk/ "$STAGE/sk/"
-rsync -a --exclude node_modules --exclude .git pi@symphony-pi:bt-sensors-plugin-sk/ "$STAGE/bt/"
+rsync -a --partial --delete "${excl[@]}" pi@symphony-pi:.signalk/ "$CACHE/sk/"
+rsync -a --partial --delete --exclude node_modules --exclude .git pi@symphony-pi:bt-sensors-plugin-sk/ "$CACHE/bt/"
+# signalk-rpi-uptime was unpublished from npm on 2026-10-13, so `npm install` 404s on its pin; carry the boat's copy as a local plugin.
+rsync -a --delete pi@symphony-pi:.signalk/node_modules/signalk-rpi-uptime/ "$CACHE/uptime/"
 # Keep the card's own settings if it already has them (a re-run), else they
 # arrive from the boat and step 5 rewrites them.
 keep=()
@@ -85,8 +98,10 @@ ssh "pi@$H" "mkdir -p $D/local-plugins"
 # --delete: a file the boat has since removed must not linger on the card
 # (that's exactly what fails the preflight's `state` line); local-plugins is
 # excluded because steps below repopulate it from this box, not from the sync.
-rsync -a --delete --exclude package.json --exclude local-plugins "${keep[@]}" "$STAGE/sk/" "pi@$H:$D/"
-rsync -a "$STAGE/bt/" "pi@$H:$D/local-plugins/bt-sensors-plugin-sk/"
+# system-plugins is root-owned HaLOS image content (signalk-halpi on the HALPI2); --delete cannot, and must not, remove it.
+rsync -a --delete --exclude package.json --exclude .halos-npm-stamp --exclude local-plugins --exclude system-plugins "${keep[@]}" "$CACHE/sk/" "pi@$H:$D/"
+rsync -a "$CACHE/bt/" "pi@$H:$D/local-plugins/bt-sensors-plugin-sk/"
+rsync -a --delete "$CACHE/uptime/" "pi@$H:$D/local-plugins/signalk-rpi-uptime/"
 ssh "pi@$H" "git -C /home/pi/symphony pull -q && rm -rf $D/local-plugins/signalk-plugin-watchdog && cp -r /home/pi/symphony/plugins/signalk-plugin-watchdog $D/local-plugins/"
 # The boat's package.json with every plugin pinned to the version the boat
 # actually runs (its ranges would let npm take a newer patch and fail the
@@ -97,40 +112,39 @@ for k in json.load(open(\"package.json\"))[\"dependencies\"]:
     p=f\"node_modules/{k}/package.json\"
     if os.path.exists(p): print(k, json.load(open(p))[\"version\"])
 "' > "$STAGE/installed.txt"
-python3 - "$STAGE/sk/package.json" "$STAGE/installed.txt" <<'PY' | ssh "pi@$H" "cat > $D/package.json"
+python3 - "$CACHE/sk/package.json" "$STAGE/installed.txt" host/halos/signalk-plugin-pins.txt <<'PY' | ssh "pi@$H" "cat > $D/package.json"
 import json, sys
 pkg = json.load(open(sys.argv[1]))
 exact = dict(l.split() for l in open(sys.argv[2]) if l.strip())
+# A pin wins only while it is ahead of the boat; once the boat catches up it never downgrades.
+ver = lambda s: tuple(int(x) for x in s.split("-")[0].split("."))
+for l in open(sys.argv[3]):
+    if l.strip() and not l.startswith("#"):
+        k, v = l.split()
+        if k not in exact or ver(v) > ver(exact[k]): exact[k] = v
 deps = pkg["dependencies"]
 for k in deps:
     if k in exact: deps[k] = exact[k]
-for fork in ("bt-sensors-plugin-sk", "signalk-plugin-watchdog"):
+for fork in ("bt-sensors-plugin-sk", "signalk-plugin-watchdog", "signalk-rpi-uptime"):
     deps[fork] = f"file:local-plugins/{fork}"
 json.dump(pkg, sys.stdout, indent=2)
 PY
-ssh "pi@$H" "grep -c 'file:local-plugins/' $D/package.json" | grep -qx 2 || { echo "fork pins missing in package.json" >&2; exit 1; }
+ssh "pi@$H" "grep -c 'file:local-plugins/' $D/package.json" | grep -qx 3 || { echo "fork pins missing in package.json" >&2; exit 1; }
+rm -rf "$CACHE"    # state is on the card now; nothing else reads the cache
 
 step "4. npm build (about 19 min on a Pi 4; survives a dropped ssh)"
 sudo_on "$H" "/home/pi/symphony/scripts/halos_signalk_npm.sh install"
 
 step "5. card overrides: ${EXPECT} off, venus host $VENUS_HOST"
-ssh "pi@$H" "python3 - $D/plugin-config-data '$EXPECT' $VENUS_HOST" <<'PY'
-import json, sys
-d, names, venus = sys.argv[1], sys.argv[2].split(), sys.argv[3]
-for n in names:
-    p = f"{d}/{n}.json"
-    c = json.load(open(p)); c["enabled"] = False
-    json.dump(c, open(p, "w"), indent=2)
-p = f"{d}/venus.json"
-c = json.load(open(p)); c["configuration"]["MQTT"]["host"] = venus
-json.dump(c, open(p, "w"), indent=2)
-PY
-sudo_on "$H" "systemctl restart marine-signalk-server-container"
+out=$(ssh "pi@$H" "python3 - $D/plugin-config-data '$EXPECT' $VENUS_HOST" < scripts/halos_card_overrides.py)
+echo "$out"
+# Restart only when a file changed: the edit is idempotent, so a re-run leaves SignalK alone.
+case "$out" in *"changed: 0") ;; *) sudo_on "$H" "systemctl restart marine-signalk-server-container" ;; esac
 
-step "6. front door: ntfy, SignalK route"
+step "6. front door: ntfy (the SignalK Traefik route is placed by ansible/roles/signalk_container)"
 # From this checkout, not the card's: the card's clone may be behind.
 rsync -a host/halos/ "pi@$H:/home/pi/halos-prepare/"
-sudo_on "$H" "sh -c 'cd /home/pi/halos-prepare && docker compose -p symphony-ntfy -f compose-ntfy.yml up -d && install -m 0644 traefik-symphony-signalk-host.yml /etc/halos/traefik-dynamic.d/symphony-signalk-host.yml'"
+sudo_on "$H" "sh -c 'cd /home/pi/halos-prepare && docker compose -p symphony-ntfy -f compose-ntfy.yml up -d'"
 
 step "7. reboot, then wait for the cold start"
 sudo_on "$H" "systemctl reboot" || true
@@ -142,4 +156,4 @@ mem=$(ssh "pi@$H" "free -m | awk '/^Mem/{print \$2}'")
 echo "waiting 5 min for SignalK's cold start"; sleep 300
 
 step "8. preflight -- ready when every line is ok"
-exec scripts/halos_preflight.sh "$H"
+CARD_NAME="$CARD_NAME" exec scripts/halos_preflight.sh "$H"
