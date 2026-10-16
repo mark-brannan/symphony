@@ -16,11 +16,11 @@ import urllib.request
 
 API = "https://healthchecks.io/api/v3"
 LABEL = "boat-down"
-# healthchecks.io check name -> tailnet host the triage agent ssh'es to.
-HOSTS = {
-    "SignalK Symphony": "symphony-pi",
-    "SignalK Symphony (halos card)": "symphony-halos",
-}
+
+
+def host_of(check):
+    """The tailnet host is a `symphony-*` tag on the check, so a card swap is a retag, not a code change."""
+    return next((t for t in (check.get("tags") or "").split() if t.startswith("symphony-")), None)
 
 
 def marker(key):
@@ -36,7 +36,7 @@ def plan(checks, open_issues):
                 by_key[c["unique_key"]] = issue["number"]
     to_open, to_close = [], []
     for c in checks:
-        if c["name"] not in HOSTS:
+        if host_of(c) is None:
             continue
         issue = by_key.get(c["unique_key"])
         if c["status"] == "down" and issue is None:
@@ -56,10 +56,10 @@ def gh(*args):
     return subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
 
 
-def down_since(key):
-    flips = sorted(hc(f"/checks/{key}/flips/")["flips"], key=lambda f: f["timestamp"])
+def down_since(check):
+    flips = sorted(hc(f"/checks/{check['unique_key']}/flips/")["flips"], key=lambda f: f["timestamp"])
     downs = [f["timestamp"] for f in flips if not f["up"]]
-    return downs[-1] if downs else "unknown"
+    return downs[-1] if downs else check["last_ping"] or "unknown"
 
 
 def main():
@@ -69,25 +69,28 @@ def main():
                            "--json", "number,body", "--limit", "100"))
     to_open, to_close = plan(checks, issues)
     triage = []
-    for c in to_open:
-        host = HOSTS[c["name"]]
-        since = down_since(c["unique_key"])
-        body = (f"{marker(c['unique_key'])}\n"
-                f"healthchecks.io check **{c['name']}** is down.\n\n"
-                f"- host: `{host}`\n- down since: {since}\n- last ping: {c['last_ping']}\n\n"
-                "Closes itself when the check is up again.")
-        url = gh("issue", "create", "-R", repo, "--label", LABEL,
-                 "--title", f"{host} down since {since[:10]}", "--body", body).strip()
-        triage.append({"issue": int(url.rsplit("/", 1)[1]), "host": host, "since": since})
-        print(f"opened {url}")
-    for number, c in to_close:
-        gh("issue", "close", str(number), "-R", repo, "--comment",
-           f"Check is `{c['status']}` again (last ping {c['last_ping']}).")
-        print(f"closed #{number} ({c['status']})")
-    out = os.environ.get("GITHUB_OUTPUT")
-    if out:
-        with open(out, "a") as f:
-            f.write(f"triage={json.dumps(triage)}\n")
+    try:
+        for c in to_open:
+            host = host_of(c)
+            since = down_since(c)
+            body = (f"{marker(c['unique_key'])}\n"
+                    f"healthchecks.io check **{c['name']}** is down.\n\n"
+                    f"- host: `{host}`\n- down since: {since}\n- last ping: {c['last_ping']}\n\n"
+                    "Closes itself when the check is up again.")
+            url = gh("issue", "create", "-R", repo, "--label", LABEL,
+                     "--title", f"{host} down since {since[:10]}", "--body", body).strip()
+            triage.append({"issue": int(url.rsplit("/", 1)[1]), "host": host, "since": since})
+            print(f"opened {url}")
+        for number, c in to_close:
+            gh("issue", "close", str(number), "-R", repo, "--comment",
+               f"Check is `{c['status']}` again (last ping {c['last_ping']}).")
+            print(f"closed #{number} ({c['status']})")
+    finally:
+        # An issue opened before a later failure must still reach triage; the next run treats it as known.
+        out = os.environ.get("GITHUB_OUTPUT")
+        if out:
+            with open(out, "a") as f:
+                f.write(f"triage={json.dumps(triage)}\n")
     return 0
 
 

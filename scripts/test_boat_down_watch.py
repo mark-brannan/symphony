@@ -5,10 +5,10 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from boat_down_watch import marker, plan  # noqa: E402
+from boat_down_watch import host_of, marker, plan  # noqa: E402
 
-PI = {"name": "SignalK Symphony", "unique_key": "pi", "status": "down", "last_ping": "t"}
-HALOS = {"name": "SignalK Symphony (halos card)", "unique_key": "halos", "status": "up", "last_ping": "t"}
+PI = {"name": "SignalK Symphony", "tags": "symphony-pi", "unique_key": "pi", "status": "down", "last_ping": "t"}
+HALOS = {"name": "SignalK Symphony (halos card)", "tags": "prod symphony-halpi2", "unique_key": "halos", "status": "up", "last_ping": "t"}
 
 
 def issue(n, key):
@@ -29,9 +29,12 @@ class Plan(unittest.TestCase):
         paused = dict(PI, status="paused")
         self.assertEqual(plan([paused], [issue(7, "pi")]), ([], [(7, paused)]))
 
-    def test_unknown_check_is_ignored(self):
-        other = dict(PI, name="something else", unique_key="x")
+    def test_untagged_check_is_ignored(self):
+        other = dict(PI, tags="", unique_key="x")
         self.assertEqual(plan([other], []), ([], []))
+
+    def test_host_comes_from_symphony_tag(self):
+        self.assertEqual(host_of(HALOS), "symphony-halpi2")
 
 
 if __name__ == "__main__":
