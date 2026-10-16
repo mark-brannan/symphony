@@ -78,7 +78,10 @@ jobs:
       - if: steps.gate.outputs.run == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/boat_triage.sh "${{ matrix.item.host }}" "${{ matrix.item.issue }}" "${{ matrix.item.since }}"
+          HOST: ${{ matrix.item.host }}
+          ISSUE: ${{ matrix.item.issue }}
+          SINCE: ${{ matrix.item.since }}
+        run: scripts/boat_triage.sh "$HOST" "$ISSUE" "$SINCE"
       - id: agent
         if: steps.gate.outputs.run == 'true'
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
