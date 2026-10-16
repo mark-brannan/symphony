@@ -62,8 +62,6 @@ signalk_unit_detect
 INSTALL=(
 	"nightly-reboot:/usr/local/sbin/nightly-reboot:0755:root:root"
 	"signalk-after-bluetooth.conf:/etc/systemd/system/$SIGNALK_UNIT.d/after-bluetooth.conf:0644:root:root"
-	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
-	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
 	# keep: the two cards ping two DIFFERENT healthchecks.io checks, and this
 	# file has room for one URL. Copying it unconditionally meant whichever
 	# card ran the installer last took over the other's check -- so the card
@@ -147,7 +145,6 @@ for spec in "${INSTALL[@]}"; do
 	echo "  $dest  ($mode $owner:$group)"
 	case "$dest" in
 	/etc/systemd/*) reexec=yes ;;
-	*/.config/systemd/user/*) user_units=yes ;;
 	esac
 done
 
@@ -246,21 +243,6 @@ for unit in "${ENABLE[@]:-}"; do
 	systemctl enable --now "$unit" >/dev/null 2>&1 || true
 	echo "  $unit  ($(systemctl is-enabled "$unit" 2>&1), $(systemctl is-active "$unit" 2>&1))"
 done
-
-# A systemd --user unit only runs while that user has a session, unless
-# lingering is on. Enabling it here is what lets the resident Claude session
-# come back after a reboot with nobody logged in.
-if [ "${user_units:-}" = yes ]; then
-	echo "== user units =="
-	uid="$(id -u "$BOAT_USER")"
-	as_boat_user() {
-		sudo -u "$BOAT_USER" XDG_RUNTIME_DIR="/run/user/$uid" "$@"
-	}
-	loginctl enable-linger "$BOAT_USER"
-	as_boat_user systemctl --user daemon-reload
-	as_boat_user systemctl --user enable --now claude-resident.service
-	echo "  claude-resident.service  $(as_boat_user systemctl --user is-enabled claude-resident.service || true)"
-fi
 
 echo "== root crontab =="
 current="$(crontab -l 2>/dev/null || true)"

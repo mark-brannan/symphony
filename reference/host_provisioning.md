@@ -87,14 +87,10 @@ ansible/
     host_files/          # invokes host/install.sh
     watchdog/            # the hardware-watchdog [Manager] settings
     clock/               # chrony's conf.d drop-in
+    claude_resident/     # the resident Claude Code session's user unit
     monitoring/          # telegraf wiring, per-host heartbeat config
     signalk_container/   # the two HALOS override files
 ```
-
-The `claude-resident` role this file originally
-proposed is **not** here: its contents are still inside `host/install.sh`,
-which `host_files` invokes. Porting it is the next slice, and it is the point
-at which `install.sh` starts to shrink.
 
 `monitoring` runs after `host_files` so that Ansible, not the installer, is the
 last writer of `/etc/boat-heartbeat.json`. That file is the one place the two

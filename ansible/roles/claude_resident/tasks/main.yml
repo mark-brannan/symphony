@@ -1,0 +1,94 @@
+# Ported from host/install.sh's INSTALL array and its "user units" block --
+# see reference/host_provisioning.md's migration path. install.sh no longer
+# owns these paths or attempts to enable the unit.
+
+# Created explicitly so pi owns them: copy would make missing parents as root,
+# and pi then cannot create default.target.wants under ~/.config/systemd/user,
+# so the unit never enables.
+- name: pi's bin and user-unit directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: pi
+    group: pi
+    mode: "0755"
+  loop:
+    - /home/pi/bin
+    - /home/pi/.config
+    - /home/pi/.config/systemd
+    - /home/pi/.config/systemd/user
+
+- name: claude-resident launcher script
+  ansible.builtin.copy:
+    src: claude-resident
+    dest: /home/pi/bin/claude-resident
+    owner: pi
+    group: pi
+    mode: "0755"
+
+- name: claude-resident user unit
+  ansible.builtin.copy:
+    src: claude-resident.service
+    dest: /home/pi/.config/systemd/user/claude-resident.service
+    owner: pi
+    group: pi
+    mode: "0644"
+
+# A systemd --user unit only runs while pi has a login session, unless
+# lingering is on. This is what lets the resident session come back after a
+# reboot with nobody aboard logged in.
+- name: pi's linger state
+  ansible.builtin.command: loginctl show-user pi -p Linger --value
+  register: pi_linger
+  changed_when: false
+  check_mode: false
+
+- name: pi's session lingers after logout
+  ansible.builtin.command: loginctl enable-linger pi
+  when: pi_linger.stdout | trim != 'yes'
+
+# The --user calls below need a user bus to talk to, which needs this uid --
+# `become_user` alone does not set XDG_RUNTIME_DIR for a user with no active
+# login session.
+- name: pi's uid
+  ansible.builtin.command: id -u pi
+  register: pi_uid
+  changed_when: false
+  check_mode: false
+
+# The launcher execs tmux and claude. Without them the unit exits 127 and
+# Restart=on-failure loops it every 30 s, so it is enabled only where both exist.
+- name: tmux and claude are installed
+  ansible.builtin.shell: command -v tmux && command -v claude
+  environment:
+    PATH: /usr/local/bin:/usr/bin:/bin:/home/pi/.local/bin
+  register: resident_deps
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: claude-resident user unit is enabled
+  ansible.builtin.systemd_service:
+    name: claude-resident.service
+    scope: user
+    daemon_reload: true
+    enabled: true
+    state: started
+  become: true
+  become_user: pi
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ pi_uid.stdout }}"
+  when: resident_deps.rc == 0
+  register: claude_resident_enable
+  # Reported below rather than failing the play.
+  ignore_errors: true
+
+- name: report the resident session
+  ansible.builtin.debug:
+    msg: >-
+      claude-resident.service:
+      {{ 'not enabled -- tmux and/or claude not installed' if resident_deps.rc != 0
+         else 'not started -- ' ~ (claude_resident_enable.msg | default('unknown'))
+              if claude_resident_enable is failed
+         else 'enabled and started' }}
+  tags: [verify]
