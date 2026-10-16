@@ -98,6 +98,8 @@ chown 1000:1000 "$D/.npmrc"
 was_active=$(systemctl is-active "$UNIT" || true)
 systemctl stop "$UNIT"
 trap 'systemctl start "$UNIT" || true' EXIT INT TERM HUP
+# A build that dies midway must not leave a stamp vouching for the torn tree.
+[ "$MODE" != install ] || rm -f "$STAMP"
 
 run() { # run <npm args...>  -- as uid 1000, HOME inside the data dir, no TTY needed
   docker run --rm --network host \
@@ -134,5 +136,5 @@ echo "== npm rebuild $NATIVES ($(date +%H:%M:%S))"
 run rebuild $NATIVES
 
 rm -rf "$D/.npm-cache"
-sha256sum <"$D/package.json" >"$STAMP"
+[ "$MODE" = install ] && sha256sum <"$D/package.json" >"$STAMP"  # rebuild alone does not install
 echo "== done ($(date +%H:%M:%S)); unit was $was_active, starting it"
