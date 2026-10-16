@@ -10,6 +10,7 @@ Writes `triage=<json list>` to $GITHUB_OUTPUT when set.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.request
@@ -62,13 +63,28 @@ def down_since(check):
     return downs[-1] if downs else check["last_ping"] or "unknown"
 
 
+def notify(event, issue, host, since=""):
+    """Best-effort Discord update; the notifier never raises, and a failure to launch it must not fail the watch."""
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "discord_notify.py")
+    try:
+        subprocess.run([sys.executable, script, event, "--issue", str(issue), "--host", host, "--since", since],
+                       check=False, timeout=30)
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"::warning::discord notifier did not run: {type(e).__name__}")
+
+
+def since_of(body):
+    m = re.search(r"down since: (\S+)", body)
+    return m.group(1) if m else ""
+
+
 def main():
     repo = os.environ["GITHUB_REPOSITORY"]
     checks = hc("/checks/")["checks"]
     issues = json.loads(gh("issue", "list", "-R", repo, "--label", LABEL, "--state", "open",
                            "--json", "number,body", "--limit", "100"))
     to_open, to_close = plan(checks, issues)
-    triage = []
+    triage, pending = [], []
     try:
         for c in to_open:
             host = host_of(c)
@@ -81,16 +97,22 @@ def main():
                      "--title", f"{host} down since {since[:10]}", "--body", body).strip()
             triage.append({"issue": int(url.rsplit("/", 1)[1]), "host": host, "since": since})
             print(f"opened {url}")
+            pending.append(("opened", triage[-1]["issue"], host, since))
+        bodies = {i["number"]: i["body"] for i in issues}
         for number, c in to_close:
             gh("issue", "close", str(number), "-R", repo, "--comment",
                f"Check is `{c['status']}` again (last ping {c['last_ping']}).")
             print(f"closed #{number} ({c['status']})")
+            pending.append(("recovered", number, host_of(c), since_of(bodies.get(number, ""))))
     finally:
         # An issue opened before a later failure must still reach triage; the next run treats it as known.
         out = os.environ.get("GITHUB_OUTPUT")
         if out:
             with open(out, "a") as f:
                 f.write(f"triage={json.dumps(triage)}\n")
+        # Discord goes last: a slow webhook must never cost the triage output above.
+        for ev in pending:
+            notify(*ev)
     return 0
 
 

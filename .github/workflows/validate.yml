@@ -164,6 +164,7 @@ jobs:
   # provisioning actually creates, unit labels backed by a matching conversion
   # in the query, and panels that don't overlap. A dashboard is wrong silently;
   # nothing about a blank or mis-scaled panel raises an error at runtime.
+  # Also hosts the stdlib-only script suites (boat-down watch, triage classifier): same runner, no extra job.
   dashboards:
     runs-on: ubuntu-latest
     steps:
@@ -175,6 +176,8 @@ jobs:
           python-version: "3.x"
       - run: python3 scripts/test_dashboards.py
       - run: python3 scripts/test_boat_down_watch.py
+      - run: python3 scripts/test_boat_triage.py
+      - run: python3 scripts/test_discord_notify.py
 
   # Single required context for the ruleset (`ci-gate / gate`), so adding or
   # renaming a job above only means editing this needs: list, never the

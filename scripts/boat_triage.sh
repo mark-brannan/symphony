@@ -4,11 +4,38 @@
 # on the issue. The agent step runs after this and writes the deeper analysis.
 #
 # Usage: scripts/boat_triage.sh <host> <issue> <since>   (needs GH_TOKEN, tailscale up)
+#        scripts/boat_triage.sh --classify <log>          # print the verdict only
 set -uo pipefail
+
+# First matching rule wins; each states the cause and the next human step.
+classify() {
+  local out="$1"
+  if grep -q '^ssh failed' "$out"; then
+    if grep -q 'pong from' "$out"; then
+      echo "Tailnet ping answers but ssh fails: the host is up, sshd or its policy is the problem. Check the Tailscale ACL, then console access."
+    else
+      echo "Host does not answer on the tailnet: power, network uplink or tailscaled is down. Check the boat's shore power and uplink; nothing remote can fix this."
+    fi
+  # 000 is no connection; 4xx/5xx is a reachable but unhappy service. The bare host answers 301, hence -L below.
+  elif grep -qE 'healthchecks.io HTTP (000|[45])' "$out"; then
+    echo "Host is up but cannot reach healthchecks.io: the uplink or DNS is out. Check the router/cellular link."
+  elif grep -qE '^timer: (inactive|failed|unknown)|^service: failed' "$out"; then
+    echo "Host is up but the heartbeat timer/service is not running. Restart it: systemctl restart boat-heartbeat.timer."
+  elif awk '/^Mem:/{f=1;low=$7<400} END{exit !(f&&low)}' "$out"; then
+    echo "Host is up but available memory is under 400 MB: pressure may be starving the heartbeat. Stop InfluxDB/Grafana per CLAUDE.md."
+  elif grep -qE '[1-9][0-9]* loaded units listed' "$out"; then
+    echo "Host is up and heartbeat looks fine, but other units have failed. Run systemctl --failed on the host."
+  else
+    echo "Host is up and the heartbeat path looks healthy now; the outage may already have cleared. Check whether the healthchecks.io check recovered."
+  fi
+}
+
+if [ "${1:-}" = --classify ]; then classify "${2:?log}"; exit; fi
 
 host="${1:?host}" issue="${2:?issue}" since="${3:-}"
 [[ "$host" =~ ^symphony-[a-z0-9-]+$ && "$issue" =~ ^[0-9]+$ ]] || { echo "bad input" >&2; exit 1; }
-[[ "$since" =~ ^[0-9T:+.Z-]+$ ]] || since=-24h
+# journalctl on the Pi rejects a trailing Z; hand it "... UTC" instead.
+[[ "$since" =~ ^[0-9T:+.Z-]+$ ]] && since=$(date -u -d "$since" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null) || since=-24h
 out="symphony_diagnostics_${issue}_$(date -u +%Y%m%d).log"
 [ -z "${GITHUB_OUTPUT:-}" ] || echo "diag=$out" >> "$GITHUB_OUTPUT"
 
@@ -24,25 +51,8 @@ out="symphony_diagnostics_${issue}_$(date -u +%Y%m%d).log"
   rc=$?; if [ "$rc" -eq 255 ] || [ "$rc" -eq 124 ]; then echo "ssh failed: exit $rc"; fi
 } > "$out"
 
-# First matching rule wins; each states the cause and the next human step.
-if grep -q '^ssh failed' "$out"; then
-  if grep -q 'pong from' "$out"; then
-    verdict="Tailnet ping answers but ssh fails: the host is up, sshd or its policy is the problem. Check the Tailscale ACL, then console access."
-  else
-    verdict="Host does not answer on the tailnet: power, network uplink or tailscaled is down. Check the boat's shore power and uplink; nothing remote can fix this."
-  fi
-# 000 is no connection; 4xx/5xx is a reachable but unhappy service. The bare host answers 301, hence -L above.
-elif grep -qE 'healthchecks.io HTTP (000|[45])' "$out"; then
-  verdict="Host is up but cannot reach healthchecks.io: the uplink or DNS is out. Check the router/cellular link."
-elif grep -qE '^timer: (inactive|failed|unknown)|^service: failed' "$out"; then
-  verdict="Host is up but the heartbeat timer/service is not running. Restart it: systemctl restart boat-heartbeat.timer."
-elif awk '/^Mem:/{f=1;low=$7<400} END{exit !(f&&low)}' "$out"; then
-  verdict="Host is up but available memory is under 400 MB: pressure may be starving the heartbeat. Stop InfluxDB/Grafana per CLAUDE.md."
-elif grep -qE '[1-9][0-9]* loaded units listed' "$out"; then
-  verdict="Host is up and heartbeat looks fine, but other units have failed. Run systemctl --failed on the host."
-else
-  verdict="Host is up and the heartbeat path looks healthy now; the outage may already have cleared. Check whether the healthchecks.io check recovered."
-fi
+verdict=$(classify "$out")
 
 body="🤖 Rule-based first pass (run ${GITHUB_RUN_ID:-local}): $verdict A deeper agent triage follows if it succeeds."
 gh issue comment "$issue" --body "$body" || echo "verdict comment failed"
+"$(dirname "$0")/discord_notify.py" verdict --issue "$issue" --host "$host" --text "$verdict" || true
