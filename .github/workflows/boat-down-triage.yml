@@ -73,25 +73,13 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:cloud-ephemeral
-      # Fixed, read-only commands; the agent reads their output and gets no shell on the boat.
+      # Fixed, read-only commands plus a rule-based verdict comment; the agent gets no shell on the boat.
       - if: steps.gate.outputs.run == 'true'
         env:
-          HOST: ${{ matrix.item.host }}
-          SINCE: ${{ matrix.item.since }}
-        run: |
-          [[ "$SINCE" =~ ^[0-9T:+.Z-]+$ ]] || SINCE=-24h
-          {
-            echo "## tailscale status"; tailscale status 2>&1 | grep -E "$HOST|^#" || true
-            echo "## tailscale ping"; timeout 30 tailscale ping -c 3 "$HOST" 2>&1 || true
-            echo "## on host"
-            timeout 120 ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 "pi@$HOST" \
-              "uptime; systemctl --failed --no-pager; free -m; df -h /; \
-               systemctl status --no-pager boat-heartbeat.timer boat-heartbeat.service; \
-               journalctl -t boat-heartbeat --no-pager --since '$SINCE' | tail -n 60; \
-               curl -sS -o /dev/null -w 'healthchecks.io HTTP %{http_code}\n' https://hc-ping.com" 2>&1 \
-              || echo "ssh failed: exit $?"
-          } > diagnostics.txt
-      - if: steps.gate.outputs.run == 'true'
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/boat_triage.sh "${{ matrix.item.host }}" "${{ matrix.item.issue }}" "${{ matrix.item.since }}"
+      - id: agent
+        if: steps.gate.outputs.run == 'true'
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -114,3 +102,21 @@ jobs:
             and end it with
             `🤖 claude-sonnet-5-5 · triage · run ${{ github.run_id }}`.
             Then run exactly: gh issue comment ${{ matrix.item.issue }} --body-file triage.md
+      # Public repo: the transcript holds permission denials and tool inputs, so ship it encrypted
+      # to the repo age key and read it locally to learn the allow-list.
+      - if: always() && steps.gate.outputs.run == 'true'
+        env:
+          EXEC: ${{ steps.agent.outputs.execution_file }}
+        run: |
+          [ -f "$EXEC" ] || { echo "no execution file"; exit 0; }
+          sudo apt-get install -y -qq age
+          jq '{denials: ([.[] | select(.type=="result") | .permission_denials] | add),
+               tools: [.[] | select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | {name, input}]}' "$EXEC" \
+            | age -r age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk -o agent-log.json.age
+      - if: always() && steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: agent-log-${{ matrix.item.issue }}
+          path: agent-log.json.age
+          retention-days: 1
+          if-no-files-found: ignore
