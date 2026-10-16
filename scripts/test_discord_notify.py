@@ -153,11 +153,37 @@ class Notify(unittest.TestCase):
 
     def test_bad_url_refused(self):
         for bad in ("http://discord.com/api/webhooks/1/a", "https://evil.example/api/webhooks/1/a",
-                    "https://discord.com/api/webhooks/1/a?x=1", "https://discord.com.evil.io/api/webhooks/1/a"):
+                    "https://discord.com.evil.io/api/webhooks/1/a"):
             fake = Fake()
             rc, _, out = run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": bad}, fake, "b")
             self.assertEqual((rc, fake.reqs), (0, []))
             self.assertNotIn(bad, out)
+
+    def test_query_is_dropped_not_refused(self):
+        fake = Fake({"id": "9"})
+        run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": HOOK + "?wait=false"}, fake, "b")
+        self.assertEqual([(m, u) for m, u, _ in fake.reqs], [("POST", HOOK + "?wait=true")])
+
+    def test_rejection_names_shape_not_secret(self):
+        fake = Fake()
+        bad = "https://example.org/hooks/123/" + "T" * 40 + "?x=1"
+        rc, _, out = run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": bad}, fake, "b")
+        self.assertIn("host=other", out)
+        self.assertNotIn("example", out)
+        self.assertIn("extras=query", out)
+        self.assertNotIn("T" * 10, out)
+
+    def test_unlisted_discord_subdomain_not_echoed(self):
+        rc, _, out = run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": "https://secretword.discord.com/x"}, Fake(), "b")
+        self.assertIn("host=other", out)
+        self.assertNotIn("secretword", out)
+
+    def test_common_paste_variants_accepted(self):
+        for variant in ('"%s"' % HOOK, HOOK + "/", HOOK.replace("discord.com", "discordapp.com"),
+                        HOOK.replace("https://discord.com/api", "https://ptb.discord.com/api/v10")):
+            fake = Fake({"id": "9"})
+            run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": variant}, fake, "b")
+            self.assertEqual(len(fake.reqs), 1, variant)
 
     def test_http_error_warns_without_url_and_exits_zero(self):
         fake = Fake(500)
