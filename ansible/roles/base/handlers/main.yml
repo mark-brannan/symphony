@@ -7,3 +7,11 @@
   # config without one. Swapping off a device in use is refused rather than
   # done destructively, so this is safe on a card that is already swapping.
   failed_when: false
+
+- name: clear a refused zram restart
+  listen: regenerate zram devices
+  ansible.builtin.command: systemctl reset-failed systemd-zram-setup@zram0.service
+  changed_when: false
+  # A refused swap-off (device busy, as on an image that already swaps to
+  # zram0) leaves the unit failed, which the heartbeat reports as a fault
+  # until the next boot applies the new size.

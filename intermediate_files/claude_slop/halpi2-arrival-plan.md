@@ -4,6 +4,25 @@ Written before the unit arrives. Everything below that names a HALPI2 fact
 not already in `reference/compute_hardware.md` is **unverified** and marked
 so; the first bench session verifies against Hat Labs' docs before acting.
 
+## Status — 2026-10-15
+
+- Step 2 landed: the HALPI2 is on the tailnet as `symphony-halpi2` and is in
+  `ansible/inventory.yml`. From the WSL box its tailnet name still fails ssh
+  host-key verification (stale `known_hosts`), so reach it with
+  `ssh pi@192.168.0.110` and `-e ansible_host=192.168.0.110`.
+- Step 3 done: `site.yml --limit symphony-halpi2` converged. Run 1 (real):
+  ok=78 changed=20, including one reboot from the boot role (cmdline regdom
+  US, memory cgroup, `i2c-dev`). Run 2: ok=73 changed=0. Can0 was already up
+  at 250 kbit/s from the image's own mcp251xfd overlay; no PiCAN-M lines.
+- One role fix: the zram restart handler left `systemd-zram-setup@zram0`
+  failed on this image (it already swaps to zram0, so the restart is refused),
+  which the heartbeat would report as a fault. The handler now follows with
+  `reset-failed`. The new 1 GB size applies at the next boot; the image's 2 GB
+  zram0 is what runs until then.
+- Still open from step 3: `/home/pi/symphony` has no sops filters on the card
+  (bootstrap, `bash scripts/setup-git-filters.sh`), and SignalK state is
+  outside Ansible (steps 4 onward).
+
 ## Status — 2026-09-26
 
 - Step 1 half done: the stock inventory is banked
