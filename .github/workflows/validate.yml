@@ -164,6 +164,7 @@ jobs:
   # provisioning actually creates, unit labels backed by a matching conversion
   # in the query, and panels that don't overlap. A dashboard is wrong silently;
   # nothing about a blank or mis-scaled panel raises an error at runtime.
+  # Also hosts the stdlib-only script suites (boat-down watch, triage classifier): same runner, no extra job.
   dashboards:
     runs-on: ubuntu-latest
     steps:
