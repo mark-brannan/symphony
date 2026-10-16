@@ -1,8 +1,6 @@
 name: scratch write rule
 on:
-  push:
-    branches: [claude/git-work-tree-error-05fe10]
-    paths: [.github/workflows/scratch-write-rule.yml]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
