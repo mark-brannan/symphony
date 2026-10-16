@@ -85,14 +85,15 @@ ansible/
     base/                # apt repo and packages, zram, the stay-down apps
     repo/                # the checkout at /home/pi/symphony
     host_files/          # invokes host/install.sh
+    watchdog/            # the hardware-watchdog [Manager] settings
     clock/               # chrony's conf.d drop-in
     monitoring/          # telegraf wiring, per-host heartbeat config
     signalk_container/   # the two HALOS override files
 ```
 
-The `watchdog` and `claude-resident` roles this file originally
-proposed are **not** here: their contents are still inside `host/install.sh`,
-which `host_files` invokes. Porting them is the next slice, and it is the point
+The `claude-resident` role this file originally
+proposed is **not** here: its contents are still inside `host/install.sh`,
+which `host_files` invokes. Porting it is the next slice, and it is the point
 at which `install.sh` starts to shrink.
 
 `monitoring` runs after `host_files` so that Ansible, not the installer, is the
