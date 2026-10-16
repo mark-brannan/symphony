@@ -98,7 +98,7 @@ def with_marker(body, message_id):
 
 
 def send(method, url, payload, urlopen):
-    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method=method,
+    req = urllib.request.Request(url, data=None if payload is None else json.dumps(payload).encode(), method=method,
                                  headers={"Content-Type": "application/json", "User-Agent": UA})
     with urlopen(req, timeout=20) as r:
         raw = r.read()
