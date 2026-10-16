@@ -3,6 +3,8 @@ name: Discord webhook check
 # Runs scripts/discord_webhook_check.py against the stored secret, which gh cannot read back.
 
 on:
+  pull_request:
+    paths: [scripts/discord_webhook_check.py, scripts/discord_notify.py, .github/workflows/discord-webhook-check.yml]
   workflow_dispatch:
     inputs:
       post_sample:
@@ -21,6 +23,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - run: python3 scripts/discord_webhook_check.py ${{ inputs.post_sample && '--post-sample' || '' }}
+      - run: python3 scripts/discord_webhook_check.py ${{ github.event_name == 'workflow_dispatch' && inputs.post_sample && '--post-sample' || '' }}
         env:
           SYMPHONY_DISCORD_ALARMING_WEBHOOK: ${{ secrets.SYMPHONY_DISCORD_ALARMING_WEBHOOK }}
