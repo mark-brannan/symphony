@@ -40,7 +40,7 @@ def webhook_shape(hook):
     extras = [n for n, v in (("query", u.query), ("fragment", u.fragment), ("inner whitespace", re.search(r"\s", hook)),
                              ("quote", re.search(r"[\"']", hook))) if v]
     scheme = u.scheme if u.scheme in ("http", "https") else "other" if u.scheme else "-"
-    host = host if host and re.fullmatch(r"(?:[a-z]+\.)?discord(?:app)?\.com", host) else "other" if host else "-"
+    host = host if host and re.fullmatch(r"(?:(?:ptb|canary)\.)?discord(?:app)?\.com", host) else "other" if host else "-"
     return f"scheme={scheme} host={host} path={path or '-'} extras={','.join(extras) or '-'}"
 
 

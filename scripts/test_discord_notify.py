@@ -168,6 +168,11 @@ class Notify(unittest.TestCase):
         self.assertIn("extras=query", out)
         self.assertNotIn("T" * 10, out)
 
+    def test_unlisted_discord_subdomain_not_echoed(self):
+        rc, _, out = run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": "https://secretword.discord.com/x"}, Fake(), "b")
+        self.assertIn("host=other", out)
+        self.assertNotIn("secretword", out)
+
     def test_common_paste_variants_accepted(self):
         for variant in ('"%s"' % HOOK, HOOK + "/", HOOK.replace("discord.com", "discordapp.com"),
                         HOOK.replace("https://discord.com/api", "https://ptb.discord.com/api/v10")):
