@@ -466,6 +466,74 @@ def rule_frozen_secrets_untouched() -> None:
                 return
 
 
+# House style (CLAUDE.md, log.md): 1-3 lines per event. Pencil call, undo = edit
+# these two numbers; the rule only ever warns.
+LOG_PATH = "maintenance/log.md"
+LOG_MAX_LINES = 3
+LOG_MAX_CHARS = 300
+
+
+def log_entries(text: str):
+    """Yield (first_line_no, n_lines, n_chars) per bullet, continuations included."""
+    cur = None
+    for no, line in enumerate(text.splitlines(), 1):
+        if re.match(r"\s*[-*] ", line):
+            if cur:
+                yield cur
+            cur = [no, 1, len(line.strip())]
+        elif cur and line.strip():
+            cur[1] += 1
+            cur[2] += len(line.strip()) + 1
+        else:
+            if cur:
+                yield cur
+            cur = None
+    if cur:
+        yield cur
+
+
+def added_line_numbers(diff: str) -> set[int]:
+    """New-file line numbers added by a -U0 unified diff."""
+    added: set[int] = set()
+    for m in re.finditer(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", diff, re.M):
+        start, count = int(m.group(1)), int(m.group(2) or 1)
+        added.update(range(start, start + count))
+    return added
+
+
+def rule_log_bullets_are_short() -> None:
+    """Soft warning, never a failure: log.md entries run past 1-3 lines.
+
+    Scoped runs warn only on bullets containing a line the diff adds, so the
+    existing long entries stay quiet until someone touches them.
+    """
+    path = ROOT / LOG_PATH
+    if not path.is_file():
+        return
+    scope = in_scope()
+    only: set[int] | None = None
+    if scope is not None:
+        if LOG_PATH not in scope:
+            return
+        commit_range = os.environ.get("HYGIENE_COMMIT_RANGE", "").strip()
+        cmd = (["git", "diff", commit_range] if commit_range
+               else ["git", "diff", "--cached"]) + ["-U0", "--", LOG_PATH]
+        diff = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
+                              encoding="utf-8", errors="surrogateescape")
+        if diff.returncode != 0:
+            return
+        only = added_line_numbers(diff.stdout)
+    text = path.read_text(encoding="utf-8", errors="replace")
+    for no, n_lines, n_chars in log_entries(text):
+        if only is not None and not any(no <= n < no + n_lines for n in only):
+            continue
+        if n_lines > LOG_MAX_LINES or n_chars > LOG_MAX_CHARS:
+            warn("log-bullet-long",
+                 f"{LOG_PATH}:{no} is {n_lines} line(s), {n_chars} chars; house "
+                 f"style is 1-3 lines per event (why belongs in reference/ or "
+                 f"the slop log).")
+
+
 def main() -> int:
     global SCOPE_ALL
     warn_only = "--warn-only" in sys.argv
@@ -475,6 +543,7 @@ def main() -> int:
         rule_plaintext_secrets_are_protectable,
         rule_audible_alarms_are_scoped,
         rule_frozen_secrets_untouched,
+        rule_log_bullets_are_short,
     ):
         rule()
 

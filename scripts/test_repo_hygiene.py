@@ -256,5 +256,36 @@ class FrozenSecretsStillBlockTest(unittest.TestCase):
         self.assertTrue(any("frozen-secret-range" in w for w in lint.warnings))
 
 
+class LogBulletWarnTest(unittest.TestCase):
+    """Long log.md bullets warn, never fail; scoped runs see only added lines."""
+
+    def test_entries_measure_continuations(self):
+        text = "- short\n- long\n  b\n  c\n  d\n\n- x\n"
+        got = {no: n for no, n, _ in lint.log_entries(text)}
+        self.assertEqual(got, {1: 1, 2: 4, 7: 1})
+
+    def test_added_line_numbers(self):
+        diff = "@@ -3,0 +4,2 @@\n+a\n+b\n@@ -9 +11 @@\n+c\n"
+        self.assertEqual(lint.added_line_numbers(diff), {4, 5, 11})
+
+    def test_all_mode_warns_and_never_fails(self):
+        saved = (lint.SCOPE_ALL, lint.ROOT)
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "maintenance").mkdir()
+            (Path(d) / "maintenance/log.md").write_text(
+                "- ok\n- " + "word " * 80 + "\n")
+            lint.ROOT, lint.SCOPE_ALL = Path(d), True
+            lint.failures.clear()
+            lint.warnings.clear()
+            try:
+                lint.rule_log_bullets_are_short()
+            finally:
+                lint.SCOPE_ALL, lint.ROOT = saved
+        self.assertEqual(lint.failures, [])
+        self.assertEqual(len(lint.warnings), 1)
+        self.assertIn("log-bullet-long", lint.warnings[0])
+        lint.warnings.clear()
+
+
 if __name__ == "__main__":
     unittest.main()
