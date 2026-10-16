@@ -4,10 +4,19 @@ HALOS owns its unit and compose files under `/var/lib/container-apps/` and
 overwrites them on `apt upgrade`, so Symphony's changes live in override files
 that HALOS never touches.
 
-`ansible/roles/signalk_container` places the first two and restarts the unit;
-`host/install.sh` still does not. To install them by hand instead, use the paths
-below, then `systemctl daemon-reload` and restart the SignalK unit. The Traefik
-file is not in any role yet and is always placed by hand.
+Who places each file, so no two things own one:
+
+| File | Owner | `host/install.sh` |
+|---|---|---|
+| `signalk-healthcheck-override.yml`, `signalk-unit-override.conf` | `ansible/roles/signalk_container` (overwrites on every run, restarts the unit) | places only if absent, then restarts the unit; skips if present |
+| `traefik-symphony-signalk-host.yml` | `install.sh`; `scripts/halos_card_prepare.sh` step 6 writes the same destination | places if absent or different; Traefik reloads it |
+| `compose-ntfy.yml` | `scripts/halos_card_prepare.sh` step 6 (runs it from `~/halos-prepare/`) | does not touch it |
+| `signalk-plugin-pins.txt` | `scripts/halos_card_prepare.sh` step 3 (read on the dev box) | does not touch it |
+
+`install.sh` does this only where `signalk-unit.sh` detects the containerised
+SignalK; on the OpenPlotter boat card it does nothing for this directory. A
+second run changes nothing. To install by hand instead, use the paths below,
+then `systemctl daemon-reload` and restart the SignalK unit.
 
 | File | Installs to | Why |
 |---|---|---|
