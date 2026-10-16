@@ -25,13 +25,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Compose resolves relative bind mounts against the directory it runs in, so a
-# container created from a worktree dies with it (signalk, 2026-09-04).
-if [ "$(git rev-parse --absolute-git-dir)" != "$PWD/.git" ]; then
-	echo "refusing to run from a linked worktree ($PWD); run it from the main checkout" >&2
-	exit 1
-fi
-
 GRAFANA_URL="${GRAFANA_URL:-http://localhost:3001}"
 INFLUX_URL_LOCAL="${INFLUX_URL_LOCAL:-http://localhost:8086}"
 QUESTDB_URL_LOCAL="${QUESTDB_URL_LOCAL:-http://localhost:9000}"
