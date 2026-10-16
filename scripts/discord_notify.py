@@ -6,7 +6,7 @@ as triage progresses. Its id lives on the GitHub issue as `<!-- discord:ID -->`.
 
 Usage: discord_notify.py {opened,verdict,agent,recovered} --issue N --host H
          [--since ISO] [--text T | --body-file F] [--run-id R]
-Env: DISCORD_WEBHOOK_URL (absent: no-op), GH_TOKEN, GITHUB_REPOSITORY.
+Env: SYMPHONY_DISCORD_ALARMING_WEBHOOK (absent: no-op), GH_TOKEN, GITHUB_REPOSITORY.
 Never exits non-zero on Discord or gh failures: notification must not fail triage.
 """
 import argparse
@@ -89,12 +89,12 @@ def send(method, url, payload, urlopen):
 
 def notify(args, env, urlopen, issue_body, set_issue_body, now):
     """Returns 0 always; problems print a ::warning:: (without the webhook URL)."""
-    hook = env.get("DISCORD_WEBHOOK_URL", "")
+    hook = env.get("SYMPHONY_DISCORD_ALARMING_WEBHOOK", "")
     if not hook:
-        print("discord: DISCORD_WEBHOOK_URL not set; skipping")
+        print("discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK not set; skipping")
         return 0
     if not WEBHOOK_RE.match(hook):
-        print("::warning::discord: DISCORD_WEBHOOK_URL is not a discord.com webhook URL; refusing")
+        print("::warning::discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK is not a discord.com webhook URL; refusing")
         return 0
     payload = render(args.event, args.host, args.issue, args.since, args.text, args.run_id,
                      env.get("GITHUB_REPOSITORY", ""), now)

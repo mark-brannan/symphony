@@ -43,7 +43,7 @@ jobs:
         env:
           HC_API_KEY: ${{ secrets.HEALTHCHECKS_API_KEY_READ_ONLY }}
           GH_TOKEN: ${{ github.token }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SYMPHONY_DISCORD_ALARMING_WEBHOOK: ${{ secrets.SYMPHONY_DISCORD_ALARMING_WEBHOOK }}
       - id: manual
         if: inputs.host != ''
         env:
@@ -85,7 +85,7 @@ jobs:
           HOST: ${{ matrix.item.host }}
           ISSUE: ${{ matrix.item.issue }}
           SINCE: ${{ matrix.item.since }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SYMPHONY_DISCORD_ALARMING_WEBHOOK: ${{ secrets.SYMPHONY_DISCORD_ALARMING_WEBHOOK }}
         run: scripts/boat_triage.sh "$HOST" "$ISSUE" "$SINCE"
       - id: agent
         if: steps.gate.outputs.run == 'true'
@@ -115,7 +115,7 @@ jobs:
       - if: always() && steps.gate.outputs.run == 'true' && hashFiles('triage.md') != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SYMPHONY_DISCORD_ALARMING_WEBHOOK: ${{ secrets.SYMPHONY_DISCORD_ALARMING_WEBHOOK }}
           HOST: ${{ matrix.item.host }}
           ISSUE: ${{ matrix.item.issue }}
         run: scripts/discord_notify.py agent --issue "$ISSUE" --host "$HOST" --body-file triage.md

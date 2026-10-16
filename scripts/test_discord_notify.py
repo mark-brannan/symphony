@@ -118,7 +118,7 @@ def run(env, fake, body):
 
 
 class Notify(unittest.TestCase):
-    ENV = {"DISCORD_WEBHOOK_URL": HOOK}
+    ENV = {"SYMPHONY_DISCORD_ALARMING_WEBHOOK": HOOK}
 
     def test_first_post_records_marker(self):
         fake = Fake({"id": "999"})
@@ -149,7 +149,7 @@ class Notify(unittest.TestCase):
         for bad in ("http://discord.com/api/webhooks/1/a", "https://evil.example/api/webhooks/1/a",
                     "https://discord.com/api/webhooks/1/a?x=1", "https://discord.com.evil.io/api/webhooks/1/a"):
             fake = Fake()
-            rc, _, out = run({"DISCORD_WEBHOOK_URL": bad}, fake, "b")
+            rc, _, out = run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": bad}, fake, "b")
             self.assertEqual((rc, fake.reqs), (0, []))
             self.assertNotIn(bad, out)
 
