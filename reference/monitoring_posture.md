@@ -128,6 +128,13 @@ provider added later is watched only if it is added to that plugin's config.
 through `signalk-push-notifications` and nowhere else. The check service's
 email/pushover/discord fan-out only ever hears from the heartbeat.
 
+**Boat-down triage keeps one Discord message per outage.** The triage workflow
+posts to the alarms channel through the `DISCORD_WEBHOOK_URL` Actions secret
+and edits that single message as the outage progresses (opened, rule-based
+verdict, agent summary, recovered) instead of posting a new one each time. The
+channel is shared, so the message carries no raw diagnostics and cannot ping
+anyone. Without the secret the notify steps do nothing.
+
 **Node-RED is enabled with no flows.** A routing engine is installed, running,
 and doing nothing.
 

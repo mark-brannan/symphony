@@ -43,6 +43,7 @@ jobs:
         env:
           HC_API_KEY: ${{ secrets.HEALTHCHECKS_API_KEY_READ_ONLY }}
           GH_TOKEN: ${{ github.token }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       - id: manual
         if: inputs.host != ''
         env:
@@ -84,6 +85,7 @@ jobs:
           HOST: ${{ matrix.item.host }}
           ISSUE: ${{ matrix.item.issue }}
           SINCE: ${{ matrix.item.since }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: scripts/boat_triage.sh "$HOST" "$ISSUE" "$SINCE"
       - id: agent
         if: steps.gate.outputs.run == 'true'
@@ -109,6 +111,14 @@ jobs:
             and end it with
             `🤖 claude-sonnet-5-5 · triage · run ${{ github.run_id }}`.
             Then run exactly: gh issue comment ${{ matrix.item.issue }} --body-file triage.md
+      # Edits the outage's one Discord message; the agent step never sees the webhook.
+      - if: always() && steps.gate.outputs.run == 'true' && hashFiles('triage.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          HOST: ${{ matrix.item.host }}
+          ISSUE: ${{ matrix.item.issue }}
+        run: scripts/discord_notify.py agent --issue "$ISSUE" --host "$HOST" --body-file triage.md
       # Raw diagnostics and the agent transcript (permission denials, tool inputs) are sensitive:
       # they go to the private scratch repo, and the public issue gets only a link.
       - if: always() && steps.diag.outputs.diag != '' && steps.gate.outputs.scratch == 'true'
