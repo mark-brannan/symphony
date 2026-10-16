@@ -46,6 +46,8 @@ jobs:
         run: echo "run=${{ secrets.TS_OAUTH_CLIENT_ID != '' }}" >> "$GITHUB_OUTPUT"
       - if: steps.gate.outputs.run == 'true'
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - if: steps.gate.outputs.run == 'true'
         uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd # v4.2.0
         with:
@@ -58,6 +60,7 @@ jobs:
           HOST: ${{ matrix.item.host }}
           SINCE: ${{ matrix.item.since }}
         run: |
+          [[ "$SINCE" =~ ^[0-9T:+.Z-]+$ ]] || { echo "bad SINCE: $SINCE"; exit 1; }
           {
             echo "## tailscale status"; tailscale status 2>&1 | grep -E "$HOST|^#" || true
             echo "## tailscale ping"; timeout 30 tailscale ping -c 3 "$HOST" 2>&1 || true
