@@ -117,6 +117,8 @@ jobs:
           DIAG: ${{ steps.diag.outputs.diag }}
           ISSUE: ${{ matrix.item.issue }}
         run: |
+          priv=$(GH_TOKEN="$SCRATCH_TOKEN" gh api repos/mark-brannan/claude_prompts_scratch --jq .private)
+          [ "$priv" = true ] || { echo "scratch repo is not private; refusing to push" >&2; exit 1; }
           git clone --depth 1 "https://x-access-token:${SCRATCH_TOKEN}@github.com/mark-brannan/claude_prompts_scratch.git" scratch
           mkdir -p scratch/raw_logs && cp "$DIAG" scratch/raw_logs/
           git -C scratch add "raw_logs/$DIAG"
