@@ -149,10 +149,10 @@ json.dump(c, open(p, "w"), indent=2)
 PY
 sudo_on "$H" "systemctl restart marine-signalk-server-container"
 
-step "6. front door: ntfy, SignalK route"
+step "6. front door: ntfy (the SignalK Traefik route is placed by ansible/roles/signalk_container)"
 # From this checkout, not the card's: the card's clone may be behind.
 rsync -a host/halos/ "pi@$H:/home/pi/halos-prepare/"
-sudo_on "$H" "sh -c 'cd /home/pi/halos-prepare && docker compose -p symphony-ntfy -f compose-ntfy.yml up -d && install -m 0644 traefik-symphony-signalk-host.yml /etc/halos/traefik-dynamic.d/symphony-signalk-host.yml'"
+sudo_on "$H" "sh -c 'cd /home/pi/halos-prepare && docker compose -p symphony-ntfy -f compose-ntfy.yml up -d'"
 
 step "7. reboot, then wait for the cold start"
 sudo_on "$H" "systemctl reboot" || true
