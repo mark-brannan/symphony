@@ -1,7 +1,8 @@
 # as-built v1 steps 27-30: the two override files that make the containerised
-# SignalK survive its own cold start and see the i2c bus.
+# SignalK survive its own cold start and see the i2c bus, plus the Traefik
+# file route that serves it at signalk.<boat-domain>.
 #
-# Both source files stay in host/halos/ rather than being copied into this
+# All three source files stay in host/halos/ rather than being copied into this
 # role: they are the documented hand-install artefacts (host/halos/README.md)
 # and duplicating them here would give the repo two versions of a file whose
 # failure mode is silence. This role is now the thing that places them --

@@ -96,5 +96,4 @@ ensure_token \
   "[{\"action\":\"read\",\"resource\":{\"type\":\"buckets\",\"id\":\"${bucket_id}\",\"orgID\":\"${org_id}\"}}]"
 
 echo
-echo "Done. If token values changed, re-run scripts/render.py and update"
-echo "signalk/plugin-config-data/signalk-to-influxdb2.json's token field by hand."
+echo "Done. If token values changed, re-run scripts/render.py."

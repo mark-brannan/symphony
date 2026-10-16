@@ -185,7 +185,7 @@ out=$(r "$HOST" "echo \$(curl -sk -m 15 --resolve signalk.$DOMAIN:4430:127.0.0.1
 
 out=$(r "$HOST" 'free -m | awk "/Mem:/{print \$7}"; awk "/SwapTotal/{t=\$2} /SwapFree/{f=\$2} END{print int((t-f)/1024)}" /proc/meminfo' | paste -sd" ")
 avail=${out%% *}; swap=${out##* }
-[ "${avail:-0}" -ge 150 ] 2>/dev/null && say ok mem "${avail} MB available, ${swap} MB swap used (2 GB bench cannot hold the databases; the 4 GB boat can)" || say FAIL mem "${avail:-?} MB available, ${swap:-?} MB swap used"
+[ "${avail:-0}" -ge 150 ] 2>/dev/null && say ok mem "${avail} MB available, ${swap} MB swap used (want >= 150 MB available)" || say FAIL mem "${avail:-?} MB available, ${swap:-?} MB swap used"
 
 out=$(scripts/dns_cutover.sh status 2>&1 | tr '\n' ' ')
 [[ "$out" == *"symphony-pi "*"<- current"* && "$out" == *"$NAME "* ]] && say ok dns "$out" || say FAIL dns "$out"

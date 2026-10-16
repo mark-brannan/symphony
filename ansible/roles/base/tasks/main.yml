@@ -17,6 +17,8 @@
   ansible.builtin.apt:
     name: python3-debian
     state: present
+    update_cache: true
+    cache_valid_time: 3600
 
 - name: step 18 | retire the old influxdata.list
   ansible.builtin.file:
@@ -119,7 +121,7 @@
   tags: [verify]
 
 # is-active only proves these are up right now. docker and ssh are never
-# installed by this playbook (RUNBOOK "Bringing up a host" Phase 1, and Pi
+# installed by this playbook (runbooks/host_bringup.md prerequisites, and Pi
 # OS respectively), so this is the only place their boot-enabled state gets
 # checked at all -- added after a reboot left tailscaled disabled with every
 # other check green (2026-09-04); the same gap could exist here unnoticed.
