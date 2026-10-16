@@ -124,14 +124,20 @@ jobs:
           git clone --depth 1 "https://x-access-token:${SCRATCH_TOKEN}@github.com/mark-brannan/claude_prompts_scratch.git" scratch
           mkdir -p scratch/raw_logs && cp "$DIAG" scratch/raw_logs/
           links="https://github.com/mark-brannan/claude_prompts_scratch/blob/main/raw_logs/$DIAG"
+          missing=0
           if [ -f "$EXEC" ]; then
             agentlog="symphony_agentlog_${ISSUE}_$(date -u +%Y%m%d).json"
             jq '{denials: ([.[] | select(.type=="result") | .permission_denials] | add),
                  tools: [.[] | select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | {name, input}]}' "$EXEC" \
               > "scratch/raw_logs/$agentlog"
             links="$links https://github.com/mark-brannan/claude_prompts_scratch/blob/main/raw_logs/$agentlog"
+          else
+            echo "::error::agent produced no execution file; agent log not saved"; missing=1
           fi
           git -C scratch add raw_logs
           git -C scratch -c user.name=boat-triage -c user.email=noreply@github.com commit -qm "symphony triage logs for issue $ISSUE"
           git -C scratch push -q origin HEAD
           gh issue comment "$ISSUE" --body "🤖 Raw logs (private): $links"
+          exit $missing
+      - if: always() && steps.gate.outputs.run == 'true' && steps.gate.outputs.scratch != 'true'
+        run: echo "::error::SCRATCH_PUSH_TOKEN is not set; neither triage log was saved" && exit 1
