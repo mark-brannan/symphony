@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # First-pass triage of a boat-down issue: gather read-only diagnostics over the
-# tailnet into diagnostics.txt, classify them by rule, and post a short verdict
+# tailnet into a symphony_diagnostics_<issue>_<date>.log file, classify them by rule, and post a short verdict
 # on the issue. The agent step runs after this and writes the deeper analysis.
 #
 # Usage: scripts/boat_triage.sh <host> <issue> <since>   (needs GH_TOKEN, tailscale up)
@@ -9,7 +9,8 @@ set -uo pipefail
 host="${1:?host}" issue="${2:?issue}" since="${3:-}"
 [[ "$host" =~ ^symphony-[a-z0-9-]+$ && "$issue" =~ ^[0-9]+$ ]] || { echo "bad input" >&2; exit 1; }
 [[ "$since" =~ ^[0-9T:+.Z-]+$ ]] || since=-24h
-out=diagnostics.txt
+out="symphony_diagnostics_${issue}_$(date -u +%Y%m%d).log"
+[ -z "${GITHUB_OUTPUT:-}" ] || echo "diag=$out" >> "$GITHUB_OUTPUT"
 
 {
   echo "## tailscale status"; tailscale status 2>&1 | grep -E "$host|^#" || true
