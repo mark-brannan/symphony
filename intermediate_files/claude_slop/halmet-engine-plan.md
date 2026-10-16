@@ -103,6 +103,17 @@ Done: hostname `symphony-halmet`. The example already does D1 tach → PGN
      (wss) and filed an access request, PENDING the owner's approval in the
      Signal K admin UI. The D1 380 Hz test is not done (no GPIO33→D1 jumper on
      the bench).
+   - Signal K verified 2026-10-15 against a throwaway `signalk-server:v2.18.0`
+     container on the dev PC (port 3300, set through the HALMET's
+     `/System/Signal K Settings`, mDNS off): approved, and every path in the
+     temperature list above plus `propulsion.main.revolutions` and both
+     alarms arrive. With no probes attached, every temperature reads 146.15 K
+     (the DS18B20 −127 °C "no sensor" value); it should publish nothing
+     instead. The HALPI2 couldn't approve it from the owner's browser: on the
+     bench it carries the boat's hostname, so its SSO login resolves to the
+     boat. A Windows hosts line `192.168.0.110
+     signalk.symphony.dark-star-llc.com` reaches it; remove it before swap
+     day.
    - USB to WSL: the HALMET is the CH340 (`1a86:7523`), not the CP2102
      Windows also remembers. From an admin PowerShell, after a one-time
      `usbipd bind --hardware-id 1a86:7523`:
