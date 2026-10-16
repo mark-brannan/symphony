@@ -103,6 +103,12 @@ Done: hostname `symphony-halmet`. The example already does D1 tach → PGN
      (wss) and filed an access request, PENDING the owner's approval in the
      Signal K admin UI. The D1 380 Hz test is not done (no GPIO33→D1 jumper on
      the bench).
+   - USB to WSL: the HALMET is the CH340 (`1a86:7523`), not the CP2102
+     Windows also remembers. From an admin PowerShell, after a one-time
+     `usbipd bind --hardware-id 1a86:7523`:
+     `usbipd attach --wsl --hardware-id 1a86:7523 --auto-attach` (stays in
+     the foreground and reattaches on replug). If a Windows-side attach
+     hangs, `scripts/halmet_usb_attach.sh` attaches from inside WSL.
    - 1-Wire GPIO **confirmed as GPIO4** from `HALMET.kicad_sch`/
      `onewire.kicad_sch` (DQ net traced to the ESP32-WROOM-32 IO4 pin, rev
      1.0.1) rather than benched — done from the schematic without the board
