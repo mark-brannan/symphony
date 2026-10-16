@@ -8,7 +8,7 @@ Who places each file, so no two things own one:
 
 | File | Owner |
 |---|---|
-| `signalk-healthcheck-override.yml`, `signalk-unit-override.conf`, `traefik-symphony-signalk-host.yml` | `ansible/roles/signalk_container` (overwrites each run; the two overrides restart the unit, the route does not) |
+| `signalk-healthcheck-override.yml`, `signalk-unit-override.conf`, `traefik-symphony-signalk-host.yml` | `ansible/roles/signalk_container` (overwrites each run; the two overrides restart the unit, the route does not; `host/install.sh` fills the route only when absent) |
 | `compose-ntfy.yml` | `scripts/halos_card_prepare.sh` step 6, run from `~/halos-prepare/` |
 | `signalk-plugin-pins.txt` | `scripts/halos_card_prepare.sh` step 3, read on the dev box |
 
