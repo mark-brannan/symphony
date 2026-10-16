@@ -163,7 +163,8 @@ class Notify(unittest.TestCase):
         fake = Fake()
         bad = "https://example.org/hooks/123/" + "T" * 40 + "?x=1"
         rc, _, out = run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": bad}, fake, "b")
-        self.assertIn("host=example.org", out)
+        self.assertIn("host=other", out)
+        self.assertNotIn("example", out)
         self.assertIn("extras=query", out)
         self.assertNotIn("T" * 10, out)
 

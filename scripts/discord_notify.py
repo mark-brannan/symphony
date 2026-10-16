@@ -28,7 +28,7 @@ MODEL = "claude-sonnet-5-5"
 
 
 def webhook_shape(hook):
-    """Where a rejected secret diverges from a webhook URL, without echoing any of it but the host."""
+    """Where a rejected secret diverges from a webhook URL, echoing only fixed vocabulary."""
     try:
         u = urllib.parse.urlsplit(hook)
         host = u.hostname
@@ -39,7 +39,9 @@ def webhook_shape(hook):
                     else seg if seg in known or not seg else "?" for seg in u.path.split("/"))
     extras = [n for n, v in (("query", u.query), ("fragment", u.fragment), ("inner whitespace", re.search(r"\s", hook)),
                              ("quote", re.search(r"[\"']", hook))) if v]
-    return f"scheme={u.scheme or '-'} host={host or '-'} path={path or '-'} extras={','.join(extras) or '-'}"
+    scheme = u.scheme if u.scheme in ("http", "https") else "other" if u.scheme else "-"
+    host = host if host and re.fullmatch(r"(?:[a-z]+\.)?discord(?:app)?\.com", host) else "other" if host else "-"
+    return f"scheme={scheme} host={host} path={path or '-'} extras={','.join(extras) or '-'}"
 
 
 def lead_paragraph(text, cap=600):
