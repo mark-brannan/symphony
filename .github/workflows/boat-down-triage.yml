@@ -95,7 +95,7 @@ jobs:
           github_token: ${{ github.token }}
           claude_args: >-
             --model claude-sonnet-5-5 --max-turns 20
-            --allowedTools "Read,Grep,Glob,Write(triage.md),Write(/${{ github.workspace }}/triage.md),Bash(cd:*),Bash(ls:*),Bash(grep:*),Bash(head:*),Bash(git log:*),Bash(gh issue comment ${{ matrix.item.issue }} --body-file triage.md)"
+            --allowedTools "Read,Grep,Glob,Edit(triage.md),Bash(cd:*),Bash(ls:*),Bash(grep:*),Bash(head:*),Bash(git log:*),Bash(gh issue comment ${{ matrix.item.issue }} --body-file triage.md)"
           prompt: |
             The healthchecks.io heartbeat for `${{ matrix.item.host }}` stopped
             at ${{ matrix.item.since }}. Issue #${{ matrix.item.issue }} tracks it.
