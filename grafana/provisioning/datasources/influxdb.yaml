@@ -1,5 +1,12 @@
 apiVersion: 1
 
+# Volumes created before 929224d hold this row under an auto-assigned uid, which
+# provisioning cannot reconcile with the fixed uid below (crash-loop, "data source
+# not found"); deleting by name first lets it be recreated cleanly.
+deleteDatasources:
+  - name: InfluxDB
+    orgId: 1
+
 datasources:
   - name: InfluxDB
     type: influxdb

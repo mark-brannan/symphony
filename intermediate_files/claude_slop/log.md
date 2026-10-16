@@ -2662,3 +2662,15 @@ from the board was wrong. Step 1 (first boot, stock snapshot) is done: PR #81
 (2026-09-25/26) captured the read-only inventory baseline. Mark now has the
 unit on his home LAN. Restored to `## Yours` pointing at step 2 (Tailscale
 join as `symphony-halpi2`) onward.
+
+## 2026-10-15 — grafana stale-datasource crash-loop: hand fix and its repo capture
+PR #103 cleared a Grafana crash-loop (`Datasource provisioning error: data
+source not found`) on one dev `grafana-data` volume by hand: its `grafana.db`
+was snapshotted, then the stale `InfluxDB` datasource row (auto uid
+`P951FEA4DE68E13C5`, orgId 1, from before 929224d fixed the uid to
+`influxdb-symphony`) was deleted. The literal commands were not recorded in
+that PR. Repo capture: `deleteDatasources: [{name: InfluxDB, orgId: 1}]` in
+`grafana/provisioning/datasources/influxdb.yaml`, so any pre-929224d volume
+heals on its next `docker compose up --build --no-deps grafana`. Checked against
+Grafana 13.1.1 on a scratch volume (seed old, uid-only fails exit 1, with the
+stanza starts and logs `deleted datasource ... inserting datasource`).
