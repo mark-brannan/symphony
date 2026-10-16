@@ -159,6 +159,21 @@ class Notify(unittest.TestCase):
             self.assertEqual((rc, fake.reqs), (0, []))
             self.assertNotIn(bad, out)
 
+    def test_rejection_names_shape_not_secret(self):
+        fake = Fake()
+        bad = "https://example.org/hooks/123/" + "T" * 40 + "?x=1"
+        rc, _, out = run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": bad}, fake, "b")
+        self.assertIn("host=example.org", out)
+        self.assertIn("extras=query", out)
+        self.assertNotIn("T" * 10, out)
+
+    def test_common_paste_variants_accepted(self):
+        for variant in ('"%s"' % HOOK, HOOK + "/", HOOK.replace("discord.com", "discordapp.com"),
+                        HOOK.replace("https://discord.com/api", "https://ptb.discord.com/api/v10")):
+            fake = Fake({"id": "9"})
+            run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": variant}, fake, "b")
+            self.assertEqual(len(fake.reqs), 1, variant)
+
     def test_http_error_warns_without_url_and_exits_zero(self):
         fake = Fake(500)
         rc, saved, out = run(self.ENV, fake, "b")

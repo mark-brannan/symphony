@@ -16,14 +16,30 @@ import re
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
-WEBHOOK_RE = re.compile(r"^https://discord\.com/api/webhooks/\d+/[A-Za-z0-9_-]+$")
+WEBHOOK_RE = re.compile(r"^https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api(?:/v\d+)?/webhooks/\d+/[A-Za-z0-9_-]+$")
 MARKER_RE = re.compile(r"<!-- discord:(\d+) -->")
 UA = "DiscordBot (symphony-boat-triage, 1)"
 COLORS = {"opened": 0xE74C3C, "verdict": 0xE67E22, "agent": 0xF1C40F, "recovered": 0x2ECC71}
 MODEL = "claude-sonnet-5-5"
+
+
+def webhook_shape(hook):
+    """Where a rejected secret diverges from a webhook URL, without echoing any of it but the host."""
+    try:
+        u = urllib.parse.urlsplit(hook)
+        host = u.hostname
+    except ValueError:
+        return "not parseable as a URL"
+    known = {"api", "webhooks", "v9", "v10", "slack", "github"}
+    path = "/".join("<id>" if re.fullmatch(r"\d+", seg) else "<token>" if re.fullmatch(r"[A-Za-z0-9_-]{30,}", seg)
+                    else seg if seg in known or not seg else "?" for seg in u.path.split("/"))
+    extras = [n for n, v in (("query", u.query), ("fragment", u.fragment), ("inner whitespace", re.search(r"\s", hook)),
+                             ("quote", re.search(r"[\"']", hook))) if v]
+    return f"scheme={u.scheme or '-'} host={host or '-'} path={path or '-'} extras={','.join(extras) or '-'}"
 
 
 def lead_paragraph(text, cap=600):
@@ -89,12 +105,12 @@ def send(method, url, payload, urlopen):
 
 def notify(args, env, urlopen, issue_body, set_issue_body, now):
     """Returns 0 always; problems print a ::warning:: (without the webhook URL)."""
-    hook = env.get("SYMPHONY_DISCORD_ALARMING_WEBHOOK", "").strip()
+    hook = env.get("SYMPHONY_DISCORD_ALARMING_WEBHOOK", "").strip().strip("\"'").rstrip("/")
     if not hook:
         print("discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK not set; skipping")
         return 0
     if not WEBHOOK_RE.fullmatch(hook):
-        print("::warning::discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK is not a discord.com webhook URL; refusing")
+        print(f"::warning::discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK is not a discord.com webhook URL; refusing ({webhook_shape(hook)})")
         return 0
     payload = render(args.event, args.host, args.issue, args.since, args.text, args.run_id,
                      env.get("GITHUB_REPOSITORY", ""), now)
