@@ -7,7 +7,7 @@ add a physical task, and the two overlapping in the short term is fine.
 
 This file is for humans. High-level items only. Claude-session micro-tasks,
 blocked questions, and detailed working state live in
-`intermediate_files/claude_slop/kanban.md`, not here.
+the global work-item board (state repo; `worklist`), not here.
 
 ## Mark's list of physical tasks (potentially duplicates with evernote)
 - water line from dripless needs to go somewhere real - engineroom air loop?
@@ -38,7 +38,7 @@ blocked questions, and detailed working state live in
   - Next: take the removed chain plate to Ballard Sheet Metal for a fabrication quote.
 - Electrical refit diagrams — DC system overview drafted and committed
   (`diagrams/electrical/`); next: rebuild with community Victron shapes.
-  Detail in `intermediate_files/claude_slop/kanban.md`.
+  Detail on the global work-item board (state repo; `worklist`).
 
 ## Backlog
 
@@ -148,8 +148,8 @@ blocked questions, and detailed working state live in
 
 ## SignalK / IoT — high level
 
-Detailed state, evidence and micro-tasks for every item below live in
-`intermediate_files/claude_slop/kanban.md`.
+Detailed state, evidence and micro-tasks for every item below live on
+the global work-item board (state repo; `worklist`).
 
 - **[high priority]** Move dev-environment provisioning off hand-rolled bash
   wrapper scripts (`scripts/dev_stack.sh` and friends) onto declarative
