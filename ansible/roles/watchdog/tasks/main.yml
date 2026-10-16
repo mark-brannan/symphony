@@ -29,7 +29,8 @@
 - name: report the watchdog
   ansible.builtin.assert:
     that:
-      - "'RuntimeWatchdogUSec=30' in watchdog_settings.stdout"
+      - "'RuntimeWatchdogUSec=30s' in watchdog_settings.stdout_lines"
+      - "'RebootWatchdogUSec=2min' in watchdog_settings.stdout_lines"
     success_msg: "{{ watchdog_settings.stdout_lines }}"
     fail_msg: "{{ watchdog_settings.stdout_lines }}"
   tags: [verify]
