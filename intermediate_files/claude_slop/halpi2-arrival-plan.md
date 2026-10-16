@@ -4,6 +4,30 @@ Written before the unit arrives. Everything below that names a HALPI2 fact
 not already in `reference/compute_hardware.md` is **unverified** and marked
 so; the first bench session verifies against Hat Labs' docs before acting.
 
+## Status — 2026-10-15 (steps 5-6, unattended shift 1)
+
+- Step 6 done with no new change: `ansible/host_vars/symphony-halpi2.yml`
+  already sets `heartbeat_url` to the repurposed `halos` check
+  (`heartbeat_url_symphony_halos`), the `monitoring` role writes it, and the
+  card has been pinging (`journalctl -t boat-heartbeat` reads `ping ok`;
+  `scripts/monitoring_snooze.sh status` shows `halos up`). No new check was
+  created, so no API key was used. Pencil: the HALPI2 and the halos card
+  share one check; undo is a new check URL in `host_vars` if both are ever
+  powered together.
+- Step 5 left running: `marine-questdb-container` and
+  `marine-grafana-container` are active and enabled. Load at 15 min uptime,
+  measured over ssh 192.168.0.110 (the multi-day number is still to come):
+
+  ```
+                 total   used   free  shared  buff/cache  available
+  Mem:            8062   4052   1718      28        2407       4010
+  Swap:           2047    547   1500
+  /dev/zram0 partition 2G 547.3M used, prio 100   (swapon --show)
+  ```
+
+  Largest resident: SignalK node 1.6 GB, QuestDB java 0.36 GB, Grafana
+  0.2 GB. Swap is zram only. Re-record after a few days up.
+
 ## Status — 2026-10-15 (step 4, unattended shift 1)
 
 - Step 4 done: `CARD_NAME=symphony-halpi2 CARD_SSH=192.168.0.110
