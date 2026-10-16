@@ -63,25 +63,25 @@ v_failed=$(systemctl list-units --state=failed --no-legend --plain 2>/dev/null |
 # no network work here; boat-hourly-sync.timer does the fetching. The fetch age
 # is what separates a failing fetch from a merely undeployed change.
 repo_state() {
-	_dir=$1; _ref=$2; _fh=$3
-	[ -d "$_dir" ] || { printf 'absent'; return; }
-	# safe.directory: this runs as root against pi's checkout. left=ahead,
-	# right=behind -- a deploy checkout should never be ahead, so say when it is.
-	_c=$(git -c safe.directory='*' --git-dir="$_dir" \
-		rev-list --left-right --count "HEAD...$_ref" 2>/dev/null) || _c=
-	_a=${_c%%	*}; _n=${_c##*	}
-	case "$_a$_n" in ''|*[!0-9]*) printf 'unknown'; return ;; esac
-	_age=""
-	if [ -f "$_fh" ]; then
-		_m=$(stat -c %Y "$_fh" 2>/dev/null)
-		case "$_m" in ''|*[!0-9]*) ;; *) _age=$(( ( $(date +%s) - _m ) / 60 )) ;; esac
-	fi
-	if   [ "$_a" != 0 ] && [ "$_n" != 0 ]; then printf 'DIVERGED %s ahead %s behind' "$_a" "$_n"
-	elif [ "$_a" != 0 ];                   then printf 'AHEAD %s' "$_a"
-	elif [ "$_n" != 0 ];                   then printf '%s behind' "$_n"
-	else                                        printf 'current'
-	fi
-	[ -n "$_age" ] && printf ', fetched %sm ago' "$_age"
+    _dir=$1; _ref=$2; _fh=$3
+    [ -d "$_dir" ] || { printf 'absent'; return; }
+    # safe.directory: this runs as root against pi's checkout. left=ahead,
+    # right=behind -- a deploy checkout should never be ahead, so say when it is.
+    _c=$(git -c safe.directory='*' --git-dir="$_dir" \
+        rev-list --left-right --count "HEAD...$_ref" 2>/dev/null) || _c=
+    _a=${_c%%	*}; _n=${_c##*	}
+    case "$_a$_n" in ''|*[!0-9]*) printf 'unknown'; return ;; esac
+    _age=""
+    if [ -f "$_fh" ]; then
+        _m=$(stat -c %Y "$_fh" 2>/dev/null)
+        case "$_m" in ''|*[!0-9]*) ;; *) _age=$(( ( $(date +%s) - _m ) / 60 )) ;; esac
+    fi
+    if   [ "$_a" != 0 ] && [ "$_n" != 0 ]; then printf 'DIVERGED %s ahead %s behind' "$_a" "$_n"
+    elif [ "$_a" != 0 ];                   then printf 'AHEAD %s' "$_a"
+    elif [ "$_n" != 0 ];                   then printf '%s behind' "$_n"
+    else                                        printf 'current'
+    fi
+    [ -n "$_age" ] && printf ', fetched %sm ago' "$_age"
 }
 v_symphony=$(repo_state /home/pi/symphony/.git origin/main /home/pi/symphony/.git/FETCH_HEAD)
 v_dotfiles=$(repo_state /home/pi/.local/share/yadm/repo.git origin/main /home/pi/.local/share/yadm/repo.git/FETCH_HEAD)
@@ -89,7 +89,7 @@ v_dotfiles=$(repo_state /home/pi/.local/share/yadm/repo.git origin/main /home/pi
 # exit 0. Anything but 0 wants a human.
 # wc -l would mask a git failure as "0", so take git's status first.
 _sl=$(git -c safe.directory='*' --git-dir=/home/pi/.local/share/yadm/repo.git \
-	--work-tree=/home/pi stash list 2>/dev/null) && v_stash=$(printf '%s' "$_sl" | grep -c .) || v_stash=unknown
+    --work-tree=/home/pi stash list 2>/dev/null) && v_stash=$(printf '%s' "$_sl" | grep -c .) || v_stash=unknown
 case "$v_stash" in ''|*[!0-9]*) v_stash="unknown" ;; esac
 [ "$v_stash" = 0 ] || v_dotfiles="$v_dotfiles, ${v_stash} stashed"
 
@@ -109,14 +109,14 @@ n_disk=$(df -P / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $5}' || true)
 
 reasons=""
 case "$n_mem" in ''|*[!0-9]*) ;; *)
-	[ "$n_mem" -lt "$MEM_ALARM_MB" ] && reasons="memory available ${n_mem} MB < ${MEM_ALARM_MB}" ;;
+    [ "$n_mem" -lt "$MEM_ALARM_MB" ] && reasons="memory available ${n_mem} MB < ${MEM_ALARM_MB}" ;;
 esac
 case "$n_disk" in ''|*[!0-9]*) ;; *)
-	[ "$n_disk" -ge "$DISK_ALARM_PCT" ] &&
-		reasons="${reasons:+$reasons; }disk ${n_disk}% >= ${DISK_ALARM_PCT}%" ;;
+    [ "$n_disk" -ge "$DISK_ALARM_PCT" ] &&
+        reasons="${reasons:+$reasons; }disk ${n_disk}% >= ${DISK_ALARM_PCT}%" ;;
 esac
 case "$v_failed" in ''|none|unknown) ;; *)
-	reasons="${reasons:+$reasons; }failed units: ${v_failed}" ;;
+    reasons="${reasons:+$reasons; }failed units: ${v_failed}" ;;
 esac
 
 # Require two consecutive samples before calling it down, so a value sitting
@@ -125,13 +125,13 @@ esac
 # start the count over rather than alarm on the first sample after it.
 TRIPS=/run/boat-heartbeat.trips
 if [ -n "$reasons" ]; then
-	n=$(cat "$TRIPS" 2>/dev/null || echo 0)
-	case "$n" in ''|*[!0-9]*) n=0 ;; esac
-	n=$((n + 1))
-	echo "$n" > "$TRIPS" 2>/dev/null || true
-	[ "$n" -ge 2 ] || reasons=""
+    n=$(cat "$TRIPS" 2>/dev/null || echo 0)
+    case "$n" in ''|*[!0-9]*) n=0 ;; esac
+    n=$((n + 1))
+    echo "$n" > "$TRIPS" 2>/dev/null || true
+    [ "$n" -ge 2 ] || reasons=""
 else
-	rm -f "$TRIPS" 2>/dev/null || true
+    rm -f "$TRIPS" 2>/dev/null || true
 fi
 
 # Soft warning tier: a quiet Pushover buzz for the band below the alarm
@@ -143,41 +143,41 @@ MEM_WARN_MB=600
 DISK_WARN_PCT=80
 WARN_FLAG=/run/boat-heartbeat.warned
 if [ -z "$reasons" ] && [ -n "$PUSHOVER_TOKEN" ] && [ -n "$PUSHOVER_USER" ]; then
-	warn_reasons=""
-	case "$n_mem" in ''|*[!0-9]*) ;; *)
-		[ "$n_mem" -lt "$MEM_WARN_MB" ] && warn_reasons="memory available ${n_mem} MB < ${MEM_WARN_MB}" ;;
-	esac
-	case "$n_disk" in ''|*[!0-9]*) ;; *)
-		[ "$n_disk" -ge "$DISK_WARN_PCT" ] &&
-			warn_reasons="${warn_reasons:+$warn_reasons; }disk ${n_disk}% >= ${DISK_WARN_PCT}%" ;;
-	esac
-	if [ -n "$warn_reasons" ]; then
-		if [ ! -f "$WARN_FLAG" ]; then
-			curl -fsS --max-time 15 \
-				--form-string "token=$PUSHOVER_TOKEN" \
-				--form-string "user=$PUSHOVER_USER" \
-				--form-string "title=Symphony: early warning" \
-				--form-string "message=$warn_reasons" \
-				--form-string "priority=-1" \
-				https://api.pushover.net/1/messages.json >/dev/null 2>&1 \
-				&& touch "$WARN_FLAG"
-		fi
-	else
-		rm -f "$WARN_FLAG" 2>/dev/null || true
-	fi
+    warn_reasons=""
+    case "$n_mem" in ''|*[!0-9]*) ;; *)
+        [ "$n_mem" -lt "$MEM_WARN_MB" ] && warn_reasons="memory available ${n_mem} MB < ${MEM_WARN_MB}" ;;
+    esac
+    case "$n_disk" in ''|*[!0-9]*) ;; *)
+        [ "$n_disk" -ge "$DISK_WARN_PCT" ] &&
+            warn_reasons="${warn_reasons:+$warn_reasons; }disk ${n_disk}% >= ${DISK_WARN_PCT}%" ;;
+    esac
+    if [ -n "$warn_reasons" ]; then
+        if [ ! -f "$WARN_FLAG" ]; then
+            curl -fsS --max-time 15 \
+                --form-string "token=$PUSHOVER_TOKEN" \
+                --form-string "user=$PUSHOVER_USER" \
+                --form-string "title=Symphony: early warning" \
+                --form-string "message=$warn_reasons" \
+                --form-string "priority=-1" \
+                https://api.pushover.net/1/messages.json >/dev/null 2>&1 \
+                && touch "$WARN_FLAG"
+        fi
+    else
+        rm -f "$WARN_FLAG" 2>/dev/null || true
+    fi
 fi
 
 if [ -n "$reasons" ]; then
-	v_status="ALARM: $reasons"
-	PING_URL="${URL%/}/fail"
+    v_status="ALARM: $reasons"
+    PING_URL="${URL%/}/fail"
 else
-	v_status="ok"
-	PING_URL="$URL"
+    v_status="ok"
+    PING_URL="$URL"
 fi
 
 BODY=$(printf 'status: %s\nuptime: %s\nload: %s\nmem available: %s\ndisk: %s\ntemp: %s\nthrottled: %s\nclock: %s\nfailed units: %s\nsymphony: %s\ndotfiles: %s\n' \
-	"$v_status" "$v_uptime" "$v_load" "$v_mem" "$v_disk" "$v_temp" "$v_throttled" "$v_clock" "$v_failed" \
-	"$v_symphony" "$v_dotfiles")
+    "$v_status" "$v_uptime" "$v_load" "$v_mem" "$v_disk" "$v_temp" "$v_throttled" "$v_clock" "$v_failed" \
+    "$v_symphony" "$v_dotfiles")
 
 # A boat loses its uplink routinely. A missed ping is the expected case, not a
 # fault, so this exits 0 either way rather than leaving a failed unit behind
@@ -195,31 +195,31 @@ ESCALATED=/run/boat-heartbeat.escalated
 PUSHOVER_FAILS_THRESHOLD=3
 
 if printf '%s' "$BODY" | curl -fsS --max-time 20 --retry 2 --retry-delay 5 \
-	--data-binary @- "$PING_URL" >/dev/null 2>&1; then
-	rm -f "$PING_FAILS" "$ESCALATED" 2>/dev/null || true
-	if [ -n "$reasons" ]; then
-		logger -t boat-heartbeat "ping sent to /fail -- $reasons"
-	else
-		logger -t boat-heartbeat "ping ok"
-	fi
+    --data-binary @- "$PING_URL" >/dev/null 2>&1; then
+    rm -f "$PING_FAILS" "$ESCALATED" 2>/dev/null || true
+    if [ -n "$reasons" ]; then
+        logger -t boat-heartbeat "ping sent to /fail -- $reasons"
+    else
+        logger -t boat-heartbeat "ping ok"
+    fi
 else
-	logger -t boat-heartbeat "ping failed (offline or endpoint down)"
-	pf=$(cat "$PING_FAILS" 2>/dev/null || echo 0)
-	case "$pf" in ''|*[!0-9]*) pf=0 ;; esac
-	pf=$((pf + 1))
-	echo "$pf" > "$PING_FAILS" 2>/dev/null || true
-	if [ "$pf" -ge "$PUSHOVER_FAILS_THRESHOLD" ] && [ ! -f "$ESCALATED" ] \
-		&& [ -n "$PUSHOVER_TOKEN" ] && [ -n "$PUSHOVER_USER" ] \
-		&& curl -fsS --max-time 8 -o /dev/null https://1.1.1.1; then
-		curl -fsS --max-time 15 \
-			--form-string "token=$PUSHOVER_TOKEN" \
-			--form-string "user=$PUSHOVER_USER" \
-			--form-string "title=Symphony monitoring is down" \
-			--form-string "message=$pf consecutive pings to healthchecks.io have failed while the boat's uplink is up. healthchecks.io can't report its own outage -- check it by hand." \
-			--form-string "priority=1" \
-			https://api.pushover.net/1/messages.json >/dev/null 2>&1 \
-			&& touch "$ESCALATED"
-	fi
+    logger -t boat-heartbeat "ping failed (offline or endpoint down)"
+    pf=$(cat "$PING_FAILS" 2>/dev/null || echo 0)
+    case "$pf" in ''|*[!0-9]*) pf=0 ;; esac
+    pf=$((pf + 1))
+    echo "$pf" > "$PING_FAILS" 2>/dev/null || true
+    if [ "$pf" -ge "$PUSHOVER_FAILS_THRESHOLD" ] && [ ! -f "$ESCALATED" ] \
+        && [ -n "$PUSHOVER_TOKEN" ] && [ -n "$PUSHOVER_USER" ] \
+        && curl -fsS --max-time 8 -o /dev/null https://1.1.1.1; then
+        curl -fsS --max-time 15 \
+            --form-string "token=$PUSHOVER_TOKEN" \
+            --form-string "user=$PUSHOVER_USER" \
+            --form-string "title=Symphony monitoring is down" \
+            --form-string "message=$pf consecutive pings to healthchecks.io have failed while the boat's uplink is up. healthchecks.io can't report its own outage -- check it by hand." \
+            --form-string "priority=1" \
+            https://api.pushover.net/1/messages.json >/dev/null 2>&1 \
+            && touch "$ESCALATED"
+    fi
 fi
 
 exit 0
