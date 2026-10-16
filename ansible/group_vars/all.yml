@@ -2,10 +2,11 @@
 # Needs `sops` on PATH and the age key at ~/.config/sops/age/keys.txt; the
 # lookup is lazy, so a play that touches no secret does not need either.
 #
-# Referenced as `symphony_secrets.<key>` everywhere below. Nothing unpacks it
-# into named top-level variables: a flat name is one `debug` task away from
-# ending up in a log, and the whole point of the indirection is that every
-# use site is greppable.
+# Referenced as `symphony_secrets.<key>` everywhere below. Only the Pushover
+# pair below and the per-host heartbeat_url (host_vars) are unpacked into flat
+# names, for the heartbeat template; a flat name is one `debug` task away from
+# ending up in a log, and the point of the indirection is that every use site
+# is greppable.
 symphony_secrets: >-
   {{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/symphony.sops.yaml') | from_yaml }}
 
