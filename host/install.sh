@@ -160,34 +160,27 @@ for spec in "${INSTALL[@]}"; do
 done
 
 # HALOS-card files from host/halos/, only on a card running the containerised
-# SignalK, so this is a no-op on the OpenPlotter boat card. Who owns what is in
-# host/halos/README.md. Each file is written only when absent or different, so
-# a second run changes nothing and restarts nothing.
-#   <source in host/halos/>:<destination>:<overwrite|keep>
-# keep: Ansible's signalk_container role owns these and overwrites them on
-# every site.yml run; here they only fill in on a card Ansible has not reached.
-# overwrite: nothing else places the file; Traefik reloads it on write.
+# SignalK, so this is a no-op on the OpenPlotter boat card. Every file here has
+# another owner (host/halos/README.md); install.sh only fills in one that is
+# absent, never overwrites, so a second run changes nothing and restarts nothing.
+#   <source in host/halos/>:<destination>
 HALOS_FILES=(
-    "signalk-healthcheck-override.yml:/etc/container-apps/marine-signalk-server-container/symphony.override.yml:keep"
-    "signalk-unit-override.conf:/etc/systemd/system/$SIGNALK_CONTAINER_UNIT.d/symphony.conf:keep"
-    "traefik-symphony-signalk-host.yml:/etc/halos/traefik-dynamic.d/symphony-signalk-host.yml:overwrite"
+    "signalk-healthcheck-override.yml:/etc/container-apps/marine-signalk-server-container/symphony.override.yml"
+    "signalk-unit-override.conf:/etc/systemd/system/$SIGNALK_CONTAINER_UNIT.d/symphony.conf"
+    "traefik-symphony-signalk-host.yml:/etc/halos/traefik-dynamic.d/symphony-signalk-host.yml"
 )
 if [ "$SIGNALK_KIND" = container ]; then
     echo "== halos files =="
     halos_unit_changed=no
     for spec in "${HALOS_FILES[@]}"; do
-        IFS=: read -r src dest policy <<<"$spec"
+        IFS=: read -r src dest <<<"$spec"
         # Traefik's directory belongs to the HALOS router; without it there is nothing to route.
         if [ "${dest#/etc/halos/}" != "$dest" ] && [ ! -d "$(dirname "$dest")" ]; then
             echo "  $dest  (no Traefik here, skipped)"
             continue
         fi
-        if [ "$policy" = keep ] && [ -e "$dest" ]; then
+        if [ -e "$dest" ]; then
             echo "  $dest  (kept, already installed)"
-            continue
-        fi
-        if cmp -s "$HERE/halos/$src" "$dest"; then
-            echo "  $dest  (unchanged)"
             continue
         fi
         install -D -o root -g root -m 0644 "$HERE/halos/$src" "$dest"
