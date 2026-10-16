@@ -89,11 +89,11 @@ def send(method, url, payload, urlopen):
 
 def notify(args, env, urlopen, issue_body, set_issue_body, now):
     """Returns 0 always; problems print a ::warning:: (without the webhook URL)."""
-    hook = env.get("SYMPHONY_DISCORD_ALARMING_WEBHOOK", "")
+    hook = env.get("SYMPHONY_DISCORD_ALARMING_WEBHOOK", "").strip()
     if not hook:
         print("discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK not set; skipping")
         return 0
-    if not WEBHOOK_RE.match(hook):
+    if not WEBHOOK_RE.fullmatch(hook):
         print("::warning::discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK is not a discord.com webhook URL; refusing")
         return 0
     payload = render(args.event, args.host, args.issue, args.since, args.text, args.run_id,

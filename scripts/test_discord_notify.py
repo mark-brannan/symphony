@@ -127,6 +127,12 @@ class Notify(unittest.TestCase):
         self.assertEqual([(m, u) for m, u, _ in fake.reqs], [("POST", HOOK + "?wait=true")])
         self.assertEqual(saved, ["<!-- hc:pi -->\nb\n<!-- discord:999 -->\n"])
 
+    def test_trailing_newline_in_secret_is_stripped(self):
+        fake = Fake({"id": "999"})
+        rc, _, _ = run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": HOOK + "\n"}, fake, "b")
+        self.assertEqual(rc, 0)
+        self.assertEqual([(m, u) for m, u, _ in fake.reqs], [("POST", HOOK + "?wait=true")])
+
     def test_later_event_patches_known_message(self):
         fake = Fake({})
         rc, saved, _ = run(self.ENV, fake, "b\n<!-- discord:999 -->\n")
