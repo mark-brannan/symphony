@@ -4,6 +4,27 @@ Written before the unit arrives. Everything below that names a HALPI2 fact
 not already in `reference/compute_hardware.md` is **unverified** and marked
 so; the first bench session verifies against Hat Labs' docs before acting.
 
+## Status — 2026-10-15 (step 4, unattended shift 1)
+
+- Step 4 started, not finished. The B3 script is `scripts/halos_card_prepare.sh`
+  (apt apps, `site.yml`, SignalK state from the boat, npm build, overrides,
+  front door, reboot, preflight). It now takes `CARD_NAME` and `CARD_SSH`, so
+  the HALPI2 runs as `CARD_NAME=symphony-halpi2 CARD_SSH=192.168.0.110
+  scripts/halos_card_prepare.sh`; the 2 GB database stop is now only for cards
+  under 3 GB (the HALPI2 keeps QuestDB and Grafana up).
+- Done on the HALPI2 by that run: `marine-questdb/grafana/influxdb-container`
+  installed, `site.yml` re-run (ok=73 changed=2: the Influx app purge), the
+  boat's `.signalk` rsync began. The rsync over the boat's cellular link ran at
+  50-130 KB/s (128 MB, mostly `plugin-config-data/signalk-restricted-areas`
+  62 MB and `signalk-barograph` 37 MB), so the run outlived the session's
+  budget before the npm build (step 4 of the script). Re-run the same command;
+  every layer is idempotent.
+- `scripts/halos_preflight.sh` now reads the board: on the CM5 it wants
+  `mcp251xfd`, `uart4-pi5`, `/dev/ttyAMA4` instead of the PiCAN-M lines and
+  `/dev/serial0`, and takes the tailnet name from `CARD_NAME`. Not yet run
+  against the HALPI2 (no SignalK state yet), so other FAILs may remain.
+- Step 5 (`halos_swap_check.sh symphony-halpi2`) not run.
+
 ## Status — 2026-10-15
 
 - Step 2 landed: the HALPI2 is on the tailnet as `symphony-halpi2` and is in

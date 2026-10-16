@@ -5,6 +5,10 @@
 #   scripts/halos_card_prepare.sh 192.168.1.50   virgin card: bootstrap first (use the card's own LAN IP)
 #   scripts/halos_card_prepare.sh                card already on the tailnet
 #
+# Another card (the HALPI2): CARD_NAME is its inventory/tailnet name, CARD_SSH
+# the address ssh uses when the tailnet name is unusable from this box:
+#   CARD_NAME=symphony-halpi2 CARD_SSH=192.168.0.110 scripts/halos_card_prepare.sh
+#
 # Runs every layer in order and stops at the first failure. Idempotent: a
 # re-run after a fix picks up where the card is. Ends with the preflight; the
 # card is ready when every preflight line reads ok and nothing else.
@@ -30,7 +34,8 @@ for tool in sops ansible-playbook rsync ssh; do
 done
 
 TARGET="${1:-symphony-halos}"
-H=symphony-halos                       # tailnet name once the network role ran
+CARD_NAME="${CARD_NAME:-symphony-halos}"   # inventory and tailnet name
+H="${CARD_SSH:-$CARD_NAME}"                # what ssh and rsync connect to
 D=/var/lib/container-apps/marine-signalk-server-container/data/data
 VENUS_HOST=192.168.8.107               # the Cerbo's LAN address; see kanban card "Pick a name for the boat's Venus GX"
 STAGE="${TMPDIR:-/tmp}/halos-prepare-$$"
@@ -49,7 +54,7 @@ if [[ "$TARGET" =~ ^[0-9.]+$ ]]; then
   cat >"$INV" <<EOF
 all:
   children:
-    halos_cards: { hosts: { symphony-halos: { ansible_host: $TARGET } } }
+    halos_cards: { hosts: { $CARD_NAME: { ansible_host: $TARGET } } }
   vars:
     ansible_user: pi
     ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
@@ -63,11 +68,13 @@ fi
 
 step "1. app packages (QuestDB, Grafana) on $CARD"
 sudo_on "$CARD" "sh -c 'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq marine-questdb-container marine-grafana-container'"
-# 2 GB bench cannot hold the databases next to the build; back up for the preflight.
-sudo_on "$CARD" "systemctl stop marine-questdb-container marine-grafana-container marine-influxdb-container" || true
+# A card under 3 GB cannot hold the databases next to the build; an 8 GB one runs them.
+sudo_on "$CARD" "systemctl stop marine-influxdb-container" || true
+[ "$(ssh "pi@$CARD" "free -m | awk '/^Mem/{print \$2}'")" -ge 3000 ] || sudo_on "$CARD" "systemctl stop marine-questdb-container marine-grafana-container" || true
 
 step "2. ansible site.yml (host layer; may reboot the card)"
-(cd ansible && ansible-playbook "${ANSIBLE_ARGS[@]}" site.yml -l symphony-halos)
+[ "$H" = "$CARD_NAME" ] || [[ "$TARGET" =~ ^[0-9.]+$ ]] || ANSIBLE_ARGS+=(-e "ansible_host=$H")
+(cd ansible && ansible-playbook "${ANSIBLE_ARGS[@]}" site.yml -l "$CARD_NAME")
 wait_ssh "$H"    # the network role put the card on the tailnet; use that name from here
 
 step "3. SignalK state from the boat, relayed through this box"
@@ -142,4 +149,4 @@ mem=$(ssh "pi@$H" "free -m | awk '/^Mem/{print \$2}'")
 echo "waiting 5 min for SignalK's cold start"; sleep 300
 
 step "8. preflight -- ready when every line is ok"
-exec scripts/halos_preflight.sh "$H"
+CARD_NAME="$CARD_NAME" exec scripts/halos_preflight.sh "$H"
