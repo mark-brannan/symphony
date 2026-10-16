@@ -481,7 +481,7 @@ def log_entries(text: str):
             if cur:
                 yield cur
             cur = [no, 1, len(line.strip())]
-        elif cur and line.strip():
+        elif cur and line.strip() and not line.lstrip().startswith("#"):
             cur[1] += 1
             cur[2] += len(line.strip()) + 1
         else:

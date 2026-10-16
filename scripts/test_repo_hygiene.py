@@ -264,6 +264,31 @@ class LogBulletWarnTest(unittest.TestCase):
         got = {no: n for no, n, _ in lint.log_entries(text)}
         self.assertEqual(got, {1: 1, 2: 4, 7: 1})
 
+    def test_heading_ends_a_bullet(self):
+        got = {no: n for no, n, _ in lint.log_entries("- a\n## H\n- b\n")}
+        self.assertEqual(got, {1: 1, 3: 1})
+
+    def test_scoped_run_warns_only_on_added_bullets(self):
+        import subprocess
+        from unittest import mock
+        long_ = "- " + "word " * 80 + "\n"
+        saved = (lint.SCOPE_ALL, lint.ROOT)
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "maintenance").mkdir()
+            (Path(d) / "maintenance/log.md").write_text(long_ + "- ok\n" + long_)
+            lint.ROOT = Path(d)
+            lint.warnings.clear()
+            fake = subprocess.CompletedProcess([], 0, "@@ -2,0 +3 @@\n+x\n", "")
+            try:
+                with mock.patch.object(lint, "in_scope", return_value={"maintenance/log.md"}), \
+                     mock.patch.object(lint.subprocess, "run", return_value=fake):
+                    lint.rule_log_bullets_are_short()
+            finally:
+                lint.SCOPE_ALL, lint.ROOT = saved
+        self.assertEqual(len(lint.warnings), 1)
+        self.assertIn("log.md:3", lint.warnings[0])
+        lint.warnings.clear()
+
     def test_added_line_numbers(self):
         diff = "@@ -3,0 +4,2 @@\n+a\n+b\n@@ -9 +11 @@\n+c\n"
         self.assertEqual(lint.added_line_numbers(diff), {4, 5, 11})
