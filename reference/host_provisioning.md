@@ -85,6 +85,8 @@ ansible/
     base/                # apt repo and packages, zram, the stay-down apps
     repo/                # the checkout at /home/pi/symphony
     host_files/          # invokes host/install.sh
+    watchdog/            # the hardware-watchdog [Manager] settings
+    clock/               # chrony's conf.d drop-in
     claude_resident/     # the resident Claude Code session's user unit
     monitoring/          # telegraf wiring, per-host heartbeat config
     signalk_container/   # the two HALOS override files

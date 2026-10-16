@@ -68,6 +68,10 @@
       tags: [repo, host_services]
     - role: host_files
       tags: [host_files, host_services]
+    - role: watchdog
+      tags: [watchdog, host_services]
+    - role: clock
+      tags: [clock, host_services]
     - role: claude_resident
       tags: [claude_resident, host_services]
     - role: monitoring

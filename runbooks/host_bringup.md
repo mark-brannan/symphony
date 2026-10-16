@@ -93,12 +93,12 @@ isn't a boat card; `SYMPHONY_INSTALL_FORCE=1` overrides only for a real card
 failing a check. *Verify* the watchdog per
 [RUNBOOK.md](../RUNBOOK.md#deploying-a-change-to-the-boat).
 
-It drops chrony's config whether or not chrony is installed. If `chronyc` is
+Chrony's config comes from the `clock` role, not `install.sh`. If `chronyc` is
 missing:
 
 ```bash
 sudo apt install chrony
-sudo host/install.sh
+(cd ansible && ansible-playbook site.yml --tags clock)
 chronyc tracking && chronyc sources     # a reference named, one `^*` peer
 ```
 
