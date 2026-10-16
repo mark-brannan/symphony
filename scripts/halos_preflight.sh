@@ -119,9 +119,9 @@ else
   # A plugin installed on both sides at different versions is not a gate (the
   # boat updates plugins; the card runs what it was built with). A missing
   # plugin, or any config file, still FAILs.
-  drift=$(echo "$raw" | awk '/@NOTINSTALLED$/ {next} /^[<>] [^ ]+@[^ ]+$/ {split($2,a,"@"); side[a[1]] = side[a[1]] substr($1,1,1)} END {for (n in side) if (side[n] ~ /</ && side[n] ~ />/) print n}' | sort)
+  drift=$(echo "$raw" | awk '/@NOTINSTALLED$/ {next} /^[<>] [^ ]+@[^ ]+$/ {n=$2; sub(/@[^@]*$/,"",n); side[n] = side[n] substr($1,1,1)} END {for (n in side) if (side[n] ~ /</ && side[n] ~ />/) print n}' | sort)
   out=$(echo "$raw" | grep -vE "^[<>] ($(echo "$drift" | paste -sd'|' | sed 's/^$/^$/'))@" | tr '\n' ' ')
-  note=""; [ -n "$drift" ] && note="; plugin version drift only (not a gate): $(echo $drift)"
+  note=""; [ -n "$drift" ] && note="; plugin version drift only (not a gate): ${drift//$'\n'/ }"
   [ -z "$out" ] && say ok state "config files match the boat, every boat plugin installed (forks, expected-off and venus skipped)$note" || say FAIL state "differs from the boat (< boat, > halos): $out-- see runbooks/halos_swap.md 'Sync the SignalK config'"
 fi
 

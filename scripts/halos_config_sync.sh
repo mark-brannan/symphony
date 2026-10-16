@@ -39,4 +39,4 @@ done
 # excluded -- this script doesn't own the fork checkouts there.
 rsync -a --delete --exclude local-plugins --exclude system-plugins "${generic_args[@]}" "${config_args[@]}" "$STAGE/" "pi@$HOST:$D/" \
   || { echo "halos_config_sync: rsync failed; not restarting SignalK" >&2; exit 1; }
-printf '%s\n' "$PW" | ssh pi@$HOST "sudo -S -p '' systemctl restart marine-signalk-server-container"
+printf '%s\n' "$PW" | ssh "pi@$HOST" "sudo -S -p '' systemctl restart marine-signalk-server-container"
