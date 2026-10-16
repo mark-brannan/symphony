@@ -10,6 +10,13 @@ on:
   schedule:
     - cron: '7,37 * * * *'
   workflow_dispatch:
+    inputs:
+      host:
+        description: Triage this host now (e.g. symphony-pi); blank runs the normal watch
+        default: ''
+      issue:
+        description: Issue or PR number the triage comments on
+        default: ''
 
 concurrency:
   group: boat-down-triage
@@ -24,14 +31,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
-      triage: ${{ steps.watch.outputs.triage }}
+      triage: ${{ steps.watch.outputs.triage || steps.manual.outputs.triage }}
     steps:
       - uses: actions/checkout@v7
       - id: watch
+        if: inputs.host == ''
         run: python3 scripts/boat_down_watch.py
         env:
           HC_API_KEY: ${{ secrets.HEALTHCHECKS_API_KEY_READ_ONLY }}
           GH_TOKEN: ${{ github.token }}
+      - id: manual
+        if: inputs.host != ''
+        env:
+          HOST: ${{ inputs.host }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          [[ "$HOST" =~ ^symphony-[a-z0-9-]+$ && "$ISSUE" =~ ^[0-9]+$ ]] || { echo "bad input"; exit 1; }
+          echo "triage=[{\"issue\":$ISSUE,\"host\":\"$HOST\",\"since\":\"$(date -u -d '-1 hour' +%FT%TZ)\"}]" >> "$GITHUB_OUTPUT"
 
   triage:
     needs: watch
