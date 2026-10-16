@@ -68,7 +68,7 @@
       tags: [repo, host_services]
     - role: host_files
       tags: [host_files, host_services]
-    - role: claude-resident
+    - role: claude_resident
       tags: [claude_resident, host_services]
     - role: monitoring
       tags: [monitoring, host_services]

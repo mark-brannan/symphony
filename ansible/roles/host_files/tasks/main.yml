@@ -4,9 +4,10 @@
 # Ansible does NOT reimplement install.sh. host_provisioning.md's migration
 # path is explicit that the two must not both own a file, and install.sh is
 # still the authoritative writer for everything in its INSTALL array -- the
-# heartbeat and BLE-check units and timers, the apt unattended-upgrade confs. Porting those into roles is the
-# next slice, tracked on the board; today this role's job is to invoke it and
-# to fail honestly when it does not finish.
+# heartbeat and BLE-check units and timers, the apt unattended-upgrade confs.
+# Porting those into roles is the next slice, tracked on the board; today
+# this role's job is to invoke it and to fail honestly when it does not
+# finish.
 
 - name: step 22 | run the host-file installer
   ansible.builtin.command: ./host/install.sh
