@@ -19,7 +19,7 @@ out=diagnostics.txt
     "uptime; systemctl --failed --no-pager; free -m; df -h /; \
      echo \"timer: \$(systemctl is-active boat-heartbeat.timer)\"; echo \"service: \$(systemctl is-failed boat-heartbeat.service)\"; \
      journalctl -t boat-heartbeat --no-pager --since '$since' | tail -n 60; \
-     curl -sS -o /dev/null -w 'healthchecks.io HTTP %{http_code}\n' https://hc-ping.com" 2>&1
+     curl -sS -o /dev/null -w 'healthchecks.io HTTP %{http_code}\n' https://hc-ping.com; true" 2>&1
   rc=$?; if [ "$rc" -eq 255 ] || [ "$rc" -eq 124 ]; then echo "ssh failed: exit $rc"; fi
 } > "$out"
 
@@ -34,7 +34,7 @@ elif grep -qE 'healthchecks.io HTTP (000|[^2])' "$out"; then
   verdict="Host is up but cannot reach healthchecks.io: the uplink or DNS is out. Check the router/cellular link."
 elif grep -qE '^timer: (inactive|failed|unknown)|^service: failed' "$out"; then
   verdict="Host is up but the heartbeat timer/service is not running. Restart it: systemctl restart boat-heartbeat.timer."
-elif awk '/^Mem:/ {exit !($7 < 400)}' "$out"; then
+elif awk '/^Mem:/{f=1;low=$7<400} END{exit !(f&&low)}' "$out"; then
   verdict="Host is up but available memory is under 400 MB: pressure may be starving the heartbeat. Stop InfluxDB/Grafana per CLAUDE.md."
 elif grep -qE '[1-9][0-9]* loaded units listed' "$out"; then
   verdict="Host is up and heartbeat looks fine, but other units have failed. Run systemctl --failed on the host."
