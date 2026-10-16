@@ -54,3 +54,4 @@ verdict=$(classify "$out")
 
 body="🤖 Rule-based first pass (run ${GITHUB_RUN_ID:-local}): $verdict A deeper agent triage follows if it succeeds."
 gh issue comment "$issue" --body "$body" || echo "verdict comment failed"
+"$(dirname "$0")/discord_notify.py" verdict --issue "$issue" --host "$host" --text "$verdict" || true

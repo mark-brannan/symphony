@@ -24,6 +24,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -254,6 +255,96 @@ class FrozenSecretsStillBlockTest(unittest.TestCase):
         lint.rule_frozen_secrets_untouched()
         self.assertEqual(lint.failures, [])
         self.assertTrue(any("frozen-secret-range" in w for w in lint.warnings))
+
+
+class LogBulletWarnTest(unittest.TestCase):
+    """Long log.md bullets warn, never fail; scoped runs see only added lines."""
+
+    def test_entries_measure_continuations(self):
+        text = "- short\n- long\n  b\n  c\n  d\n\n- x\n"
+        got = {no: n for no, n, _ in lint.log_entries(text)}
+        self.assertEqual(got, {1: 1, 2: 4, 7: 1})
+
+    def test_heading_ends_a_bullet(self):
+        got = {no: n for no, n, _ in lint.log_entries("- a\n## H\n- b\n")}
+        self.assertEqual(got, {1: 1, 3: 1})
+
+    def test_scoped_run_warns_only_on_added_bullets(self):
+        import subprocess
+        from unittest import mock
+        long_ = "- " + "word " * 80 + "\n"
+        saved = (lint.SCOPE_ALL, lint.ROOT)
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "maintenance").mkdir()
+            (Path(d) / "maintenance/log.md").write_text(long_ + "- ok\n" + long_)
+            lint.ROOT = Path(d)
+            lint.warnings.clear()
+            fake = subprocess.CompletedProcess([], 0, "@@ -2,0 +3 @@\n+x\n", "")
+            try:
+                with mock.patch.object(lint, "in_scope", return_value={"maintenance/log.md"}), \
+                     mock.patch.object(lint.subprocess, "run", return_value=fake):
+                    lint.rule_log_bullets_are_short()
+            finally:
+                lint.SCOPE_ALL, lint.ROOT = saved
+        self.assertEqual(len(lint.warnings), 1)
+        self.assertIn("log.md:3", lint.warnings[0])
+        lint.warnings.clear()
+
+    def test_ci_range_with_all_warns_only_on_touched_bullets(self):
+        import subprocess
+        long_ = "- " + "word " * 80 + "\n"
+        saved = (lint.SCOPE_ALL, lint.ROOT)
+        env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "maintenance").mkdir()
+            log = root / "maintenance/log.md"
+
+            def git(*a):
+                subprocess.run(["git", *a], cwd=root, check=True,
+                               capture_output=True, env={**{k: v for k, v in os.environ.items()
+                                       if not k.startswith("GIT_")}, **env})
+
+            git("init", "-q")
+            log.write_text(long_ + "- ok\n")
+            git("add", "."); git("commit", "-qm", "a")
+            log.write_text(long_ + "- ok\n" + long_)
+            git("commit", "-qam", "b")
+            lint.ROOT, lint.SCOPE_ALL = root, True
+            lint.warnings.clear()
+            try:
+                clean = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+                clean["HYGIENE_COMMIT_RANGE"] = "HEAD~1..HEAD"  # hooks leak GIT_DIR
+                with mock.patch.dict(os.environ, clean, clear=True):
+                    lint.rule_log_bullets_are_short()
+            finally:
+                lint.SCOPE_ALL, lint.ROOT = saved
+        self.assertEqual(len(lint.warnings), 1)
+        self.assertIn("log.md:3", lint.warnings[0])
+        lint.warnings.clear()
+
+    def test_added_line_numbers(self):
+        diff = "@@ -3,0 +4,2 @@\n+a\n+b\n@@ -9 +11 @@\n+c\n"
+        self.assertEqual(lint.added_line_numbers(diff), {4, 5, 11})
+
+    def test_all_mode_warns_and_never_fails(self):
+        saved = (lint.SCOPE_ALL, lint.ROOT)
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "maintenance").mkdir()
+            (Path(d) / "maintenance/log.md").write_text(
+                "- ok\n- " + "word " * 80 + "\n")
+            lint.ROOT, lint.SCOPE_ALL = Path(d), True
+            lint.failures.clear()
+            lint.warnings.clear()
+            try:
+                lint.rule_log_bullets_are_short()
+            finally:
+                lint.SCOPE_ALL, lint.ROOT = saved
+        self.assertEqual(lint.failures, [])
+        self.assertEqual(len(lint.warnings), 1)
+        self.assertIn("log-bullet-long", lint.warnings[0])
+        lint.warnings.clear()
 
 
 if __name__ == "__main__":
