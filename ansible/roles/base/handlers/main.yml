@@ -12,6 +12,8 @@
   listen: regenerate zram devices
   ansible.builtin.command: systemctl reset-failed systemd-zram-setup@zram0.service
   changed_when: false
+  failed_when: false
   # A refused swap-off (device busy, as on an image that already swaps to
   # zram0) leaves the unit failed, which the heartbeat reports as a fault
   # until the next boot applies the new size.
+  # failed_when is off so a card without the zram unit loaded is not failed by the cleanup.
