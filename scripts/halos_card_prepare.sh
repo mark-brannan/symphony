@@ -116,8 +116,12 @@ python3 - "$CACHE/sk/package.json" "$STAGE/installed.txt" host/halos/signalk-plu
 import json, sys
 pkg = json.load(open(sys.argv[1]))
 exact = dict(l.split() for l in open(sys.argv[2]) if l.strip())
-# Card-side bumps ahead of the boat win over what the boat runs.
-exact.update(l.split() for l in open(sys.argv[3]) if l.strip() and not l.startswith("#"))
+# A pin wins only while it is ahead of the boat; once the boat catches up it never downgrades.
+ver = lambda s: tuple(int(x) for x in s.split("-")[0].split("."))
+for l in open(sys.argv[3]):
+    if l.strip() and not l.startswith("#"):
+        k, v = l.split()
+        if k not in exact or ver(v) > ver(exact[k]): exact[k] = v
 deps = pkg["dependencies"]
 for k in deps:
     if k in exact: deps[k] = exact[k]
