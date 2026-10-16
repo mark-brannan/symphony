@@ -175,6 +175,7 @@ jobs:
           python-version: "3.x"
       - run: python3 scripts/test_dashboards.py
       - run: python3 scripts/test_boat_down_watch.py
+      - run: python3 scripts/test_boat_triage.py
 
   # Single required context for the ruleset (`ci-gate / gate`), so adding or
   # renaming a job above only means editing this needs: list, never the
