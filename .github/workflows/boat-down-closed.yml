@@ -1,0 +1,32 @@
+name: Boat down closed
+
+# An outage issue can be closed by hand while its Discord message still reads
+# as an open alarm. Any close of an issue carrying a Discord marker turns that
+# message green; the watch's own close fires it too, which is a harmless re-edit.
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  recovered:
+    if: contains(github.event.issue.body, '<!-- discord:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - env:
+          BODY: ${{ github.event.issue.body }}
+          ISSUE: ${{ github.event.issue.number }}
+          GH_TOKEN: ${{ github.token }}
+          SYMPHONY_DISCORD_ALARMING_WEBHOOK: ${{ secrets.SYMPHONY_DISCORD_ALARMING_WEBHOOK }}
+        run: |
+          host=$(grep -oP '^- host: `\Ksymphony-[a-z0-9-]+(?=`)' <<<"$BODY" | head -1)
+          since=$(grep -oP '^- down since: \K[0-9T:+.Z-]+' <<<"$BODY" | head -1)
+          python3 scripts/discord_notify.py recovered --issue "$ISSUE" --host "${host:-unknown}" --since "${since:-}"
