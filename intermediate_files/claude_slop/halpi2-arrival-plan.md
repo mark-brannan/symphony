@@ -4,6 +4,28 @@ Written before the unit arrives. Everything below that names a HALPI2 fact
 not already in `reference/compute_hardware.md` is **unverified** and marked
 so; the first bench session verifies against Hat Labs' docs before acting.
 
+## Status — 2026-10-15 (step 4, unattended shift 1)
+
+- Step 4 done: `CARD_NAME=symphony-halpi2 CARD_SSH=192.168.0.110
+  scripts/halos_card_prepare.sh` ran end to end (`site.yml` ok=73 changed=0,
+  the boat's `.signalk` state, npm build, overrides, ntfy and the Traefik
+  route, reboot) and `scripts/halos_preflight.sh` read ok on every line; the
+  home-only `lan` and `can` lines pass too (the CM5 checks `mcp251xfd`,
+  `uart4-pi5`, `/dev/ttyAMA4`). QuestDB and Grafana stay up (8 GB card).
+- Fixes the run forced into `halos_card_prepare.sh`: the boat state copy is
+  cached across runs (`$TMPDIR/halos-prepare-cache`, `rsync --partial`) so a
+  dropped cellular link resumes; the card sync excludes `system-plugins`
+  (root-owned HaLOS content, `signalk-halpi`; `--delete` aborted on it);
+  `signalk-rpi-uptime` was unpublished from npm on 2026-10-13, so the boat's
+  copy is carried as `local-plugins/signalk-rpi-uptime` pinned `file:` (the
+  npm build 404ed on it). Undo for that last one: drop the third fork pin and
+  the rsync lines once the package is republished or the plugin is retired.
+- Step 5 baseline (`scripts/halos_swap_check.sh symphony-halpi2`, 558 s after
+  boot): ok signalk 2.31.1, heartbeat, containers, ntfy, questdb, devices,
+  bme680, front. FAIL lan (eth0 is the bench address 192.168.0.110), n2k (no
+  CAN bus at home), victron (Cerbo MQTT unreachable at home), ble (0 of 5
+  sensors, allow 10 min after boot), pypilot (web UI 000).
+
 ## Status — 2026-10-15
 
 - Step 2 landed: the HALPI2 is on the tailnet as `symphony-halpi2` and is in
