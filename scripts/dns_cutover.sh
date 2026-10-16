@@ -82,7 +82,7 @@ for n in [d["Self"]] + list(d.get("Peer", {}).values()):
 }
 
 echo "A ${DOMAIN} -> ${current_ip}   (zone ${zone_name}, public answer: $(dig +short "$DOMAIN" @1.1.1.1 | head -1))"
-for n in symphony-pi symphony-halos halos-pi4; do
+for n in symphony-pi symphony-halos halos-pi4 symphony-halpi2; do
   ip=$(node_ip "$n" || true)
   [ -n "$ip" ] && printf '  %-16s %s%s\n' "$n" "$ip" "$([ "$ip" = "$current_ip" ] && echo '   <- current')"
 done

@@ -23,6 +23,7 @@ so; the first bench session verifies against Hat Labs' docs before acting.
   `mcp251xfd`, `uart4-pi5`, `/dev/ttyAMA4` instead of the PiCAN-M lines and
   `/dev/serial0`, and takes the tailnet name from `CARD_NAME`. Not yet run
   against the HALPI2 (no SignalK state yet), so other FAILs may remain.
+- Preflight `dns` check now matches `$CARD_NAME` and `dns_cutover.sh status` lists `symphony-halpi2` (review fix); `boot` prints the devices it checked.
 - Step 5 (`halos_swap_check.sh symphony-halpi2`) not run.
 
 ## Status — 2026-10-15

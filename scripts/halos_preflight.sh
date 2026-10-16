@@ -51,7 +51,7 @@ grep -q regdom=US /boot/firmware/cmdline.txt || echo cmdline:regdom=US
 grep -qw memory /sys/fs/cgroup/cgroup.controllers || echo cgroup:memory
 grep -qs "^i2c-dev" /etc/modules-load.d/*.conf || echo modules-load:i2c-dev
 for d in $DEVS; do [ -e $d ] || echo "missing:$d"; done' | tr '\n' ' ')
-[ -z "$missing" ] && say ok boot "overlays cgroup regdom i2c-dev serial0 i2c-1" || say FAIL boot "$missing"
+[ -z "$missing" ] && say ok boot "overlays cgroup regdom i2c-dev, devices present: $(r "$HOST" 'if grep -q "Compute Module 5" /proc/device-tree/model; then echo /dev/ttyAMA4 /dev/i2c-1; else echo /dev/serial0 /dev/i2c-1; fi')" || say FAIL boot "$missing"
 
 out=$(r "$HOST" 'echo $(nmcli -g 802-11-wireless.ssid con show Symphony 2>/dev/null) $(nmcli -g 802-11-wireless.ssid con show Halos-AP 2>/dev/null)')
 [ "$out" = "Symphony SignalK" ] && say ok wifi "profile Symphony; hotspot Halos-AP ssid SignalK" || say FAIL wifi "got '${out}' (want: Symphony SignalK)"
@@ -188,6 +188,6 @@ avail=${out%% *}; swap=${out##* }
 [ "${avail:-0}" -ge 150 ] 2>/dev/null && say ok mem "${avail} MB available, ${swap} MB swap used (2 GB bench cannot hold the databases; the 4 GB boat can)" || say FAIL mem "${avail:-?} MB available, ${swap:-?} MB swap used"
 
 out=$(scripts/dns_cutover.sh status 2>&1 | tr '\n' ' ')
-[[ "$out" == *"symphony-pi "*"<- current"* && "$out" == *"symphony-halos "* ]] && say ok dns "$out" || say FAIL dns "$out"
+[[ "$out" == *"symphony-pi "*"<- current"* && "$out" == *"$NAME "* ]] && say ok dns "$out" || say FAIL dns "$out"
 
 exit $rc
