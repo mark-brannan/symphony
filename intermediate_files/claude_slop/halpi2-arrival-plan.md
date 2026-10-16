@@ -4,6 +4,91 @@ Written before the unit arrives. Everything below that names a HALPI2 fact
 not already in `reference/compute_hardware.md` is **unverified** and marked
 so; the first bench session verifies against Hat Labs' docs before acting.
 
+## Status — 2026-10-15 (deb822_repository, unattended shift 1)
+
+`roles/base` now writes `/etc/apt/sources.list.d/influxdata.sources` with
+`ansible.builtin.deb822_repository` (ansible-core 2.25 removes `apt_repository`),
+after installing `python3-debian` and deleting the old `influxdata.list`.
+Proved on the HALPI2 over `-e ansible_host=192.168.0.110 --tags base`: check
+run, real run (4 changed: python3-debian, .list removed, .sources written, apt
+refresh), `apt-get update` with no warnings, second run `changed=0`. Host
+changes: python3-debian installed, `influxdata.list` -> `influxdata.sources`.
+Undo: `apt-get remove python3-debian`, restore the one-line .list
+(`deb [signed-by=/etc/apt/keyrings/influxdata-archive.gpg] https://repos.influxdata.com/debian stable main`),
+delete the .sources. The boat Pi and the other card migrate on their next
+converge; `influxdata.list.ucf-dist` is ignored by apt and left alone.
+
+## Status — 2026-10-15 (npm recipe proof, unattended shift 1)
+
+- `scripts/halos_signalk_npm.sh install` proven on the HALPI2 with a real
+  plugin bump, no script change needed. `vhfinfo` 0.0.45 -> 0.0.46 (card said
+  0.0.39 -> 0.0.40; the card was already past that, 0.0.46 is npm latest).
+  Commands, over `ssh pi@192.168.0.110`:
+
+  ```
+  cp $D/package.json ~/package.json.pre-vhfinfo        # snapshot
+  sed -i 's/"vhfinfo": "0.0.45"/"vhfinfo": "0.0.46"/' $D/package.json
+  sudo ~/symphony/scripts/halos_signalk_npm.sh install # 06:05:30-06:06:11, "finished clean"
+  ```
+
+  Before: `node_modules/vhfinfo` 0.0.45. After: 0.0.46, read from inside
+  `signalk-server` (`docker exec ... node -p`), container `Up (healthy)`,
+  `/signalk` 200, QuestDB and Grafana still active. The plugin list API wants
+  a login, so "loaded" is the on-disk version in the running container plus a
+  healthy start, not a plugin-list read. `[BLE API] ... Cannot find module
+  '@naugehyde/node-ble'` appears in the log; the module is present under the
+  fork's own `node_modules`, and this was not touched by the run.
+- Stickiness: `host/halos/signalk-plugin-pins.txt` now carries `vhfinfo 0.0.46`;
+  `halos_card_prepare.sh` applies it over the boat's installed versions, so a
+  re-run no longer reverts the bump. Not exercised end to end (prepare needs
+  the boat reachable).
+
+## Status — 2026-10-15 (steps 5-6, unattended shift 1)
+
+- Step 6 done with no new change: `ansible/host_vars/symphony-halpi2.yml`
+  already sets `heartbeat_url` to the repurposed `halos` check
+  (`heartbeat_url_symphony_halos`), the `monitoring` role writes it, and the
+  card has been pinging (`journalctl -t boat-heartbeat` reads `ping ok`;
+  `scripts/monitoring_snooze.sh status` shows `halos up`). No new check was
+  created, so no API key was used. Pencil: the HALPI2 and the halos card
+  share one check; undo is a new check URL in `host_vars` if both are ever
+  powered together.
+- Step 5 left running: `marine-questdb-container` and
+  `marine-grafana-container` are active and enabled. Load at 15 min uptime,
+  measured over ssh 192.168.0.110 (the multi-day number is still to come):
+
+  ```
+                 total   used   free  shared  buff/cache  available
+  Mem:            8062   4052   1718      28        2407       4010
+  Swap:           2047    547   1500
+  /dev/zram0 partition 2G 547.3M used, prio 100   (swapon --show)
+  ```
+
+  Largest resident: SignalK node 1.6 GB, QuestDB java 0.36 GB, Grafana
+  0.2 GB. Swap is zram only. Re-record after a few days up.
+
+## Status — 2026-10-15 (step 4, unattended shift 1)
+
+- Step 4 done: `CARD_NAME=symphony-halpi2 CARD_SSH=192.168.0.110
+  scripts/halos_card_prepare.sh` ran end to end (`site.yml` ok=73 changed=0,
+  the boat's `.signalk` state, npm build, overrides, ntfy and the Traefik
+  route, reboot) and `scripts/halos_preflight.sh` read ok on every line; the
+  home-only `lan` and `can` lines pass too (the CM5 checks `mcp251xfd`,
+  `uart4-pi5`, `/dev/ttyAMA4`). QuestDB and Grafana stay up (8 GB card).
+- Fixes the run forced into `halos_card_prepare.sh`: the boat state copy is
+  cached across runs (`$TMPDIR/halos-prepare-cache`, `rsync --partial`) so a
+  dropped cellular link resumes; the card sync excludes `system-plugins`
+  (root-owned HaLOS content, `signalk-halpi`; `--delete` aborted on it);
+  `signalk-rpi-uptime` was unpublished from npm on 2026-10-13, so the boat's
+  copy is carried as `local-plugins/signalk-rpi-uptime` pinned `file:` (the
+  npm build 404ed on it). Undo for that last one: drop the third fork pin and
+  the rsync lines once the package is republished or the plugin is retired.
+- Step 5 baseline (`scripts/halos_swap_check.sh symphony-halpi2`, 558 s after
+  boot): ok signalk 2.31.1, heartbeat, containers, ntfy, questdb, devices,
+  bme680, front. FAIL lan (eth0 is the bench address 192.168.0.110), n2k (no
+  CAN bus at home), victron (Cerbo MQTT unreachable at home), ble (0 of 5
+  sensors, allow 10 min after boot), pypilot (web UI 000).
+
 ## Status — 2026-10-15
 
 - Step 2 landed: the HALPI2 is on the tailnet as `symphony-halpi2` and is in
@@ -109,3 +194,17 @@ and router DNS overrides, Cerbo MQTT. All of that is swap day.
 The boat Pi has had no uplink since 2026-09-20. The Cerbo reboot result,
 the disk-90 % alarm and the pypilot-survives-reboot check all wait on the
 next boat visit or the router coming back. Cards on the board.
+
+## As-built 2026-10-15: SignalK hand changes scripted
+
+- Card overrides (four plugins `"enabled": false`, Venus host) moved out of
+  `halos_card_prepare.sh` step 5 into `scripts/halos_card_overrides.py`:
+  writes only on difference, prints `changed: N`; SignalK restarts only if N > 0.
+- `scripts/halos_signalk_npm.sh install` now exits early when
+  `$D/.halos-npm-stamp` equals the sha256 of `$D/package.json` (`FORCE=1`
+  overrides). The stamp is written at the end of a clean build.
+- HALPI2 host change: stamped the existing, already-built tree with
+  `sha256sum < $D/package.json > $D/.halos-npm-stamp` (undo: delete that file;
+  the next `install` then rebuilds). Proof: overrides script run twice over
+  ssh, both `changed: 0`; npm script run twice, both no-op; SignalK active,
+  HTTP 200 on :3000/signalk.

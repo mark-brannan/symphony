@@ -12,6 +12,7 @@ cd "$(dirname "$0")/.." || exit 1
 
 HOST="${1:-symphony-halos}"
 BOAT=symphony-pi
+NAME="${CARD_NAME:-$HOST}"   # tailnet name, when HOST is an address (the HALPI2 from the WSL box)
 D=/var/lib/container-apps/marine-signalk-server-container/data/data
 DOMAIN=$(sops --decrypt --extract '["boat_domain"]' secrets/symphony.sops.yaml)
 rc=0
@@ -38,15 +39,19 @@ for p in json.load(sys.stdin): print(p["id"], "on" if p.get("data",{}).get("enab
 IMAGE_ONLY="signalk-app-dock signalk-polar-performance-plugin signalk-instrument-light-plugin"
 
 out=$(r "$HOST" 'echo $(hostname) $(hostname -d) $(cut -d= -f2 /run/halos/domain.env) $(tailscale status --self --peers=false | awk "{print \$2}")')
-[ "$out" = "signalk $DOMAIN signalk.$DOMAIN symphony-halos" ] && say ok host "$out" || say FAIL host "${out:-no answer} (want: signalk $DOMAIN signalk.$DOMAIN symphony-halos)"
+[ "$out" = "signalk $DOMAIN signalk.$DOMAIN $NAME" ] && say ok host "$out" || say FAIL host "${out:-no answer} (want: signalk $DOMAIN signalk.$DOMAIN $NAME)"
 
-missing=$(r "$HOST" 'for l in "dtparam=i2c_arm=on" "dtparam=spi=on" "enable_uart=1" "dtoverlay=mcp2515-can0"; do grep -q "^$l" /boot/firmware/config.txt || echo "config.txt:$l"; done
+# The HALPI2 (CM5) carries its own CAN (mcp251xfd) and UART (ttyAMA4); the Pi 4
+# card gets the PiCAN-M lines and /dev/serial0 (ansible/host_vars/symphony-halpi2.yml).
+missing=$(r "$HOST" 'if grep -q "Compute Module 5" /proc/device-tree/model; then LINES="dtparam=i2c_arm=on dtoverlay=mcp251xfd dtoverlay=uart4-pi5"; DEVS="/dev/ttyAMA4 /dev/i2c-1"
+else LINES="dtparam=i2c_arm=on dtparam=spi=on enable_uart=1 dtoverlay=mcp2515-can0"; DEVS="/dev/serial0 /dev/i2c-1"; fi
+for l in $LINES; do grep -q "^$l" /boot/firmware/config.txt || echo "config.txt:$l"; done
 grep -q cgroup_enable=memory /boot/firmware/cmdline.txt || echo cmdline:cgroup_enable=memory
 grep -q regdom=US /boot/firmware/cmdline.txt || echo cmdline:regdom=US
 grep -qw memory /sys/fs/cgroup/cgroup.controllers || echo cgroup:memory
 grep -qs "^i2c-dev" /etc/modules-load.d/*.conf || echo modules-load:i2c-dev
-for d in /dev/serial0 /dev/i2c-1; do [ -e $d ] || echo "missing:$d"; done' | tr '\n' ' ')
-[ -z "$missing" ] && say ok boot "overlays cgroup regdom i2c-dev serial0 i2c-1" || say FAIL boot "$missing"
+for d in $DEVS; do [ -e $d ] || echo "missing:$d"; done' | tr '\n' ' ')
+[ -z "$missing" ] && say ok boot "overlays cgroup regdom i2c-dev, devices present: $(r "$HOST" 'if grep -q "Compute Module 5" /proc/device-tree/model; then echo /dev/ttyAMA4 /dev/i2c-1; else echo /dev/serial0 /dev/i2c-1; fi')" || say FAIL boot "$missing"
 
 out=$(r "$HOST" 'echo $(nmcli -g 802-11-wireless.ssid con show Symphony 2>/dev/null) $(nmcli -g 802-11-wireless.ssid con show Halos-AP 2>/dev/null)')
 [ "$out" = "Symphony SignalK" ] && say ok wifi "profile Symphony; hotspot Halos-AP ssid SignalK" || say FAIL wifi "got '${out}' (want: Symphony SignalK)"
@@ -58,7 +63,8 @@ out=$(r "$HOST" 'echo $(nmcli -t -f NAME,DEVICE con show --active | grep "^Halos
 [ "$out" = "Halos-AP:wlan0ap yes UP" ] && say ok hotspot "Halos-AP active on wlan0ap, autoconnect, link UP" || say FAIL hotspot "got '$out' (want: Halos-AP:wlan0ap yes UP)"
 
 # can0 is only ever seen at the boat, so check every piece it needs at home.
-out=$(r "$HOST" 'echo $(/usr/sbin/modinfo -n mcp251x >/dev/null 2>&1 && echo mcp251x) $(/usr/sbin/modinfo -n can_raw >/dev/null 2>&1 && echo can_raw) $(systemctl is-enabled systemd-networkd 2>/dev/null) $(grep -qs "BitRate=250000" /etc/systemd/network/80-can.network && echo 250k) $(systemctl is-enabled systemd-networkd-wait-online 2>/dev/null)')
+out=$(r "$HOST" 'M=mcp251x; grep -q "Compute Module 5" /proc/device-tree/model && M=mcp251xfd
+echo $(/usr/sbin/modinfo -n $M >/dev/null 2>&1 && echo mcp251x) $(/usr/sbin/modinfo -n can_raw >/dev/null 2>&1 && echo can_raw) $(systemctl is-enabled systemd-networkd 2>/dev/null) $(grep -qs "BitRate=250000" /etc/systemd/network/80-can.network && echo 250k) $(systemctl is-enabled systemd-networkd-wait-online 2>/dev/null)')
 [ "$out" = "mcp251x can_raw enabled 250k disabled" ] && say ok can "modules present, networkd enabled, 80-can.network 250 kbit, wait-online disabled" || say FAIL can "got '$out' (want: mcp251x can_raw enabled 250k disabled)"
 
 # A hang at the boat is only diagnosable if the journal survives the reboot
@@ -182,6 +188,6 @@ avail=${out%% *}; swap=${out##* }
 [ "${avail:-0}" -ge 150 ] 2>/dev/null && say ok mem "${avail} MB available, ${swap} MB swap used (2 GB bench cannot hold the databases; the 4 GB boat can)" || say FAIL mem "${avail:-?} MB available, ${swap:-?} MB swap used"
 
 out=$(scripts/dns_cutover.sh status 2>&1 | tr '\n' ' ')
-[[ "$out" == *"symphony-pi "*"<- current"* && "$out" == *"symphony-halos "* ]] && say ok dns "$out" || say FAIL dns "$out"
+[[ "$out" == *"symphony-pi "*"<- current"* && "$out" == *"$NAME "* ]] && say ok dns "$out" || say FAIL dns "$out"
 
 exit $rc
