@@ -112,6 +112,15 @@ and is the same on every host, with one legitimate difference: a dev box has
 no CAN hardware, so `providers.n2k-can0.enabled` is `false` there or the check
 sits in `alarm` forever.
 
+## Boat-down triage
+
+**Boat-down triage keeps one Discord message per outage.** The triage workflow
+posts to the alarms channel through the `SYMPHONY_DISCORD_ALARMING_WEBHOOK` Actions secret
+and edits that single message as the outage progresses (opened, rule-based
+verdict, agent summary, recovered) instead of posting a new one each time. The
+channel is shared, so the message carries no raw diagnostics and cannot ping
+anyone. Without the secret the notify steps do nothing.
+
 ## Gaps
 
 **The heartbeat collects nine vitals and can alarm on two.** Uptime, load,

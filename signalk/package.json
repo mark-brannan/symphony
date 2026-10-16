@@ -100,7 +100,6 @@
     "signalk-sun-moon": "^1.0.2",
     "signalk-switch-automation": "^1.1.1",
     "signalk-tides": "^2.1.2",
-    "signalk-to-influxdb2": "^2.2.0",
     "signalk-usage": "^0.2.9",
     "signalk-venus-plugin": "^2.4.1",
     "signalk-voice-llm": "^0.5.0",

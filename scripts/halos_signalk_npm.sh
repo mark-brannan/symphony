@@ -33,6 +33,16 @@ SELF_UNIT=halos-npm
 
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo" >&2; exit 1; }
 
+# `install` is a no-op when the tree was already built from this exact package.json
+# (stamp written at the end of a clean run), so re-running the prepare script costs
+# nothing. FORCE=1 rebuilds anyway; `rebuild` always runs.
+STAMP="$D/.halos-npm-stamp"
+if [ -z "${INVOCATION_ID:-}" ] && [ "$MODE" = install ] && [ -z "${FORCE:-}" ] \
+   && [ -d "$D/node_modules" ] && [ "$(sha256sum <"$D/package.json" 2>/dev/null)" = "$(cat "$STAMP" 2>/dev/null)" ]; then
+  echo "== node_modules already built from this package.json; nothing to do (FORCE=1 to rebuild)"
+  exit 0
+fi
+
 # Detach before doing anything. A 20-minute npm run tied to an ssh session is a
 # torn node_modules and a stopped SignalK the moment the link drops: bash takes
 # EPIPE on its next echo, `set -e` aborts mid-install, and an OOM kill skips the
@@ -88,6 +98,8 @@ chown 1000:1000 "$D/.npmrc"
 was_active=$(systemctl is-active "$UNIT" || true)
 systemctl stop "$UNIT"
 trap 'systemctl start "$UNIT" || true' EXIT INT TERM HUP
+# A build that dies midway must not leave a stamp vouching for the torn tree.
+[ "$MODE" != install ] || rm -f "$STAMP"
 
 run() { # run <npm args...>  -- as uid 1000, HOME inside the data dir, no TTY needed
   docker run --rm --network host \
@@ -124,4 +136,5 @@ echo "== npm rebuild $NATIVES ($(date +%H:%M:%S))"
 run rebuild $NATIVES
 
 rm -rf "$D/.npm-cache"
+[ "$MODE" = install ] && sha256sum <"$D/package.json" >"$STAMP"  # rebuild alone does not install
 echo "== done ($(date +%H:%M:%S)); unit was $was_active, starting it"

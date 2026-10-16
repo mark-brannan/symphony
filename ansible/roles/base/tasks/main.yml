@@ -13,12 +13,41 @@
   # (see priorities.md). Fingerprint, checked against InfluxData's published
   # value: 24C9 75CB A61A 024E E1B6 3178 7C3D 5715 9FC2 F927.
 
-- name: step 18 | InfluxData apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/influxdata-archive.gpg] https://repos.influxdata.com/debian stable main"
-    filename: influxdata
+- name: step 18 | python3-debian (deb822_repository needs it on the target)
+  ansible.builtin.apt:
+    name: python3-debian
     state: present
+
+- name: step 18 | retire the old influxdata.list
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/influxdata.list
+    state: absent
+  register: influx_old_list
+  # Cards built before 2026-10 carry this one-line .list; the .sources below
+  # replaces it, and apt warns on every update if both name the same repo.
+  # Runs before the .sources is written so apt never sees both.
+
+- name: step 18 | InfluxData apt repository
+  ansible.builtin.deb822_repository:
+    name: influxdata
+    types: deb
+    uris: https://repos.influxdata.com/debian
+    suites: stable
+    components: main
+    signed_by: /etc/apt/keyrings/influxdata-archive.gpg
+    state: present
+  register: influx_repo
+  # Under --check the python3-debian install above does not really happen, so
+  # a card without it yet cannot run this module; that is not a finding.
+  failed_when: >-
+    influx_repo.failed
+    and not (ansible_check_mode and 'python3-debian' in (influx_repo.msg | default('')))
+
+- name: step 18 | refresh apt after an InfluxData repo change
+  ansible.builtin.apt:
     update_cache: true
+  when: influx_repo.changed or influx_old_list.changed
+  # deb822_repository has no update_cache of its own.
 
 - name: step 18 | telegraf and chrony
   ansible.builtin.apt:
