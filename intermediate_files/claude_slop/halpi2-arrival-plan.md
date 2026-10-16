@@ -6,25 +6,25 @@ so; the first bench session verifies against Hat Labs' docs before acting.
 
 ## Status — 2026-10-15 (step 4, unattended shift 1)
 
-- Step 4 started, not finished. The B3 script is `scripts/halos_card_prepare.sh`
-  (apt apps, `site.yml`, SignalK state from the boat, npm build, overrides,
-  front door, reboot, preflight). It now takes `CARD_NAME` and `CARD_SSH`, so
-  the HALPI2 runs as `CARD_NAME=symphony-halpi2 CARD_SSH=192.168.0.110
-  scripts/halos_card_prepare.sh`; the 2 GB database stop is now only for cards
-  under 3 GB (the HALPI2 keeps QuestDB and Grafana up).
-- Done on the HALPI2 by that run: `marine-questdb/grafana/influxdb-container`
-  installed, `site.yml` re-run (ok=73 changed=2: the Influx app purge), the
-  boat's `.signalk` rsync began. The rsync over the boat's cellular link ran at
-  50-130 KB/s (128 MB, mostly `plugin-config-data/signalk-restricted-areas`
-  62 MB and `signalk-barograph` 37 MB), so the run outlived the session's
-  budget before the npm build (step 4 of the script). Re-run the same command;
-  every layer is idempotent.
-- `scripts/halos_preflight.sh` now reads the board: on the CM5 it wants
-  `mcp251xfd`, `uart4-pi5`, `/dev/ttyAMA4` instead of the PiCAN-M lines and
-  `/dev/serial0`, and takes the tailnet name from `CARD_NAME`. Not yet run
-  against the HALPI2 (no SignalK state yet), so other FAILs may remain.
-- Preflight `dns` check now matches `$CARD_NAME` and `dns_cutover.sh status` lists `symphony-halpi2` (review fix); `boot` prints the devices it checked.
-- Step 5 (`halos_swap_check.sh symphony-halpi2`) not run.
+- Step 4 done: `CARD_NAME=symphony-halpi2 CARD_SSH=192.168.0.110
+  scripts/halos_card_prepare.sh` ran end to end (`site.yml` ok=73 changed=0,
+  the boat's `.signalk` state, npm build, overrides, ntfy and the Traefik
+  route, reboot) and `scripts/halos_preflight.sh` read ok on every line; the
+  home-only `lan` and `can` lines pass too (the CM5 checks `mcp251xfd`,
+  `uart4-pi5`, `/dev/ttyAMA4`). QuestDB and Grafana stay up (8 GB card).
+- Fixes the run forced into `halos_card_prepare.sh`: the boat state copy is
+  cached across runs (`$TMPDIR/halos-prepare-cache`, `rsync --partial`) so a
+  dropped cellular link resumes; the card sync excludes `system-plugins`
+  (root-owned HaLOS content, `signalk-halpi`; `--delete` aborted on it);
+  `signalk-rpi-uptime` was unpublished from npm on 2026-10-13, so the boat's
+  copy is carried as `local-plugins/signalk-rpi-uptime` pinned `file:` (the
+  npm build 404ed on it). Undo for that last one: drop the third fork pin and
+  the rsync lines once the package is republished or the plugin is retired.
+- Step 5 baseline (`scripts/halos_swap_check.sh symphony-halpi2`, 558 s after
+  boot): ok signalk 2.31.1, heartbeat, containers, ntfy, questdb, devices,
+  bme680, front. FAIL lan (eth0 is the bench address 192.168.0.110), n2k (no
+  CAN bus at home), victron (Cerbo MQTT unreachable at home), ble (0 of 5
+  sensors, allow 10 min after boot), pypilot (web UI 000).
 
 ## Status — 2026-10-15
 

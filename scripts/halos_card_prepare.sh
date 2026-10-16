@@ -39,6 +39,8 @@ H="${CARD_SSH:-$CARD_NAME}"                # what ssh and rsync connect to
 D=/var/lib/container-apps/marine-signalk-server-container/data/data
 VENUS_HOST=192.168.8.107               # the Cerbo's LAN address; see kanban card "Pick a name for the boat's Venus GX"
 STAGE="${TMPDIR:-/tmp}/halos-prepare-$$"
+# The boat's state copy survives between runs, so a dropped slow link resumes (--partial) instead of restarting.
+CACHE="${TMPDIR:-/tmp}/halos-prepare-cache"
 PW=$(sops --decrypt --extract '["symphony_halos_pi_password"]' secrets/symphony.sops.yaml)
 . scripts/halos_disabled_plugins.sh    # EXPECT, CONFIG_EXPECT, SIGNALK_STATE_EXCLUDES
 
@@ -78,10 +80,12 @@ step "2. ansible site.yml (host layer; may reboot the card)"
 wait_ssh "$H"    # the network role put the card on the tailnet; use that name from here
 
 step "3. SignalK state from the boat, relayed through this box"
-mkdir -p "$STAGE/sk" "$STAGE/bt"
+mkdir -p "$STAGE" "$CACHE/sk" "$CACHE/bt" "$CACHE/uptime"
 excl=(); set -f; for e in $SIGNALK_STATE_EXCLUDES; do excl+=(--exclude "$e"); done; set +f
-rsync -a "${excl[@]}" pi@symphony-pi:.signalk/ "$STAGE/sk/"
-rsync -a --exclude node_modules --exclude .git pi@symphony-pi:bt-sensors-plugin-sk/ "$STAGE/bt/"
+rsync -a --partial --delete "${excl[@]}" pi@symphony-pi:.signalk/ "$CACHE/sk/"
+rsync -a --partial --delete --exclude node_modules --exclude .git pi@symphony-pi:bt-sensors-plugin-sk/ "$CACHE/bt/"
+# signalk-rpi-uptime was unpublished from npm on 2026-10-13, so `npm install` 404s on its pin; carry the boat's copy as a local plugin.
+rsync -a --delete pi@symphony-pi:.signalk/node_modules/signalk-rpi-uptime/ "$CACHE/uptime/"
 # Keep the card's own settings if it already has them (a re-run), else they
 # arrive from the boat and step 5 rewrites them.
 keep=()
@@ -92,8 +96,10 @@ ssh "pi@$H" "mkdir -p $D/local-plugins"
 # --delete: a file the boat has since removed must not linger on the card
 # (that's exactly what fails the preflight's `state` line); local-plugins is
 # excluded because steps below repopulate it from this box, not from the sync.
-rsync -a --delete --exclude package.json --exclude local-plugins "${keep[@]}" "$STAGE/sk/" "pi@$H:$D/"
-rsync -a "$STAGE/bt/" "pi@$H:$D/local-plugins/bt-sensors-plugin-sk/"
+# system-plugins is root-owned HaLOS image content (signalk-halpi on the HALPI2); --delete cannot, and must not, remove it.
+rsync -a --delete --exclude package.json --exclude local-plugins --exclude system-plugins "${keep[@]}" "$CACHE/sk/" "pi@$H:$D/"
+rsync -a "$CACHE/bt/" "pi@$H:$D/local-plugins/bt-sensors-plugin-sk/"
+rsync -a --delete "$CACHE/uptime/" "pi@$H:$D/local-plugins/signalk-rpi-uptime/"
 ssh "pi@$H" "git -C /home/pi/symphony pull -q && rm -rf $D/local-plugins/signalk-plugin-watchdog && cp -r /home/pi/symphony/plugins/signalk-plugin-watchdog $D/local-plugins/"
 # The boat's package.json with every plugin pinned to the version the boat
 # actually runs (its ranges would let npm take a newer patch and fail the
@@ -104,18 +110,18 @@ for k in json.load(open(\"package.json\"))[\"dependencies\"]:
     p=f\"node_modules/{k}/package.json\"
     if os.path.exists(p): print(k, json.load(open(p))[\"version\"])
 "' > "$STAGE/installed.txt"
-python3 - "$STAGE/sk/package.json" "$STAGE/installed.txt" <<'PY' | ssh "pi@$H" "cat > $D/package.json"
+python3 - "$CACHE/sk/package.json" "$STAGE/installed.txt" <<'PY' | ssh "pi@$H" "cat > $D/package.json"
 import json, sys
 pkg = json.load(open(sys.argv[1]))
 exact = dict(l.split() for l in open(sys.argv[2]) if l.strip())
 deps = pkg["dependencies"]
 for k in deps:
     if k in exact: deps[k] = exact[k]
-for fork in ("bt-sensors-plugin-sk", "signalk-plugin-watchdog"):
+for fork in ("bt-sensors-plugin-sk", "signalk-plugin-watchdog", "signalk-rpi-uptime"):
     deps[fork] = f"file:local-plugins/{fork}"
 json.dump(pkg, sys.stdout, indent=2)
 PY
-ssh "pi@$H" "grep -c 'file:local-plugins/' $D/package.json" | grep -qx 2 || { echo "fork pins missing in package.json" >&2; exit 1; }
+ssh "pi@$H" "grep -c 'file:local-plugins/' $D/package.json" | grep -qx 3 || { echo "fork pins missing in package.json" >&2; exit 1; }
 
 step "4. npm build (about 19 min on a Pi 4; survives a dropped ssh)"
 sudo_on "$H" "/home/pi/symphony/scripts/halos_signalk_npm.sh install"
