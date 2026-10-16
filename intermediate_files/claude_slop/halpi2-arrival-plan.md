@@ -4,6 +4,31 @@ Written before the unit arrives. Everything below that names a HALPI2 fact
 not already in `reference/compute_hardware.md` is **unverified** and marked
 so; the first bench session verifies against Hat Labs' docs before acting.
 
+## Status — 2026-10-15 (npm recipe proof, unattended shift 1)
+
+- `scripts/halos_signalk_npm.sh install` proven on the HALPI2 with a real
+  plugin bump, no script change needed. `vhfinfo` 0.0.45 -> 0.0.46 (card said
+  0.0.39 -> 0.0.40; the card was already past that, 0.0.46 is npm latest).
+  Commands, over `ssh pi@192.168.0.110`:
+
+  ```
+  cp $D/package.json ~/package.json.pre-vhfinfo        # snapshot
+  sed -i 's/"vhfinfo": "0.0.45"/"vhfinfo": "0.0.46"/' $D/package.json
+  sudo ~/symphony/scripts/halos_signalk_npm.sh install # 06:05:30-06:06:11, "finished clean"
+  ```
+
+  Before: `node_modules/vhfinfo` 0.0.45. After: 0.0.46, read from inside
+  `signalk-server` (`docker exec ... node -p`), container `Up (healthy)`,
+  `/signalk` 200, QuestDB and Grafana still active. The plugin list API wants
+  a login, so "loaded" is the on-disk version in the running container plus a
+  healthy start, not a plugin-list read. `[BLE API] ... Cannot find module
+  '@naugehyde/node-ble'` appears in the log; the module is present under the
+  fork's own `node_modules`, and this was not touched by the run.
+- Stickiness: `host/halos/signalk-plugin-pins.txt` now carries `vhfinfo 0.0.46`;
+  `halos_card_prepare.sh` applies it over the boat's installed versions, so a
+  re-run no longer reverts the bump. Not exercised end to end (prepare needs
+  the boat reachable).
+
 ## Status — 2026-10-15 (steps 5-6, unattended shift 1)
 
 - Step 6 done with no new change: `ansible/host_vars/symphony-halpi2.yml`

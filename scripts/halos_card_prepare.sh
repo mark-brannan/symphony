@@ -112,10 +112,12 @@ for k in json.load(open(\"package.json\"))[\"dependencies\"]:
     p=f\"node_modules/{k}/package.json\"
     if os.path.exists(p): print(k, json.load(open(p))[\"version\"])
 "' > "$STAGE/installed.txt"
-python3 - "$CACHE/sk/package.json" "$STAGE/installed.txt" <<'PY' | ssh "pi@$H" "cat > $D/package.json"
+python3 - "$CACHE/sk/package.json" "$STAGE/installed.txt" host/halos/signalk-plugin-pins.txt <<'PY' | ssh "pi@$H" "cat > $D/package.json"
 import json, sys
 pkg = json.load(open(sys.argv[1]))
 exact = dict(l.split() for l in open(sys.argv[2]) if l.strip())
+# Card-side bumps ahead of the boat win over what the boat runs.
+exact.update(l.split() for l in open(sys.argv[3]) if l.strip() and not l.startswith("#"))
 deps = pkg["dependencies"]
 for k in deps:
     if k in exact: deps[k] = exact[k]

@@ -1,0 +1,4 @@
+# "name version" per line: plugin versions the HALOS card runs ahead of the boat.
+# halos_card_prepare.sh pins these over the boat's installed versions, so a
+# re-run keeps the bump. Proven with scripts/halos_signalk_npm.sh 2026-10-15.
+vhfinfo 0.0.46
