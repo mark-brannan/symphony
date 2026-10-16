@@ -248,6 +248,14 @@ rebuild the box.
   before merge and replaced with a PAT push to the private scratch repo
   (#99).
 
+## Idle is not vestigial
+- On the boat, a service or device with nothing attached may be an emergency
+  backup: `gpsd` with no USB GPS plugged in is ready, not dead. Don't propose
+  removing or disabling it for being unused.
+- The bar for removal is *actively causing harm* (noise, resource contention,
+  failures). Report the idle thing and what keeping it costs; Mark decides.
+  This covers spare hardware paths, fallback services and duplicate config.
+
 ## Working style, generally
 - No unsolicited notes, hedges, or "this may have changed" commentary
   embedded in any doc — flag uncertainty in conversation, keep the files
