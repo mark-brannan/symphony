@@ -109,37 +109,29 @@ jobs:
             and end it with
             `🤖 claude-sonnet-5-5 · triage · run ${{ github.run_id }}`.
             Then run exactly: gh issue comment ${{ matrix.item.issue }} --body-file triage.md
-      # Raw diagnostics are sensitive: they go to the private scratch repo, and the public issue gets only a link.
+      # Raw diagnostics and the agent transcript (permission denials, tool inputs) are sensitive:
+      # they go to the private scratch repo, and the public issue gets only a link.
       - if: always() && steps.diag.outputs.diag != '' && steps.gate.outputs.scratch == 'true'
         env:
           SCRATCH_TOKEN: ${{ secrets.SCRATCH_PUSH_TOKEN }}
           GH_TOKEN: ${{ github.token }}
           DIAG: ${{ steps.diag.outputs.diag }}
+          EXEC: ${{ steps.agent.outputs.execution_file }}
           ISSUE: ${{ matrix.item.issue }}
         run: |
           priv=$(GH_TOKEN="$SCRATCH_TOKEN" gh api repos/mark-brannan/claude_prompts_scratch --jq .private)
           [ "$priv" = true ] || { echo "scratch repo is not private; refusing to push" >&2; exit 1; }
           git clone --depth 1 "https://x-access-token:${SCRATCH_TOKEN}@github.com/mark-brannan/claude_prompts_scratch.git" scratch
           mkdir -p scratch/raw_logs && cp "$DIAG" scratch/raw_logs/
-          git -C scratch add "raw_logs/$DIAG"
-          git -C scratch -c user.name=boat-triage -c user.email=noreply@github.com commit -qm "symphony diagnostics for issue $ISSUE"
+          links="https://github.com/mark-brannan/claude_prompts_scratch/blob/main/raw_logs/$DIAG"
+          if [ -f "$EXEC" ]; then
+            agentlog="symphony_agentlog_${ISSUE}_$(date -u +%Y%m%d).json"
+            jq '{denials: ([.[] | select(.type=="result") | .permission_denials] | add),
+                 tools: [.[] | select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | {name, input}]}' "$EXEC" \
+              > "scratch/raw_logs/$agentlog"
+            links="$links https://github.com/mark-brannan/claude_prompts_scratch/blob/main/raw_logs/$agentlog"
+          fi
+          git -C scratch add raw_logs
+          git -C scratch -c user.name=boat-triage -c user.email=noreply@github.com commit -qm "symphony triage logs for issue $ISSUE"
           git -C scratch push -q origin HEAD
-          gh issue comment "$ISSUE" --body "🤖 Raw diagnostics (private): https://github.com/mark-brannan/claude_prompts_scratch/blob/main/raw_logs/$DIAG"
-      # Public repo: the transcript holds permission denials and tool inputs, so ship it encrypted
-      # to the repo age key; read it with: gh run download <run> -n agent-log-<issue>; age -d -i <age key file> agent-log.json.age | jq .
-      - if: always() && steps.gate.outputs.run == 'true'
-        env:
-          EXEC: ${{ steps.agent.outputs.execution_file }}
-        run: |
-          [ -f "$EXEC" ] || { echo "no execution file"; exit 0; }
-          sudo apt-get install -y -qq age
-          jq '{denials: ([.[] | select(.type=="result") | .permission_denials] | add),
-               tools: [.[] | select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | {name, input}]}' "$EXEC" \
-            | age -r age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk -r age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q -o agent-log.json.age
-      - if: always() && steps.gate.outputs.run == 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: agent-log-${{ matrix.item.issue }}
-          path: agent-log.json.age
-          retention-days: 1
-          if-no-files-found: ignore
+          gh issue comment "$ISSUE" --body "🤖 Raw logs (private): $links"
