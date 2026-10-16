@@ -34,7 +34,8 @@ if [ "${1:-}" = --classify ]; then classify "${2:?log}"; exit; fi
 
 host="${1:?host}" issue="${2:?issue}" since="${3:-}"
 [[ "$host" =~ ^symphony-[a-z0-9-]+$ && "$issue" =~ ^[0-9]+$ ]] || { echo "bad input" >&2; exit 1; }
-[[ "$since" =~ ^[0-9T:+.Z-]+$ ]] || since=-24h
+# journalctl on the Pi rejects a trailing Z; hand it "... UTC" instead.
+[[ "$since" =~ ^[0-9T:+.Z-]+$ ]] && since=$(date -u -d "$since" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null) || since=-24h
 out="symphony_diagnostics_${issue}_$(date -u +%Y%m%d).log"
 [ -z "${GITHUB_OUTPUT:-}" ] || echo "diag=$out" >> "$GITHUB_OUTPUT"
 
