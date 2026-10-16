@@ -6,14 +6,16 @@ BUSID="${1:-5-3}"
 # Needed for usbip attach and for the CH340 serial node.
 sudo modprobe vhci-hcd
 sudo modprobe ch341
-if [ -e /dev/ttyUSB0 ]; then
+# Match the CH340 itself, not just any ttyUSB0.
+ch340_present() { grep -qs '^7523$' /sys/bus/usb/devices/*/idProduct && grep -qs '^1a86$' /sys/bus/usb/devices/*/idVendor; }
+if ch340_present && [ -e /dev/ttyUSB0 ]; then
   echo "/dev/ttyUSB0 already present"
   exit 0
 fi
 # Mirrored WSL networking: the Windows usbipd server is on 127.0.0.1.
 sudo "/mnt/c/Program Files/usbipd-win/WSL/usbip" attach --remote=127.0.0.1 --busid="$BUSID" || true
 for _ in $(seq 1 20); do
-  if [ -e /dev/ttyUSB0 ]; then
+  if ch340_present && [ -e /dev/ttyUSB0 ]; then
     echo "OK /dev/ttyUSB0"
     exit 0
   fi
