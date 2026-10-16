@@ -116,7 +116,7 @@ jobs:
           sudo apt-get install -y -qq age
           jq '{denials: ([.[] | select(.type=="result") | .permission_denials] | add),
                tools: [.[] | select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | {name, input}]}' "$EXEC" \
-            | age -r age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk -o agent-log.json.age
+            | age -r age16xptea77u3806d20c2yjktfcfj06p2cwqrw84zktrhzys768e9ss0027gk -r age1a8je25wsr5x7vqznc7zfxjw9jswrwpallp5aphrtxsrcu7ws7shsvdez3q -o agent-log.json.age
       - if: always() && steps.gate.outputs.run == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
