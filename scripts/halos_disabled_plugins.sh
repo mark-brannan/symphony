@@ -7,7 +7,7 @@
 # disagreeing.
 
 # Enabled on the boat, disabled on HALOS by decision.
-EXPECT="signalk-container signalk-to-influxdb-v2-buffer signalk-notification-player"
+EXPECT="signalk-container signalk-to-influxdb2 signalk-to-influxdb-v2-buffer signalk-notification-player"
 # Their plugin-config-data files differ for the same reason -- the disable is
 # written into the config -- as does venus.json, which carries the HALOS card's
 # own Venus host.
