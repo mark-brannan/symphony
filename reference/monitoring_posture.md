@@ -8,7 +8,7 @@ not what it collects but what it can make happen when something is wrong.
 
 | Stack | Alarms on | Reaches the crew via | Runs where |
 |---|---|---|---|
-| `host/boat-heartbeat` → external check service | ping silence; memory available < 400 MB; disk ≥ 90% | email, pushover, discord, SMS — whatever the check service fans out to | Pi, systemd timer, every ~5 min |
+| `ansible/roles/monitoring/files/boat-heartbeat` → external check service | ping silence; memory available < 400 MB; disk ≥ 90% | email, pushover, discord, SMS — whatever the check service fans out to | Pi, systemd timer, every ~5 min |
 | SignalK notification bus | anything that raises a notification into it | `signalk-notification-player` (audio aboard), `signalk-push-notifications` (phone push, remote push enabled) | Pi, inside `signalk-server` |
 | Telegraf → InfluxDB → Grafana | nothing | nothing | Pi |
 
@@ -79,7 +79,7 @@ it does.** Its two halves have opposite value, which is why its worth has read
 as ambiguous:
 
 - **Host section — redundant, and off.** CPU, memory and disk thresholds that
-  `host/boat-heartbeat` already alarms on, from a process that dies with the
+  `ansible/roles/monitoring/files/boat-heartbeat` already alarms on, from a process that dies with the
   Pi. Disabled (`host.enabled: false`) and should stay that way.
 - **Provider section — unique, and live.** It reads `pipedProviders` from the
   server settings and watches each provider's delta rate, alarming when the

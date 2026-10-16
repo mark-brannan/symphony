@@ -64,9 +64,6 @@ INSTALL=(
 	"signalk-after-bluetooth.conf:/etc/systemd/system/$SIGNALK_UNIT.d/after-bluetooth.conf:0644:root:root"
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
-	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
-	"telegraf-rpi-health:/usr/local/bin/telegraf-rpi-health:0755:root:root"
-	"boat-heartbeat:/usr/local/sbin/boat-heartbeat:0755:root:root"
 	# keep: the two cards ping two DIFFERENT healthchecks.io checks, and this
 	# file has room for one URL. Copying it unconditionally meant whichever
 	# card ran the installer last took over the other's check -- so the card
@@ -75,8 +72,6 @@ INSTALL=(
 	# host from sops; here it is a fallback for a card Ansible has not
 	# reached yet.
 	"boat-heartbeat.json:/etc/boat-heartbeat.json:0600:root:root:keep"
-	"boat-heartbeat.service:/etc/systemd/system/boat-heartbeat.service:0644:root:root"
-	"boat-heartbeat.timer:/etc/systemd/system/boat-heartbeat.timer:0644:root:root"
 	"signalk-unit.sh:/usr/local/lib/symphony/signalk-unit.sh:0644:root:root"
 	"signalk-ble-check:/usr/local/sbin/signalk-ble-check:0755:root:root"
 	"signalk-ble-check.service:/etc/systemd/system/signalk-ble-check.service:0644:root:root"
@@ -95,7 +90,6 @@ INSTALL=(
 # isn't present, so this file can carry config for a package that hasn't been
 # installed yet.
 RESTART=(
-	"chrony"
 	"telegraf"
 	# journald rereads journald.conf only on restart, and vacuums to the new
 	# SystemMaxUse as it starts. Safe on systemd 252: services keep their
@@ -114,7 +108,6 @@ RELOAD=(
 # file that lands in /etc/systemd/system does nothing until something enables
 # it, and forgetting that is how a change looks installed but never runs.
 ENABLE=(
-	"boat-heartbeat.timer"
 	"signalk-ble-check.timer"
 	"boat-hourly-sync.timer"
 	# Skipped with a warning on a card where pypilot isn't installed; the

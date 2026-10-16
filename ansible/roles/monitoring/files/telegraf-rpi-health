@@ -28,5 +28,5 @@ cur=$(cat "$f/scaling_cur_freq" 2>/dev/null || echo 0)
 max=$(cat "$f/scaling_max_freq" 2>/dev/null || echo 0)
 
 printf 'rpi_health under_voltage_now=%di,freq_capped_now=%di,throttled_now=%di,soft_temp_limit_now=%di,under_voltage_since_boot=%di,freq_capped_since_boot=%di,throttled_since_boot=%di,soft_temp_limit_since_boot=%di,cpu_freq_khz=%di,cpu_freq_max_khz=%di\n' \
-	"$(b 0)" "$(b 1)" "$(b 2)" "$(b 3)" "$(b 16)" "$(b 17)" "$(b 18)" "$(b 19)" \
-	"$cur" "$max"
+    "$(b 0)" "$(b 1)" "$(b 2)" "$(b 3)" "$(b 16)" "$(b 17)" "$(b 18)" "$(b 19)" \
+    "$cur" "$max"

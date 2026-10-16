@@ -86,6 +86,7 @@ ansible/
     repo/                # the checkout at /home/pi/symphony
     host_files/          # invokes host/install.sh
     watchdog/            # the hardware-watchdog [Manager] settings
+    clock/               # chrony's conf.d drop-in
     monitoring/          # telegraf wiring, per-host heartbeat config
     signalk_container/   # the two HALOS override files
 ```

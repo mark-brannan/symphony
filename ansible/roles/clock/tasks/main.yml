@@ -1,0 +1,12 @@
+# Ported from host/install.sh's INSTALL/RESTART arrays -- see
+# reference/host_provisioning.md's migration path. install.sh no longer owns
+# this path; base already installs the chrony package.
+
+- name: clock discipline drop-in
+  ansible.builtin.copy:
+    src: symphony.conf
+    dest: /etc/chrony/conf.d/symphony.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart chrony

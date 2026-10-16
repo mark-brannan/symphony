@@ -70,6 +70,8 @@
       tags: [host_files, host_services]
     - role: watchdog
       tags: [watchdog, host_services]
+    - role: clock
+      tags: [clock, host_services]
     - role: monitoring
       tags: [monitoring, host_services]
     - role: signalk_container
