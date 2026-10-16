@@ -115,8 +115,14 @@ theirs=$(inventory "$BOAT" .signalk); mine=$(inventory "$HOST" "$D")
 if [ -z "$theirs" ] || [ -z "$mine" ]; then
   say FAIL state "could not inventory .signalk (boat $(echo "$theirs" | grep -c .) lines, $HOST $(echo "$mine" | grep -c .) lines)"
 else
-  out=$(diff <(echo "$theirs") <(echo "$mine") | grep '^[<>]' | sed 's/^\([<>]\) [0-9a-f]\{16\} /\1 /' | grep -vE "^[<>] (bt-sensors-plugin-sk|signalk-plugin-watchdog|${EXPECT// /|})@" | grep -vE "^[<>] plugin-config-data/(${CONFIG_EXPECT})$" | tr '\n' ' ')
-  [ -z "$out" ] && say ok state "config files and installed plugin versions match the boat (forks, expected-off and venus skipped)" || say FAIL state "differs from the boat (< boat, > halos): $out-- see runbooks/halos_swap.md 'Sync the SignalK config'"
+  raw=$(diff <(echo "$theirs") <(echo "$mine") | grep '^[<>]' | sed 's/^\([<>]\) [0-9a-f]\{16\} /\1 /' | grep -vE "^[<>] (bt-sensors-plugin-sk|signalk-plugin-watchdog|${EXPECT// /|})@" | grep -vE "^[<>] plugin-config-data/(${CONFIG_EXPECT})$")
+  # A plugin installed on both sides at different versions is not a gate (the
+  # boat updates plugins; the card runs what it was built with). A missing
+  # plugin, or any config file, still FAILs.
+  drift=$(echo "$raw" | awk '/@NOTINSTALLED$/ {next} /^[<>] [^ ]+@[^ ]+$/ {split($2,a,"@"); side[a[1]] = side[a[1]] substr($1,1,1)} END {for (n in side) if (side[n] ~ /</ && side[n] ~ />/) print n}' | sort)
+  out=$(echo "$raw" | grep -vE "^[<>] ($(echo "$drift" | paste -sd'|' | sed 's/^$/^$/'))@" | tr '\n' ' ')
+  note=""; [ -n "$drift" ] && note="; plugin version drift only (not a gate): $(echo $drift)"
+  [ -z "$out" ] && say ok state "config files match the boat, every boat plugin installed (forks, expected-off and venus skipped)$note" || say FAIL state "differs from the boat (< boat, > halos): $out-- see runbooks/halos_swap.md 'Sync the SignalK config'"
 fi
 
 boatp=$(plugins "$BOAT"); hostp=$(plugins "$HOST")
