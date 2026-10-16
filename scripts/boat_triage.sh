@@ -20,7 +20,7 @@ out="symphony_diagnostics_${issue}_$(date -u +%Y%m%d).log"
     "uptime; systemctl --failed --no-pager; free -m; df -h /; \
      echo \"timer: \$(systemctl is-active boat-heartbeat.timer)\"; echo \"service: \$(systemctl is-failed boat-heartbeat.service)\"; \
      journalctl -t boat-heartbeat --no-pager --since '$since' | tail -n 60; \
-     curl -sS -o /dev/null -w 'healthchecks.io HTTP %{http_code}\n' https://hc-ping.com; true" 2>&1
+     curl -sSL -o /dev/null -w 'healthchecks.io HTTP %{http_code}\n' https://hc-ping.com; true" 2>&1
   rc=$?; if [ "$rc" -eq 255 ] || [ "$rc" -eq 124 ]; then echo "ssh failed: exit $rc"; fi
 } > "$out"
 
@@ -31,7 +31,8 @@ if grep -q '^ssh failed' "$out"; then
   else
     verdict="Host does not answer on the tailnet: power, network uplink or tailscaled is down. Check the boat's shore power and uplink; nothing remote can fix this."
   fi
-elif grep -qE 'healthchecks.io HTTP (000|[^2])' "$out"; then
+# 000 is no connection; 4xx/5xx is a reachable but unhappy service. The bare host answers 301, hence -L above.
+elif grep -qE 'healthchecks.io HTTP (000|[45])' "$out"; then
   verdict="Host is up but cannot reach healthchecks.io: the uplink or DNS is out. Check the router/cellular link."
 elif grep -qE '^timer: (inactive|failed|unknown)|^service: failed' "$out"; then
   verdict="Host is up but the heartbeat timer/service is not running. Restart it: systemctl restart boat-heartbeat.timer."

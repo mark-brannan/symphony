@@ -136,8 +136,9 @@ jobs:
           fi
           git -C scratch add raw_logs
           git -C scratch -c user.name=boat-triage -c user.email=noreply@github.com commit -qm "symphony triage logs for issue $ISSUE"
-          git -C scratch push -q origin HEAD
-          gh issue comment "$ISSUE" --body "🤖 Raw logs (private): $links"
+          # Other matrix items and local sessions push to the same branch; rebase and retry a few times.
+          for i in 1 2 3; do git -C scratch push -q origin HEAD && break; git -C scratch pull -q --rebase origin main || true; [ "$i" -lt 3 ] || exit 1; done
+          gh issue comment "$ISSUE" --body "🤖 Raw logs (private, run $GITHUB_RUN_ID): $links"
           exit $missing
       - if: always() && steps.gate.outputs.run == 'true' && steps.gate.outputs.scratch != 'true'
         run: echo "::error::SCRATCH_PUSH_TOKEN is not set; neither triage log was saved" && exit 1
