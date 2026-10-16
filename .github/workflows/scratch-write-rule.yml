@@ -1,0 +1,32 @@
+name: scratch write rule
+on:
+  push:
+    branches: [claude/git-work-tree-error-05fe10]
+    paths: [.github/workflows/scratch-write-rule.yml]
+permissions:
+  contents: read
+jobs:
+  t:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        rule: ['Write(triage.md)', 'Write(./triage.md)', 'Edit(triage.md)', 'Write', 'Write(//home/runner/work/symphony/symphony/triage.md)', 'Edit,Write(triage.md)']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - id: agent
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          claude_args: --model claude-sonnet-5-5 --max-turns 5 --allowedTools "${{ matrix.rule }}"
+          prompt: Write the single line hello to the file triage.md in the current directory, then stop.
+      - if: always()
+        env:
+          RULE: ${{ matrix.rule }}
+          EXEC: ${{ steps.agent.outputs.execution_file }}
+        run: |
+          echo "RULE=$RULE file=$([ -f triage.md ] && echo YES || echo NO) denials=$(jq '[.[]|select(.type=="result")|.permission_denials_count]|add' "$EXEC")"
