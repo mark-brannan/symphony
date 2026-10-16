@@ -65,7 +65,6 @@ INSTALL=(
 	"signalk-after-bluetooth.conf:/etc/systemd/system/$SIGNALK_UNIT.d/after-bluetooth.conf:0644:root:root"
 	"claude-resident:/home/$BOAT_USER/bin/claude-resident:0755:$BOAT_USER:$BOAT_USER"
 	"claude-resident.service:/home/$BOAT_USER/.config/systemd/user/claude-resident.service:0644:$BOAT_USER:$BOAT_USER"
-	"chrony.conf:/etc/chrony/conf.d/symphony.conf:0644:root:root"
 	# keep: the two cards ping two DIFFERENT healthchecks.io checks, and this
 	# file has room for one URL. Copying it unconditionally meant whichever
 	# card ran the installer last took over the other's check -- so the card
@@ -92,7 +91,6 @@ INSTALL=(
 # isn't present, so this file can carry config for a package that hasn't been
 # installed yet.
 RESTART=(
-	"chrony"
 	"telegraf"
 	# journald rereads journald.conf only on restart, and vacuums to the new
 	# SystemMaxUse as it starts. Safe on systemd 252: services keep their

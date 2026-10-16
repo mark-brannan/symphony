@@ -68,6 +68,8 @@
       tags: [repo, host_services]
     - role: host_files
       tags: [host_files, host_services]
+    - role: clock
+      tags: [clock, host_services]
     - role: monitoring
       tags: [monitoring, host_services]
     - role: signalk_container
