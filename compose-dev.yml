@@ -1,9 +1,10 @@
-# Dev-box-only overrides. Compose loads this automatically, with no extra -f flag.
+# Dev-box-only overrides. Opt-in: the name keeps compose from auto-loading it.
+# Use it with an explicit -f:
+#   docker compose -f docker-compose.yml -f compose-dev.yml up -d signalk
 #
 # The boat runs SignalK natively, not in Docker (reference/software_stack.md
 # "The boat Pi runs none of this in Docker"), so nothing here can reach it.
-# If Docker ever does land on the Pi, this file must not be deployed with the
-# rest of the compose stack.
+# Even so, it is not auto-loaded, so a boat checkout never picks it up.
 #
 # What it does: pins a few plugin configs to dev values by mounting a
 # replacement file over the repo's copy, so signalk/plugin-config-data/ stays

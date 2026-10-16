@@ -5,9 +5,10 @@ plugins can't hold the same values in both places — the relay that pages a
 real phone is the one left. Rather
 than let dev values creep into the repo, each of those gets a replacement
 file here, bind-mounted read-only over the repo's copy in
-`docker-compose.override.yml`.
+`compose-dev.yml`.
 
-Compose loads that override file automatically, no `-f` flag. The boat runs
+That file is opt-in: compose does not load it by itself, so pass it with
+`-f docker-compose.yml -f compose-dev.yml`. The boat runs
 SignalK natively rather than in Docker, so nothing here reaches it.
 
 ## What's pinned, and why
@@ -27,7 +28,7 @@ That's the intended behavior — these are pinned. To change one, edit the file
 here and recreate the container:
 
 ```bash
-docker compose up -d signalk
+docker compose -f docker-compose.yml -f compose-dev.yml up -d signalk
 ```
 
 To change what goes to the *boat*, edit `signalk/plugin-config-data/` directly.
@@ -35,7 +36,7 @@ To change what goes to the *boat*, edit `signalk/plugin-config-data/` directly.
 ## Adding a plugin to this list
 
 Copy the repo's version of the config here, change only what dev needs, and
-add a mount line to `docker-compose.override.yml`. Keep the two files
+add a mount line to `compose-dev.yml`. Keep the two files
 structurally identical otherwise, so a diff shows just the dev delta — with
 one exception: strip credential fields rather than copying them, both because
 these files aren't sops-covered and because the pre-commit secret guard will
