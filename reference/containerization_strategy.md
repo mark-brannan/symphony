@@ -46,7 +46,7 @@ and a 4 GB Pi. B1–B3 and the Telegraf dual-write are done: QuestDB is the
 only *live* store — `signalk-to-influxdb2` is still installed and erroring
 every cycle on the boat (blocked on a `file:` dependency quirk), and the
 `telegraf.conf` InfluxDB-output removal hasn't been deployed there. Both are
-open cleanups, not done, tracked in `intermediate_files/claude_slop/kanban.md`.
+open cleanups, not done, tracked on the global work-item board (state repo; `worklist`).
 B6 and B7 are moot if HALOS is adopted. Plan and
 decisions: `intermediate_files/claude_slop/halos-swap-plan.md`. Everything
 below predates the shift and is kept for its reasoning.

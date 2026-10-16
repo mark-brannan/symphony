@@ -1,9 +1,9 @@
 # Kanban card detail
 
-Full working-memory detail behind the one-line cards in `kanban.md`, per the
+Full working-memory detail behind the one-line cards on the global work-item board (state repo; `worklist`), per the
 project's Open Loops board contract. Headings are link targets — don't rename
 one without updating the card that points at it. This file dies with its
-cards: when a card is checked off and removed from `kanban.md`, delete the
+cards: when a card is checked off and removed from the board, delete the
 matching section here too.
 
 ## Sync halos-pi4's SignalK config with this repo (Track A trial)
@@ -1301,7 +1301,7 @@ active, data flowing.
 ## The rebuild fork — strategic context
 
 Not a card and not a decision waiting on Mark; see the standing-context note
-at the top of [kanban.md](kanban.md). Kept here because the evidence is real
+on the global work-item board (state repo; `worklist`). Kept here because the evidence is real
 and a session picking up HALOS work should have it.
 
 For HALOS: on 2026-08-25 a Node runtime swap silently removed
