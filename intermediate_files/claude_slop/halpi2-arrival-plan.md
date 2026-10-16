@@ -4,6 +4,20 @@ Written before the unit arrives. Everything below that names a HALPI2 fact
 not already in `reference/compute_hardware.md` is **unverified** and marked
 so; the first bench session verifies against Hat Labs' docs before acting.
 
+## Status — 2026-10-15 (deb822_repository, unattended shift 1)
+
+`roles/base` now writes `/etc/apt/sources.list.d/influxdata.sources` with
+`ansible.builtin.deb822_repository` (ansible-core 2.25 removes `apt_repository`),
+after installing `python3-debian` and deleting the old `influxdata.list`.
+Proved on the HALPI2 over `-e ansible_host=192.168.0.110 --tags base`: check
+run, real run (4 changed: python3-debian, .list removed, .sources written, apt
+refresh), `apt-get update` with no warnings, second run `changed=0`. Host
+changes: python3-debian installed, `influxdata.list` -> `influxdata.sources`.
+Undo: `apt-get remove python3-debian`, restore the one-line .list
+(`deb [signed-by=/etc/apt/keyrings/influxdata-archive.gpg] https://repos.influxdata.com/debian stable main`),
+delete the .sources. The boat Pi and the other card migrate on their next
+converge; `influxdata.list.ucf-dist` is ignored by apt and left alone.
+
 ## Status — 2026-10-15 (npm recipe proof, unattended shift 1)
 
 - `scripts/halos_signalk_npm.sh install` proven on the HALPI2 with a real
