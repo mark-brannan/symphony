@@ -153,11 +153,16 @@ class Notify(unittest.TestCase):
 
     def test_bad_url_refused(self):
         for bad in ("http://discord.com/api/webhooks/1/a", "https://evil.example/api/webhooks/1/a",
-                    "https://discord.com/api/webhooks/1/a?x=1", "https://discord.com.evil.io/api/webhooks/1/a"):
+                    "https://discord.com.evil.io/api/webhooks/1/a"):
             fake = Fake()
             rc, _, out = run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": bad}, fake, "b")
             self.assertEqual((rc, fake.reqs), (0, []))
             self.assertNotIn(bad, out)
+
+    def test_query_is_dropped_not_refused(self):
+        fake = Fake({"id": "9"})
+        run({"SYMPHONY_DISCORD_ALARMING_WEBHOOK": HOOK + "?wait=false"}, fake, "b")
+        self.assertEqual([(m, u) for m, u, _ in fake.reqs], [("POST", HOOK + "?wait=true")])
 
     def test_rejection_names_shape_not_secret(self):
         fake = Fake()

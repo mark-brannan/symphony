@@ -38,12 +38,12 @@ def main(argv=None):
             print(f"--- {event}\n{json.dumps(payload, indent=2, ensure_ascii=False)}")
         return 0
     raw = os.environ.get("SYMPHONY_DISCORD_ALARMING_WEBHOOK", "")
-    hook = raw.strip().strip("\"'").rstrip("/")
-    if not hook:
+    if not raw.strip():
         print("SYMPHONY_DISCORD_ALARMING_WEBHOOK is not set in this shell")
         return 1
-    if not dn.WEBHOOK_RE.fullmatch(hook):
-        print(f"shape: BAD ({dn.webhook_shape(hook)}); length {len(raw)}, stripped length {len(hook)}")
+    hook = dn.clean_webhook(raw)
+    if not hook:
+        print(f"shape: BAD ({dn.webhook_shape(raw)}); length {len(raw)}")
         return 1
     print("shape: ok")
     try:

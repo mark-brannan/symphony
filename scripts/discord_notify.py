@@ -20,11 +20,23 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
-WEBHOOK_RE = re.compile(r"^https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api(?:/v\d+)?/webhooks/\d+/[A-Za-z0-9_-]+$")
+HOST_RE = re.compile(r"(?:(?:ptb|canary)\.)?discord(?:app)?\.com")
 MARKER_RE = re.compile(r"<!-- discord:(\d+) -->")
 UA = "DiscordBot (symphony-boat-triage, 1)"
 COLORS = {"opened": 0xE74C3C, "verdict": 0xE67E22, "agent": 0xF1C40F, "recovered": 0x2ECC71}
 MODEL = "claude-sonnet-5-5"
+
+
+def clean_webhook(raw):
+    """The webhook base URL (https, a Discord host, under /api/), minus any query or trailing slash; else None."""
+    try:
+        u = urllib.parse.urlsplit(raw.strip().strip("\"'"))
+        host = u.hostname
+    except ValueError:
+        return None
+    if u.scheme != "https" or not host or not HOST_RE.fullmatch(host) or not u.path.startswith("/api/"):
+        return None
+    return f"https://{host}{u.path.rstrip('/')}"
 
 
 def webhook_shape(hook):
@@ -107,12 +119,13 @@ def send(method, url, payload, urlopen):
 
 def notify(args, env, urlopen, issue_body, set_issue_body, now):
     """Returns 0 always; problems print a ::warning:: (without the webhook URL)."""
-    hook = env.get("SYMPHONY_DISCORD_ALARMING_WEBHOOK", "").strip().strip("\"'").rstrip("/")
-    if not hook:
+    raw = env.get("SYMPHONY_DISCORD_ALARMING_WEBHOOK", "").strip()
+    if not raw:
         print("discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK not set; skipping")
         return 0
-    if not WEBHOOK_RE.fullmatch(hook):
-        print(f"::warning::discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK is not a discord.com webhook URL; refusing ({webhook_shape(hook)})")
+    hook = clean_webhook(raw)
+    if not hook:
+        print(f"::warning::discord: SYMPHONY_DISCORD_ALARMING_WEBHOOK is not an https Discord URL; refusing ({webhook_shape(raw)})")
         return 0
     payload = render(args.event, args.host, args.issue, args.since, args.text, args.run_id,
                      env.get("GITHUB_REPOSITORY", ""), now)
