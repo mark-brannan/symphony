@@ -180,6 +180,13 @@ jobs:
       - run: python3 scripts/test_boat_triage.py
       - run: python3 scripts/test_discord_notify.py
 
+  # The squash title is the commit subject the log is read by; it carries a
+  # type: `fix(area): ...`, not `area: ...`.
+  pr-title:
+    permissions:
+      pull-requests: read
+    uses: mark-brannan/.github/.github/workflows/pr-title.yml@main
+
   # Single required context for the ruleset (`ci-gate / gate`), so adding or
   # renaming a job above only means editing this needs: list, never the
   # ruleset itself. prose-budget is deliberately excluded -- a
@@ -190,7 +197,7 @@ jobs:
   # (symphony #69, mark-brannan/.github#29: no `why` job meant a red PR
   # showed "ci-gate -- Failing" with no named culprit).
   ci-gate:
-    needs: [compose-config, json-yaml-syntax, shellcheck, python-syntax, dashboards, ansible]
+    needs: [compose-config, json-yaml-syntax, shellcheck, python-syntax, dashboards, ansible, pr-title]
     # if: always() so this job runs (and can fail) even when a dependency
     # failed -- without it, a red dependency makes needs: skip this job
     # rather than fail it, and a skipped required check does not reliably
