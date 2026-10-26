@@ -1,0 +1,28 @@
+#!/bin/sh
+# Issue or renew the boat's Let's Encrypt cert (containerized certbot, DNS-01
+# via Cloudflare) and publish it where Traefik's file provider reads it.
+set -eu
+DOMAINS="$*"
+CERTS=/etc/halos/traefik-dynamic.d/symphony-certs
+[ -n "$DOMAINS" ] || { echo "usage: $0 domain [domain...]" >&2; exit 2; }
+
+args=""
+for d in $DOMAINS; do args="$args -d $d"; done
+
+# renew is a no-op until 30 days from expiry; certonly handles first issue.
+docker run --rm \
+	-v /etc/letsencrypt:/etc/letsencrypt \
+	-v /var/lib/letsencrypt:/var/lib/letsencrypt \
+	certbot/dns-cloudflare:latest certonly -n --agree-tos \
+	--register-unsafely-without-email \
+	--dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
+	--dns-cloudflare-propagation-seconds 30 \
+	--keep-until-expiring --cert-name symphony $args
+
+install -d -m 755 "$CERTS"
+live=/etc/letsencrypt/live/symphony
+if ! cmp -s "$live/fullchain.pem" "$CERTS/fullchain.pem"; then
+	install -m 644 "$live/fullchain.pem" "$CERTS/fullchain.pem"
+	install -m 600 "$live/privkey.pem" "$CERTS/privkey.pem"
+	echo "published new cert to $CERTS"
+fi

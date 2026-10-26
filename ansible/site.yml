@@ -78,6 +78,8 @@
       tags: [monitoring, host_services]
     - role: signalk_container
       tags: [signalk_container]
+    - role: front_door_cert
+      tags: [front_door_cert, network]
 
   post_tasks:
     - name: memory headroom
