@@ -33,16 +33,18 @@ Verified against Hat Labs' documentation and the HALMET-hardware schematic
 
 | Resource | Electrical | Count | Allocated to |
 |---|---|---|---|
-| Digital D1–D4 | ±32 V tolerant, Schmitt trigger ~1.5 V, not isolated; any can count pulses (PCNT) | 4 | D1 tach · D2 oil-pressure switch · D3 coolant-temp switch · D4 IR flame |
-| Analog A1–A4 | ADS1115 16-bit, 0–32 V via 33.3/3.3 divider; per-channel jumper-enabled 10 mA current source for resistive senders | 4 | A1 start-battery voltage · A2 alternator output voltage · A3 ignition sense · A4 spare (fuel vacuum, or a resistive sender) |
-| 1-Wire | header, pull-up and protection on board, DQ on GPIO4 | 1 bus | DS18B20 chain |
+| Digital D1–D4 | ±32 V tolerant, Schmitt trigger, galvanically isolated (with I2C); any can count pulses (PCNT) | 4 | D1 tach · D2 oil-pressure switch · D3 coolant-temp switch · D4 IR flame |
+| Analog A1–A4 | ADS1115 16-bit, 0–32 V via 33.3/3.3 divider; per-channel jumper-enabled 10 mA current source for resistive senders, 300 Ω maximum | 4 | A1 start-battery voltage · A2 alternator output voltage · A3 ignition sense · A4 fuel vacuum or oil-pressure transducer, not both |
+| 1-Wire | header (not fitted by default), pull-up and protection on board, DQ on GPIO4 | 1 bus | DS18B20 chain |
 | I2C | Qwiic + 2.54 mm header, shared with the onboard ADS1115 at 0x4b | 1 bus | SSD1306 display (0x3c), thermocouple amplifier, second ADS1115, current monitor |
-| GPIO header (J201) | 2×10, raw 3.3 V ESP32 pins, no protection; the ESP32 sheet labels IO5, IO16, IO17, IO32–IO35, SENSOR_VP/VN and JTAG | — | SPI thermocouple boards if used; IO33 is the 380 Hz test output |
+| GPIO header (J201) | 2×10, raw 3.3 V ESP32 pins, no protection; GPIO0, 4, 18 and 19 are taken (boot, 1-Wire, CAN); the ESP32 sheet labels IO5, IO16, IO17, IO32–IO35, SENSOR_VP/VN and JTAG | — | SPI thermocouple boards if used; IO33 is the 380 Hz test output |
 | NMEA 2000 | 4-pin screw terminal, CAN on GPIO18/19 | 1 | PGN 127488, 127489, 130316 |
 | Enclosure | IP65, PG7 glands, SP circular connectors | 2-pin, 3-pin, 5-pin | 12 V in · DS18B20 chain · I2C tether or thermocouple |
 
 The digital and analog inputs are both oversubscribed once everything below
-is fitted. The relief valves, in order: an A input reads any 12 V on/off
+is fitted. A4 goes to the fuel vacuum transducer or the oil-pressure
+transducer, whichever is fitted first; water-in-fuel and bilge-pump run take
+channels on the second ADS1115. The relief valves, in order: an A input reads any 12 V on/off
 signal as well as a D input does (a firmware threshold, no hardware); a
 second ADS1115 on I2C at 0x48 adds four channels, each needing its own
 external divider and protection; the GPIO header takes 3.3 V logic only.
@@ -94,9 +96,9 @@ switch trips.
 | Sensor | Input | Engine / boat point | Signal K | Why |
 |---|---|---|---|---|
 | Ignition sense | A3, thresholded | key-switch run circuit, fused | feeds `propulsion.main.state` | engine state that does not depend on RPM or the alternator |
-| Oil-pressure transducer, 0.5–4.5 V or resistive | A4 | in a tee at the oil-pressure switch port | `propulsion.main.oilPressure` | only if the stock sender is replaced; the switch stays on D2 |
-| Fuel vacuum transducer | A4 | between the primary filter and lift pump | path TBD | clogged primary filter shows as rising vacuum before the engine starves |
-| Water-in-fuel probe | spare A, thresholded | primary filter bowl, if the bowl has a probe port | notification | |
+| Oil-pressure transducer, 0.5–4.5 V or resistive | A4 (excludes fuel vacuum) | in a tee at the oil-pressure switch port | `propulsion.main.oilPressure` | only if the stock sender is replaced; the switch stays on D2 |
+| Fuel vacuum transducer | A4 (excludes oil pressure) | between the primary filter and lift pump | path TBD | clogged primary filter shows as rising vacuum before the engine starves |
+| Water-in-fuel probe | second ADS1115, thresholded | primary filter bowl, if the bowl has a probe port | notification | |
 
 ### Fire
 
@@ -117,7 +119,7 @@ these modules need; sunlight through an open hatch triggers them.
 | Start-battery voltage | A1 | start battery positive, fused at the battery | `electrical.batteries.start.voltage` | nothing on the boat publishes it today |
 | Alternator output voltage | A2 | alternator B+ stud, fused | `propulsion.main.alternatorVoltage`; 127489 alternator potential | charging-or-not, independent of the Victron side |
 | Alternator current | I2C INA228 + shunt, or Hall clamp on an A input | alternator output lead | `electrical.alternators.main.current` | waits on the alternator and regulator choice: a smart regulator reports its own current |
-| Bilge pump run | spare A, thresholded | pump positive lead downstream of the float switch | path TBD; cycle count | pump cycles are the leak trend |
+| Bilge pump run | second ADS1115, thresholded | pump positive lead downstream of the float switch | path TBD; cycle count | pump cycles are the leak trend |
 
 The house bank, the JBD packs and the shunt stay with the Cerbo GX; the
 HALMET does not duplicate them.
@@ -161,20 +163,21 @@ LPG or CO alarm has an alarm-relay contact, D-input it into Signal K.
 | DS18B20 on the dry exhaust manifold or elbow | 125 °C ceiling; thermocouple instead |
 | DHT22 (from the earlier engine-room node) | DS18B20 and the gas box's BME688 cover temperature and humidity |
 | Turbine flow meter in the raw-water circuit | adds restriction and a clog point to the circuit it is meant to protect; exhaust temperatures give the same warning |
-| Fuel flow meter | a 3QM30 burns too little for hobby-grade meters, and the return line means two meters and a difference |
+| Fuel flow meter | not assessed for this engine; the return line means two meters and a difference |
 | Driving anything — shutdown, blower, suppression release | read-only principle; a firmware fault must not stop the engine |
 | Cheap MQ sensors as the CO or LPG alarm | uncalibrated and drift-prone; certified alarms do that job |
-| Oil-level and exhaust back-pressure senders | no practical fitting on the 3QM30 |
+| Oil-level and exhaust back-pressure senders | fitting not assessed |
 | Rudder angle, IMU for the autopilot | not engine-compartment; pypilot has its own board |
 | House battery voltage and current | the Cerbo GX and Victron shunt already publish them |
 
 ## Open
 
-- Whether this 3QM30 is raw-water cooled (as the stock 3QM30 is) or
-  converted to fresh-water cooling. It decides whether "coolant" and
-  "raw water" are one circuit or two, and where the probes go.
+- Whether this 3QM30 is raw-water cooled or fresh-water cooled. It decides whether "coolant" and
+  "raw water" are one circuit or two, and where the probes go; the
+  raw-water items above hold until it is answered.
 - What the flywheel sender is, and its signal on a scope.
 - Polarity of the stock oil-pressure and water-temperature switches.
 - Whether the primary fuel filter bowl has a water-in-fuel port.
 - Whether the boat has a certified LPG or CO alarm with a relay contact.
 - The J201 pinout, bench-checked before anything is wired to it.
+- The current the isolated DC/DC supply leaves for external I2C devices.
