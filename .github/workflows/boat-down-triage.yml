@@ -72,7 +72,7 @@ jobs:
         with:
           persist-credentials: false
       - if: steps.gate.outputs.run == 'true'
-        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd # v4.2.0
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4.3.0
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
@@ -89,7 +89,7 @@ jobs:
         run: scripts/boat_triage.sh "$HOST" "$ISSUE" "$SINCE"
       - id: agent
         if: steps.gate.outputs.run == 'true'
-        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        uses: anthropics/claude-code-action@ae68417a745a5df4b2124873632bd73a2255e6f6 # v1.0.259
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
@@ -114,23 +114,16 @@ jobs:
       # The agent's cost (mark-brannan/claude#219): the execution file ends in the CLI's `result`
       # message, which carries total_cost_usd and usage. One JSON line per item, the shape the
       # shared claude-review leaves; the record job joins them into the run's `headless-run`.
-      # A run killed or timed out leaves no execution file, or one jq cannot read; it still gets
-      # a row, with no cost and outcome "no result".
+      # A run killed or timed out leaves no execution file, or one jq cannot read; the action
+      # still writes a row, with no cost and outcome "no result".
       - id: cost
         if: always() && steps.agent.outcome != 'skipped'
-        env:
-          EXEC: ${{ steps.agent.outputs.execution_file }}
-          ISSUE: ${{ matrix.item.issue }}
-          HOST: ${{ matrix.item.host }}
-          ROW: >-
-            ([.[] | select(.type == "system" and .subtype == "init")][0].model) as $model
-            | [.[] | select(.type == "result")] | last // {} | {ts: (now | todate),
-            what: "boat-down-triage", repo: $repo, pr: null, issue: ($issue | tonumber? // $issue), host: $host,
-            model: $model, total_cost_usd, usage,
-            outcome: (if (.is_error // false) and (.subtype // "success") == "success" then "error" else (.subtype // "no result") end)}
-        run: |
-          args=(-c --arg repo "$GITHUB_REPOSITORY" --arg issue "$ISSUE" --arg host "$HOST" "$ROW")
-          { jq "${args[@]}" "${EXEC:-/nonexistent}" 2>/dev/null || echo '[]' | jq "${args[@]}"; } | tee headless-run.jsonl
+        uses: mark-brannan/.github/.github/actions/headless-run-cost@main
+        with:
+          execution-file: ${{ steps.agent.outputs.execution_file }}
+          what: boat-down-triage
+          fields: '{"issue":${{ matrix.item.issue }},"host":"${{ matrix.item.host }}"}'
+          summary: 'false'
       - if: always() && hashFiles('headless-run.jsonl') != ''
         uses: actions/upload-artifact@v7.0.2
         with:
