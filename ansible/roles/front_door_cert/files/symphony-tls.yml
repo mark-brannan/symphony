@@ -1,0 +1,6 @@
+# Symphony: Let's Encrypt cert for the boat domain, published by
+# symphony-cert-renew. Traefik picks it by SNI over the HaLOS device cert.
+tls:
+  certificates:
+    - certFile: /etc/traefik/dynamic/symphony-certs/fullchain.pem
+      keyFile: /etc/traefik/dynamic/symphony-certs/privkey.pem

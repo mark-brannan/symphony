@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew the boat's Let's Encrypt certificate
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/symphony-cert-domains
+ExecStart=/usr/local/sbin/symphony-cert-renew $DOMAINS
