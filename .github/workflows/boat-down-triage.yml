@@ -111,6 +111,31 @@ jobs:
             and end it with
             `🤖 claude-sonnet-5-5 · triage · run ${{ github.run_id }}`.
             Then run exactly: gh issue comment ${{ matrix.item.issue }} --body-file triage.md
+      # The agent's cost (mark-brannan/claude#219): the execution file ends in the CLI's `result`
+      # message, which carries total_cost_usd and usage. One JSON line per item, the shape the
+      # shared claude-review leaves; the record job joins them into the run's `headless-run`.
+      # A run killed or timed out leaves no execution file, or one jq cannot read; it still gets
+      # a row, with no cost and outcome "no result".
+      - id: cost
+        if: always() && steps.agent.outcome != 'skipped'
+        env:
+          EXEC: ${{ steps.agent.outputs.execution_file }}
+          ISSUE: ${{ matrix.item.issue }}
+          HOST: ${{ matrix.item.host }}
+          ROW: >-
+            ([.[] | select(.type == "system" and .subtype == "init")][0].model) as $model
+            | [.[] | select(.type == "result")] | last // {} | {ts: (now | todate),
+            what: "boat-down-triage", repo: $repo, pr: null, issue: ($issue | tonumber? // $issue), host: $host,
+            model: $model, total_cost_usd, usage,
+            outcome: (if (.is_error // false) and (.subtype // "success") == "success" then "error" else (.subtype // "no result") end)}
+        run: |
+          args=(-c --arg repo "$GITHUB_REPOSITORY" --arg issue "$ISSUE" --arg host "$HOST" "$ROW")
+          { jq "${args[@]}" "${EXEC:-/nonexistent}" 2>/dev/null || echo '[]' | jq "${args[@]}"; } | tee headless-run.jsonl
+      - if: always() && hashFiles('headless-run.jsonl') != ''
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: headless-run-${{ strategy.job-index }}
+          path: headless-run.jsonl
       # Edits the outage's one Discord message; the agent step never sees the webhook.
       - if: always() && steps.gate.outputs.run == 'true' && hashFiles('triage.md') != ''
         env:
@@ -152,3 +177,23 @@ jobs:
           exit $missing
       - if: always() && steps.gate.outputs.run == 'true' && steps.gate.outputs.scratch != 'true'
         run: echo "::error::SCRATCH_PUSH_TOKEN is not set; neither triage log was saved" && exit 1
+
+  # metrics-db reads one `headless-run` artifact per run, holding one headless-run.jsonl.
+  record:
+    needs: triage
+    if: ${{ !cancelled() && needs.triage.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        continue-on-error: true  # no item left a row
+        with:
+          pattern: headless-run-*
+          path: parts
+      - run: shopt -s nullglob; cat parts/*/headless-run.jsonl > headless-run.jsonl; [ -s headless-run.jsonl ] || rm -f headless-run.jsonl
+      - if: hashFiles('headless-run.jsonl') != ''
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: headless-run
+          path: headless-run.jsonl
