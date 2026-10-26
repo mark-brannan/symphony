@@ -21,3 +21,7 @@ heartbeat_url: "{{ symphony_secrets.heartbeat_url_symphony_halos }}"
 boot_firmware_params:
   - dtparam=i2c_arm=on
 boot_dtoverlays: []
+
+# Holds the Cloudflare DNS-edit token and issues the boat's Let's Encrypt cert;
+# the bench card must not carry either, so the role is off unless a host sets this.
+front_door_cert_enabled: true
