@@ -1,0 +1,73 @@
+# Real-domain TLS for the HaLOS front door. HaLOS's own cert is a self-signed
+# device CA that browsers reject; certbot (containerized, DNS-01 via
+# Cloudflare so the boat needs no inbound port) issues a Let's Encrypt cert
+# and Traefik loads it from its file-provider directory. No package-owned
+# file is touched, so a halos-core-containers upgrade leaves it alone.
+
+- name: certbot state directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  loop: [/etc/letsencrypt, /var/lib/letsencrypt]
+
+- name: Cloudflare credentials for certbot
+  ansible.builtin.copy:
+    content: "dns_cloudflare_api_token = {{ symphony_secrets.cloudflare_api_token }}\n"
+    dest: /etc/letsencrypt/cloudflare.ini
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: cert domains
+  ansible.builtin.copy:
+    content: "DOMAINS=signalk.{{ boat_domain }} {{ boat_domain }}\n"
+    dest: /etc/symphony-cert-domains
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: renewal script
+  ansible.builtin.copy:
+    src: symphony-cert-renew
+    dest: /usr/local/sbin/symphony-cert-renew
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: renewal units
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [symphony-cert-renew.service, symphony-cert-renew.timer]
+  register: cert_units
+
+- name: Traefik loads the cert
+  ansible.builtin.copy:
+    src: symphony-tls.yml
+    dest: /etc/halos/traefik-dynamic.d/symphony-tls.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: reload units
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: cert_units.changed
+
+- name: first issue (no-op while the cert is fresh)
+  ansible.builtin.command: /usr/local/sbin/symphony-cert-renew signalk.{{ boat_domain }} {{ boat_domain }}
+  register: cert_issue
+  changed_when: "'published new cert' in cert_issue.stdout"
+
+- name: renewal timer
+  ansible.builtin.systemd:
+    name: symphony-cert-renew.timer
+    enabled: true
+    state: started
