@@ -87,6 +87,10 @@ Gaps that cut across the table:
 | DS18B20 | 1-Wire | water-lift muffler body | path TBD | a second raw-water-loss signal, slower than the elbow |
 | K-type thermocouple | I2C (MCP9600) or SPI on J201 (MAX31855, on hand) | dry exhaust manifold / elbow before water injection | path TBD | the fastest raw-water-loss warning on the engine; DS18B20 tops out at 125 °C |
 
+The engine has two circuits: a fresh coolant circuit, and raw seawater that
+joins at the mixing elbow (owner, 2026-10-26). "Coolant" probes read the
+fresh circuit; "raw water" probes read the seawater side.
+
 Exhaust-elbow and wet-exhaust temperature together are the raw-water-flow
 signal: flow stops, both climb within a minute or two, before the coolant
 switch trips.
@@ -172,9 +176,6 @@ LPG or CO alarm has an alarm-relay contact, D-input it into Signal K.
 
 ## Open
 
-- Whether this 3QM30 is raw-water cooled or fresh-water cooled. It decides whether "coolant" and
-  "raw water" are one circuit or two, and where the probes go; the
-  raw-water items above hold until it is answered.
 - What the flywheel sender is, and its signal on a scope.
 - Polarity of the stock oil-pressure and water-temperature switches.
 - Whether the primary fuel filter bowl has a water-in-fuel port.
