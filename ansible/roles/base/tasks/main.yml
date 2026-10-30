@@ -67,6 +67,12 @@
   # cannot step a clock that is hours out, which is exactly the state a card
   # with no RTC boots into after a week on the hard.
 
+- name: unattended-upgrades package
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+  # host/install.sh places the confs that switch it on; without the package they do nothing.
+
 - name: step 25 | zram swap
   ansible.builtin.apt:
     name: systemd-zram-generator
@@ -125,19 +131,21 @@
 # OS respectively), so this is the only place their boot-enabled state gets
 # checked at all -- added after a reboot left tailscaled disabled with every
 # other check green (2026-09-04); the same gap could exist here unnoticed.
+# apt-daily-upgrade.timer prints not-found when the unattended-upgrades package
+# is absent: the HALPI2 ran 12 days with the confs and no package (2026-10-30).
 - name: step 26 | host services are enabled (survive a reboot, not just running now)
-  ansible.builtin.command: systemctl is-enabled telegraf chrony docker ssh
+  ansible.builtin.command: systemctl is-enabled telegraf chrony docker ssh apt-daily-upgrade.timer
   register: base_enabled
   changed_when: false
   check_mode: false
   failed_when: false
   tags: [verify]
 
-- name: step 26 | assert telegraf/chrony/docker/ssh are enabled
+- name: step 26 | assert telegraf/chrony/docker/ssh/apt-daily-upgrade are enabled
   ansible.builtin.assert:
     that: "base_enabled.stdout_lines | difference(['enabled']) | length == 0"
-    fail_msg: "telegraf/chrony/docker/ssh: {{ base_enabled.stdout_lines | join(' ') }}"
-    success_msg: "telegraf/chrony/docker/ssh: {{ base_enabled.stdout_lines | join(' ') }}"
+    fail_msg: "telegraf/chrony/docker/ssh/apt-daily-upgrade.timer: {{ base_enabled.stdout_lines | join(' ') }}"
+    success_msg: "telegraf/chrony/docker/ssh/apt-daily-upgrade.timer: {{ base_enabled.stdout_lines | join(' ') }}"
   tags: [verify]
 
 - name: step 26 | chrony has a source and is tracking
