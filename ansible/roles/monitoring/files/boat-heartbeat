@@ -119,6 +119,16 @@ case "$v_failed" in ''|none|unknown) ;; *)
     reasons="${reasons:+$reasons; }failed units: ${v_failed}" ;;
 esac
 
+# A package run that never finishes. An apt or dpkg process older than this is
+# not a slow upgrade; it is a prompt nobody will answer (needrestart held one
+# for 12 days on 2026-10-30, with no failed unit and every other check green).
+# unattended-upgrade-shutdown is excluded: it is a long-lived daemon by design.
+APT_HANG_SEC=7200
+v_apt_hung=$(ps -eo etimes=,pid=,comm=,args= 2>/dev/null | awk -v max="$APT_HANG_SEC" \
+    '$0 !~ /unattended-upgrade-shutdown/ && $3 ~ /^(apt|apt-get|dpkg|unattended-upgr|needrestart)$/ && $1 > max \
+     {printf "%s%s pid %s %dh", sep, $3, $2, $1/3600; sep=", "}')
+[ -z "$v_apt_hung" ] || reasons="${reasons:+$reasons; }apt hung: ${v_apt_hung}"
+
 # Require two consecutive samples before calling it down, so a value sitting
 # on the threshold doesn't alternate up/down every five minutes and train you
 # to ignore the alert. The counter lives on tmpfs on purpose: a reboot should
