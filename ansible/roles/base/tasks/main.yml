@@ -67,6 +67,12 @@
   # cannot step a clock that is hours out, which is exactly the state a card
   # with no RTC boots into after a week on the hard.
 
+- name: unattended-upgrades package
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+  # host/install.sh places the confs that switch it on; without the package they do nothing.
+
 - name: step 25 | zram swap
   ansible.builtin.apt:
     name: systemd-zram-generator
