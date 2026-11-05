@@ -53,7 +53,8 @@
       "dsc-calls": "signalk-dsc",
       "dsc-call-markers": "signalk-dsc",
       "restricted-areas": "signalk-restricted-areas",
-      "plotterExtensions": "signalk-basic-tide-widgets"
+      "plotterExtensions": "signalk-basic-tide-widgets",
+      "enc-geojson": "signalk-portolan"
     }
   },
   "courseApi": {
