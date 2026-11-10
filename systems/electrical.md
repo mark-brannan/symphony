@@ -26,6 +26,7 @@ N2K end, or tie it back to negative on pin 3.
 - Raspberry Pi 4 (Pican-M SMPS, current)
 - Raspbery Pi 5 (HALP2, planned)
 - Navico NAIS-550 Class B AIS
+  - Digital Yacht GV30 VHF/AIS/GPS combo antenna (c50959)
 Standard Horizon HX 890 Handheld VHF radio
 - Airmar DST-810 transducer/triducer
 - anemometer (planned, current is disconnected nmea 0183)
