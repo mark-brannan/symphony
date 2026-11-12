@@ -13,7 +13,7 @@ marked *(pick)* are Claude's suggestion; the source names no part.
 | A2 | wire only | Alternator output voltage | as A1 |
 | A3 | wire only | Ignition on/off (key switch) | as A1, via a switch |
 | A4 | 0.5–4.5 V pressure transducer, 100 psi (oil) or vacuum range (fuel), one or the other *(pick)* | Oil pressure, or a clogging fuel filter | 3 wires: 5 V, GND, signal; a pot simulates it |
-| 1-Wire | DS18B20 waterproof probe, up to ~10 on one chain | Temperatures: coolant, wet exhaust, alternator, raw water, engine room, gearbox, shaft seal, oil sump, muffler | one 3-pin chain (V, GND, data); pull-up is on the board |
+| 1-Wire | DS18B20 waterproof probe, 9 planned on one chain | Temperatures: coolant, wet exhaust, alternator, raw water, engine room, gearbox, shaft seal, oil sump, muffler | solder the header first (not fitted); one 3-pin chain (V, GND, data); pull-up is on the board |
 | I2C | MCP9600 + K-type thermocouple; or MAX31855 (on hand) on the GPIO header | Dry exhaust elbow temperature (beyond DS18B20's 125 °C); fastest raw-water-loss warning | 4 wires: 3.3 V, GND, SDA, SCL |
 | I2C | ADS1115 breakout at 0x48 | Four more analog inputs, for the next two rows | each input needs a 100k/10k divider; it can't take 12 V directly |
 | ext. A | Water-in-fuel probe (depends on the filter bowl) | Water in the fuel | |
