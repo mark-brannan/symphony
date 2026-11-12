@@ -36,7 +36,7 @@ Verified against Hat Labs' documentation and the HALMET-hardware schematic
 | Digital D1–D4 | ±32 V tolerant, Schmitt trigger, galvanically isolated (with I2C); any can count pulses (PCNT) | 4 | D1 tach · D2 oil-pressure switch · D3 coolant-temp switch · D4 IR flame |
 | Analog A1–A4 | ADS1115 16-bit, 0–32 V via 33.3/3.3 divider; per-channel jumper-enabled 10 mA current source for resistive senders, 300 Ω maximum | 4 | A1 start-battery voltage · A2 alternator output voltage · A3 ignition sense · A4 fuel vacuum or oil-pressure transducer, not both |
 | 1-Wire | header (not fitted by default), pull-up and protection on board, DQ on GPIO4 | 1 bus | DS18B20 chain |
-| I2C | Qwiic + 2.54 mm header, shared with the onboard ADS1115 at 0x4b | 1 bus | SSD1306 display (0x3c), thermocouple amplifier, second ADS1115, current monitor |
+| I2C | 4-pin 2.54 mm socket (J702), shared with the onboard ADS1115 at 0x4b | 1 bus | SSD1306 display (0x3c), thermocouple amplifier, second ADS1115, current monitor |
 | GPIO header (J201) | 2×10, raw 3.3 V ESP32 pins, no protection; GPIO0, 4, 18 and 19 are taken (boot, 1-Wire, CAN); the ESP32 sheet labels IO5, IO16, IO17, IO32–IO35, SENSOR_VP/VN and JTAG | — | SPI thermocouple boards if used; IO33 is the 380 Hz test output |
 | NMEA 2000 | 4-pin screw terminal, CAN on GPIO18/19 | 1 | PGN 127488, 127489, 130316 |
 | Enclosure | IP65, PG7 glands, SP circular connectors | 2-pin, 3-pin, 5-pin | 12 V in · DS18B20 chain · I2C tether or thermocouple |
@@ -162,7 +162,7 @@ LPG or CO alarm has an alarm-relay contact, D-input it into Signal K.
 | Option | Why not |
 |---|---|
 | MQ-series sensors on the HALMET | heater current and a sealed enclosure; they live on the gas box |
-| BME688/BME690 inside the HALMET enclosure | measures the sealed box, not the compartment; a Qwiic tether through the 5-pin connector is the only way it would work |
+| BME688/BME690 inside the HALMET enclosure | measures the sealed box, not the compartment; an I2C tether from J702 through the 5-pin connector is the only way it would work |
 | Tach from the alternator W terminal | a smart regulator can stop it pulsing; the flywheel sender is the source |
 | DS18B20 on the dry exhaust manifold or elbow | 125 °C ceiling; thermocouple instead |
 | DHT22 (from the earlier engine-room node) | DS18B20 and the gas box's BME688 cover temperature and humidity |
