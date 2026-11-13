@@ -62,6 +62,7 @@
 #include "halmet_display.h"
 #include "halmet_onewire.h"
 #include "halmet_serial.h"
+#include "displays.h"
 #include "sensesp/net/http_server.h"
 #include "sensesp/net/networking.h"
 
@@ -89,6 +90,9 @@ ObservableValue<int> n2k_rx_counter{0};
 
 TwoWire* i2c;
 Adafruit_SSD1306* display;
+
+// Flame state drives the segmented display, which otherwise shows RPM.
+bool flame_active = false;
 
 // Store alarm states in an array for local display output
 bool alarm_states[4] = {false, false, false, false};
@@ -264,33 +268,36 @@ void setup() {
   bool enable_signalk_output = false;
 #endif
 
-  // Read the voltage level of analog input A2
-  auto a2_voltage = new ADS1115VoltageInput(ads1115, 1, "/Voltage A2");
-
-  ConfigItem(a2_voltage)
-      ->set_title("Analog Voltage A2")
-      ->set_description("Voltage level of analog input A2")
-      ->set_sort_order(3000);
-
-  a2_voltage->connect_to(new LambdaConsumer<float>(
-      [](float value) { debugD("Voltage A2: %f", value); }));
-
-  // If you want to output something else than the voltage value,
-  // you can insert a suitable transform here.
-  // For example, to convert the voltage to a distance with a conversion
-  // factor of 0.17 m/V, you could use the following code:
-  // auto a2_distance = new Linear(0.17, 0.0);
-  // a2_voltage->connect_to(a2_distance);
-
+  // A1-A4 voltages. A1 and A2 take their planned paths; A3 and A4 are raw
+  // bench points until the ignition sense and A4 transducer are fitted.
+  struct AnalogPoint {
+    int channel;
+    const char* config_path;
+    const char* title;
+    const char* sk_path;
+  };
+  const AnalogPoint analog_points[] = {
+      {0, "/Voltage A1", "A1", "electrical.batteries.start.voltage"},
+      {1, "/Voltage A2", "A2", "propulsion.main.alternatorVoltage"},
+      {2, "/Voltage A3", "A3", "sensors.a3.voltage"},
+      {3, "/Voltage A4", "A4", "sensors.a4.voltage"},
+  };
+  for (const auto& p : analog_points) {
+    auto voltage = new ADS1115VoltageInput(ads1115, p.channel, p.config_path);
+    ConfigItem(voltage)
+        ->set_title((String("Analog Voltage ") + p.title).c_str())
+        ->set_description((String("Voltage level of analog input ") + p.title).c_str())
+        ->set_sort_order(3000 + p.channel);
 #ifdef ENABLE_SIGNALK
-  a2_voltage->connect_to(
-      new SKOutputFloat("sensors.a2.voltage", "Analog Voltage A2",
-                        new SKMetadata("V", "Analog Voltage A2")));
-  // Example of how to output the distance value to Signal K.
-  // a2_distance->connect_to(
-  //     new SKOutputFloat("sensors.a2.distance", "Analog Distance A2",
-  //                       new SKMetadata("m", "Analog Distance A2")));
+    voltage->connect_to(new SKOutputFloat(
+        p.sk_path, p.config_path + String(" SK Path"),
+        new SKMetadata("V", (String("Analog Voltage ") + p.title).c_str())));
 #endif
+    if (display_present && p.channel == 0) {
+      voltage->connect_to(new LambdaConsumer<float>(
+          [](float value) { PrintValue(display, 7, "A1 V", value); }));
+    }
+  }
 
   ///////////////////////////////////////////////////////////////////
   // 1-Wire temperature inputs (DS18B20 chain)
@@ -313,6 +320,11 @@ void setup() {
   auto coolant_temperature = ConnectOneWireTemperatureSender(
       dallas_temperature, 0, "Coolant", "propulsion.main.coolantTemperature",
       enable_signalk_output);
+  if (display_present) {
+    PrintValue(display, 6, "Coolant", "--");
+    coolant_temperature->connect_to(new LambdaConsumer<float>(
+        [](float kelvin) { PrintValue(display, 6, "Coolant C", convertDegreesKtoC(kelvin)); }));
+  }
   auto exhaust_temperature = ConnectOneWireTemperatureSender(
       dallas_temperature, 1, "Exhaust", "propulsion.main.exhaustTemperature",
       enable_signalk_output);
@@ -335,8 +347,45 @@ void setup() {
                                            enable_signalk_output);
   auto alarm_d3_input = ConnectAlarmSender(kDigitalInputPin3, "coolant-temp",
                                            enable_signalk_output);
-  // auto alarm_d4_input =
-  //     ConnectAlarmSender(kDigitalInputPin4, "D4", enable_signalk_output);
+  // Segmented TM1637 display: RPM normally, FIrE while a flame is seen.
+  static auto segment_display =
+      segmented_led_display::createTm1637Facade<segmented_led_display::NUM_DIGITS_4>(
+          kSegmentDioPin, kSegmentClkPin);
+  segment_display.writeSignedDecimal(0);
+
+  // IR flame module on D4. The module output is active-low, but how that
+  // reaches the isolated D input is unmeasured, so polarity is a setting.
+  auto* flame_active_low = new CheckboxConfig(
+      true, "Flame input active-low", "/Alarm flame/Active Low");
+  ConfigItem(flame_active_low)
+      ->set_title("Flame input active-low")
+      ->set_description("Flame detected when D4 reads low. Restart to apply.")
+      ->set_sort_order(3020)
+      ->set_requires_restart(true);
+  const bool flame_low = flame_active_low->get_value();
+
+  auto* flame_input = new DigitalInputState(kDigitalInputPin4, INPUT, 100);
+  auto* flame_detected = flame_input->connect_to(
+      new LambdaTransform<bool, bool>(
+          [flame_low](bool pin) { return flame_low ? !pin : pin; }));
+  // Sampled every 100 ms; redraw only on a change, both displays block the loop.
+  if (display_present) PrintValue(display, 5, "Flame", "no");
+  flame_detected->connect_to(new LambdaConsumer<bool>([display_present](bool detected) {
+    if (detected == flame_active) return;
+    flame_active = detected;
+    alarm_states[3] = detected;
+    if (detected) {
+      // F, I, r, E
+      static const uint8_t kFire[4] = {0x71, 0x06, 0x50, 0x79};
+      segment_display.writePatterns(kFire, 4);
+    }
+    if (display_present) PrintValue(display, 5, "Flame", detected ? "YES" : "no");
+  }));
+  if (enable_signalk_output) {
+    auto* flame_sk = new SKOutputBool("alarm.flame", "/Alarm flame/SK Path");
+    ConfigItem(flame_sk)->set_title("Alarm flame Signal K Path");
+    flame_detected->connect_to(flame_sk);
+  }
 
   // Update the alarm states based on the input value changes.
   // EDIT: If you added more alarm inputs, uncomment the respective lines below.
@@ -347,8 +396,6 @@ void setup() {
       new LambdaTransform<bool, bool>([](bool value) { return !value; }));
   alarm_d3_inverted->connect_to(
       new LambdaConsumer<bool>([](bool value) { alarm_states[2] = value; }));
-  // alarm_d4_input->connect_to(
-  //     new LambdaConsumer<bool>([](bool value) { alarm_states[3] = value; }));
 
 #ifdef ENABLE_NMEA2000_OUTPUT
   // EDIT: This example connects the D2 alarm input to the low oil pressure
@@ -400,6 +447,9 @@ void setup() {
     tacho_d1_frequency->connect_to(new LambdaConsumer<float>(
         [](float value) { PrintValue(display, 3, "RPM D1", 60 * value); }));
   }
+  tacho_d1_frequency->connect_to(new LambdaConsumer<float>([](float value) {
+    if (!flame_active) segment_display.writeSignedDecimal((int)(60 * value));
+  }));
 
 #ifdef ENABLE_NMEA2000_OUTPUT
   ///////////////////////////////////////////////////////////////////

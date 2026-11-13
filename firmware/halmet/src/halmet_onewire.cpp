@@ -16,10 +16,14 @@ const float kCelsiusToKelvinOffset = 273.15;
 sensesp::FloatProducer* ConnectOneWireTemperatureSender(
     DallasTemperature* dallas, uint8_t device_index, const String& name,
     const String& sk_path, bool enable_signalk_output) {
-  auto temperature = new sensesp::RepeatSensor<float>(
-      kOneWireReadDelay, [dallas, device_index]() {
-        return dallas->getTempCByIndex(device_index) + kCelsiusToKelvinOffset;
-      });
+  // An absent probe publishes nothing rather than a plausible-looking value.
+  auto temperature = new sensesp::ObservableValue<float>(0);
+  sensesp::event_loop()->onRepeat(kOneWireReadDelay, [dallas, device_index,
+                                                      temperature]() {
+    float celsius = dallas->getTempCByIndex(device_index);
+    if (celsius == DEVICE_DISCONNECTED_C) return;
+    temperature->set(celsius + kCelsiusToKelvinOffset);
+  });
 
   if (enable_signalk_output) {
     char config_path[80];

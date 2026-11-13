@@ -26,6 +26,11 @@ const int kDigitalInputPin4 = GPIO_NUM_26;
 // ESP32-WROOM-32 IO4 pin (HALMET.kicad_pro rev 1.0.1) -- not silkscreened.
 const gpio_num_t kOneWirePin = GPIO_NUM_4;
 
+// TM1637 segmented display, on J201 header pins (raw 3.3 V ESP32 IO, free on
+// the schematic). Bench-check the J201 pinout before wiring.
+const int kSegmentDioPin = GPIO_NUM_16;
+const int kSegmentClkPin = GPIO_NUM_17;
+
 }  // namespace sensesp
 
 #endif /* HALMET_CONST_H_ */
