@@ -368,7 +368,10 @@ void setup() {
   auto* flame_detected = flame_input->connect_to(
       new LambdaTransform<bool, bool>(
           [flame_low](bool pin) { return flame_low ? !pin : pin; }));
-  flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
+  // Sampled every 100 ms; redraw only on a change, both displays block the loop.
+  if (display_present) PrintValue(display, 5, "Flame", "no");
+  flame_detected->connect_to(new LambdaConsumer<bool>([display_present](bool detected) {
+    if (detected == flame_active) return;
     flame_active = detected;
     alarm_states[3] = detected;
     if (detected) {
@@ -376,16 +379,12 @@ void setup() {
       static const uint8_t kFire[4] = {0x71, 0x06, 0x50, 0x79};
       segment_display.writePatterns(kFire, 4);
     }
+    if (display_present) PrintValue(display, 5, "Flame", detected ? "YES" : "no");
   }));
   if (enable_signalk_output) {
     auto* flame_sk = new SKOutputBool("alarm.flame", "/Alarm flame/SK Path");
     ConfigItem(flame_sk)->set_title("Alarm flame Signal K Path");
     flame_detected->connect_to(flame_sk);
-  }
-  if (display_present) {
-    flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
-      PrintValue(display, 5, "Flame", detected ? "YES" : "no");
-    }));
   }
 
   // Update the alarm states based on the input value changes.
