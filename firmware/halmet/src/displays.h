@@ -186,9 +186,9 @@ inline Tm1638Facade<T_DIGITS> createTm1638Facade(
   ClkPin_t clkPin,
   StbPin_t stbPin
 ) {
-  Tmi1638Interface interface(dioPin, clkPin, stbPin, TM1638_DELAY_MICROS);
-  ace_segment::Tm1638Module<Tmi1638Interface, T_DIGITS> ledModule(interface);
-  return Tm1638Facade<T_DIGITS>(interface, &ledModule);
+  auto* interface = new Tmi1638Interface(dioPin, clkPin, stbPin, TM1638_DELAY_MICROS);
+  auto ledModule = new ace_segment::Tm1638Module<Tmi1638Interface, T_DIGITS>(*interface);
+  return Tm1638Facade<T_DIGITS>(*interface, ledModule);
 }
 
 };

@@ -323,7 +323,7 @@ void setup() {
   if (display_present) {
     PrintValue(display, 6, "Coolant", "--");
     coolant_temperature->connect_to(new LambdaConsumer<float>(
-        [](float kelvin) { PrintValue(display, 6, "Coolant C", kelvin - 273.15f); }));
+        [](float kelvin) { PrintValue(display, 6, "Coolant C", convertDegreesKtoC(kelvin)); }));
   }
   auto exhaust_temperature = ConnectOneWireTemperatureSender(
       dallas_temperature, 1, "Exhaust", "propulsion.main.exhaustTemperature",
