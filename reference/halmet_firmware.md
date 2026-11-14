@@ -61,8 +61,13 @@ external divider and protection; the GPIO header takes 3.3 V logic only.
 | Alternator case temperature | 1-Wire index 2 | alternator body | `electrical.alternators.main.temperature` | — | |
 | Raw-water temperature | 1-Wire index 3 | raw-water pump body or intake hose | `propulsion.main.rawWaterTemperature` | — | path is not in the Signal K spec |
 | Engine-room ambient | 1-Wire index 4 | compartment air | `environment.inside.engineRoom.temperature` | — | |
-| A2 voltage | A2 | none (upstream example) | `sensors.a2.voltage` | — | placeholder; replaced below |
+| Start-battery voltage | A1 | start battery positive | `electrical.batteries.start.voltage` | — | |
+| Alternator output voltage | A2 | alternator output | `propulsion.main.alternatorVoltage` | — | |
+| A3 voltage | A3 | none yet | `sensors.a3.voltage` | — | raw bench point until ignition sense is fitted |
+| A4 voltage | A4 | none yet | `sensors.a4.voltage` | — | raw bench point until the A4 transducer is fitted |
+| IR flame | D4 | IR flame module | `alarm.flame` | — | polarity unmeasured, a web-UI setting; no debounce |
 | Local display | I2C SSD1306 | on the board | — | — | |
+| Segmented display | TM1637 on IO16 (DIO), IO17 (CLK) | — | — | — | shows RPM, or FIrE while a flame is seen |
 | N2K watchdog, heap and stack status | — | — | — | — | |
 | Test pulse | IO33 | — | — | — | enabled by default; off before install |
 
@@ -71,7 +76,6 @@ Gaps that cut across the table:
 - Probes are addressed by bus-scan index, so adding or losing one shifts
   every later reading onto the wrong path. They move to ROM-address lookup,
   with the address-to-location map set in the web UI.
-- A missing DS18B20 reads −127 °C and publishes 146.15 K.
 - Alarms publish as `alarm.*` booleans, not Signal K `notifications.*`.
 
 ## Planned
