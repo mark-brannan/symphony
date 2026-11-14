@@ -412,8 +412,8 @@ void setup() {
           kSegmentDioPin, kSegmentClkPin);
   segment_display.writeSignedDecimal(0);
 
-  // IR flame module on D4. The module output is active-low, but how that
-  // reaches the isolated D input is unmeasured, so polarity is a setting.
+  // IR flame module on D4. Active-low, measured on the bench: D4 to GND reads
+  // flame, D4 to 3.3 V clears. The setting stays for other modules.
   auto* flame_active_low = new CheckboxConfig(
       true, "Flame input active-low", "/Alarm flame/Active Low");
   ConfigItem(flame_active_low)
