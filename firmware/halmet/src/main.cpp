@@ -597,8 +597,8 @@ void setup() {
     const int rpm = (int)last_rpm;
     const int hours_x10 = (int)(run_time_s.value / 360.0f);
     const int volts_x10 = (int)(volts[0].value * 10);
-    uint32_t key = page * 4 + step;
-    if (step > 0) key = (key << 20) | (page == 0 ? rpm : page == 1 ? hours_x10 : volts_x10);
+    uint32_t key = page;
+    if (step > 0) key = ((page + 3) << 20) | (page == 0 ? rpm : page == 1 ? hours_x10 : volts_x10);
     if (key == segment_last_key) return;
     segment_last_key = key;
     // 7-segment glyphs: rPn, Hrs, bAtt
