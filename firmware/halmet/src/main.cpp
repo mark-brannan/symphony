@@ -594,7 +594,7 @@ void setup() {
 
     PrintRow(display, 1, "Uptime: " + FormatUptime(up));
     // Layout test: sweeping stand-in values through the real formatting (see PR #159).
-    constexpr bool kLayoutTest = true;
+    constexpr bool kLayoutTest = false;
     float hours = HoursSeconds() / 3600.0f;
     int rpm = (int)last_rpm;
     if (kLayoutTest) { hours = (tick - 1) * 10.0f; rpm = ((tick - 1) * 137) % 4001; }
