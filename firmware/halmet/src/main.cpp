@@ -120,7 +120,6 @@ Preferences hours_cache;
 float cached_run_s = 0;
 int32_t cached_hour = -1;
 
-static bool HoursKnown() { return run_time_s.seen || cached_run_s > 0; }
 static float HoursSeconds() { return run_time_s.seen ? run_time_s.value : cached_run_s; }
 
 static void CacheRunTime(float s) {
@@ -158,11 +157,9 @@ const int kTestOutputFrequency = 380;
 #endif
 
 static String FormatUptime(uint32_t s) {
-  char b[20];
-  if (s >= 86400) snprintf(b, sizeof b, "%ud %uh", (unsigned)(s / 86400), (unsigned)(s / 3600 % 24));
-  else if (s >= 3600) snprintf(b, sizeof b, "%uh %um", (unsigned)(s / 3600), (unsigned)(s / 60 % 60));
-  else if (s >= 60) snprintf(b, sizeof b, "%um %02us", (unsigned)(s / 60), (unsigned)(s % 60));
-  else snprintf(b, sizeof b, "%us", (unsigned)s);
+  char b[24];
+  snprintf(b, sizeof b, "%ud %02u:%02u:%02u", (unsigned)(s / 86400),
+           (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60), (unsigned)(s % 60));
   return b;
 }
 
@@ -562,9 +559,9 @@ void setup() {
   ///////////////////////////////////////////////////////////////////
   // Display setup
 
-  // Blue/yellow panel: rows 0-1 are the yellow band, so host and the alert
-  // line (which replaces the IP only while something is wrong) sit there.
-  // Rows: 0 host, 1 IP or alert, 2 uptime, 3 hours, 4 RPM, 5 volts, 6 temps.
+  // Blue/yellow panel: the alert line sits in the yellow rows at the bottom.
+  // Rows: 0 host/IP/MAC/SSID (4 s each), 1 uptime, 2 engine hours+RPM, 3 volts,
+  // 4 temps, 6 alert (WARNING! alternating with each alert; blank if none).
   event_loop()->onRepeat(1000, []() {
     static uint32_t tick = 0;
     tick++;
@@ -582,28 +579,45 @@ void setup() {
     if (ESP.getMaxAllocHeap() < 30000) alerts[n++] = "Low memory";
 
     if (display == nullptr) return;
-    if (n > 0) PrintRow(display, 1, alerts[tick % n]);
-    else PrintRow(display, 1, "IP: " + WiFi.localIP().toString());
+    switch ((tick / 4) % 4) {
+      case 0: PrintRow(display, 0, "Host: " + sensesp_app->get_hostname()); break;
+      case 1: PrintRow(display, 0, "IP: " + WiFi.localIP().toString()); break;
+      case 2: PrintRow(display, 0, WiFi.macAddress()); break;
+      default: {
+        if (!WiFi.isConnected()) { PrintRow(display, 0, "not connected"); break; }
+        String tail = " / " + String(WiFi.RSSI()) + "dB";
+        String ssid = WiFi.SSID();
+        ssid = ssid.substring(0, 21 - tail.length());  // 21 chars fit the 128 px row
+        PrintRow(display, 0, ssid + tail);
+      }
+    }
 
-    PrintRow(display, 2, "Up: " + FormatUptime(up));
-    if (HoursKnown()) {
-      char b[24];
-      snprintf(b, sizeof b, run_time_s.seen ? "Hours: %.1f" : "Hours: %.1f (cache)",
-               HoursSeconds() / 3600.0f);
-      PrintRow(display, 3, b);
-    } else {
-      PrintRow(display, 3, sk_up ? "Hours: waiting" : "Hours: no SK link");
+    PrintRow(display, 1, "Uptime: " + FormatUptime(up));
+    // Layout test: sweeping stand-in values through the real formatting (see PR #159).
+    constexpr bool kLayoutTest = false;
+    float hours = HoursSeconds() / 3600.0f;
+    int rpm = (int)last_rpm;
+    if (kLayoutTest) { hours = (tick - 1) * 10.0f; rpm = ((tick - 1) * 137) % 4001; }
+    char eng[28];
+    if (hours < 99.95f) snprintf(eng, sizeof eng, "Engine: %4.1fh %4dRPM", hours, rpm);
+    else snprintf(eng, sizeof eng, "Engine: %4dh %4dRPM", (int)hours, rpm);
+    PrintRow(display, 2, eng);
+    PrintRow(display, 3, "Batt " + FormatVolts(volts[0]) + " Alt " + FormatVolts(volts[1]));
+    // One temperature at a time, 4 s each, in degrees C; 0xF8 is the degree sign in cp437.
+    static const char* const kTempName[5] = {"coolant", "exhaust", "alternator", "raw water", "engine room"};
+    const int ti = (tick / 4) % 5;
+    float temp_c = temps_k[ti].fresh() ? convertDegreesKtoC(temps_k[ti].value) : NAN;
+    if (kLayoutTest) temp_c = ti == 3 ? NAN : ((tick * 33) % 1500) / 10.0f - 20.0f;
+    char tb[28];
+    if (isnan(temp_c)) snprintf(tb, sizeof tb, "    ? (%s)", kTempName[ti]);
+    else snprintf(tb, sizeof tb, "%5.1f\xF8""C (%s)", temp_c, kTempName[ti]);
+    PrintRow(display, 4, tb);
+    // WARNING! once, then each alert in turn, 2 s apiece.
+    if (n == 0) PrintRow(display, 6, "");
+    else {
+      const uint32_t slot = (tick / 2) % (n + 1);
+      PrintRow(display, 6, slot == 0 ? String("WARNING!") : alerts[slot - 1]);
     }
-    PrintRow(display, 4, "RPM: " + String((int)last_rpm));
-    PrintRow(display, 5, "Batt " + FormatVolts(volts[0]) + " Alt " + FormatVolts(volts[1]));
-    static const char kTempLabel[5] = {'C', 'X', 'A', 'W', 'R'};
-    String t;
-    for (int i = 0; i < 5; i++) {
-      if (i) t += ' ';
-      t += kTempLabel[i];
-      t += temps_k[i].fresh() ? String((int)roundf(convertDegreesKtoC(temps_k[i].value))) : String("--");
-    }
-    PrintRow(display, 6, t);
   });
 
   // Segmented display cycles RPM, engine hours, battery volts: a 1 s label
@@ -616,7 +630,7 @@ void setup() {
     static uint8_t page = 2;
     const uint32_t step = tick++ % 4;
     if (step == 0) {
-      do page = (page + 1) % 3; while (page == 1 && !HoursKnown());
+      page = (page + 1) % 3;
     }
     const int rpm = (int)last_rpm;
     const int hours_x10 = (int)(HoursSeconds() / 360.0f);

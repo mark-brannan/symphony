@@ -19,6 +19,7 @@ bool InitializeSSD1306(const std::shared_ptr<sensesp::SensESPBaseApp> sensesp_ap
   }
   delay(100);
   (*display)->setRotation(2);
+  (*display)->cp437(true);  // so char 0xF8 draws the degree sign
   (*display)->clearDisplay();
   (*display)->setTextSize(1);
   (*display)->setTextColor(SSD1306_WHITE);
