@@ -19,6 +19,8 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+#include <esp_timer.h>
+
 #include <memory>
 
 #include "counting_nmea2000.h"
@@ -545,7 +547,7 @@ void setup() {
   event_loop()->onRepeat(1000, []() {
     static uint32_t tick = 0;
     tick++;
-    const uint32_t up = millis() / 1000;
+    const uint32_t up = esp_timer_get_time() / 1000000;  // 64-bit; millis() wraps at 49.7 d
     const bool sk_up = SkConnected();
 
     String alerts[8];
