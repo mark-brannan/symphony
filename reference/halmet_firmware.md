@@ -66,7 +66,7 @@ external divider and protection; the GPIO header takes 3.3 V logic only.
 | A3 voltage | A3 | none yet | `sensors.a3.voltage` | — | raw bench point until ignition sense is fitted |
 | A4 voltage | A4 | none yet | `sensors.a4.voltage` | — | raw bench point until the A4 transducer is fitted |
 | IR flame | D4 | IR flame module | `alarm.flame` | — | polarity unmeasured, a web-UI setting; no debounce |
-| Local display | I2C SSD1306 | on the board | — | — | rows: host, IP, uptime, engine hours, RPM, battery V; single colour |
+| Local display | I2C SSD1306 | on the board | — | — | rows: host, IP, uptime, engine hours, RPM, battery V |
 | Segmented display | TM1637 on IO16 (DIO), IO17 (CLK) | — | — | — | cycles RPM, engine hours, battery V, each after a 1 s label (rPn, Hrs, bAtt); FIrE replaces the cycle while a flame is seen |
 | Engine run hours | D1 RPM above 100, kept in flash (NVS), saved every 60 s | — | `propulsion.main.runTime` (s) | — | N2K 127489 total hours not wired |
 | N2K watchdog, heap and stack status | — | — | — | — | |

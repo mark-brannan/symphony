@@ -507,8 +507,8 @@ void setup() {
     int rpm = (int)last_rpm;
     int hours_x10 = (int)(engine_hours.hours() * 10);
     int volts_x10 = (int)(last_a1_volts * 10);
-    uint32_t key = page * 4 + step;
-    if (step > 0) key = (key << 20) | (page == 0 ? rpm : page == 1 ? hours_x10 : volts_x10);
+    uint32_t key = page;
+    if (step > 0) key = ((page + 3) << 20) | (page == 0 ? rpm : page == 1 ? hours_x10 : volts_x10);
     if (key == segment_last_key) return;
     segment_last_key = key;
     // 7-segment glyphs: rPn, Hrs, bAtt
