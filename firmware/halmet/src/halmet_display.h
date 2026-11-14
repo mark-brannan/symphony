@@ -13,6 +13,9 @@ bool InitializeSSD1306(const std::shared_ptr<sensesp::SensESPBaseApp> sensesp_ap
 
 void ClearRow(Adafruit_SSD1306* display, int row);
 
+// Whole-row text; the row is cleared first.
+void PrintRow(Adafruit_SSD1306* display, int row, String text);
+
 void PrintValue(Adafruit_SSD1306* display, int row, String title, float value);
 void PrintValue(Adafruit_SSD1306* display, int row, String title, String value);
 

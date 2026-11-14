@@ -34,6 +34,13 @@ void ClearRow(Adafruit_SSD1306* display, int row) {
   display->fillRect(0, 8 * row, kScreenWidth, 8, 0);
 }
 
+void PrintRow(Adafruit_SSD1306* display, int row, String text) {
+  ClearRow(display, row);
+  display->setCursor(0, 8 * row);
+  display->print(text);
+  display->display();
+}
+
 void PrintValue(Adafruit_SSD1306* display, int row, String title, float value) {
   ClearRow(display, row);
   display->setCursor(0, 8 * row);

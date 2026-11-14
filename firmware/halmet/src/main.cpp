@@ -29,6 +29,7 @@
 #include "sensesp/sensors/digital_input.h"
 #include "sensesp/sensors/sensor.h"
 #include "sensesp/signalk/signalk_output.h"
+#include "sensesp/signalk/signalk_value_listener.h"
 #include "sensesp/system/lambda_consumer.h"
 #include "sensesp/system/system_status_led.h"
 #include "sensesp/transforms/lambda_transform.h"
@@ -63,7 +64,6 @@
 #include "halmet_onewire.h"
 #include "halmet_serial.h"
 #include "displays.h"
-#include "engine_hours.h"
 #include "sensesp/net/http_server.h"
 #include "sensesp/net/networking.h"
 
@@ -98,8 +98,18 @@ bool flame_active = false;
 // Latest values behind the segmented and OLED pages.
 uint32_t segment_last_key = UINT32_MAX;  // reset to force a redraw
 float last_rpm = 0;
-float last_a1_volts = 0;
-EngineHours engine_hours;
+bool oil_alarm = false, coolant_alarm = false;
+
+struct Reading {
+  float value = 0;
+  uint32_t at = 0;
+  bool seen = false;
+  void set(float v) { value = v; at = millis(); seen = true; }
+  bool fresh(uint32_t max_age_ms = 10000) const { return seen && millis() - at < max_age_ms; }
+};
+Reading volts[2];       // A1 start battery, A2 alternator
+Reading temps_k[5];     // coolant, exhaust, alternator, raw water, engine room
+Reading run_time_s;     // from the Signal K server (signalk-engine-hours), not kept here
 
 // Set the ADS1115 GAIN to adjust the analog input voltage range.
 // On HALMET, this refers to the voltage range of the ADS1115 input
@@ -126,6 +136,43 @@ const int kTestOutputPin = GPIO_NUM_33;
 // halmet_digital.cpp), this frequency corresponds to 3.8 r/s or about 228 rpm.
 const int kTestOutputFrequency = 380;
 #endif
+
+static String FormatUptime(uint32_t s) {
+  char b[20];
+  if (s >= 86400) snprintf(b, sizeof b, "%ud %uh", (unsigned)(s / 86400), (unsigned)(s / 3600 % 24));
+  else if (s >= 3600) snprintf(b, sizeof b, "%uh %um", (unsigned)(s / 3600), (unsigned)(s / 60 % 60));
+  else if (s >= 60) snprintf(b, sizeof b, "%um %02us", (unsigned)(s / 60), (unsigned)(s % 60));
+  else snprintf(b, sizeof b, "%us", (unsigned)s);
+  return b;
+}
+
+static String FormatVolts(const Reading& r) {
+  return r.fresh() ? String(r.value, 1) + "V" : String("--");
+}
+
+// nullptr for a normal power-on, so a cold boot shows no reset alert.
+static const char* ResetReasonText() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON: return nullptr;
+    case ESP_RST_SW: return "restart";
+    case ESP_RST_PANIC: return "panic";
+    case ESP_RST_INT_WDT: return "int wdt";
+    case ESP_RST_TASK_WDT: return "task wdt";
+    case ESP_RST_WDT: return "wdt";
+    case ESP_RST_BROWNOUT: return "brownout";
+    case ESP_RST_EXT: return "ext pin";
+    case ESP_RST_DEEPSLEEP: return "deep sleep";
+    default: return "unknown";
+  }
+}
+
+static bool SkConnected() {
+#ifdef ENABLE_SIGNALK
+  return sensesp_app->get_ws_client()->is_connected();
+#else
+  return false;
+#endif
+}
 
 /////////////////////////////////////////////////////////////////////
 // The setup function performs one-time application initialization.
@@ -297,9 +344,10 @@ void setup() {
         p.sk_path, p.config_path + String(" SK Path"),
         new SKMetadata("V", (String("Analog Voltage ") + p.title).c_str())));
 #endif
-    if (p.channel == 0) {
+    if (p.channel < 2) {
+      const int ch = p.channel;
       voltage->connect_to(new LambdaConsumer<float>(
-          [](float value) { last_a1_volts = value; }));
+          [ch](float value) { volts[ch].set(value); }));
     }
   }
 
@@ -336,6 +384,16 @@ void setup() {
   auto engine_room_temperature = ConnectOneWireTemperatureSender(
       dallas_temperature, 4, "Engine Room",
       "environment.inside.engineRoom.temperature", enable_signalk_output);
+
+  {
+    FloatProducer* probes[5] = {coolant_temperature, exhaust_temperature,
+                                alternator_temperature, raw_water_temperature,
+                                engine_room_temperature};
+    for (int i = 0; i < 5; i++) {
+      probes[i]->connect_to(
+          new LambdaConsumer<float>([i](float k) { temps_k[i].set(k); }));
+    }
+  }
 
   ///////////////////////////////////////////////////////////////////
   // Digital alarm inputs
@@ -384,9 +442,13 @@ void setup() {
     flame_detected->connect_to(flame_sk);
   }
 
+  alarm_d2_input->connect_to(
+      new LambdaConsumer<bool>([](bool v) { oil_alarm = v; }));
   // In this example, alarm_d3_input is active low, so invert the value.
   auto alarm_d3_inverted = alarm_d3_input->connect_to(
       new LambdaTransform<bool, bool>([](bool value) { return !value; }));
+  alarm_d3_inverted->connect_to(
+      new LambdaConsumer<bool>([](bool v) { coolant_alarm = v; }));
 
 #ifdef ENABLE_NMEA2000_OUTPUT
   // EDIT: This example connects the D2 alarm input to the low oil pressure
@@ -437,15 +499,12 @@ void setup() {
   tacho_d1_frequency->connect_to(
       new LambdaConsumer<float>([](float value) { last_rpm = 60 * value; }));
 
-  engine_hours.begin();
-  event_loop()->onRepeat(1000, []() { engine_hours.tick(last_rpm); });
 #ifdef ENABLE_SIGNALK
-  // Signal K run time is in seconds.
-  auto* run_time = new RepeatSensor<float>(
-      10000, []() { return static_cast<float>(engine_hours.seconds()); });
-  run_time->connect_to(new SKOutputFloat(
-      "propulsion.main.runTime", "/Engine Hours/SK Path",
-      new SKMetadata("s", "Engine run time")));
+  // Run time (seconds) is derived on the server by signalk-engine-hours.
+  auto* run_time_listener = new FloatSKListener(
+      "propulsion.main.runTime", 10000, "/Engine Hours/SK Path");
+  run_time_listener->connect_to(
+      new LambdaConsumer<float>([](float v) { run_time_s.set(v); }));
 #endif
 
 #ifdef ENABLE_NMEA2000_OUTPUT
@@ -480,33 +539,64 @@ void setup() {
   ///////////////////////////////////////////////////////////////////
   // Display setup
 
-  // OLED: rows 0-5 are host, IP, uptime, engine hours, RPM, A1 volts.
-  if (display_present) {
-    event_loop()->onRepeat(1000, []() {
-      PrintValue(display, 1, "IP:", WiFi.localIP().toString());
-      uint32_t up = millis() / 1000;
-      char buf[24];
-      snprintf(buf, sizeof(buf), "%ud %02u:%02u:%02u", (unsigned)(up / 86400),
-               (unsigned)(up / 3600 % 24), (unsigned)(up / 60 % 60),
-               (unsigned)(up % 60));
-      PrintValue(display, 2, "Up", String(buf));
-      PrintValue(display, 3, "Hours", engine_hours.hours());
-      PrintValue(display, 4, "RPM", last_rpm);
-      PrintValue(display, 5, "Batt V", last_a1_volts);
-    });
-  }
+  // Blue/yellow panel: rows 0-1 are the yellow band, so host and the alert
+  // line (which replaces the IP only while something is wrong) sit there.
+  // Rows: 0 host, 1 IP or alert, 2 uptime, 3 hours, 4 RPM, 5 volts, 6 temps.
+  event_loop()->onRepeat(1000, []() {
+    static uint32_t tick = 0;
+    tick++;
+    const uint32_t up = millis() / 1000;
+    const bool sk_up = SkConnected();
+
+    String alerts[8];
+    int n = 0;
+    const char* reset = ResetReasonText();
+    if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
+    if (flame_active) alerts[n++] = "FLAME DETECTED";
+    if (oil_alarm) alerts[n++] = "LOW OIL PRESSURE";
+    if (coolant_alarm) alerts[n++] = "COOLANT HOT";
+    if (!sk_up && up > 60) alerts[n++] = "No Signal K link";
+    if (ESP.getMaxAllocHeap() < 30000) alerts[n++] = "Low memory";
+
+    if (display == nullptr) return;
+    if (n > 0) PrintRow(display, 1, alerts[tick % n]);
+    else PrintRow(display, 1, "IP: " + WiFi.localIP().toString());
+
+    PrintRow(display, 2, "Up: " + FormatUptime(up));
+    if (run_time_s.seen) {
+      char b[24];
+      snprintf(b, sizeof b, "Hours: %.1f", run_time_s.value / 3600.0f);
+      PrintRow(display, 3, b);
+    } else {
+      PrintRow(display, 3, sk_up ? "Hours: waiting" : "Hours: no SK link");
+    }
+    PrintRow(display, 4, "RPM: " + String((int)last_rpm));
+    PrintRow(display, 5, "Batt " + FormatVolts(volts[0]) + " Alt " + FormatVolts(volts[1]));
+    static const char kTempLabel[5] = {'C', 'X', 'A', 'W', 'R'};
+    String t;
+    for (int i = 0; i < 5; i++) {
+      if (i) t += ' ';
+      t += kTempLabel[i];
+      t += temps_k[i].fresh() ? String((int)roundf(convertDegreesKtoC(temps_k[i].value))) : String("--");
+    }
+    PrintRow(display, 6, t);
+  });
 
   // Segmented display cycles RPM, engine hours, battery volts: a 1 s label
-  // then 3 s of value, so 12.6 h and 12.6 V can't be confused. Only redraws on
-  // a change because the TM1637 write blocks the loop.
+  // then 3 s of value, so 12.6 h and 12.6 V can't be confused. Hours are
+  // skipped until Signal K has supplied them. Redraws only on a change because
+  // the TM1637 write blocks the loop.
   event_loop()->onRepeat(1000, []() {
     if (flame_active) return;
     static uint32_t tick = 0;
-    const uint32_t page = (tick / 4) % 3, step = tick % 4;
-    tick++;
-    int rpm = (int)last_rpm;
-    int hours_x10 = (int)(engine_hours.hours() * 10);
-    int volts_x10 = (int)(last_a1_volts * 10);
+    static uint8_t page = 2;
+    const uint32_t step = tick++ % 4;
+    if (step == 0) {
+      do page = (page + 1) % 3; while (page == 1 && !run_time_s.seen);
+    }
+    const int rpm = (int)last_rpm;
+    const int hours_x10 = (int)(run_time_s.value / 360.0f);
+    const int volts_x10 = (int)(volts[0].value * 10);
     uint32_t key = page * 4 + step;
     if (step > 0) key = (key << 20) | (page == 0 ? rpm : page == 1 ? hours_x10 : volts_x10);
     if (key == segment_last_key) return;

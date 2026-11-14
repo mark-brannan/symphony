@@ -66,9 +66,9 @@ external divider and protection; the GPIO header takes 3.3 V logic only.
 | A3 voltage | A3 | none yet | `sensors.a3.voltage` | — | raw bench point until ignition sense is fitted |
 | A4 voltage | A4 | none yet | `sensors.a4.voltage` | — | raw bench point until the A4 transducer is fitted |
 | IR flame | D4 | IR flame module | `alarm.flame` | — | polarity unmeasured, a web-UI setting; no debounce |
-| Local display | I2C SSD1306 | on the board | — | — | rows: host, IP, uptime, engine hours, RPM, battery V; single colour |
-| Segmented display | TM1637 on IO16 (DIO), IO17 (CLK) | — | — | — | cycles RPM, engine hours, battery V, each after a 1 s label (rPn, Hrs, bAtt); FIrE replaces the cycle while a flame is seen |
-| Engine run hours | D1 RPM above 100, kept in flash (NVS), saved every 60 s | — | `propulsion.main.runTime` (s) | — | N2K 127489 total hours not wired |
+| Local display | I2C SSD1306, blue/yellow | on the board | — | — | yellow band rows 0–1: host, then IP, or an alert while one is active (reset reason for 10 min after a non-power-on boot, flame, oil, coolant, no Signal K link, low memory); blue rows: uptime, engine hours, RPM, battery and alternator V, five temperatures |
+| Segmented display | TM1637 on IO16 (DIO), IO17 (CLK) | — | — | — | cycles RPM, engine hours, battery V, each after a 1 s label (rPn, Hrs, bAtt); hours skipped until Signal K supplies them; FIrE replaces the cycle while a flame is seen |
+| Engine run hours | read from Signal K `propulsion.main.runTime` (s), derived by the signalk-engine-hours plugin | — | listens only | — | the plugin is installed but disabled and unconfigured on the boat Pi |
 | N2K watchdog, heap and stack status | — | — | — | — | |
 | Test pulse | IO33 | — | — | — | enabled by default; off before install |
 
