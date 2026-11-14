@@ -19,6 +19,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+#include <Preferences.h>
 #include <esp_timer.h>
 
 #include <memory>
@@ -111,7 +112,24 @@ struct Reading {
 };
 Reading volts[2];       // A1 start battery, A2 alternator
 Reading temps_k[5];     // coolant, exhaust, alternator, raw water, engine room
-Reading run_time_s;     // from the Signal K server (signalk-engine-hours), not kept here
+Reading run_time_s;     // from the Signal K server (signalk-engine-hours): the source of truth
+
+// Flash holds only a cache of the last Signal K value, for display while the
+// server is unreachable. Written when the whole hour changes, to spare flash.
+Preferences hours_cache;
+float cached_run_s = 0;
+int32_t cached_hour = -1;
+
+static bool HoursKnown() { return run_time_s.seen || cached_run_s > 0; }
+static float HoursSeconds() { return run_time_s.seen ? run_time_s.value : cached_run_s; }
+
+static void CacheRunTime(float s) {
+  int32_t hour = (int32_t)(s / 3600.0f);
+  if (hour == cached_hour) return;
+  cached_hour = hour;
+  cached_run_s = s;
+  hours_cache.putFloat("s", s);
+}
 
 // Set the ADS1115 GAIN to adjust the analog input voltage range.
 // On HALMET, this refers to the voltage range of the ADS1115 input
@@ -503,10 +521,13 @@ void setup() {
 
 #ifdef ENABLE_SIGNALK
   // Run time (seconds) is derived on the server by signalk-engine-hours.
+  hours_cache.begin("hours", false);
+  cached_run_s = hours_cache.getFloat("s", 0);
+  cached_hour = (int32_t)(cached_run_s / 3600.0f);
   auto* run_time_listener = new FloatSKListener(
       "propulsion.main.runTime", 10000, "/Engine Hours/SK Path");
   run_time_listener->connect_to(
-      new LambdaConsumer<float>([](float v) { run_time_s.set(v); }));
+      new LambdaConsumer<float>([](float v) { run_time_s.set(v); CacheRunTime(v); }));
 #endif
 
 #ifdef ENABLE_NMEA2000_OUTPUT
@@ -565,9 +586,10 @@ void setup() {
     else PrintRow(display, 1, "IP: " + WiFi.localIP().toString());
 
     PrintRow(display, 2, "Up: " + FormatUptime(up));
-    if (run_time_s.seen) {
+    if (HoursKnown()) {
       char b[24];
-      snprintf(b, sizeof b, "Hours: %.1f", run_time_s.value / 3600.0f);
+      snprintf(b, sizeof b, run_time_s.seen ? "Hours: %.1f" : "Hours: %.1f (cache)",
+               HoursSeconds() / 3600.0f);
       PrintRow(display, 3, b);
     } else {
       PrintRow(display, 3, sk_up ? "Hours: waiting" : "Hours: no SK link");
@@ -594,10 +616,10 @@ void setup() {
     static uint8_t page = 2;
     const uint32_t step = tick++ % 4;
     if (step == 0) {
-      do page = (page + 1) % 3; while (page == 1 && !run_time_s.seen);
+      do page = (page + 1) % 3; while (page == 1 && !HoursKnown());
     }
     const int rpm = (int)last_rpm;
-    const int hours_x10 = (int)(run_time_s.value / 360.0f);
+    const int hours_x10 = (int)(HoursSeconds() / 360.0f);
     const int volts_x10 = (int)(volts[0].value * 10);
     uint32_t key = page;
     if (step > 0) key = ((page + 3) << 20) | (page == 0 ? rpm : page == 1 ? hours_x10 : volts_x10);
