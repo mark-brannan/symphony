@@ -1,5 +1,5 @@
 Symphony HALMET engine-monitor firmware, imported from hatlabs/HALMET-example-firmware. Build with `pio run -e halmet_espidf -t upload`.
-Optional gitignored `src/wifi_secrets.h` with `#define WIFI_SSID "..."` / `#define WIFI_PASSWORD "..."` seeds WiFi.
+Each build writes gitignored `src/wifi_secrets.h` from `secrets/symphony.sops.yaml` (`wifi_from_sops.py`): `home_wifi_ssid` / `home_wifi_password` first, then the boat's `Symphony` profile. The device joins whichever is in range. The seed applies only to a device with no saved settings, so erase flash before the first flash (`pio run -e halmet_espidf -t erase`); without it the hotspot opens instead.
 
 # HALMET Example Firmware
 
