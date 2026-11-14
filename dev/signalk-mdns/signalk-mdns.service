@@ -5,6 +5,7 @@ After=network-online.target
 [Service]
 ExecStart=%h/.local/share/signalk-mdns/venv/bin/python -u %h/.local/share/signalk-mdns/announce.py
 Restart=on-failure
+RestartSec=10
 
 [Install]
 WantedBy=default.target

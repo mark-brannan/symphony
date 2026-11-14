@@ -1,8 +1,8 @@
 """Announce this dev box's Signal K on the LAN so SensESP devices (HALMET) find it.
 
 Signal K runs in a Docker bridge here, so its own mDNS never leaves the bridge
-and would carry a bridge address. This runs host-network and announces the LAN
-address instead, re-read every 30 s so a DHCP change follows without a restart.
+and would carry a bridge address. This runs in WSL (not Docker Desktop's VM) and
+announces the LAN address, re-read every 30 s so a DHCP change follows without a restart.
 """
 import socket
 import time
