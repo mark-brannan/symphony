@@ -21,6 +21,7 @@ marked *(pick)* are Claude's suggestion; the source names no part.
 | I2C | INA228 + shunt; waits on the alternator-regulator choice | Alternator current | |
 | I2C | SSD1306 0.96" OLED (optional) | Local display | |
 
-Open mismatch: the engine plan says the D inputs are not galvanically
-isolated; `reference/halmet_firmware.md` says they are. Matters if the bench
-supply and the board share a ground.
+The D inputs are galvanically isolated (digital isolator on the HALMET
+schematic); the A inputs sit on the same isolated rail, behind the ISO1540 I2C
+isolator to the ADS1115. A sensor module takes power from the isolated centre
+3V3 pad, not the GPIO-header 3V3.
