@@ -593,21 +593,33 @@ void setup() {
     }
 
     PrintRow(display, 1, "Uptime: " + FormatUptime(up));
+    // Layout test: worst-case-width stand-ins instead of live values (see PR #159).
+    constexpr bool kLayoutTest = true;
     char eng[28];
-    snprintf(eng, sizeof eng, "Engine: %.1fh %drpm", HoursSeconds() / 3600.0f, (int)last_rpm);
-    if (strlen(eng) > 21) snprintf(eng, sizeof eng, "Engine:%.1fh %drpm", HoursSeconds() / 3600.0f, (int)last_rpm);
+    const float hours = HoursSeconds() / 3600.0f;
+    if (kLayoutTest) snprintf(eng, sizeof eng, "Engine: 1000h 4000RPM");
+    else if (hours < 100) snprintf(eng, sizeof eng, "Engine: %.1fh %dRPM", hours, (int)last_rpm);
+    else snprintf(eng, sizeof eng, "Engine: %dh %dRPM", (int)hours, (int)last_rpm);
+    if (strlen(eng) > 21) memmove(eng + 7, eng + 8, strlen(eng + 8) + 1);  // drop the space after the colon
     PrintRow(display, 2, eng);
     PrintRow(display, 3, "Batt " + FormatVolts(volts[0]) + " Alt " + FormatVolts(volts[1]));
+    // Temps in whole degrees C: coolant, eXhaust, Alternator, Water (raw), Room (engine).
     static const char kTempLabel[5] = {'C', 'X', 'A', 'W', 'R'};
     String t;
     for (int i = 0; i < 5; i++) {
       if (i) t += ' ';
       t += kTempLabel[i];
-      t += temps_k[i].fresh() ? String((int)roundf(convertDegreesKtoC(temps_k[i].value))) : String("--");
+      if (kLayoutTest) t += "100";
+      else t += temps_k[i].fresh() ? String((int)roundf(convertDegreesKtoC(temps_k[i].value))) : String("--");
     }
+    if (t.length() > 21) t.replace(" ", "");  // five 3-digit values: letters still separate them
     PrintRow(display, 4, t);
-    const uint32_t slot = (tick / 2) % (2 * (n ? n : 1));
-    PrintRow(display, 6, n == 0 ? String("") : (slot % 2 == 0 ? String("WARNING!") : alerts[slot / 2]));
+    // WARNING! once, then each alert in turn, 2 s apiece.
+    if (n == 0) PrintRow(display, 6, "");
+    else {
+      const uint32_t slot = (tick / 2) % (n + 1);
+      PrintRow(display, 6, slot == 0 ? String("WARNING!") : alerts[slot - 1]);
+    }
   });
 
   // Segmented display cycles RPM, engine hours, battery volts: a 1 s label
