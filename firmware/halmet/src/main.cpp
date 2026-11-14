@@ -593,27 +593,25 @@ void setup() {
     }
 
     PrintRow(display, 1, "Uptime: " + FormatUptime(up));
-    // Layout test: worst-case-width stand-ins instead of live values (see PR #159).
+    // Layout test: sweeping stand-in values through the real formatting (see PR #159).
     constexpr bool kLayoutTest = true;
+    float hours = HoursSeconds() / 3600.0f;
+    int rpm = (int)last_rpm;
+    if (kLayoutTest) { hours = (tick - 1) * 10.0f; rpm = ((tick - 1) * 137) % 4001; }
     char eng[28];
-    const float hours = HoursSeconds() / 3600.0f;
-    if (kLayoutTest) snprintf(eng, sizeof eng, "Engine: 1000h 4000RPM");
-    else if (hours < 100) snprintf(eng, sizeof eng, "Engine: %.1fh %dRPM", hours, (int)last_rpm);
-    else snprintf(eng, sizeof eng, "Engine: %dh %dRPM", (int)hours, (int)last_rpm);
-    if (strlen(eng) > 21) memmove(eng + 7, eng + 8, strlen(eng + 8) + 1);  // drop the space after the colon
+    if (hours < 99.95f) snprintf(eng, sizeof eng, "Engine: %4.1fh %4dRPM", hours, rpm);
+    else snprintf(eng, sizeof eng, "Engine: %4dh %4dRPM", (int)hours, rpm);
     PrintRow(display, 2, eng);
     PrintRow(display, 3, "Batt " + FormatVolts(volts[0]) + " Alt " + FormatVolts(volts[1]));
-    // Temps in whole degrees C: coolant, eXhaust, Alternator, Water (raw), Room (engine).
-    static const char kTempLabel[5] = {'C', 'X', 'A', 'W', 'R'};
-    String t;
-    for (int i = 0; i < 5; i++) {
-      if (i) t += ' ';
-      t += kTempLabel[i];
-      if (kLayoutTest) t += "100";
-      else t += temps_k[i].fresh() ? String((int)roundf(convertDegreesKtoC(temps_k[i].value))) : String("--");
-    }
-    if (t.length() > 21) t.replace(" ", "");  // five 3-digit values: letters still separate them
-    PrintRow(display, 4, t);
+    // One temperature at a time, 4 s each, in degrees C; 0xF8 is the degree sign in cp437.
+    static const char* const kTempName[5] = {"coolant", "exhaust", "alternator", "raw water", "engine room"};
+    const int ti = (tick / 4) % 5;
+    float temp_c = temps_k[ti].fresh() ? convertDegreesKtoC(temps_k[ti].value) : NAN;
+    if (kLayoutTest) temp_c = ti == 3 ? NAN : ((tick * 33) % 1500) / 10.0f - 20.0f;
+    char tb[28];
+    if (isnan(temp_c)) snprintf(tb, sizeof tb, "    ? (%s)", kTempName[ti]);
+    else snprintf(tb, sizeof tb, "%5.1f\xF8""C (%s)", temp_c, kTempName[ti]);
+    PrintRow(display, 4, tb);
     // WARNING! once, then each alert in turn, 2 s apiece.
     if (n == 0) PrintRow(display, 6, "");
     else {
