@@ -12,10 +12,17 @@ header = Path(env.subst("$PROJECT_DIR")) / "src" / "wifi_secrets.h"  # noqa: F82
 
 
 def sops_field(key):
-    r = subprocess.run(
-        ["sops", "-d", "--extract", f'["{key}"]', str(secrets)],
-        capture_output=True, text=True)
-    return r.stdout.rstrip("\n") if r.returncode == 0 else None
+    try:
+        r = subprocess.run(
+            ["sops", "-d", "--extract", f'["{key}"]', str(secrets)],
+            capture_output=True, text=True)
+    except FileNotFoundError:
+        print("wifi_from_sops: sops not on PATH")
+        return None
+    if r.returncode != 0:
+        print(f"wifi_from_sops: {key}: {r.stderr.strip().splitlines()[-1:] or 'sops failed'}")
+        return None
+    return r.stdout.rstrip("\n")
 
 
 def keyfile(key):
