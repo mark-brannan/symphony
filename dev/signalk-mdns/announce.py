@@ -9,7 +9,7 @@ import time
 
 from zeroconf import ServiceInfo, Zeroconf
 
-PORT = 3000
+PORT = 3000  # the port compose-signalk.yml publishes for Signal K
 HOST = socket.gethostname()
 
 

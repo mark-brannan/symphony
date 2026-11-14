@@ -8,7 +8,7 @@ dest="$HOME/.local/share/signalk-mdns"
 
 mkdir -p "$dest" "$HOME/.config/systemd/user"
 [ -x "$dest/venv/bin/python" ] || python3 -m venv "$dest/venv"
-"$dest/venv/bin/pip" install -q zeroconf
+"$dest/venv/bin/pip" install -q zeroconf==0.154.0
 install -m 0644 "$here/announce.py" "$dest/announce.py"
 install -m 0644 "$here/signalk-mdns.service" "$HOME/.config/systemd/user/signalk-mdns.service"
 systemctl --user daemon-reload
