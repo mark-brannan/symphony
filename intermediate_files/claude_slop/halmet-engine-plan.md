@@ -17,7 +17,7 @@ https://github.com/hatlabs/discussions/discussions/107
 | Input | Count | Design | Use on Symphony |
 |---|---|---|---|
 | Analog A1–A4 | 4 | ADS1115 16-bit, 0–32 V, each with a **jumper-enabled 10 mA current source** for resistive senders (≤ ~300 Ω). Jumper **out** = measure in parallel with an existing gauge, the gauge supplies the current. Jumper **in** = HALMET is the sender's only load. | resistive senders, if the panel has gauges (Q1) |
-| Digital D1–D4 | 4 | ±32 V tolerant, Schmitt trigger ~1.5 V threshold, **not** galvanically isolated. Any of them can count pulses (ESP32 PCNT); D1 is the tacho by convention. Alternator W terminal: connect direct, **in-line fuse required**, LP solder jumper (~2.3 kHz) if noisy. | D1 tach; D2/D3 oil-pressure and coolant-temp **switches** (Yanmar stock) |
+| Digital D1–D4 | 4 | ±32 V tolerant, Schmitt trigger ~1.5 V threshold, galvanically isolated (digital isolator on the schematic; connector grounds and the centre 3V3 pad are the isolated rail, not the ESP32's). Any of them can count pulses (ESP32 PCNT); D1 is the tacho by convention. Alternator W terminal: connect direct, **in-line fuse required**, LP solder jumper (~2.3 kHz) if noisy. | D1 tach; D2/D3 oil-pressure and coolant-temp **switches** (Yanmar stock) |
 | 1-Wire | 1 header | pull-up and protection on board; DQ on **GPIO4** (traced in the schematic, rev 1.0.1; not silkscreened) | DS18B20 chain |
 | I2C | 4-pin 2.54 mm socket (J702); no Qwiic fitted, though the README lists one | shares the bus with the onboard ADS1115 (0x4b) | optional BME688 |
 | NMEA 2000 | 4-pin screw terminal | bus-powered, 5–32 V | power + data if the backbone reaches (Q3) |
