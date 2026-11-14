@@ -117,6 +117,12 @@ switch trips.
 | Second and third IR flame modules | D4 wired-OR, or analog outputs on spare A inputs | alternator/starter side; exhaust elbow | as above | the comparator outputs are open-collector, so several can share D4; analog outputs give intensity per module |
 | Rate-of-rise | derived | engine-room ambient DS18B20 | notification | a second, independent fire signal from a probe already fitted |
 
+Bench-measured 2026-11-14 (PR 155 firmware): D4 to ground reads flame, D4 to
+3.3 V clears, so the input is active-low with no inversion in hardware. The
+D and A connectors and the centre 3V3 pad are the isolated rail; the 3V3 by the
+GPIO header is the ESP32's. A module is powered from the centre pad and
+connector ground, with its output on D4; the GPIO header is not needed for it.
+
 The flame code exists in `~/symphony-sensesp` (`addFlameSensor`, active-low,
 debounced) and ports across. The engine room is dark, which is the condition
 these modules need; sunlight through an open hatch triggers them.
