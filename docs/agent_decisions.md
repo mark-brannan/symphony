@@ -42,3 +42,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261117t212901z
 - Test rig verdict is a two-pass per-plugin diff, released vs PR, on the same seed Undo: edit the design doc ([#162](https://github.com/mark-brannan/symphony/pull/162))
+
+### 20261117t212909z
+- PR 162 Refs #63 rather than Closes: seven design-level questions remain the owner's Undo: edit PR body to Closes #63 ([#162](https://github.com/mark-brannan/symphony/pull/162))
