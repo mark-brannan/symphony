@@ -95,13 +95,18 @@ ObservableValue<int> n2k_rx_counter{0};
 TwoWire* i2c;
 Adafruit_SSD1306* display;
 
-// Flame state takes over the segmented display from its RPM/hours/volts pages.
+// Flame is the one alert both displays show for now; they stay blank otherwise.
 bool flame_active = false;
+uint32_t flame_since_ms = 0;
+
+// While a flame is seen: a burst of quick flashes, then a steady hold, repeated.
+constexpr uint32_t kFlashHalfMs = 100;   // on 100 ms, off 100 ms: 5 pulses a second
+constexpr uint32_t kBurstMs = 1000;
+constexpr uint32_t kHoldMs = 4000;
 
 const char* FlameRowText() { return flame_active ? "FLAME DETECTED" : "Flame: none"; }
 
-// Latest values behind the segmented and OLED pages.
-uint32_t segment_last_key = UINT32_MAX;  // reset to force a redraw
+// Latest values behind the parked OLED pages.
 float last_rpm = 0;
 bool oil_alarm = false, coolant_alarm = false;
 
@@ -328,6 +333,7 @@ void setup() {
 
   // Initialize the OLED display
   bool display_present = InitializeSSD1306(sensesp_app->get(), &display, i2c);
+  if (!display_present) display = nullptr;  // the flame code tests for nullptr
 
   ///////////////////////////////////////////////////////////////////
   // Analog inputs
@@ -423,11 +429,27 @@ void setup() {
                                            enable_signalk_output);
   auto alarm_d3_input = ConnectAlarmSender(kDigitalInputPin3, "coolant-temp",
                                            enable_signalk_output);
-  // Segmented TM1637 display: RPM normally, FIrE while a flame is seen.
+  // Segmented TM1637 display: blank, or FIrE while a flame is seen.
+  // F, I, r, E
+  static const uint8_t kFire[4] = {0x71, 0x06, 0x50, 0x79};
+  static const uint8_t kBlank[4] = {0, 0, 0, 0};
   static auto segment_display =
       segmented_led_display::createTm1637Facade<segmented_led_display::NUM_DIGITS_4>(
           kSegmentDioPin, kSegmentClkPin);
-  segment_display.writeSignedDecimal(0);
+  segment_display.writePatterns(kBlank, 4);
+
+  // OLED: blank until a flame; the flame text goes on the yellow bottom row.
+  if (display_present) {
+    display->clearDisplay();
+    display->display();
+  }
+  // Both displays block the loop while they write, so draw only on a change.
+  static bool flame_lit = false;
+  static auto show_flame = [](bool lit) {
+    flame_lit = lit;
+    segment_display.writePatterns(lit ? kFire : kBlank, 4);
+    if (display != nullptr) PrintRow(display, 7, lit ? "FLAME DETECTED" : "");
+  };
 
   // IR flame module on GPIO 34 (header). Active-low: the LM393 pulls DO low on
   // a flame. The setting stays for other modules.
@@ -444,24 +466,19 @@ void setup() {
   auto* flame_detected = flame_input->connect_to(
       new LambdaTransform<bool, bool>(
           [flame_low](bool pin) { return flame_low ? !pin : pin; }));
-  // Sampled every 100 ms; redraw only on a change, both displays block the loop.
-  // F, I, r, E
-  static const uint8_t kFire[4] = {0x71, 0x06, 0x50, 0x79};
-  static const uint8_t kBlank[4] = {0, 0, 0, 0};
+  // Sampled every 100 ms. Onset lights both displays at once; clear blanks them.
   flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
     if (detected == flame_active) return;
     flame_active = detected;
-    segment_last_key = UINT32_MAX;
-    if (detected) segment_display.writePatterns(kFire, 4);
-    // The flame row now, not at the OLED's next refresh.
-    if (display != nullptr) PrintRow(display, 7, FlameRowText());
+    flame_since_ms = millis();
+    show_flame(detected);
   }));
-  // FIrE flashes, 0.5 s on and 0.5 s off, while a flame is seen.
-  event_loop()->onRepeat(500, []() {
-    static bool lit = true;
-    if (!flame_active) { lit = true; return; }
-    lit = !lit;
-    segment_display.writePatterns(lit ? kFire : kBlank, 4);
+  // While a flame is seen: 1 s of quick flashes, then 4 s steady, repeated.
+  event_loop()->onRepeat(20, []() {
+    if (!flame_active) return;
+    const uint32_t t = (millis() - flame_since_ms) % (kBurstMs + kHoldMs);
+    const bool lit = t >= kBurstMs || (t / kFlashHalfMs) % 2 == 0;
+    if (lit != flame_lit) show_flame(lit);
   });
   if (enable_signalk_output) {
     auto* flame_sk = new SKOutputBool("alarm.flame", "/Alarm flame/SK Path");
@@ -569,6 +586,9 @@ void setup() {
   ///////////////////////////////////////////////////////////////////
   // Display setup
 
+  // Parked while the flame alert's look is settled: the status rows and the
+  // other alerts come back after it. The RPM/hours/volts segment pages are cut.
+#if 0
   // Blue/yellow panel: the alert line sits in the yellow rows at the bottom.
   // Rows: 0 host/IP/MAC/SSID (4 s each), 1 uptime, 2 engine hours+RPM, 3 volts,
   // 4 temps, 6 alert (WARNING! alternating with each alert; blank if none),
@@ -632,44 +652,11 @@ void setup() {
     PrintRow(display, 7, FlameRowText());
   });
 
+#endif
+
   // DIAG-TEMP: raw flame pin level, remove before commit.
   event_loop()->onRepeat(500, []() {
     ESP_LOGI("DIAG", "gpio34=%d flame_active=%d", digitalRead(kFlameSensorPin), flame_active);
-  });
-
-  // Segmented display cycles RPM, engine hours, battery volts: a 1 s label
-  // then 3 s of value, so 12.6 h and 12.6 V can't be confused. Hours are
-  // skipped until Signal K has supplied them. Redraws only on a change because
-  // the TM1637 write blocks the loop.
-  event_loop()->onRepeat(1000, []() {
-    if (flame_active) return;
-    static uint32_t tick = 0;
-    static uint8_t page = 2;
-    const uint32_t step = tick++ % 4;
-    if (step == 0) {
-      page = (page + 1) % 3;
-    }
-    const int rpm = (int)last_rpm;
-    const int hours_x10 = (int)(HoursSeconds() / 360.0f);
-    const int volts_x10 = (int)(volts[0].value * 10);
-    uint32_t key = page;
-    if (step > 0) key = ((page + 3) << 20) | (page == 0 ? rpm : page == 1 ? hours_x10 : volts_x10);
-    if (key == segment_last_key) return;
-    segment_last_key = key;
-    // 7-segment glyphs: rPn, Hrs, bAtt
-    static const uint8_t kLabels[3][4] = {{0x50, 0x73, 0x54, 0x00},
-                                          {0x76, 0x50, 0x6D, 0x00},
-                                          {0x7C, 0x77, 0x78, 0x78}};
-    if (step == 0) {
-      segment_display.writePatterns(kLabels[page], 4);
-    } else if (page == 0) {
-      segment_display.writeSignedDecimal(rpm);
-    } else if (page == 1) {
-      if (hours_x10 < 10000) segment_display.writeFloat(hours_x10 / 10.0f, 1);
-      else segment_display.writeSignedDecimal(hours_x10 / 10);
-    } else {
-      segment_display.writeFloat(volts_x10 / 10.0f, 1);
-    }
   });
 
   // Heap and main-loop-stack diagnostics on the status page. The largest free
