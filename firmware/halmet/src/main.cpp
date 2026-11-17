@@ -103,6 +103,10 @@ uint32_t flame_since_ms = 0;
 constexpr uint32_t kFlashHalfMs = 100;   // on 100 ms, off 100 ms: 5 pulses a second
 constexpr uint32_t kBurstMs = 1000;
 constexpr uint32_t kHoldMs = 4000;
+// After the flame goes, the alarm holds this long before it clears.
+constexpr uint32_t kClearHoldMs = 10000;
+bool flame_clearing = false;
+uint32_t flame_gone_ms = 0;
 
 const char* FlameRowText() { return flame_active ? "FLAME DETECTED" : "Flame: none"; }
 
@@ -202,6 +206,9 @@ static bool SkConnected() {
 // The setup function performs one-time application initialization.
 void setup() {
   SetupLogging(ESP_LOG_DEBUG);
+  // The TM1637 driver flips its pins' mode about 210 times per write; at debug
+  // level each flip logs a line over 115200-baud serial, ~2 s per write.
+  esp_log_level_set("gpio", ESP_LOG_WARN);
 
   // These calls can be used for fine-grained control over the logging level.
   // esp_log_level_set("*", esp_log_level_t::ESP_LOG_DEBUG);
@@ -438,19 +445,22 @@ void setup() {
           kSegmentDioPin, kSegmentClkPin);
   segment_display.writePatterns(kBlank, 4);
 
-  // OLED: blank until a flame; the flame text goes on the yellow bottom row.
-  if (display_present) {
-    display->clearDisplay();
-    display->display();
-  }
   // Both displays block the loop while they write, so draw only on a change.
+  // The flame owns OLED row 6, the first yellow row, for now.
   static bool flame_lit = false;
-  static auto show_flame = [](bool lit) {
-    flame_lit = lit;
-    segment_display.writePatterns(lit ? kFire : kBlank, 4);
-    if (display != nullptr) PrintRow(display, 7, lit ? "FLAME DETECTED" : "");
+  static String flame_row;
+  static auto draw_flame = [](bool lit, const String& text) {
+    if (lit != flame_lit) {
+      flame_lit = lit;
+      const uint32_t t0 = micros();  // DIAG-TEMP
+      segment_display.writePatterns(lit ? kFire : kBlank, 4);
+      ESP_LOGI("DIAG", "segment write %u us", micros() - t0);  // DIAG-TEMP
+    }
+    if (display != nullptr && text != flame_row) {
+      flame_row = text;
+      PrintRow(display, 6, text);
+    }
   };
-
   // IR flame module on GPIO 34 (header). Active-low: the LM393 pulls DO low on
   // a flame. The setting stays for other modules.
   auto* flame_active_low = new CheckboxConfig(
@@ -462,23 +472,44 @@ void setup() {
       ->set_requires_restart(true);
   const bool flame_low = flame_active_low->get_value();
 
-  auto* flame_input = new DigitalInputState(kFlameSensorPin, INPUT, 100);
+  auto* flame_input = new DigitalInputState(kFlameSensorPin, INPUT, 10);
   auto* flame_detected = flame_input->connect_to(
       new LambdaTransform<bool, bool>(
           [flame_low](bool pin) { return flame_low ? !pin : pin; }));
-  // Sampled every 100 ms. Onset lights both displays at once; clear blanks them.
+  // Sampled every 10 ms, so a short flicker still counts. Onset lights both displays at once. When the flame
+  // goes, the alarm holds steady, counting down, before it clears.
   flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
     if (detected == flame_active) return;
     flame_active = detected;
-    flame_since_ms = millis();
-    show_flame(detected);
+    const uint32_t now = millis();
+    ESP_LOGI("DIAG", "%u ms flame_active=%d", now, detected);  // DIAG-TEMP
+    if (detected) {
+      flame_since_ms = now;
+      flame_clearing = false;
+      draw_flame(true, "FLAME DETECTED");
+    } else {
+      flame_gone_ms = now;
+      flame_clearing = true;
+    }
   }));
-  // While a flame is seen: 1 s of quick flashes, then 4 s steady, repeated.
+  // Flame seen: 1 s of quick flashes, then 4 s steady, repeated.
+  // Flame gone: steady, "FLAME clearing 10s" counting down, then blank.
   event_loop()->onRepeat(20, []() {
-    if (!flame_active) return;
-    const uint32_t t = (millis() - flame_since_ms) % (kBurstMs + kHoldMs);
-    const bool lit = t >= kBurstMs || (t / kFlashHalfMs) % 2 == 0;
-    if (lit != flame_lit) show_flame(lit);
+    const uint32_t now = millis();
+    if (flame_active) {
+      const uint32_t t = (now - flame_since_ms) % (kBurstMs + kHoldMs);
+      const bool lit = t >= kBurstMs || (t / kFlashHalfMs) % 2 == 0;
+      draw_flame(lit, lit ? "FLAME DETECTED" : "");
+    } else if (flame_clearing) {
+      const uint32_t gone = now - flame_gone_ms;
+      if (gone >= kClearHoldMs) {
+        flame_clearing = false;
+        draw_flame(false, "");
+      } else {
+        const uint32_t left_s = (kClearHoldMs - gone + 999) / 1000;
+        draw_flame(true, "FLAME clearing " + String(left_s) + "s");
+      }
+    }
   });
   if (enable_signalk_output) {
     auto* flame_sk = new SKOutputBool("alarm.flame", "/Alarm flame/SK Path");
@@ -586,9 +617,7 @@ void setup() {
   ///////////////////////////////////////////////////////////////////
   // Display setup
 
-  // Parked while the flame alert's look is settled: the status rows and the
-  // other alerts come back after it. The RPM/hours/volts segment pages are cut.
-#if 0
+  // The RPM/hours/volts segment pages are cut; the segment display is flame-only.
   // Blue/yellow panel: the alert line sits in the yellow rows at the bottom.
   // Rows: 0 host/IP/MAC/SSID (4 s each), 1 uptime, 2 engine hours+RPM, 3 volts,
   // 4 temps, 6 alert (WARNING! alternating with each alert; blank if none),
@@ -597,16 +626,16 @@ void setup() {
     static uint32_t tick = 0;
     tick++;
     const uint32_t up = esp_timer_get_time() / 1000000;  // 64-bit; millis() wraps at 49.7 d
-    const bool sk_up = SkConnected();
+    // const bool sk_up = SkConnected();
 
-    String alerts[8];
-    int n = 0;
-    const char* reset = ResetReasonText();
-    if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
-    if (oil_alarm) alerts[n++] = "LOW OIL PRESSURE";
-    if (coolant_alarm) alerts[n++] = "COOLANT HOT";
-    if (!sk_up && up > 60) alerts[n++] = "No Signal K link";
-    if (ESP.getMaxAllocHeap() < 30000) alerts[n++] = "Low memory";
+    // String alerts[8];
+    // int n = 0;
+    // const char* reset = ResetReasonText();
+    // if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
+    // if (oil_alarm) alerts[n++] = "LOW OIL PRESSURE";
+    // if (coolant_alarm) alerts[n++] = "COOLANT HOT";
+    // if (!sk_up && up > 60) alerts[n++] = "No Signal K link";
+    // if (ESP.getMaxAllocHeap() < 30000) alerts[n++] = "Low memory";
 
     if (display == nullptr) return;
     switch ((tick / 4) % 4) {
@@ -642,21 +671,22 @@ void setup() {
     if (isnan(temp_c)) snprintf(tb, sizeof tb, "    ? (%s)", kTempName[ti]);
     else snprintf(tb, sizeof tb, "%5.1f\xF8""C (%s)", temp_c, kTempName[ti]);
     PrintRow(display, 4, tb);
-    // WARNING! once, then each alert in turn, 2 s apiece.
-    if (n == 0) PrintRow(display, 6, "");
-    else {
-      const uint32_t slot = (tick / 2) % (n + 1);
-      PrintRow(display, 6, slot == 0 ? String("WARNING!") : alerts[slot - 1]);
-    }
-    // The second yellow row is the flame's alone, always showing its state.
-    PrintRow(display, 7, FlameRowText());
+    // Row 6 is the flame's alone for now, drawn by its flasher; the other
+    // alerts are parked until the flame alert looks right. Row 7 is unused.
   });
 
-#endif
 
-  // DIAG-TEMP: raw flame pin level, remove before commit.
-  event_loop()->onRepeat(500, []() {
-    ESP_LOGI("DIAG", "gpio34=%d flame_active=%d", digitalRead(kFlameSensorPin), flame_active);
+  // DIAG-TEMP: where the flame lag is, remove before commit. Logs the raw pin's
+  // edges, the display reacting, and any stall of the event loop over 200 ms.
+  event_loop()->onRepeat(10, []() {
+    static int last_pin = -1;
+    static uint32_t last_run = millis();
+    const uint32_t now = millis();
+    if (now - last_run > 200) ESP_LOGW("DIAG", "loop stalled %u ms", now - last_run);
+    last_run = now;
+    const int pin = digitalRead(kFlameSensorPin);
+    if (pin != last_pin) ESP_LOGI("DIAG", "%u ms gpio34=%d", now, pin);
+    last_pin = pin;
   });
 
   // Heap and main-loop-stack diagnostics on the status page. The largest free
