@@ -99,13 +99,9 @@ Adafruit_SSD1306* display;
 // Flame is the one alert both displays show for now; they stay blank otherwise.
 bool flame_active = false;  // the sensor, as last read
 
-// The alarm latches on onset: a burst of quick flashes, then a steady hold,
-// repeated while the flame is seen. A burst always runs to its end.
-constexpr uint32_t kFlashHalfMs = 150;   // 150 ms on, 150 ms off
-constexpr uint32_t kBurstMs = 1800;      // 6 pulses
-constexpr uint32_t kHoldMs = 4000;
-// Once the flame is gone and the burst done, the alarm holds this long.
-constexpr uint32_t kClearHoldMs = 60000;
+// The alarm latches on onset: a burst of flashes, then a steady hold, repeated
+// while the flame is seen. A burst always runs to its end. Timing is set live
+// from the web UI ("Alarm timing"), read on every tick.
 bool flame_alarm = false;     // latched: flashing, holding or counting down
 uint32_t flame_since_ms = 0;  // start of the current alarm
 bool flame_clearing = false;
@@ -494,30 +490,72 @@ void setup() {
     digitalWrite(kPiezoPin, on ? HIGH : LOW);
   };
 
-  // Sampled every 10 ms, so a short flicker still counts. Onset lights both
-  // displays and the piezo at once, and restarts an alarm that is counting down.
-  flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
-    if (detected == flame_active) return;
-    flame_active = detected;
-    if (detected && (!flame_alarm || flame_clearing)) {
+  // Alarm timing, tunable live from the web UI; a save takes effect next tick.
+  static auto timing = [](float value, const char* path, const char* title,
+                          const char* description, int order) {
+    String config_path = path;
+    auto* config = new NumberConfig(value, config_path);
+    ConfigItem(config)->set_title(title)->set_description(description)->set_sort_order(order);
+    return config;
+  };
+  static NumberConfig* flash_on_ms = timing(
+      150, "/Alarm timing/Flash on", "Flash on (ms)", "Each flash, lit.", 3040);
+  static NumberConfig* flash_off_ms = timing(
+      150, "/Alarm timing/Flash off", "Flash off (ms)", "Each flash, dark.", 3041);
+  static NumberConfig* pulses = timing(
+      6, "/Alarm timing/Pulses", "Pulses per burst", "Flashes in each burst.", 3042);
+  static NumberConfig* hold_s = timing(
+      4, "/Alarm timing/Hold", "Steady after burst (s)",
+      "Steady between bursts while the flame is seen.", 3043);
+  static NumberConfig* clear_s = timing(
+      60, "/Alarm timing/Clear hold", "Clearing hold (s)",
+      "Countdown after the flame is gone, before the alarm clears.", 3044);
+  static CheckboxConfig* test_alarm = new CheckboxConfig(
+      false, "Test alarm", "/Alarm timing/Test");
+  ConfigItem(test_alarm)
+      ->set_title("Test alarm")
+      ->set_description("Run the alarm as if a flame is seen. Untick to let it clear.")
+      ->set_sort_order(3045);
+  static auto ms = [](NumberConfig* c) {
+    const float v = c->get_value();
+    return v > 0 ? static_cast<uint32_t>(v) : 1u;
+  };
+
+  // Onset lights both displays and the piezo at once, and restarts an alarm
+  // that is counting down.
+  static auto seen = [](bool now_seen) {
+    static bool was_seen = false;
+    if (now_seen == was_seen) return;
+    was_seen = now_seen;
+    if (now_seen && (!flame_alarm || flame_clearing)) {
       flame_alarm = true;
       flame_clearing = false;
       flame_since_ms = millis();
       draw_flame(true, "FLAME DETECTED");
       sound_piezo(true);
     }
+  };
+  // Sampled every 10 ms, so a short flicker still counts.
+  flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
+    if (detected == flame_active) return;
+    flame_active = detected;
+    seen(flame_active || test_alarm->get_value());
   }));
-  // Alarm: 1.8 s of flashes and beeps, then 4 s steady, repeated while the
-  // flame is seen. Flame gone and burst done: steady, "FLAME clearing 60s"
-  // counting down, then blank.
+  // Alarm: a burst of flashes and beeps, then steady, repeated while the flame
+  // is seen. Flame gone and burst done: steady, "FLAME clearing Ns" counting
+  // down, then blank.
   event_loop()->onRepeat(20, []() {
+    const bool is_seen = flame_active || test_alarm->get_value();
+    seen(is_seen);
     if (!flame_alarm) return;
     const uint32_t now = millis();
     if (!flame_clearing) {
-      const uint32_t t = (now - flame_since_ms) % (kBurstMs + kHoldMs);
-      const bool in_burst = t < kBurstMs;
-      if (in_burst || flame_active) {
-        const bool lit = !in_burst || (t / kFlashHalfMs) % 2 == 0;
+      const uint32_t on = ms(flash_on_ms), period = on + ms(flash_off_ms);
+      const uint32_t burst = period * static_cast<uint32_t>(max(1.0f, pulses->get_value()));
+      const uint32_t t = (now - flame_since_ms) % (burst + ms(hold_s) * 1000);
+      const bool in_burst = t < burst;
+      if (in_burst || is_seen) {
+        const bool lit = !in_burst || t % period < on;
         draw_flame(lit, lit ? "FLAME DETECTED" : "");
         sound_piezo(in_burst && lit);
         return;
@@ -526,13 +564,13 @@ void setup() {
       flame_gone_ms = now;
       sound_piezo(false);
     }
-    const uint32_t gone = now - flame_gone_ms;
-    if (gone >= kClearHoldMs) {
+    const uint32_t gone = now - flame_gone_ms, clear_ms = ms(clear_s) * 1000;
+    if (gone >= clear_ms) {
       flame_alarm = false;
       flame_clearing = false;
       draw_flame(false, "");
     } else {
-      const uint32_t left_s = (kClearHoldMs - gone + 999) / 1000;
+      const uint32_t left_s = (clear_ms - gone + 999) / 1000;
       draw_flame(true, "FLAME clearing " + String(left_s) + "s");
     }
   });
