@@ -36,3 +36,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261117t212846z
 - Test rig overlay applied by copy into the seed tree, not single-file mounts, so admin-UI saves work Undo: edit the design doc ([#162](https://github.com/mark-brannan/symphony/pull/162))
+
+### 20261117t212854z
+- Test rig blanks sops-named fields from git objects rather than decrypting; it holds no age key Undo: edit the design doc ([#162](https://github.com/mark-brannan/symphony/pull/162))
