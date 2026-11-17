@@ -10,7 +10,7 @@ covered here.
 A change made on a host is not done until its literal command or file
 content is captured in `host/`, `ansible/`, a `RUNBOOK.md` step, or the
 current plan's as-built file — in the same commit as the session that made
-it. Narrative in `intermediate_files/claude_slop/` doesn't count: it records
+it. Narrative in the state repo's `state/symphony/` doesn't count: it records
 what a session did, not what the host now runs, and nobody reads it to
 rebuild the box.
 
@@ -30,7 +30,7 @@ rebuild the box.
 - **A human file.** Written for Mark skimming for "when did X change." Claude
   appends only when a meaningful, high-level piece of work is actually DONE —
   never micro-tasks, session narrative, self-corrections, or verification
-  detail. That material goes in `intermediate_files/claude_slop/log.md`.
+  detail. That material goes in `state/symphony/log.md` in the state repo.
 - Real ship's log style: short, factual, dated entries — 1-3 lines per event,
   past tense, no reasoning. Not a place for technical specs/part numbers
   (those belong in the relevant `systems/*.md` file once populated). If
@@ -53,7 +53,7 @@ rebuild the box.
   edits it when real feature-level work completes or the owner asks — never
   to park session state, evidence dumps, "done" annotations, or rules for
   other sessions. All of that lives under
-  `intermediate_files/claude_slop/` (`kanban-detail.md` for card
+  `state/symphony/` in the state repo (`kanban-detail.md` for card
   detail, `log.md` for history; cards live on the global work-item board).
 - Kanban-flavored, not GTD: **In Progress** (keep this small — WIP limit of
   roughly 2-3 items, matching the owner's stated preference for steady
@@ -63,15 +63,17 @@ rebuild the box.
   from this file, so it always reflects only what's still open.
 - The **SignalK / IoT — high level** section is the human summary; the
   detailed working state for each item is in
-  `intermediate_files/claude_slop/kanban-detail.md`, linked from a card on
+  `state/symphony/kanban-detail.md`, linked from a card on
   the global work-item board. Update both when an item opens or closes; update only the
   board for anything smaller.
 
-## Claude session state — `intermediate_files/claude_slop/`
-- **All Claude working state is segregated here**, away from the "good"
-  content in `maintenance/` and `reference/`. The owner chose this location
-  and the name deliberately (2026-08-19): if a future session thinks a file
-  here deserves promotion, that's a proposal to Mark, not a move to make.
+## Claude session state — the private state repo, `state/symphony/`
+- **All Claude working state lives in the private state repo under
+  `state/symphony/`**, never in this public repo, and away from the "good"
+  content in `maintenance/` and `reference/`. `intermediate_files/claude_slop/`
+  is gitignored so a stray write is not committed. If a future session thinks
+  a file there deserves promotion, that's a proposal to Mark, not a move to
+  make.
 - Cards live on the global work-item board (state repo; `worklist`), under
   the global **Open loops** rule (`~/.claude/CLAUDE.md` § Open loops — the
   standing-orders file, not this repo). That rule owns the mechanics: one
@@ -345,9 +347,7 @@ cheap. Symphony-specific instances of those:
   verified instead of batching. Size doesn't pick the destination; the next
   bullet does.
 - **Main-vs-branch is a rule, not a judgment call — don't ask.** Default to a
-  branch and a PR. Straight to main in exactly two cases: every path in the
-  commit is under `intermediate_files/claude_slop/**` — check it, don't
-  estimate it (`git diff --cached --name-only`) — or Mark asked for this
+  branch and a PR. Straight to main in exactly one case: Mark asked for this
   change to land on main and it is a single named file. Everything else
   branches, however small the edit, and top-level `README.md`, `RUNBOOK.md`
   and `CLAUDE.md` most of all: Mark reads those, and changing one without

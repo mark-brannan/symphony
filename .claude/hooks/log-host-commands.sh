@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Appends one line per Bash call containing "ssh " to
-# intermediate_files/claude_slop/host-commands.log: ISO timestamp, session
-# id, the command. Local buffer for the as-built file, never committed --
-# see .gitignore.
+# host-commands.log in the private state repo (state/symphony/, or
+# $SYMPHONY_STATE_DIR): ISO timestamp, session id, the command. Local buffer
+# for the as-built file; never written into this public repo. No state
+# checkout, no log.
 #
 # Redacts before writing, case-insensitively: a command matching sops -d,
 # sudo -S, Authorization, psk=, token, password, sshpass -p, or containing a
@@ -46,8 +47,8 @@ else
   line_cmd="$cmd"
 fi
 
-log_dir="$root/intermediate_files/claude_slop"
-mkdir -p "$log_dir" 2>/dev/null || exit 0
+log_dir="${SYMPHONY_STATE_DIR:-$HOME/claude_prompts_scratch/state/symphony}"
+[ -d "$log_dir" ] || exit 0
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 printf '%s\t%s\t%s\n' "$ts" "$sid" "$line_cmd" >> "$log_dir/host-commands.log" 2>/dev/null
