@@ -36,6 +36,10 @@ const int kSegmentClkPin = GPIO_NUM_16;
 // pull-up; the module's own pull-up drives it.
 const int kFlameSensorPin = GPIO_NUM_34;
 
+// Piezo alarm on J201 header pin 8. It switches a low-side N-FET (100 ohm gate
+// resistor, 100 k gate to ground) that sinks the piezo's negative lead off V+.
+const int kPiezoPin = GPIO_NUM_32;
+
 }  // namespace sensesp
 
 #endif /* HALMET_CONST_H_ */

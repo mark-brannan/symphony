@@ -37,7 +37,7 @@ Verified against Hat Labs' documentation and the HALMET-hardware schematic
 | Analog A1–A4 | ADS1115 16-bit, 0–32 V via 33.3/3.3 divider; per-channel jumper-enabled 10 mA current source for resistive senders, 300 Ω maximum | 4 | A1 start-battery voltage · A2 alternator output voltage · A3 ignition sense · A4 fuel vacuum or oil-pressure transducer, not both |
 | 1-Wire | header (not fitted by default), pull-up and protection on board, DQ on GPIO4 | 1 bus | DS18B20 chain |
 | I2C | 4-pin 2.54 mm socket (J702), shared with the onboard ADS1115 at 0x4b | 1 bus | SSD1306 display (0x3c), thermocouple amplifier, second ADS1115, current monitor |
-| GPIO header (J201) | 2×10, raw 3.3 V ESP32 pins, no protection; GPIO0, 4, 18 and 19 are taken (boot, 1-Wire, CAN); the ESP32 sheet labels IO5, IO16, IO17, IO32–IO35, SENSOR_VP/VN and JTAG | — | SPI thermocouple boards if used; IO33 is the 380 Hz test output |
+| GPIO header (J201) | 2×10, raw 3.3 V ESP32 pins, no protection; GPIO0, 4, 18 and 19 are taken (boot, 1-Wire, CAN); the ESP32 sheet labels IO5, IO16, IO17, IO32–IO35, SENSOR_VP/VN and JTAG | — | SPI thermocouple boards if used; IO16/17 TM1637 · IO32 piezo FET · IO33 380 Hz test output · IO34 flame |
 | NMEA 2000 | 4-pin screw terminal, CAN on GPIO18/19 | 1 | PGN 127488, 127489, 130316 |
 | Enclosure | IP65, PG7 glands, SP circular connectors | 2-pin, 3-pin, 5-pin | 12 V in · DS18B20 chain · I2C tether or thermocouple |
 

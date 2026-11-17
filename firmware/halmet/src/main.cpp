@@ -96,15 +96,17 @@ TwoWire* i2c;
 Adafruit_SSD1306* display;
 
 // Flame is the one alert both displays show for now; they stay blank otherwise.
-bool flame_active = false;
-uint32_t flame_since_ms = 0;
+bool flame_active = false;  // the sensor, as last read
 
-// While a flame is seen: a burst of quick flashes, then a steady hold, repeated.
-constexpr uint32_t kFlashHalfMs = 100;   // on 100 ms, off 100 ms: 5 pulses a second
-constexpr uint32_t kBurstMs = 1000;
+// The alarm latches on onset: a burst of quick flashes, then a steady hold,
+// repeated while the flame is seen. A burst always runs to its end.
+constexpr uint32_t kFlashHalfMs = 150;   // 150 ms on, 150 ms off
+constexpr uint32_t kBurstMs = 1800;      // 6 pulses
 constexpr uint32_t kHoldMs = 4000;
-// After the flame goes, the alarm holds this long before it clears.
-constexpr uint32_t kClearHoldMs = 10000;
+// Once the flame is gone and the burst done, the alarm holds this long.
+constexpr uint32_t kClearHoldMs = 60000;
+bool flame_alarm = false;     // latched: flashing, holding or counting down
+uint32_t flame_since_ms = 0;  // start of the current alarm
 bool flame_clearing = false;
 uint32_t flame_gone_ms = 0;
 
@@ -452,9 +454,7 @@ void setup() {
   static auto draw_flame = [](bool lit, const String& text) {
     if (lit != flame_lit) {
       flame_lit = lit;
-      const uint32_t t0 = micros();  // DIAG-TEMP
       segment_display.writePatterns(lit ? kFire : kBlank, 4);
-      ESP_LOGI("DIAG", "segment write %u us", micros() - t0);  // DIAG-TEMP
     }
     if (display != nullptr && text != flame_row) {
       flame_row = text;
@@ -476,39 +476,64 @@ void setup() {
   auto* flame_detected = flame_input->connect_to(
       new LambdaTransform<bool, bool>(
           [flame_low](bool pin) { return flame_low ? !pin : pin; }));
-  // Sampled every 10 ms, so a short flicker still counts. Onset lights both displays at once. When the flame
-  // goes, the alarm holds steady, counting down, before it clears.
+  // Piezo alarm (active buzzer) on GPIO 32 through a low-side N-FET. It beeps
+  // with the flash burst and is quiet through the hold and the countdown.
+  auto* piezo_enabled = new CheckboxConfig(true, "Piezo enabled", "/Alarm piezo/Enabled");
+  ConfigItem(piezo_enabled)
+      ->set_title("Piezo enabled")
+      ->set_description("Sound the piezo on GPIO 32 with the alarm flash.")
+      ->set_sort_order(3030);
+  static CheckboxConfig* piezo_config = piezo_enabled;
+  pinMode(kPiezoPin, OUTPUT);
+  digitalWrite(kPiezoPin, LOW);
+  static auto sound_piezo = [](bool on) {
+    static bool piezo_on = false;
+    on = on && piezo_config->get_value();
+    if (on == piezo_on) return;
+    piezo_on = on;
+    digitalWrite(kPiezoPin, on ? HIGH : LOW);
+  };
+
+  // Sampled every 10 ms, so a short flicker still counts. Onset lights both
+  // displays and the piezo at once, and restarts an alarm that is counting down.
   flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
     if (detected == flame_active) return;
     flame_active = detected;
-    const uint32_t now = millis();
-    ESP_LOGI("DIAG", "%u ms flame_active=%d", now, detected);  // DIAG-TEMP
-    if (detected) {
-      flame_since_ms = now;
+    if (detected && (!flame_alarm || flame_clearing)) {
+      flame_alarm = true;
       flame_clearing = false;
+      flame_since_ms = millis();
       draw_flame(true, "FLAME DETECTED");
-    } else {
-      flame_gone_ms = now;
-      flame_clearing = true;
+      sound_piezo(true);
     }
   }));
-  // Flame seen: 1 s of quick flashes, then 4 s steady, repeated.
-  // Flame gone: steady, "FLAME clearing 10s" counting down, then blank.
+  // Alarm: 1.8 s of flashes and beeps, then 4 s steady, repeated while the
+  // flame is seen. Flame gone and burst done: steady, "FLAME clearing 60s"
+  // counting down, then blank.
   event_loop()->onRepeat(20, []() {
+    if (!flame_alarm) return;
     const uint32_t now = millis();
-    if (flame_active) {
+    if (!flame_clearing) {
       const uint32_t t = (now - flame_since_ms) % (kBurstMs + kHoldMs);
-      const bool lit = t >= kBurstMs || (t / kFlashHalfMs) % 2 == 0;
-      draw_flame(lit, lit ? "FLAME DETECTED" : "");
-    } else if (flame_clearing) {
-      const uint32_t gone = now - flame_gone_ms;
-      if (gone >= kClearHoldMs) {
-        flame_clearing = false;
-        draw_flame(false, "");
-      } else {
-        const uint32_t left_s = (kClearHoldMs - gone + 999) / 1000;
-        draw_flame(true, "FLAME clearing " + String(left_s) + "s");
+      const bool in_burst = t < kBurstMs;
+      if (in_burst || flame_active) {
+        const bool lit = !in_burst || (t / kFlashHalfMs) % 2 == 0;
+        draw_flame(lit, lit ? "FLAME DETECTED" : "");
+        sound_piezo(in_burst && lit);
+        return;
       }
+      flame_clearing = true;
+      flame_gone_ms = now;
+      sound_piezo(false);
+    }
+    const uint32_t gone = now - flame_gone_ms;
+    if (gone >= kClearHoldMs) {
+      flame_alarm = false;
+      flame_clearing = false;
+      draw_flame(false, "");
+    } else {
+      const uint32_t left_s = (kClearHoldMs - gone + 999) / 1000;
+      draw_flame(true, "FLAME clearing " + String(left_s) + "s");
     }
   });
   if (enable_signalk_output) {
@@ -675,19 +700,6 @@ void setup() {
     // alerts are parked until the flame alert looks right. Row 7 is unused.
   });
 
-
-  // DIAG-TEMP: where the flame lag is, remove before commit. Logs the raw pin's
-  // edges, the display reacting, and any stall of the event loop over 200 ms.
-  event_loop()->onRepeat(10, []() {
-    static int last_pin = -1;
-    static uint32_t last_run = millis();
-    const uint32_t now = millis();
-    if (now - last_run > 200) ESP_LOGW("DIAG", "loop stalled %u ms", now - last_run);
-    last_run = now;
-    const int pin = digitalRead(kFlameSensorPin);
-    if (pin != last_pin) ESP_LOGI("DIAG", "%u ms gpio34=%d", now, pin);
-    last_pin = pin;
-  });
 
   // Heap and main-loop-stack diagnostics on the status page. The largest free
   // block is what the TLS handshake needs as one contiguous allocation.
