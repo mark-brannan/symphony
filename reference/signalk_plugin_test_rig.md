@@ -14,25 +14,13 @@ server with one plugin and an empty config proves the plugin starts. It
 cannot show that the PR breaks another plugin, or works only because
 nothing else is loaded. The rig has to give a PR:
 
-- **The real neighbourhood.** Every plugin and webapp Symphony installs, at
-  the versions Symphony installs, with Symphony's own configuration for
-  each, and Symphony's server settings.
-- **The PR in place of the released plugin.** The branch's build replaces
-  the published package of the same name. Nothing else changes, so any
-  difference is the PR's.
-- **Data moving through it.** A stream of realistic NMEA 2000 traffic
-  entering the way it does aboard, so plugins that only act on data act.
-- **A verdict a person can read.** For every plugin, whether it started,
-  whether it is publishing, and whether either changed compared with the
-  same rig running the released version.
-- **Nothing leaking out.** No page to a phone, no post to a cloud service
-  under the boat's name, no secret read, no write to the dev box's state
-  or the boat's.
-- **No harm to the box it runs on.** It leaves the long-lived dev stack,
-  its container names, its ports and its files alone, and leaves nothing
-  behind when torn down.
-- **Any plugin, any PR.** Naming a repo and a PR number is enough. Nothing
-  in the rig is written for one plugin.
+- **The real neighbourhood.** Every plugin Symphony installs, with its config.
+- **The PR in place of the released plugin.** Nothing else changes.
+- **Data moving through it.** Realistic NMEA 2000 traffic, as aboard.
+- **A verdict a person can read.** Per plugin, released versus PR.
+- **Nothing leaking out.** No page, cloud post, secret read or state write.
+- **No harm to the box it runs on.** The dev stack is left alone.
+- **Any plugin, any PR.** A repo and a PR number are enough.
 
 ## Why not the earlier shape
 
@@ -53,7 +41,7 @@ a real server and fixtures. The rig complements it.
         v                                   v
  +-------------------- rig image --------------------+
  | signal k server, same image line as the dev stack |
- | layer 1: node_modules from signalk/package.json   |  cached by package.json hash
+ | layer 1: node_modules from a generated lockfile   |  cached by lockfile hash
  | layer 2: PR tarball installed over its entry      |  rebuilt per PR head
  | layer 3: seed tree = signalk/ minus secrets,      |
  |          plus the rig overlay                     |
@@ -89,13 +77,23 @@ mounts. The plugin set, the PR's build and the seed tree are layers of an
 image. On first start the seed tree is copied into a named volume that is
 the rig's state directory, so Signal K can write to it freely, the admin UI
 can save config, and nothing written there flows back to git. Because no
-path is relative to a checkout, the rig runs the same from a worktree as
-from the main checkout, and the compose-up guard has no reason to stop it.
+path is relative to a checkout, the rig has no bind-mount reason to be kept out of a worktree. The
+compose-up guard (`.claude/hooks/block-compose-up-in-worktree.sh`) still
+fires, though: it matches the command shape, not the mounts. The entry point
+passes `--project-directory <main checkout>`, which the hook accepts, or the
+hook grows a carve-out for the rig's compose file. Either is a build-time
+item for the entry point.
 
 The plugin set is the slow, heavy layer (native modules, the
-`allowScripts` list). It is keyed by the hash of `signalk/package.json`,
-so it rebuilds when Symphony's plugin set changes and not when a PR does.
-Only the PR layer rebuilds per PR head.
+`allowScripts` list). `signalk/package.json` is caret ranges with no
+lockfile, and the boat runs `package-lock=false`, so a hash of it does not
+pin what npm resolves. The builder generates a lockfile
+(`npm install --package-lock-only` against the seed `package.json`), the
+layer is keyed on that lockfile's hash, and the lockfile is baked into the
+image. The layer rebuilds when Symphony's plugin set changes and not when a
+PR does; only the PR layer rebuilds per PR head. The report header prints
+the lockfile hash and the resolved version of the plugin under test, so
+"released vs PR on the same seed" holds for the plugin set too.
 
 Signal K keys plugin config by plugin id, not package name
 (`@signalk/charts-plugin` reads `charts.json`). The PR layer reads the id
@@ -199,7 +197,11 @@ a teardown. It lives in symphony beside the compose files it reads.
    a large build, and the run draws on the account's concurrent-job cap.
 2. **Docker socket in the rig.** Off, the plugins that launch containers
    through `signalk-container` cannot be tested. On, the code under review
-   has root on the host that runs the rig.
+   has root on the host that runs the rig. The plan in
+   `containerization_strategy.md` implies off: B3 swaps the history plugin
+   for one that needs no `signalk-container`, and B6 drops the socket and
+   `group_add` from `compose-signalk.yml`. That is a plan, not a decisions
+   line, so the question stays open with off as the default.
 3. **Which recording feeds the replay.** A capture from the boat is the
    most realistic and carries her positions and track; a synthetic or
    public sample carries neither and exercises less.
