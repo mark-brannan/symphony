@@ -33,3 +33,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261117t212833z
 - Test rig state is a named volume seeded from an image, no host bind mounts, following the grafana bake pattern Undo: edit the design doc ([#162](https://github.com/mark-brannan/symphony/pull/162))
+
+### 20261117t212846z
+- Test rig overlay applied by copy into the seed tree, not single-file mounts, so admin-UI saves work Undo: edit the design doc ([#162](https://github.com/mark-brannan/symphony/pull/162))
