@@ -110,7 +110,6 @@ uint32_t flame_since_ms = 0;  // start of the current alarm
 bool flame_clearing = false;
 uint32_t flame_gone_ms = 0;
 
-const char* FlameRowText() { return flame_active ? "FLAME DETECTED" : "Flame: none"; }
 
 // Latest values behind the parked OLED pages.
 float last_rpm = 0;
@@ -645,8 +644,7 @@ void setup() {
   // The RPM/hours/volts segment pages are cut; the segment display is flame-only.
   // Blue/yellow panel: the alert line sits in the yellow rows at the bottom.
   // Rows: 0 host/IP/MAC/SSID (4 s each), 1 uptime, 2 engine hours+RPM, 3 volts,
-  // 4 temps, 6 alert (WARNING! alternating with each alert; blank if none),
-  // 7 flame state.
+  // 4 temps, 6 flame (drawn by its flasher; the other alerts are parked), 7 unused.
   event_loop()->onRepeat(1000, []() {
     static uint32_t tick = 0;
     tick++;
