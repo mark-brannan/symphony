@@ -688,26 +688,70 @@ void setup() {
   ///////////////////////////////////////////////////////////////////
   // Display setup
 
-  // The RPM/hours/volts segment pages are cut; the segment display is flame-only.
+  // Segment display, numbers only: RPM and engine hours, 3 s each, hours with a
+  // decimal point; HOt for 1 s in every 4 while the coolant alarm is on. The
+  // flame alarm owns it outright while latched.
+  event_loop()->onRepeat(1000, []() {
+    static const uint8_t kDigit[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66,
+                                       0x6D, 0x7D, 0x07, 0x7F, 0x6F};
+    static const uint8_t kHot[4] = {0x76, 0x5C, 0x78, 0x00};
+    static uint8_t shown[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+    static uint32_t tick = 0;
+    tick++;
+    if (flame_alarm) { shown[0] = 0xFF; return; }  // forces a redraw after it clears
+    uint8_t next[4] = {0, 0, 0, 0};
+    if (coolant_alarm && tick % 4 == 0) {
+      memcpy(next, kHot, 4);
+    } else {
+      const float hours = HoursSeconds() / 3600.0f;
+      const bool show_hours = (tick / 3) % 2 == 1;
+      // Hours under 1000 keep a tenth: 123.4; above, a trailing point: 1234.
+      int v = show_hours ? (hours < 1000 ? (int)(hours * 10) : (int)hours) : (int)last_rpm;
+      v = constrain(v, 0, 9999);
+      const int dp = !show_hours ? -1 : hours < 1000 ? 2 : 3;
+      const int min_digits = dp == 2 ? 2 : 1;
+      for (int i = 3, n = 0; i >= 0; i--, n++) {
+        if (v > 0 || n < min_digits) next[i] = kDigit[v % 10];
+        v /= 10;
+      }
+      if (dp >= 0) next[dp] |= 0x80;
+    }
+    if (memcmp(next, shown, 4) == 0) return;
+    memcpy(shown, next, 4);
+    segment_display.writePatterns(shown, 4);
+  });
+
   // Blue/yellow panel: the alert line sits in the yellow rows at the bottom.
   // Rows: 0 host/IP/MAC/SSID (4 s each), 1 uptime, 2 engine hours+RPM, 3 volts,
-  // 4 temps, 6 flame (drawn by its flasher; the other alerts are parked), 7 unused.
+  // 4 temps, 6 alerts (the flame's while latched), 7 the other alerts then.
   event_loop()->onRepeat(1000, []() {
     static uint32_t tick = 0;
     tick++;
     const uint32_t up = esp_timer_get_time() / 1000000;  // 64-bit; millis() wraps at 49.7 d
-    // const bool sk_up = SkConnected();
 
-    // String alerts[8];
-    // int n = 0;
-    // const char* reset = ResetReasonText();
-    // if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
-    // if (oil_alarm) alerts[n++] = "LOW OIL PRESSURE";
-    // if (coolant_alarm) alerts[n++] = "COOLANT HOT";
-    // if (!sk_up && up > 60) alerts[n++] = "No Signal K link";
-    // if (ESP.getMaxAllocHeap() < 30000) alerts[n++] = "Low memory";
+    // Most serious first, 2 s each, with a k/n counter when there are several.
+    String alerts[5];
+    int n = 0;
+    const char* reset = ResetReasonText();
+    if (oil_alarm) alerts[n++] = "LOW OIL PRESSURE";
+    if (coolant_alarm) alerts[n++] = "COOLANT HOT";
+    if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
+    if (!SkConnected() && up > 60) alerts[n++] = "No Signal K link";
+    if (ESP.getMaxAllocHeap() < 30000) alerts[n++] = "Low memory";
 
     if (display == nullptr) return;
+    String alert_text;
+    if (n > 0) {
+      const int k = (tick / 2) % n;
+      alert_text = alerts[k];
+      if (n > 1) alert_text += " " + String(k + 1) + "/" + String(n);
+    }
+    static String row6, row7;
+    const String want6 = flame_alarm ? row6 : alert_text;
+    const String want7 = flame_alarm ? alert_text : "";
+    if (!flame_alarm && want6 != row6) { row6 = want6; PrintRow(display, 6, row6); }
+    if (want7 != row7) { row7 = want7; PrintRow(display, 7, row7); }
+    if (flame_alarm) row6 = "\x01";  // the flasher owns row 6; redraw after it clears
     switch ((tick / 4) % 4) {
       case 0: PrintRow(display, 0, "Host: " + sensesp_app->get_hostname()); break;
       case 1: PrintRow(display, 0, "IP: " + WiFi.localIP().toString()); break;
@@ -741,8 +785,6 @@ void setup() {
     if (isnan(temp_c)) snprintf(tb, sizeof tb, "    ? (%s)", kTempName[ti]);
     else snprintf(tb, sizeof tb, "%5.1f\xF8""C (%s)", temp_c, kTempName[ti]);
     PrintRow(display, 4, tb);
-    // Row 6 is the flame's alone for now, drawn by its flasher; the other
-    // alerts are parked until the flame alert looks right. Row 7 is unused.
   });
 
 
