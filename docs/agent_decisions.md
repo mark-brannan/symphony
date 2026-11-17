@@ -27,3 +27,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261117t212703z
 - Moved all 44 tracked files (not just the 35 counted) to state/symphony/ in the state repo Hook now writes to state repo (SYMPHONY_STATE_DIR or ~/claude_prompts_scratch/state/symphony), silent if absent Dropped CLAUDE.md direct-to-main privilege for the old path Left dangling path mentions in reference docs and ansible comments Undo: revert the commit ([#79](https://github.com/mark-brannan/symphony/issues/79)) (no PR, branch claude/symphony-state-out)
+
+### 20261117t212818z
+- Test-rig design doc lives in reference/ (design rationale per CLAUDE.md), not docs/ Undo: move the file ([#162](https://github.com/mark-brannan/symphony/pull/162))
