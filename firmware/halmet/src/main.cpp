@@ -98,6 +98,8 @@ Adafruit_SSD1306* display;
 // Flame state takes over the segmented display from its RPM/hours/volts pages.
 bool flame_active = false;
 
+const char* FlameRowText() { return flame_active ? "FLAME DETECTED" : "Flame: none"; }
+
 // Latest values behind the segmented and OLED pages.
 uint32_t segment_last_key = UINT32_MAX;  // reset to force a redraw
 float last_rpm = 0;
@@ -427,32 +429,40 @@ void setup() {
           kSegmentDioPin, kSegmentClkPin);
   segment_display.writeSignedDecimal(0);
 
-  // IR flame module on D4. Active-low, measured on the bench: D4 to GND reads
-  // flame, D4 to 3.3 V clears. The setting stays for other modules.
+  // IR flame module on GPIO 34 (header). Active-low: the LM393 pulls DO low on
+  // a flame. The setting stays for other modules.
   auto* flame_active_low = new CheckboxConfig(
       true, "Flame input active-low", "/Alarm flame/Active Low");
   ConfigItem(flame_active_low)
       ->set_title("Flame input active-low")
-      ->set_description("Flame detected when D4 reads low. Restart to apply.")
+      ->set_description("Flame detected when the input reads low. Restart to apply.")
       ->set_sort_order(3020)
       ->set_requires_restart(true);
   const bool flame_low = flame_active_low->get_value();
 
-  auto* flame_input = new DigitalInputState(kDigitalInputPin4, INPUT, 100);
+  auto* flame_input = new DigitalInputState(kFlameSensorPin, INPUT, 100);
   auto* flame_detected = flame_input->connect_to(
       new LambdaTransform<bool, bool>(
           [flame_low](bool pin) { return flame_low ? !pin : pin; }));
   // Sampled every 100 ms; redraw only on a change, both displays block the loop.
+  // F, I, r, E
+  static const uint8_t kFire[4] = {0x71, 0x06, 0x50, 0x79};
+  static const uint8_t kBlank[4] = {0, 0, 0, 0};
   flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
     if (detected == flame_active) return;
     flame_active = detected;
     segment_last_key = UINT32_MAX;
-    if (detected) {
-      // F, I, r, E
-      static const uint8_t kFire[4] = {0x71, 0x06, 0x50, 0x79};
-      segment_display.writePatterns(kFire, 4);
-    }
+    if (detected) segment_display.writePatterns(kFire, 4);
+    // The flame row now, not at the OLED's next refresh.
+    if (display != nullptr) PrintRow(display, 7, FlameRowText());
   }));
+  // FIrE flashes, 0.5 s on and 0.5 s off, while a flame is seen.
+  event_loop()->onRepeat(500, []() {
+    static bool lit = true;
+    if (!flame_active) { lit = true; return; }
+    lit = !lit;
+    segment_display.writePatterns(lit ? kFire : kBlank, 4);
+  });
   if (enable_signalk_output) {
     auto* flame_sk = new SKOutputBool("alarm.flame", "/Alarm flame/SK Path");
     ConfigItem(flame_sk)->set_title("Alarm flame Signal K Path");
@@ -561,7 +571,8 @@ void setup() {
 
   // Blue/yellow panel: the alert line sits in the yellow rows at the bottom.
   // Rows: 0 host/IP/MAC/SSID (4 s each), 1 uptime, 2 engine hours+RPM, 3 volts,
-  // 4 temps, 6 alert (WARNING! alternating with each alert; blank if none).
+  // 4 temps, 6 alert (WARNING! alternating with each alert; blank if none),
+  // 7 flame state.
   event_loop()->onRepeat(1000, []() {
     static uint32_t tick = 0;
     tick++;
@@ -572,7 +583,6 @@ void setup() {
     int n = 0;
     const char* reset = ResetReasonText();
     if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
-    if (flame_active) alerts[n++] = "FLAME DETECTED";
     if (oil_alarm) alerts[n++] = "LOW OIL PRESSURE";
     if (coolant_alarm) alerts[n++] = "COOLANT HOT";
     if (!sk_up && up > 60) alerts[n++] = "No Signal K link";
@@ -618,6 +628,13 @@ void setup() {
       const uint32_t slot = (tick / 2) % (n + 1);
       PrintRow(display, 6, slot == 0 ? String("WARNING!") : alerts[slot - 1]);
     }
+    // The second yellow row is the flame's alone, always showing its state.
+    PrintRow(display, 7, FlameRowText());
+  });
+
+  // DIAG-TEMP: raw flame pin level, remove before commit.
+  event_loop()->onRepeat(500, []() {
+    ESP_LOGI("DIAG", "gpio34=%d flame_active=%d", digitalRead(kFlameSensorPin), flame_active);
   });
 
   // Segmented display cycles RPM, engine hours, battery volts: a 1 s label

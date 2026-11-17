@@ -27,9 +27,14 @@ const int kDigitalInputPin4 = GPIO_NUM_26;
 const gpio_num_t kOneWirePin = GPIO_NUM_4;
 
 // TM1637 segmented display, on J201 header pins (raw 3.3 V ESP32 IO, free on
-// the schematic). Bench-check the J201 pinout before wiring.
-const int kSegmentDioPin = GPIO_NUM_16;
-const int kSegmentClkPin = GPIO_NUM_17;
+// the schematic): DIO on pin 5, CLK on pin 7, per the enclosure wiring table.
+const int kSegmentDioPin = GPIO_NUM_17;
+const int kSegmentClkPin = GPIO_NUM_16;
+
+// IR flame module (LM393) DO, on J201 header pin 10. A 3.3 V module inside the
+// enclosure needs no isolated D input. GPIO 34 is input-only with no internal
+// pull-up; the module's own pull-up drives it.
+const int kFlameSensorPin = GPIO_NUM_34;
 
 }  // namespace sensesp
 
