@@ -33,7 +33,8 @@ const int kSegmentClkPin = GPIO_NUM_16;
 
 // IR flame module (LM393) DO, on J201 header pin 10. A 3.3 V module inside the
 // enclosure needs no isolated D input. GPIO 34 is input-only with no internal
-// pull-up; the module's own pull-up drives it.
+// pull-up: a 10 k pull-up to the header's 3V3 keeps an unplugged module from
+// reading as a flame.
 const int kFlameSensorPin = GPIO_NUM_34;
 
 // Piezo alarm on J201 header pin 8. It switches a low-side N-FET (100 ohm gate

@@ -35,6 +35,7 @@
 #include "sensesp/signalk/signalk_value_listener.h"
 #include "sensesp/system/lambda_consumer.h"
 #include "sensesp/system/system_status_led.h"
+#include "sensesp/transforms/filter.h"
 #include "sensesp/transforms/lambda_transform.h"
 #include "sensesp/transforms/linear.h"
 #include "sensesp/ui/config_item.h"
@@ -538,7 +539,15 @@ void setup() {
   if (enable_signalk_output) {
     auto* flame_sk = new SKOutputBool("alarm.flame", "/Alarm flame/SK Path");
     ConfigItem(flame_sk)->set_title("Alarm flame Signal K Path");
-    flame_detected->connect_to(flame_sk);
+    // The input emits every 10 ms poll; Signal K needs only the changes.
+    flame_detected
+        ->connect_to(new Filter<bool>([](const bool& v) {
+          static int last = -1;
+          if (v == last) return false;
+          last = v;
+          return true;
+        }))
+        ->connect_to(flame_sk);
   }
 
   alarm_d2_input->connect_to(
