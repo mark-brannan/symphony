@@ -41,8 +41,8 @@ directory holding only that plugin, and its own port. It was reverted as
 the wrong shape: it is the scratch single-plugin server above, made
 repeatable. Its useful half, a plugin's own webapp dev loop, lives in that
 plugin's repo. `plugins/signalk-plugin-watchdog/test/run-test.sh` is the
-same shape on purpose, and stays right for what it does: a unit-level
-check of one plugin against fixtures. The rig complements it.
+same shape on purpose, and stays right for what it does: one plugin against
+a real server and fixtures. The rig complements it.
 
 ## Design
 
@@ -183,8 +183,8 @@ a teardown. It lives in symphony beside the compose files it reads.
 - `compose-grafana.yml`, `grafana/Dockerfile`: the bake-into-image pattern.
 - `compose-dev.yml`, `dev/plugin-config-overrides/README.md`: the override
   idea the overlay generalizes.
-- `signalk/`: the config of record; `.gitignore` for what in it is runtime
-  data rather than config.
+- `signalk/`: the config of record; the root `.gitignore` for what in it is
+  runtime data rather than config.
 - `.sops.yaml`, `scripts/sops_paths.py`: which fields are secret.
 - `scripts/signalk_plugin_census.py`: per-plugin evidence of activity.
 - `plugins/signalk-plugin-watchdog/test/run-test.sh`: the single-plugin
