@@ -163,11 +163,11 @@ fi
 # runs .git/hooks first.
 hooks_path="$(git config --local --get core.hooksPath 2>/dev/null)"
 if [ -n "$hooks_path" ]; then
-	blocker "core.hooksPath" "set to '$hooks_path' in this clone" \
-		"git runs the hooks there instead of .git/hooks, so pre-commit's hooks never fire" \
-		"git config --local --unset core.hooksPath  (or: bash scripts/setup-git-filters.sh)"
+    blocker "core.hooksPath" "set to '$hooks_path' in this clone" \
+        "git runs the hooks there instead of .git/hooks, so pre-commit's hooks never fire" \
+        "git config --local --unset core.hooksPath  (or: bash scripts/setup-git-filters.sh)"
 else
-	ok "core.hooksPath" "unset in this clone (correct -- pre-commit owns .git/hooks)"
+    ok "core.hooksPath" "unset in this clone (correct -- pre-commit owns .git/hooks)"
 fi
 
 # --git-common-dir, not --git-path: that one follows a global core.hooksPath.
