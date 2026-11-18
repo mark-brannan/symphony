@@ -200,6 +200,8 @@ Feature: HALMET alerts on the segment display and the OLED
     When a flame is seen
     Then the segment display flashes "FIrE"
     And OLED row 6 flashes "FLAME DETECTED"
+    And the piezo sounds with each flash
+    And the piezo is silent during the steady hold
     And OLED row 7 cycles "LOW OIL PRESSURE 1/2" and "No Signal K link 2/2"
     And the segment display never shows " Err" while the alarm is latched
 
@@ -210,3 +212,8 @@ Feature: HALMET alerts on the segment display and the OLED
     Then OLED row 6 cycles the alerts again
     And OLED row 7 is blank
     And the segment display returns to its number and " Hot"
+
+  Scenario: The piezo is silent through the countdown
+    Given the flame alarm is counting down "FLAME clearing 59s"
+    When I watch the displays for 10 seconds
+    Then the piezo is silent

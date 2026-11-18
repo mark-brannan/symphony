@@ -66,8 +66,8 @@ external divider and protection; the GPIO header takes 3.3 V logic only.
 | A3 voltage | A3 | none yet | `sensors.a3.voltage` | — | raw bench point until ignition sense is fitted |
 | A4 voltage | A4 | none yet | `sensors.a4.voltage` | — | raw bench point until the A4 transducer is fitted |
 | IR flame | J201 GPIO 34 | IR flame module | `alarm.flame` | — | active-low, a web-UI setting; sampled every 10 ms, sent on change |
-| Local display | I2C SSD1306, blue/yellow | on the board | — | — | rows 0–4: host/IP/MAC/SSID, uptime, engine hours and RPM, volts, temperatures; row 6: the flame alarm; other alerts parked |
-| Segmented display | TM1637 on IO17 (DIO), IO16 (CLK) | — | — | — | RPM while the engine turns, whole engine hours while stopped; Hot (coolant) or Err (any other alert but a reset) 1 s in 4; FIrE flashing with the flame alarm |
+| Local display | I2C SSD1306, blue/yellow | on the board | — | — | rows 0–4 status; row 6 cycles the alerts, 2 s each with k/n; a flame takes row 6, alerts move to row 7 |
+| Segmented display | TM1637 on IO17 (DIO), IO16 (CLK) | — | — | — | RPM running, whole hours stopped; Hot (coolant) or Err 1 s in 4; FIrE flashing with a flame |
 | Engine run hours | read from Signal K `propulsion.main.runTime` (s), derived by the signalk-engine-hours plugin | — | listens only | — | the plugin is installed but disabled and unconfigured on the boat Pi |
 | N2K watchdog, heap and stack status | — | — | — | — | |
 | Test pulse | IO33 | — | — | — | enabled by default; off before install |

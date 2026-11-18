@@ -324,6 +324,32 @@ def row6_flashes(world, text):
     assert [v for v, _ in runs(seq)][:4] == [text, "", text, ""], runs(seq)[:4]
 
 
+def first_burst(world):
+    """The first burst's steps, and the steady hold after it (step k is at (k + 1) ticks)."""
+    on_ms, off_ms, pulses, hold_ms, _ = world.timing
+    burst = (on_ms + off_ms) * pulses // world.STEP_MS - 1
+    return world.steps[:burst], world.steps[burst:burst + hold_ms // world.STEP_MS]
+
+
+@then("the piezo sounds with each flash")
+def piezo_with_flash(world):
+    burst, _ = first_burst(world)
+    assert [s["piezo"] for s in burst] == [s["segment"] != "    " for s in burst], burst
+    assert sum(1 for v, _ in runs([s["piezo"] for s in burst]) if v) == world.timing[2]
+
+
+@then("the piezo is silent during the steady hold")
+def piezo_silent_hold(world):
+    _, hold = first_burst(world)
+    assert hold and all(s["segment"] != "    " for s in hold), hold
+    assert not any(s["piezo"] for s in hold), hold
+
+
+@then("the piezo is silent")
+def piezo_silent(world):
+    assert world.steps and not any(s["piezo"] for s in world.steps)
+
+
 @then(parsers.parse('OLED row 7 cycles "{a}" and "{b}"'))
 def row7_cycles(world, a, b):
     assert_cycle(rows(world, 7), [a, b], 2)

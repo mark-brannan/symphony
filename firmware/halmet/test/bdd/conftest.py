@@ -100,6 +100,7 @@ class World:
         self.block = 100_000
         self.hours = 0.0
         self.seen = False
+        self.piezo = False
         self.timing = (150, 150, 6, 4000, 60000)
         self.segment = "    "
         self.row6 = self.row7 = ""
@@ -123,6 +124,8 @@ class World:
             self.row6 = w.row6_text.decode()
         if w.row7:
             self.row7 = w.row7_text.decode()
+        if w.piezo >= 0:
+            self.piezo = bool(w.piezo)
 
     def set_seen(self, seen):
         if seen != self.seen:
@@ -172,7 +175,7 @@ class World:
 
     def snapshot(self):
         return {"segment": self.segment, "row6": self.row6, "row7": self.row7,
-                "rpm": self.rpm, "alarm": self.flame_alarm}
+                "rpm": self.rpm, "alarm": self.flame_alarm, "piezo": self.piezo}
 
     def watched(self):
         """What a Then reads; a scenario with no When gets 8 s of watching."""
