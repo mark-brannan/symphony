@@ -159,16 +159,20 @@ else
 		"bash scripts/setup-git-filters.sh"
 fi
 
-hooks_path="$(git config --get core.hooksPath 2>/dev/null)"
+# Local only: a global core.hooksPath is the dotfiles dispatcher, which
+# runs .git/hooks first.
+hooks_path="$(git config --local --get core.hooksPath 2>/dev/null)"
 if [ -n "$hooks_path" ]; then
-	blocker "core.hooksPath" "set to '$hooks_path'" \
-		"pre-commit refuses to run while it is set, so no local hook fires at all" \
-		"git config --unset core.hooksPath  (or: bash scripts/setup-git-filters.sh)"
+    blocker "core.hooksPath" "set to '$hooks_path' in this clone" \
+        "git runs the hooks there instead of .git/hooks, so pre-commit's hooks never fire" \
+        "git config --local --unset core.hooksPath  (or: bash scripts/setup-git-filters.sh)"
 else
-	ok "core.hooksPath" "unset (correct -- pre-commit owns .git/hooks)"
+    ok "core.hooksPath" "unset in this clone (correct -- pre-commit owns .git/hooks)"
 fi
 
-hook_file="$(git rev-parse --git-path hooks/pre-commit 2>/dev/null)"
+# --git-common-dir, not --git-path: that one follows a global core.hooksPath.
+common_dir="$(git rev-parse --git-common-dir 2>/dev/null)"
+hook_file="${common_dir:+$common_dir/hooks/pre-commit}"
 if [ -n "$hook_file" ] && [ -f "$hook_file" ] && grep -q 'pre-commit' "$hook_file" 2>/dev/null; then
 	ok "pre-commit installed" "$hook_file"
 else

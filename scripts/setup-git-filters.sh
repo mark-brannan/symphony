@@ -78,16 +78,18 @@ echo "configured: sops clean/smudge filter"
 # Hooks used to live in .githooks/ via core.hooksPath. They're managed by
 # the pre-commit framework now, which installs into .git/hooks and refuses
 # to run while core.hooksPath is set -- so clear the old setting on clones
-# that still carry it.
-if git config --get core.hooksPath >/dev/null 2>&1; then
-  git config --unset core.hooksPath
+# that still carry it. Only the local one: a global core.hooksPath is the
+# dotfiles dispatcher, which runs .git/hooks first.
+if git config --local --get core.hooksPath >/dev/null 2>&1; then
+  git config --local --unset core.hooksPath
   echo "cleared: stale core.hooksPath (hooks are managed by pre-commit now)"
 fi
 
 if command -v pre-commit >/dev/null 2>&1; then
   # Installs both stages named by default_install_hook_types in
   # .pre-commit-config.yaml -- commit-time guards and the pre-push scan.
-  pre-commit install
+  # pre-commit refuses to install under any core.hooksPath, the global one too.
+  GIT_CONFIG_GLOBAL=/dev/null pre-commit install
   echo "configured: pre-commit and pre-push hooks"
 else
   echo >&2
