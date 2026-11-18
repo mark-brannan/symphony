@@ -97,6 +97,6 @@ module tube() { color("silver", 0.4) translate([0,0,-30]) cylinder(d = tube_od, 
 if (part == "aft") half(1);
 else if (part == "front") half(-1);
 else if (part == "bezel") bezel();
-else rotate([0,-cant_deg,0]) {
+else rotate([0,cant_deg,0]) {
   tube(); color("gold") half(1); color("goldenrod") translate([-0.0,0,0]) half(-1); color("orange") bezel(); dome(); pcb();
 }
