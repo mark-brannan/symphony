@@ -692,7 +692,7 @@ void setup() {
   // Segment display, numbers only: RPM while the engine turns, whole engine
   // hours while it is stopped, so the two never share the screen. The module
   // has a colon and no decimal point. One second in every four goes to an alert,
-  // right-aligned: HOt for the coolant alarm, Err for any other engine alert
+  // right-aligned: Hot for the coolant alarm, Err for any other engine alert
   // (the OLED names it); both on, they take turns. The flame alarm owns it
   // outright while latched.
   event_loop()->onRepeat(1000, []() {
