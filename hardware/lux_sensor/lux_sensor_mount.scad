@@ -1,4 +1,4 @@
-// Variant A, rev 5. Tube frame (z up the tube, aft +x); the head faces along the tube, so it tips aft with the cant.
+// Lux sensor mount, rev 8. Tube frame (z up the tube, aft +x); the head faces along the tube, so it tips aft with the cant.
 // Arm half: collar half + open trough + cup, top open. Cable slot open to the top. Top plate is the only cover.
 cant = 15;
 hw = 56; ph = 22; lid_t = 4; e = 5; w = 3;
