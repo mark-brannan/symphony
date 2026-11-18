@@ -5,9 +5,7 @@
 #   scripts/halos_card_bootstrap.sh <lan-ip> --cap    also cap the CPU clock
 #
 # Ansible needs key-based ssh and the sops password; a fresh image has neither.
-# This is the gap between "the card booted" and step 3 of
-# intermediate_files/claude_slop/halos-fresh-image-rebuild.md, which used to
-# read "change it to the sops value" with no command behind it.
+# This is the gap between "the card booted" and the first Ansible run.
 #
 # Idempotent: safe to re-run against a card that is already bootstrapped.
 # shellcheck disable=SC2086,SC2016

@@ -5,9 +5,8 @@ Ansible, and what Ansible should and shouldn't own.
 
 ## What exists now
 
-`ansible/` provisions the host layer of a HALOS card, ported from the plan-v1
-as-built record and converged against `symphony-halos` on 2026-09-02 (two
-consecutive runs at `changed=0`). Nine roles cover boot config and `can0`,
+`ansible/` provisions the host layer of a HALOS card, ported from a hand build and converged against `symphony-halos` on 2026-09-02
+(two consecutive runs at `changed=0`). Fourteen roles cover boot config and `can0`,
 NetworkManager and hostname/certificate identity, packages and swap, the repo
 checkout, `host/install.sh`, telegraf and the heartbeat, and the SignalK
 container overrides. `runbooks/host_bringup.md` → "Provisioning a HALOS card with Ansible" is
@@ -70,7 +69,7 @@ This repo already carries infrastructure alongside the maintenance log, so
 this is not a new kind of thing for it.
 
 Built layout. Roles are named for what they own and ordered by dependency, not
-by the as-built's section headings:
+by topic:
 
 ```
 ansible/

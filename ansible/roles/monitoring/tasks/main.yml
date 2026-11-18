@@ -1,4 +1,4 @@
-# as-built v1 steps 19 and 24: telegraf's wiring, and the heartbeat's per-card
+# Telegraf's wiring, and the heartbeat's per-card
 # configuration. The heartbeat script, unit and timer and telegraf's
 # rpi-health script are ported from host/install.sh's INSTALL/ENABLE arrays;
 # install.sh no longer owns those paths.

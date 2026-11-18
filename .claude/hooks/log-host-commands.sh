@@ -2,7 +2,7 @@
 # Appends one line per Bash call containing "ssh " to
 # host-commands.log in the private state repo (state/symphony/, or
 # $SYMPHONY_STATE_DIR): ISO timestamp, session id, the command. Local buffer
-# for the as-built file; never written into this public repo and never
+# for the host-change record; never written into this public repo and never
 # committed (the state repo's .gitignore excludes it). No state checkout, no
 # log.
 #

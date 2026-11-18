@@ -8,11 +8,12 @@ covered here.
 
 ## Changes made on a host
 A change made on a host is not done until its literal command or file
-content is captured in `host/`, `ansible/`, a `RUNBOOK.md` step, or the
-current plan's as-built file — in the same commit as the session that made
-it. Narrative in the state repo's `state/symphony/` doesn't count: it records
-what a session did, not what the host now runs, and nobody reads it to
-rebuild the box.
+content is captured in `host/`, `ansible/`, or a `RUNBOOK.md` step — in the
+same commit as the change. Ansible is the public, long-lived
+record of what a HALOS card runs: a new role or task carries its why in a
+comment beside it, and `ansible/README.md` is updated when a role is added or
+its ownership changes. Session narrative in the state repo's `state/symphony/`
+doesn't count: it records what a session did, not what the host now runs.
 
 ## Files
 - `maintenance/log.md` — chronological ship's-log record of work done.
