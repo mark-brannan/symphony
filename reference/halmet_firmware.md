@@ -71,6 +71,7 @@ external divider and protection; the GPIO header takes 3.3 V logic only.
 | Engine run hours | read from Signal K `propulsion.main.runTime` (s), derived by the signalk-engine-hours plugin | — | listens only | — | the plugin is installed but disabled and unconfigured on the boat Pi |
 | N2K watchdog, heap and stack status | — | — | — | — | |
 | Test pulse | IO33 | — | — | — | enabled by default; off before install |
+| Piezo alarm | IO32, low-side N-FET | — | — | — | beeps with the flame flash burst; a web-UI setting, on by default |
 
 Gaps that cut across the table:
 
