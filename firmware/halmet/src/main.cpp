@@ -35,6 +35,7 @@
 #include "sensesp/signalk/signalk_value_listener.h"
 #include "sensesp/system/lambda_consumer.h"
 #include "sensesp/system/system_status_led.h"
+#include "sensesp/transforms/filter.h"
 #include "sensesp/transforms/lambda_transform.h"
 #include "sensesp/transforms/linear.h"
 #include "sensesp/ui/config_item.h"
@@ -60,6 +61,7 @@
 #include <DallasTemperature.h>
 #include <OneWire.h>
 
+#include "alerts.h"
 #include "halmet_analog.h"
 #include "halmet_const.h"
 #include "halmet_digital.h"
@@ -95,11 +97,12 @@ ObservableValue<int> n2k_rx_counter{0};
 TwoWire* i2c;
 Adafruit_SSD1306* display;
 
-// Flame state takes over the segmented display from its RPM/hours/volts pages.
-bool flame_active = false;
+bool flame_active = false;  // the sensor, as last read
 
-// Latest values behind the segmented and OLED pages.
-uint32_t segment_last_key = UINT32_MAX;  // reset to force a redraw
+// The alert and display state machines (alerts.h); setup() applies its writes.
+Panel panel;
+
+// Latest values behind the parked OLED pages.
 float last_rpm = 0;
 bool oil_alarm = false, coolant_alarm = false;
 
@@ -195,6 +198,9 @@ static bool SkConnected() {
 // The setup function performs one-time application initialization.
 void setup() {
   SetupLogging(ESP_LOG_DEBUG);
+  // The TM1637 driver flips its pins' mode about 210 times per write; at debug
+  // level each flip logs a line over 115200-baud serial, ~2 s per write.
+  esp_log_level_set("gpio", ESP_LOG_WARN);
 
   // These calls can be used for fine-grained control over the logging level.
   // esp_log_level_set("*", esp_log_level_t::ESP_LOG_DEBUG);
@@ -326,6 +332,7 @@ void setup() {
 
   // Initialize the OLED display
   bool display_present = InitializeSSD1306(sensesp_app->get(), &display, i2c);
+  if (!display_present) display = nullptr;  // the flame code tests for nullptr
 
   ///////////////////////////////////////////////////////////////////
   // Analog inputs
@@ -421,42 +428,113 @@ void setup() {
                                            enable_signalk_output);
   auto alarm_d3_input = ConnectAlarmSender(kDigitalInputPin3, "coolant-temp",
                                            enable_signalk_output);
-  // Segmented TM1637 display: RPM normally, FIrE while a flame is seen.
+  // Segmented TM1637 display, driven by the panel's writes.
+  static const uint8_t kBlank[4] = {0, 0, 0, 0};
   static auto segment_display =
       segmented_led_display::createTm1637Facade<segmented_led_display::NUM_DIGITS_4>(
           kSegmentDioPin, kSegmentClkPin);
-  segment_display.writeSignedDecimal(0);
-
-  // IR flame module on D4. Active-low, measured on the bench: D4 to GND reads
-  // flame, D4 to 3.3 V clears. The setting stays for other modules.
+  segment_display.writePatterns(kBlank, 4);
+  // IR flame module on GPIO 34 (header). Active-low: the LM393 pulls DO low on
+  // a flame. The setting stays for other modules.
   auto* flame_active_low = new CheckboxConfig(
       true, "Flame input active-low", "/Alarm flame/Active Low");
   ConfigItem(flame_active_low)
       ->set_title("Flame input active-low")
-      ->set_description("Flame detected when D4 reads low. Restart to apply.")
+      ->set_description("Flame detected when the input reads low. Restart to apply.")
       ->set_sort_order(3020)
       ->set_requires_restart(true);
   const bool flame_low = flame_active_low->get_value();
 
-  auto* flame_input = new DigitalInputState(kDigitalInputPin4, INPUT, 100);
+  auto* flame_input = new DigitalInputState(kFlameSensorPin, INPUT, 10);
   auto* flame_detected = flame_input->connect_to(
       new LambdaTransform<bool, bool>(
           [flame_low](bool pin) { return flame_low ? !pin : pin; }));
-  // Sampled every 100 ms; redraw only on a change, both displays block the loop.
+  // Piezo alarm (active buzzer) on GPIO 32 through a low-side N-FET. It beeps
+  // with the flash burst and is quiet through the hold and the countdown.
+  auto* piezo_enabled = new CheckboxConfig(true, "Piezo enabled", "/Alarm piezo/Enabled");
+  ConfigItem(piezo_enabled)
+      ->set_title("Piezo enabled")
+      ->set_description("Sound the piezo on GPIO 32 with the alarm flash.")
+      ->set_sort_order(3030);
+  static CheckboxConfig* piezo_config = piezo_enabled;
+  pinMode(kPiezoPin, OUTPUT);
+  digitalWrite(kPiezoPin, LOW);
+  static auto sound_piezo = [](bool on) {
+    static bool piezo_on = false;
+    on = on && piezo_config->get_value();
+    if (on == piezo_on) return;
+    piezo_on = on;
+    digitalWrite(kPiezoPin, on ? HIGH : LOW);
+  };
+
+  // Alarm timing, tunable live from the web UI; a save takes effect next tick.
+  static auto timing = [](float value, const char* path, const char* title,
+                          const char* description, int order) {
+    String config_path = path;
+    auto* config = new NumberConfig(value, config_path);
+    ConfigItem(config)->set_title(title)->set_description(description)->set_sort_order(order);
+    return config;
+  };
+  static NumberConfig* flash_on_ms = timing(
+      150, "/Alarm timing/Flash on", "Flash on (ms)", "Each flash, lit.", 3040);
+  static NumberConfig* flash_off_ms = timing(
+      150, "/Alarm timing/Flash off", "Flash off (ms)", "Each flash, dark.", 3041);
+  static NumberConfig* pulses = timing(
+      6, "/Alarm timing/Pulses", "Pulses per burst", "Flashes in each burst.", 3042);
+  static NumberConfig* hold_s = timing(
+      4, "/Alarm timing/Hold", "Steady after burst (s)",
+      "Steady between bursts while the flame is seen.", 3043);
+  static NumberConfig* clear_s = timing(
+      60, "/Alarm timing/Clear hold", "Clearing hold (s)",
+      "Countdown after the flame is gone, before the alarm clears.", 3044);
+  static CheckboxConfig* test_alarm = new CheckboxConfig(
+      false, "Test alarm", "/Alarm timing/Test");
+  ConfigItem(test_alarm)
+      ->set_title("Test alarm")
+      ->set_description("Run the alarm as if a flame is seen. Untick to let it clear.")
+      ->set_sort_order(3045);
+  static auto ms = [](NumberConfig* c) {
+    const float v = c->get_value();
+    return v > 0 ? static_cast<uint32_t>(v) : 1u;
+  };
+
+  // Both displays block the loop while they write; the panel asks only for
+  // changes. Without the OLED, its rows are skipped.
+  static auto apply = [](const Writes& w) {
+    if (w.segment) segment_display.writePatterns(w.pattern, 4);
+    if (display != nullptr) {
+      if (w.row6) PrintRow(display, 6, w.row6_text.c_str());
+      if (w.row7) PrintRow(display, 7, w.row7_text.c_str());
+    }
+    if (w.piezo >= 0) sound_piezo(w.piezo == 1);
+  };
+  static auto flame_timing = []() {
+    return FlameTiming{ms(flash_on_ms), ms(flash_off_ms),
+                       static_cast<uint32_t>(max(1.0f, pulses->get_value())),
+                       ms(hold_s) * 1000, ms(clear_s) * 1000};
+  };
+  // Sampled every 10 ms, so a short flicker still counts.
   flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
     if (detected == flame_active) return;
     flame_active = detected;
-    segment_last_key = UINT32_MAX;
-    if (detected) {
-      // F, I, r, E
-      static const uint8_t kFire[4] = {0x71, 0x06, 0x50, 0x79};
-      segment_display.writePatterns(kFire, 4);
-    }
+    apply(panel.Seen(millis(), flame_active || test_alarm->get_value()));
   }));
+  event_loop()->onRepeat(20, []() {
+    apply(panel.FlameTick(millis(), flame_active || test_alarm->get_value(),
+                          flame_timing()));
+  });
   if (enable_signalk_output) {
     auto* flame_sk = new SKOutputBool("alarm.flame", "/Alarm flame/SK Path");
     ConfigItem(flame_sk)->set_title("Alarm flame Signal K Path");
-    flame_detected->connect_to(flame_sk);
+    // The input emits every 10 ms poll; Signal K needs only the changes.
+    flame_detected
+        ->connect_to(new Filter<bool>([](const bool& v) {
+          static int last = -1;
+          if (v == last) return false;
+          last = v;
+          return true;
+        }))
+        ->connect_to(flame_sk);
   }
 
   alarm_d2_input->connect_to(
@@ -559,25 +637,18 @@ void setup() {
   ///////////////////////////////////////////////////////////////////
   // Display setup
 
-  // Blue/yellow panel: the alert line sits in the yellow rows at the bottom.
-  // Rows: 0 host/IP/MAC/SSID (4 s each), 1 uptime, 2 engine hours+RPM, 3 volts,
-  // 4 temps, 6 alert (WARNING! alternating with each alert; blank if none).
+  // Segment display (numbers, Hot/Err, FIrE) and the alert rows come from the
+  // panel. Blue/yellow OLED: rows 0 host/IP/MAC/SSID (4 s each), 1 uptime,
+  // 2 engine hours+RPM, 3 volts, 4 temps; 6 and 7 are the panel's.
   event_loop()->onRepeat(1000, []() {
+    const uint32_t up = esp_timer_get_time() / 1000000;  // 64-bit; millis() wraps at 49.7 d
+    apply(panel.SecondTick(Inputs{up, last_rpm, oil_alarm, coolant_alarm,
+                                  volts[1].fresh(), volts[1].value, ResetReasonText(),
+                                  SkConnected(), ESP.getMaxAllocHeap(),
+                                  HoursSeconds() / 3600.0f}));
+
     static uint32_t tick = 0;
     tick++;
-    const uint32_t up = esp_timer_get_time() / 1000000;  // 64-bit; millis() wraps at 49.7 d
-    const bool sk_up = SkConnected();
-
-    String alerts[8];
-    int n = 0;
-    const char* reset = ResetReasonText();
-    if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
-    if (flame_active) alerts[n++] = "FLAME DETECTED";
-    if (oil_alarm) alerts[n++] = "LOW OIL PRESSURE";
-    if (coolant_alarm) alerts[n++] = "COOLANT HOT";
-    if (!sk_up && up > 60) alerts[n++] = "No Signal K link";
-    if (ESP.getMaxAllocHeap() < 30000) alerts[n++] = "Low memory";
-
     if (display == nullptr) return;
     switch ((tick / 4) % 4) {
       case 0: PrintRow(display, 0, "Host: " + sensesp_app->get_hostname()); break;
@@ -612,48 +683,8 @@ void setup() {
     if (isnan(temp_c)) snprintf(tb, sizeof tb, "    ? (%s)", kTempName[ti]);
     else snprintf(tb, sizeof tb, "%5.1f\xF8""C (%s)", temp_c, kTempName[ti]);
     PrintRow(display, 4, tb);
-    // WARNING! once, then each alert in turn, 2 s apiece.
-    if (n == 0) PrintRow(display, 6, "");
-    else {
-      const uint32_t slot = (tick / 2) % (n + 1);
-      PrintRow(display, 6, slot == 0 ? String("WARNING!") : alerts[slot - 1]);
-    }
   });
 
-  // Segmented display cycles RPM, engine hours, battery volts: a 1 s label
-  // then 3 s of value, so 12.6 h and 12.6 V can't be confused. Hours are
-  // skipped until Signal K has supplied them. Redraws only on a change because
-  // the TM1637 write blocks the loop.
-  event_loop()->onRepeat(1000, []() {
-    if (flame_active) return;
-    static uint32_t tick = 0;
-    static uint8_t page = 2;
-    const uint32_t step = tick++ % 4;
-    if (step == 0) {
-      page = (page + 1) % 3;
-    }
-    const int rpm = (int)last_rpm;
-    const int hours_x10 = (int)(HoursSeconds() / 360.0f);
-    const int volts_x10 = (int)(volts[0].value * 10);
-    uint32_t key = page;
-    if (step > 0) key = ((page + 3) << 20) | (page == 0 ? rpm : page == 1 ? hours_x10 : volts_x10);
-    if (key == segment_last_key) return;
-    segment_last_key = key;
-    // 7-segment glyphs: rPn, Hrs, bAtt
-    static const uint8_t kLabels[3][4] = {{0x50, 0x73, 0x54, 0x00},
-                                          {0x76, 0x50, 0x6D, 0x00},
-                                          {0x7C, 0x77, 0x78, 0x78}};
-    if (step == 0) {
-      segment_display.writePatterns(kLabels[page], 4);
-    } else if (page == 0) {
-      segment_display.writeSignedDecimal(rpm);
-    } else if (page == 1) {
-      if (hours_x10 < 10000) segment_display.writeFloat(hours_x10 / 10.0f, 1);
-      else segment_display.writeSignedDecimal(hours_x10 / 10);
-    } else {
-      segment_display.writeFloat(volts_x10 / 10.0f, 1);
-    }
-  });
 
   // Heap and main-loop-stack diagnostics on the status page. The largest free
   // block is what the TLS handshake needs as one contiguous allocation.

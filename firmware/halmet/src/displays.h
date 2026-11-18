@@ -21,9 +21,9 @@ const uint8_t NUM_DIGITS_4 = 4;
 const uint8_t NUM_DIGITS_6 = 6;
 const uint8_t NUM_DIGITS_8 = 8;
 
-// delays based on recommendions of ace_segment author;
-// should be 'good enough' for SensESP.
-const uint8_t TM1637_BIT_DELAY = 100;
+// TM1637_BIT_DELAY is cut from the ace_segment author's 100 us (~30 ms per
+// 4-digit write, a visible tear) to 10 us; retest it on any other TM1637 module.
+const uint8_t TM1637_BIT_DELAY = 10;
 const uint8_t TM1638_DELAY_MICROS = 1;
 
 class DisplayFacade {
