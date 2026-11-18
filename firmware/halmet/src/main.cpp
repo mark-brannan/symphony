@@ -111,6 +111,7 @@ uint32_t flame_gone_ms = 0;
 // Latest values behind the parked OLED pages.
 float last_rpm = 0;
 bool oil_alarm = false, coolant_alarm = false;
+bool err_alert = false;  // an engine alert the segment has no word of its own for
 
 struct Reading {
   float value = 0;
@@ -688,13 +689,17 @@ void setup() {
   ///////////////////////////////////////////////////////////////////
   // Display setup
 
-  // Segment display, numbers only: RPM and engine hours, 3 s each, hours with a
-  // decimal point; HOt for 1 s in every 4 while the coolant alarm is on. The
-  // flame alarm owns it outright while latched.
+  // Segment display, numbers only: RPM while the engine turns, whole engine
+  // hours while it is stopped, so the two never share the screen. The module
+  // has a colon and no decimal point. One second in every four goes to an alert,
+  // right-aligned: HOt for the coolant alarm, Err for any other engine alert
+  // (the OLED names it); both on, they take turns. The flame alarm owns it
+  // outright while latched.
   event_loop()->onRepeat(1000, []() {
     static const uint8_t kDigit[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66,
                                        0x6D, 0x7D, 0x07, 0x7F, 0x6F};
-    static const uint8_t kHot[4] = {0x76, 0x5C, 0x78, 0x00};
+    static const uint8_t kHot[4] = {0x00, 0x76, 0x5C, 0x78};
+    static const uint8_t kErr[4] = {0x00, 0x79, 0x50, 0x50};
     static uint8_t shown[4] = {0xFF, 0xFF, 0xFF, 0xFF};
     static uint32_t tick = 0;
     tick++;
@@ -702,19 +707,15 @@ void setup() {
     uint8_t next[4] = {0, 0, 0, 0};
     if (coolant_alarm && tick % 4 == 0) {
       memcpy(next, kHot, 4);
+    } else if (err_alert && tick % 4 == (coolant_alarm ? 2 : 0)) {
+      memcpy(next, kErr, 4);
     } else {
-      const float hours = HoursSeconds() / 3600.0f;
-      const bool show_hours = (tick / 3) % 2 == 1;
-      // Hours under 1000 keep a tenth: 123.4; above, a trailing point: 1234.
-      int v = show_hours ? (hours < 1000 ? (int)(hours * 10) : (int)hours) : (int)last_rpm;
+      int v = last_rpm > 0 ? (int)last_rpm : (int)(HoursSeconds() / 3600.0f);
       v = constrain(v, 0, 9999);
-      const int dp = !show_hours ? -1 : hours < 1000 ? 2 : 3;
-      const int min_digits = dp == 2 ? 2 : 1;
       for (int i = 3, n = 0; i >= 0; i--, n++) {
-        if (v > 0 || n < min_digits) next[i] = kDigit[v % 10];
+        if (v > 0 || n == 0) next[i] = kDigit[v % 10];
         v /= 10;
       }
-      if (dp >= 0) next[dp] |= 0x80;
     }
     if (memcmp(next, shown, 4) == 0) return;
     memcpy(shown, next, 4);
@@ -730,14 +731,23 @@ void setup() {
     const uint32_t up = esp_timer_get_time() / 1000000;  // 64-bit; millis() wraps at 49.7 d
 
     // Most serious first, 2 s each, with a k/n counter when there are several.
-    String alerts[5];
+    String alerts[6];
     int n = 0;
     const char* reset = ResetReasonText();
     if (oil_alarm) alerts[n++] = "LOW OIL PRESSURE";
     if (coolant_alarm) alerts[n++] = "COOLANT HOT";
+    // Alternator under 13.0 V for 30 s with the engine turning.
+    static uint32_t alt_low_since = 0;
+    const bool alt_low = last_rpm > 0 && volts[1].fresh() && volts[1].value < 13.0f;
+    if (!alt_low) alt_low_since = 0;
+    else if (alt_low_since == 0) alt_low_since = up ? up : 1;
+    const bool alt_alert = alt_low_since && up - alt_low_since >= 30;
+    if (alt_alert) alerts[n++] = "Alt not charging";
     if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
     if (!SkConnected() && up > 60) alerts[n++] = "No Signal K link";
-    if (ESP.getMaxAllocHeap() < 30000) alerts[n++] = "Low memory";
+    const bool low_memory = ESP.getMaxAllocHeap() < 30000;
+    if (low_memory) alerts[n++] = "Low memory";
+    err_alert = oil_alarm || alt_alert || low_memory;
 
     if (display == nullptr) return;
     String alert_text;
