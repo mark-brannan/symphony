@@ -61,6 +61,7 @@
 #include <DallasTemperature.h>
 #include <OneWire.h>
 
+#include "alerts.h"
 #include "halmet_analog.h"
 #include "halmet_const.h"
 #include "halmet_digital.h"
@@ -96,22 +97,14 @@ ObservableValue<int> n2k_rx_counter{0};
 TwoWire* i2c;
 Adafruit_SSD1306* display;
 
-// Flame is the one alert both displays show for now; they stay blank otherwise.
 bool flame_active = false;  // the sensor, as last read
 
-// The alarm latches on onset: a burst of flashes, then a steady hold, repeated
-// while the flame is seen. A burst always runs to its end. Timing is set live
-// from the web UI ("Alarm timing"), read on every tick.
-bool flame_alarm = false;     // latched: flashing, holding or counting down
-uint32_t flame_since_ms = 0;  // start of the current alarm
-bool flame_clearing = false;
-uint32_t flame_gone_ms = 0;
-
+// The alert and display state machines (alerts.h); setup() applies its writes.
+Panel panel;
 
 // Latest values behind the parked OLED pages.
 float last_rpm = 0;
 bool oil_alarm = false, coolant_alarm = false;
-bool err_alert = false;  // an engine alert the segment has no word of its own for
 
 struct Reading {
   float value = 0;
@@ -435,29 +428,12 @@ void setup() {
                                            enable_signalk_output);
   auto alarm_d3_input = ConnectAlarmSender(kDigitalInputPin3, "coolant-temp",
                                            enable_signalk_output);
-  // Segmented TM1637 display: blank, or FIrE while a flame is seen.
-  // F, I, r, E
-  static const uint8_t kFire[4] = {0x71, 0x06, 0x50, 0x79};
+  // Segmented TM1637 display, driven by the panel's writes.
   static const uint8_t kBlank[4] = {0, 0, 0, 0};
   static auto segment_display =
       segmented_led_display::createTm1637Facade<segmented_led_display::NUM_DIGITS_4>(
           kSegmentDioPin, kSegmentClkPin);
   segment_display.writePatterns(kBlank, 4);
-
-  // Both displays block the loop while they write, so draw only on a change.
-  // The flame owns OLED row 6, the first yellow row, for now.
-  static bool flame_lit = false;
-  static String flame_row;
-  static auto draw_flame = [](bool lit, const String& text) {
-    if (lit != flame_lit) {
-      flame_lit = lit;
-      segment_display.writePatterns(lit ? kFire : kBlank, 4);
-    }
-    if (display != nullptr && text != flame_row) {
-      flame_row = text;
-      PrintRow(display, 6, text);
-    }
-  };
   // IR flame module on GPIO 34 (header). Active-low: the LM393 pulls DO low on
   // a flame. The setting stays for other modules.
   auto* flame_active_low = new CheckboxConfig(
@@ -522,58 +498,30 @@ void setup() {
     return v > 0 ? static_cast<uint32_t>(v) : 1u;
   };
 
-  // Onset lights both displays and the piezo at once, and restarts an alarm
-  // that is counting down.
-  static auto seen = [](bool now_seen) {
-    static bool was_seen = false;
-    if (now_seen == was_seen) return;
-    was_seen = now_seen;
-    if (now_seen && (!flame_alarm || flame_clearing)) {
-      flame_alarm = true;
-      flame_clearing = false;
-      flame_since_ms = millis();
-      draw_flame(true, "FLAME DETECTED");
-      sound_piezo(true);
+  // Both displays block the loop while they write; the panel asks only for
+  // changes. Without the OLED, its rows are skipped.
+  static auto apply = [](const Writes& w) {
+    if (w.segment) segment_display.writePatterns(w.pattern, 4);
+    if (display != nullptr) {
+      if (w.row6) PrintRow(display, 6, w.row6_text.c_str());
+      if (w.row7) PrintRow(display, 7, w.row7_text.c_str());
     }
+    if (w.piezo >= 0) sound_piezo(w.piezo == 1);
+  };
+  static auto flame_timing = []() {
+    return FlameTiming{ms(flash_on_ms), ms(flash_off_ms),
+                       static_cast<uint32_t>(max(1.0f, pulses->get_value())),
+                       ms(hold_s) * 1000, ms(clear_s) * 1000};
   };
   // Sampled every 10 ms, so a short flicker still counts.
   flame_detected->connect_to(new LambdaConsumer<bool>([](bool detected) {
     if (detected == flame_active) return;
     flame_active = detected;
-    seen(flame_active || test_alarm->get_value());
+    apply(panel.Seen(millis(), flame_active || test_alarm->get_value()));
   }));
-  // Alarm: a burst of flashes and beeps, then steady, repeated while the flame
-  // is seen. Flame gone and burst done: steady, "FLAME clearing Ns" counting
-  // down, then blank.
   event_loop()->onRepeat(20, []() {
-    const bool is_seen = flame_active || test_alarm->get_value();
-    seen(is_seen);
-    if (!flame_alarm) return;
-    const uint32_t now = millis();
-    if (!flame_clearing) {
-      const uint32_t on = ms(flash_on_ms), period = on + ms(flash_off_ms);
-      const uint32_t burst = period * static_cast<uint32_t>(max(1.0f, pulses->get_value()));
-      const uint32_t t = (now - flame_since_ms) % (burst + ms(hold_s) * 1000);
-      const bool in_burst = t < burst;
-      if (in_burst || is_seen) {
-        const bool lit = !in_burst || t % period < on;
-        draw_flame(lit, lit ? "FLAME DETECTED" : "");
-        sound_piezo(in_burst && lit);
-        return;
-      }
-      flame_clearing = true;
-      flame_gone_ms = now;
-      sound_piezo(false);
-    }
-    const uint32_t gone = now - flame_gone_ms, clear_ms = ms(clear_s) * 1000;
-    if (gone >= clear_ms) {
-      flame_alarm = false;
-      flame_clearing = false;
-      draw_flame(false, "");
-    } else {
-      const uint32_t left_s = (clear_ms - gone + 999) / 1000;
-      draw_flame(true, "FLAME clearing " + String(left_s) + "s");
-    }
+    apply(panel.FlameTick(millis(), flame_active || test_alarm->get_value(),
+                          flame_timing()));
   });
   if (enable_signalk_output) {
     auto* flame_sk = new SKOutputBool("alarm.flame", "/Alarm flame/SK Path");
@@ -689,80 +637,19 @@ void setup() {
   ///////////////////////////////////////////////////////////////////
   // Display setup
 
-  // Segment display, numbers only: RPM while the engine turns, whole engine
-  // hours while it is stopped, so the two never share the screen. The module
-  // has a colon and no decimal point. One second in every four goes to an alert,
-  // right-aligned: Hot for the coolant alarm, Err for any other alert but
-  // a reset (the OLED names it); both on, they take turns. The flame alarm owns it
-  // outright while latched.
+  // Segment display (numbers, Hot/Err, FIrE) and the alert rows come from the
+  // panel. Blue/yellow OLED: rows 0 host/IP/MAC/SSID (4 s each), 1 uptime,
+  // 2 engine hours+RPM, 3 volts, 4 temps; 6 and 7 are the panel's.
   event_loop()->onRepeat(1000, []() {
-    static const uint8_t kDigit[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66,
-                                       0x6D, 0x7D, 0x07, 0x7F, 0x6F};
-    static const uint8_t kHot[4] = {0x00, 0x76, 0x5C, 0x78};
-    static const uint8_t kErr[4] = {0x00, 0x79, 0x50, 0x50};
-    static uint8_t shown[4] = {0xFF, 0xFF, 0xFF, 0xFF};
-    static uint32_t tick = 0;
-    tick++;
-    if (flame_alarm) { shown[0] = 0xFF; return; }  // forces a redraw after it clears
-    uint8_t next[4] = {0, 0, 0, 0};
-    if (coolant_alarm && tick % 4 == 0) {
-      memcpy(next, kHot, 4);
-    } else if (err_alert && tick % 4 == (coolant_alarm ? 2 : 0)) {
-      memcpy(next, kErr, 4);
-    } else {
-      int v = last_rpm > 0 ? (int)last_rpm : (int)(HoursSeconds() / 3600.0f);
-      v = constrain(v, 0, 9999);
-      for (int i = 3, n = 0; i >= 0; i--, n++) {
-        if (v > 0 || n == 0) next[i] = kDigit[v % 10];
-        v /= 10;
-      }
-    }
-    if (memcmp(next, shown, 4) == 0) return;
-    memcpy(shown, next, 4);
-    segment_display.writePatterns(shown, 4);
-  });
-
-  // Blue/yellow panel: the alert line sits in the yellow rows at the bottom.
-  // Rows: 0 host/IP/MAC/SSID (4 s each), 1 uptime, 2 engine hours+RPM, 3 volts,
-  // 4 temps, 6 alerts (the flame's while latched), 7 the other alerts then.
-  event_loop()->onRepeat(1000, []() {
-    static uint32_t tick = 0;
-    tick++;
     const uint32_t up = esp_timer_get_time() / 1000000;  // 64-bit; millis() wraps at 49.7 d
+    apply(panel.SecondTick(Inputs{up, last_rpm, oil_alarm, coolant_alarm,
+                                  volts[1].fresh(), volts[1].value, ResetReasonText(),
+                                  SkConnected(), ESP.getMaxAllocHeap(),
+                                  HoursSeconds() / 3600.0f}));
 
-    // Most serious first, 2 s each, with a k/n counter when there are several.
-    String alerts[6];
-    int n = 0;
-    const char* reset = ResetReasonText();
-    if (oil_alarm) alerts[n++] = "LOW OIL PRESSURE";
-    if (coolant_alarm) alerts[n++] = "COOLANT HOT";
-    // Alternator under 13.0 V for 30 s with the engine turning.
-    static uint32_t alt_low_since = 0;
-    const bool alt_low = last_rpm > 0 && volts[1].fresh() && volts[1].value < 13.0f;
-    if (!alt_low) alt_low_since = 0;
-    else if (alt_low_since == 0) alt_low_since = up ? up : 1;
-    const bool alt_alert = alt_low_since && up - alt_low_since >= 30;
-    if (alt_alert) alerts[n++] = "Alt not charging";
-    if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
-    const bool sk_down = !SkConnected() && up > 60;
-    if (sk_down) alerts[n++] = "No Signal K link";
-    const bool low_memory = ESP.getMaxAllocHeap() < 30000;
-    if (low_memory) alerts[n++] = "Low memory";
-    err_alert = oil_alarm || alt_alert || sk_down || low_memory;
-
+    static uint32_t tick = 0;
+    tick++;
     if (display == nullptr) return;
-    String alert_text;
-    if (n > 0) {
-      const int k = (tick / 2) % n;
-      alert_text = alerts[k];
-      if (n > 1) alert_text += " " + String(k + 1) + "/" + String(n);
-    }
-    static String row6, row7;
-    const String want6 = flame_alarm ? row6 : alert_text;
-    const String want7 = flame_alarm ? alert_text : "";
-    if (!flame_alarm && want6 != row6) { row6 = want6; PrintRow(display, 6, row6); }
-    if (want7 != row7) { row7 = want7; PrintRow(display, 7, row7); }
-    if (flame_alarm) row6 = "\x01";  // the flasher owns row 6; redraw after it clears
     switch ((tick / 4) % 4) {
       case 0: PrintRow(display, 0, "Host: " + sensesp_app->get_hostname()); break;
       case 1: PrintRow(display, 0, "IP: " + WiFi.localIP().toString()); break;
