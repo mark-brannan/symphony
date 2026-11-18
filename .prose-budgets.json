@@ -16,7 +16,6 @@
   "narration": {
     "targets": ["README.md", "RUNBOOK.md", "CLAUDE.md", "runbooks/*.md"],
     "grandfathered": [
-      {"file": "CLAUDE.md", "hash": "d80f3d219da6", "match": "the session"},
       {"file": "CLAUDE.md", "hash": "30d06aee30d5", "match": "PR #8"},
       {"file": "CLAUDE.md", "hash": "01adae3a4a4f", "match": "the session"},
       {"file": "CLAUDE.md", "hash": "366886d6ea35", "match": "the session"}
