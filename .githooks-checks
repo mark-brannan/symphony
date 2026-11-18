@@ -1,0 +1,6 @@
+# Shared git checks this repo opts into, run by ~/.githooks/dispatch
+# (mark-brannan/dotfiles) at the stage each belongs to. One per line.
+gitleaks
+prepush-secret-scan
+repo-hygiene
+encoding-health
