@@ -1,6 +1,0 @@
-A|Side wedge|-D dir=90
-B|Side wedge, long reach|-D dir=90 -D gap=36
-C|Side-aft wedge (45°)|-D dir=45
-D|Flush top (head = collar height)|-D dir=90 -D zup=0 -D ph=26
-E|Bigger head (64)|-D dir=90 -D hw=64 -D gap=16
-F|Chamfered edges|-D dir=90 -D 'edge="chamfer"'
