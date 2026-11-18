@@ -48,3 +48,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261118t043827z
 - Alt not charging: alternator under 13.0 V for 30 s while RPM > 0 Undo: change 13.0f / 30 in the OLED alert loop ([#163](https://github.com/mark-brannan/symphony/pull/163))
+
+### 20261118t043831z
+- Err covers oil pressure, alternator and low memory; not reset or Signal K link Undo: edit err_alert in the OLED alert loop ([#163](https://github.com/mark-brannan/symphony/pull/163))
