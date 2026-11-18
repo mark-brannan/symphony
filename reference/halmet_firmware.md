@@ -33,11 +33,11 @@ Verified against Hat Labs' documentation and the HALMET-hardware schematic
 
 | Resource | Electrical | Count | Allocated to |
 |---|---|---|---|
-| Digital D1–D4 | ±32 V tolerant, Schmitt trigger, galvanically isolated (with I2C); any can count pulses (PCNT) | 4 | D1 tach · D2 oil-pressure switch · D3 coolant-temp switch · D4 IR flame |
+| Digital D1–D4 | ±32 V tolerant, Schmitt trigger, galvanically isolated (with I2C); any can count pulses (PCNT) | 4 | D1 tach · D2 oil-pressure switch · D3 coolant-temp switch · D4 free |
 | Analog A1–A4 | ADS1115 16-bit, 0–32 V via 33.3/3.3 divider; per-channel jumper-enabled 10 mA current source for resistive senders, 300 Ω maximum | 4 | A1 start-battery voltage · A2 alternator output voltage · A3 ignition sense · A4 fuel vacuum or oil-pressure transducer, not both |
 | 1-Wire | header (not fitted by default), pull-up and protection on board, DQ on GPIO4 | 1 bus | DS18B20 chain |
 | I2C | 4-pin 2.54 mm socket (J702), shared with the onboard ADS1115 at 0x4b | 1 bus | SSD1306 display (0x3c), thermocouple amplifier, second ADS1115, current monitor |
-| GPIO header (J201) | 2×10, raw 3.3 V ESP32 pins, no protection; GPIO0, 4, 18 and 19 are taken (boot, 1-Wire, CAN); the ESP32 sheet labels IO5, IO16, IO17, IO32–IO35, SENSOR_VP/VN and JTAG | — | SPI thermocouple boards if used; IO33 is the 380 Hz test output |
+| GPIO header (J201) | 2×10, raw 3.3 V ESP32 pins, no protection; GPIO0, 4, 18 and 19 are taken (boot, 1-Wire, CAN); the ESP32 sheet labels IO5, IO16, IO17, IO32–IO35, SENSOR_VP/VN and JTAG | — | SPI thermocouple boards if used; IO16/17 TM1637 · IO32 piezo FET · IO33 380 Hz test output · IO34 flame |
 | NMEA 2000 | 4-pin screw terminal, CAN on GPIO18/19 | 1 | PGN 127488, 127489, 130316 |
 | Enclosure | IP65, PG7 glands, SP circular connectors | 2-pin, 3-pin, 5-pin | 12 V in · DS18B20 chain · I2C tether or thermocouple |
 
@@ -65,12 +65,13 @@ external divider and protection; the GPIO header takes 3.3 V logic only.
 | Alternator output voltage | A2 | alternator output | `propulsion.main.alternatorVoltage` | — | |
 | A3 voltage | A3 | none yet | `sensors.a3.voltage` | — | raw bench point until ignition sense is fitted |
 | A4 voltage | A4 | none yet | `sensors.a4.voltage` | — | raw bench point until the A4 transducer is fitted |
-| IR flame | D4 | IR flame module | `alarm.flame` | — | polarity unmeasured, a web-UI setting; no debounce |
-| Local display | I2C SSD1306, blue/yellow | on the board | — | — | yellow band rows 0–1: host, then IP, or an alert while one is active (reset reason for 10 min after a non-power-on boot, flame, oil, coolant, no Signal K link, low memory); blue rows: uptime, engine hours, RPM, battery and alternator V, five temperatures |
-| Segmented display | TM1637 on IO16 (DIO), IO17 (CLK) | — | — | — | cycles RPM, engine hours, battery V, each after a 1 s label (rPn, Hrs, bAtt); hours skipped until Signal K supplies them; FIrE replaces the cycle while a flame is seen |
+| IR flame | J201 GPIO 34 | IR flame module | `alarm.flame` | — | active-low, a web-UI setting; sampled every 10 ms, sent on change |
+| Local display | I2C SSD1306, blue/yellow | on the board | — | — | rows 0–4 status; row 6 cycles the alerts, 2 s each with k/n; a flame takes row 6, alerts move to row 7 |
+| Segmented display | TM1637 on IO17 (DIO), IO16 (CLK) | — | — | — | RPM running, whole hours stopped; Hot (coolant) or Err 1 s in 4; FIrE flashing with a flame |
 | Engine run hours | read from Signal K `propulsion.main.runTime` (s), derived by the signalk-engine-hours plugin | — | listens only | — | the plugin is installed but disabled and unconfigured on the boat Pi |
 | N2K watchdog, heap and stack status | — | — | — | — | |
 | Test pulse | IO33 | — | — | — | enabled by default; off before install |
+| Piezo alarm | IO32, low-side N-FET | — | — | — | beeps with the flame flash burst; a web-UI setting, on by default |
 
 Gaps that cut across the table:
 
@@ -113,15 +114,16 @@ switch trips.
 
 | Sensor | Input | Engine / boat point | Signal K | Why |
 |---|---|---|---|---|
-| IR flame module (760–1100 nm phototransistor + comparator) | D4, active-low | aimed at the fuel filter and injection pump side | `notifications.propulsion.main.fire` (TBD) | fuel-spray fire is the engine-room fire with the shortest fuse |
-| Second and third IR flame modules | D4 wired-OR, or analog outputs on spare A inputs | alternator/starter side; exhaust elbow | as above | the comparator outputs are open-collector, so several can share D4; analog outputs give intensity per module |
+| IR flame module (760–1100 nm phototransistor + comparator) | J201 GPIO 34, active-low | aimed at the fuel filter and injection pump side | `notifications.propulsion.main.fire` (TBD) | fuel-spray fire is the engine-room fire with the shortest fuse |
+| Second and third IR flame modules | GPIO 34 wired-OR, or analog outputs on spare A inputs | alternator/starter side; exhaust elbow | as above | the comparator outputs are open-collector, so several can share GPIO 34; analog outputs give intensity per module |
 | Rate-of-rise | derived | engine-room ambient DS18B20 | notification | a second, independent fire signal from a probe already fitted |
 
 Bench-measured 2026-11-14 (PR 155 firmware): D4 to ground reads flame, D4 to
 3.3 V clears, so the input is active-low with no inversion in hardware. The
 D and A connectors and the centre 3V3 pad are the isolated rail; the 3V3 by the
 GPIO header is the ESP32's. A module is powered from the centre pad and
-connector ground, with its output on D4; the GPIO header is not needed for it.
+connector ground, with its output on D4; the GPIO header is not needed for it. The module has since
+moved to J201 GPIO 34, powered from the header's 3V3.
 
 The flame code exists in `~/symphony-sensesp` (`addFlameSensor`, active-low,
 debounced) and ports across. The engine room is dark, which is the condition

@@ -180,6 +180,20 @@ jobs:
       - run: python3 scripts/test_boat_triage.py
       - run: python3 scripts/test_discord_notify.py
 
+  # The HALMET alert logic (firmware/halmet/src/alerts.cpp), built for the
+  # runner and driven through test/features/alerts.feature. Seconds, not minutes.
+  halmet-alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      - run: pip install -r firmware/halmet/test/bdd/requirements.txt
+      - run: python3 -m pytest -p no:cacheprovider firmware/halmet/test/bdd
+
   # The squash title is the commit subject the log is read by; it carries a
   # type: `fix(area): ...`, not `area: ...`.
   pr-title:
@@ -197,7 +211,7 @@ jobs:
   # (symphony #69, mark-brannan/.github#29: no `why` job meant a red PR
   # showed "ci-gate -- Failing" with no named culprit).
   ci-gate:
-    needs: [compose-config, json-yaml-syntax, shellcheck, python-syntax, dashboards, ansible, pr-title]
+    needs: [compose-config, json-yaml-syntax, shellcheck, python-syntax, dashboards, ansible, halmet-alerts, pr-title]
     # if: always() so this job runs (and can fail) even when a dependency
     # failed -- without it, a red dependency makes needs: skip this job
     # rather than fail it, and a skipped required check does not reliably
