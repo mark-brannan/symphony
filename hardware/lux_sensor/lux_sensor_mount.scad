@@ -32,7 +32,6 @@ module pocket() difference() {
   collar();   // bolt meat and ring stay whole
 }
 module slot() hull() { translate([0, R - 3, cable_z]) rotate([-90,0,0]) cylinder(d = slot_w, h = wall + 6); translate([-slot_w/2, R - 3, H]) cube([slot_w, wall + 6, 1]); }   // round bottom, open to the top
-module tie_anchor_old() intersection() { outer(); translate([-40, R + wall + 4, cable_z + 2]) cube([80, 4, 4]); }   // bridge across the channel; tie wraps bar + cable
 seat_z = Z - ring_t - board_gap - pcb[2] - ledge;    // board top board_gap under the ring
 cab_R = (pow(cab_d/2, 2) + cab_h*cab_h)/(2*cab_h);   // sphere radius of the cap
 glass_z = Z + ptfe_t;                                // flat back of the glass
@@ -52,7 +51,6 @@ module ring() translate([0, reach, Z - ring_t]) difference() {
   for (a = ring_a) translate([ring_r*cos(a), ring_r*sin(a), -1]) cylinder(d = 2.4, h = ring_t + 2);
 }
 module ptfe() color("white") translate([0, reach, Z]) cylinder(d = cab_d + 0.2, h = ptfe_t);
-module tie_anchor() {}
 module seat() translate([0, reach, seat_z]) {
   bw0 = pcb[0] + 2*fit;
   fh = seat_z - floor_z + ledge + 1;
@@ -67,7 +65,7 @@ module seat() translate([0, reach, seat_z]) {
 }
 module bosses() intersection() { outer(); for (b = lid_bosses) translate([b[0], b[1], Z - 9]) { cylinder(d = 9, h = 9); translate([0,0,-4.5]) cylinder(d1 = 0, d2 = 9, h = 4.5); } }
 module arm_half() difference() {
-  union() { difference() { intersection() { outer(); translate([-200, 0, -1]) cube([400, 400, Z + 1]); } pocket(); } bosses(); tie_anchor(); seat(); }
+  union() { difference() { intersection() { outer(); translate([-200, 0, -1]) cube([400, 400, Z + 1]); } pocket(); } bosses(); seat(); }
   bore(); slot();
   translate([0, R + wall + 3, -1]) cylinder(d = 5, h = 12);                                    // drain at the low point
   translate([-18, reach - 5.5, floor_z + 2]) cube([36, 3, 3.5]);                               // zip-tie tunnel through both fins
