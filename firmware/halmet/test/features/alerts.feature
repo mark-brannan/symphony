@@ -41,13 +41,14 @@ Feature: HALMET alerts on the segment display and the OLED
     When I watch the displays for 8 seconds
     Then OLED row 6 shows "No Signal K link"
     And it carries no counter
-    And the segment display shows " 850" every second
-    And the segment display never shows " Err"
+    And the segment display shows " Err" for 1 second in every 4
+    And " 850" the other 3 seconds
 
   Scenario: Signal K down in the first minute after boot is not an alert
     Given the board has been up for 30 seconds
     And Signal K is not connected
     Then OLED row 6 does not show "No Signal K link"
+    And the segment display never shows " Err"
 
   Scenario: Signal K down, engine stopped, hours from the flash cache
     Given the engine is stopped
@@ -75,17 +76,13 @@ Feature: HALMET alerts on the segment display and the OLED
       | the oil pressure alarm is on                      | LOW OIL PRESSURE |
       | the alternator has read 12.6 V for 30 seconds     | Alt not charging |
       | the largest free heap block is under 30000 bytes  | Low memory       |
-
-  Scenario Outline: OLED-only conditions leave the segment display alone
-    Given the engine is turning at 850 RPM
-    And <condition>
-    Then OLED row 6 shows "<oled>"
-    And the segment display never shows " Err" or " Hot"
-
-    Examples:
-      | condition                                         | oled             |
-      | the board reset 2 minutes ago after a brownout    | Reset: brownout  |
       | Signal K is not connected                         | No Signal K link |
+
+  Scenario: A reset reason stays on the OLED
+    Given the engine is turning at 850 RPM
+    And the board reset 2 minutes ago after a brownout
+    Then OLED row 6 shows "Reset: brownout"
+    And the segment display never shows " Err" or " Hot"
 
   # ------------------------------------------------------------ the alternator
 

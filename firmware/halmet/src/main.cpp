@@ -692,8 +692,8 @@ void setup() {
   // Segment display, numbers only: RPM while the engine turns, whole engine
   // hours while it is stopped, so the two never share the screen. The module
   // has a colon and no decimal point. One second in every four goes to an alert,
-  // right-aligned: Hot for the coolant alarm, Err for any other engine alert
-  // (the OLED names it); both on, they take turns. The flame alarm owns it
+  // right-aligned: Hot for the coolant alarm, Err for any other alert but
+  // a reset (the OLED names it); both on, they take turns. The flame alarm owns it
   // outright while latched.
   event_loop()->onRepeat(1000, []() {
     static const uint8_t kDigit[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66,
@@ -744,10 +744,11 @@ void setup() {
     const bool alt_alert = alt_low_since && up - alt_low_since >= 30;
     if (alt_alert) alerts[n++] = "Alt not charging";
     if (reset && up < 600) alerts[n++] = String("Reset: ") + reset;
-    if (!SkConnected() && up > 60) alerts[n++] = "No Signal K link";
+    const bool sk_down = !SkConnected() && up > 60;
+    if (sk_down) alerts[n++] = "No Signal K link";
     const bool low_memory = ESP.getMaxAllocHeap() < 30000;
     if (low_memory) alerts[n++] = "Low memory";
-    err_alert = oil_alarm || alt_alert || low_memory;
+    err_alert = oil_alarm || alt_alert || sk_down || low_memory;
 
     if (display == nullptr) return;
     String alert_text;
