@@ -45,3 +45,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261117t212909z
 - PR 162 Refs #63 rather than Closes: seven design-level questions remain the owner's Undo: edit PR body to Closes #63 ([#162](https://github.com/mark-brannan/symphony/pull/162))
+
+### 20261118t043827z
+- Alt not charging: alternator under 13.0 V for 30 s while RPM > 0 Undo: change 13.0f / 30 in the OLED alert loop ([#163](https://github.com/mark-brannan/symphony/pull/163))
