@@ -83,8 +83,8 @@ echo " $(systemctl show -p RuntimeWatchdogUSec --value) $([ -c /dev/watchdog ] &
 # The five files the `state` line excludes are asserted here instead. Ignoring a
 # by-design difference and asserting one look identical while everything is
 # fine, and opposite the moment something eats it: the RUNBOOK's own boat rsync
-# overwrote all five on 2026-09-04 and no check failed. The card's Venus host is
-# as-built step 38; the four disables are step 37.
+# overwrote all five on 2026-09-04 and no check failed. This check guards the
+# card's Venus MQTT host and the four plugin disables.
 OVERRIDE_CHECK='import json
 bad = []
 for n in ("signalk-container", "signalk-to-influxdb2",
@@ -99,7 +99,7 @@ out=$(r "$HOST" "cd $D/plugin-config-data 2>/dev/null && python3 - <<'PYEOF'
 $OVERRIDE_CHECK
 PYEOF
 ")
-[ "$out" = ok ] && say ok overrides "4 plugins disabled, venus MQTT.host 192.168.8.107 (as-built 37, 38)" \
+[ "$out" = ok ] && say ok overrides "4 plugins disabled, venus MQTT.host 192.168.8.107" \
   || say FAIL overrides "${out:-could not read plugin-config-data} -- the boat rsync reverts these; see runbooks/halos_swap.md 'Sync the SignalK config'"
 
 # The SignalK state was copied from the boat on 2026-09-02 and the boat keeps

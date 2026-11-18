@@ -1,4 +1,4 @@
-# as-built v1 steps 9-11, 16: the wifi profiles the card needs to find the boat,
+# The wifi profiles the card needs to find the boat,
 # the access point it offers when there is no boat wifi, and the tailnet name.
 
 # The keyfiles were exported from the boat card and carry `mac-address=`

@@ -1,7 +1,5 @@
 # Symphony's HALOS boat card, from a blank Raspberry Pi OS image to a running
-# host. Ported step for step from
-# intermediate_files/claude_slop/halos-build-v2-asbuilt.md, which numbers the
-# same steps and records what each one is for.
+# host. ansible/README.md maps the roles and what each owns.
 #
 #   cd ansible && ansible-playbook site.yml
 #   ansible-playbook site.yml --check --diff        # what would change
@@ -22,8 +20,8 @@
 #
 #   SignalK's plugin tree      ~/.signalk/node_modules belongs to npm and the
 #                              app store. A third writer is how that tree got
-#                              wrecked before. Steps 31-42 of the as-built stay
-#                              a documented procedure, not tasks.
+#                              wrecked before. Its sync and rebuild stay scripts
+#                              (halos_config_sync.sh, halos_signalk_npm.sh).
 #   Container application      compose plus scripts/render.py.
 #     config
 #   The age key and git        Bootstrap: the key arrives out of band and git
@@ -45,7 +43,7 @@
   hosts: halos_cards
   gather_facts: true
 
-  # Ordered by dependency, not by the as-built's section headings:
+  # Ordered by dependency, not by topic:
   #   boot must land and reboot before anything reads /dev/i2c-1
   #   identity decides the certificate SANs, so it precedes the front door
   #   base installs the packages monitoring and host_files then configure
@@ -102,7 +100,7 @@
       ansible.builtin.debug:
         msg:
           - "Host layer converged. Still outside Ansible, in order:"
-          - "  1. SignalK state -- as-built steps 31-42 (rsync from the boat, plugin forks, npm install, plugin config)."
-          - "  2. Front door and ntfy -- as-built steps 43-46."
+          - "  1. SignalK state -- scripts/halos_config_sync.sh, then scripts/halos_signalk_npm.sh (runbooks/halos_swap.md)."
+          - "  2. Front door and ntfy -- scripts/halos_card_prepare.sh."
           - "  3. scripts/halos_preflight.sh from a tailnet machine with sops access: every line must read ok."
       tags: [verify]

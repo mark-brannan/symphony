@@ -1,4 +1,4 @@
-# as-built v1 step 22 (first half): the repo checkout every later role reads
+# The repo checkout every later role reads
 # from -- host/install.sh, the telegraf config symlink, the compose files and
 # the local plugin forks all live in it.
 

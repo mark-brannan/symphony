@@ -1,4 +1,4 @@
-# as-built v1 steps 5-7: the NMEA 2000 CAN interface, and the one networkd unit
+# The NMEA 2000 CAN interface, and the one networkd unit
 # that has to be switched off to go with it.
 
 - name: step 5 | can0 comes up at 250 kbit/s

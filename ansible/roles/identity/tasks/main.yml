@@ -1,4 +1,4 @@
-# as-built v1 steps 12-15, 17: what the card calls itself, which decides the
+# What the card calls itself, which decides the
 # device certificate's SANs and the OIDC issuer, so nothing here is cosmetic.
 
 - name: step 12 | hostname

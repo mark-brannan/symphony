@@ -1,5 +1,5 @@
 # The HALOS bench/trial card. Hostname on the box is `signalk`; `symphony-halos`
-# is only the tailnet node name (as-built v1 step 16).
+# is only the tailnet node name.
 symphony_hostname: signalk
 tailscale_hostname: symphony-halos
 

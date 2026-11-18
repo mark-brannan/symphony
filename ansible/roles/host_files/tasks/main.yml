@@ -1,4 +1,4 @@
-# as-built v1 step 22 (second half): run the repo's own host-file
+# Run the repo's own host-file
 # installer.
 #
 # Ansible does NOT reimplement install.sh. host_provisioning.md's migration

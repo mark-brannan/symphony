@@ -1,4 +1,4 @@
-# as-built v1 steps 2-4, 8: firmware config, kernel cmdline, kernel modules.
+# Firmware config, kernel cmdline, kernel modules.
 # Everything here needs a reboot to take effect, so the role runs first, flushes
 # its own reboot handler, and only then checks the running kernel.
 

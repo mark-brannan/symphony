@@ -1,4 +1,4 @@
-# as-built v1 steps 18, 20, 21, 25: packages, the two HALOS apps that must stay
+# Packages, the two HALOS apps that must stay
 # down, and swap. Everything a later role needs installed is installed here.
 
 - name: step 18 | InfluxData package signing key
