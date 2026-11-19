@@ -53,6 +53,36 @@ nav desk; the terminal numbers match the panel's breaker numbering.
 | 9 | | Heater | ✓ | |
 | 10 | | Radar | | |
 
+### Nav-desk terminal strips
+
+Read from a photo: colour and sleeve number only where legible. The upper
+strip carries sleeves 1–12, the lower strip 13–24. A third strip, to their
+right, is not yet traced.
+
+| Terminal | Wire colour | Breaker |
+|---|---|---|
+| 1 | red / orange-red | |
+| 2 | red | |
+| 3 | red | |
+| 4 | orange | Engine room? (Solace: 4th down in the first DC column) |
+| 5 | white | |
+| 6 | brown | |
+| 7 | yellow | |
+| 8 | orange | |
+| 9 | white | |
+| 10 | blue | |
+| 11 | blue | |
+| 12 | blue | |
+| 13 | grey | |
+| 14 | purple | |
+| 15 | heavy red, white printed sleeve | |
+| 16 | red | |
+| 17 | red | |
+| 18 | white / pink | |
+| 19 | brown | |
+| 20–23 | black | |
+| 24 | | |
+
 ## Existing circuits not on the breaker panel
 
 | Circuit | Where it lands | Notes |
