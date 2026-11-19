@@ -39,7 +39,7 @@ plinth_y0 = reach - plinth/2;
 ep_far = plinth_y0 - 6;      // 6 mm for the Qwiic cable between the boards
 ep_rear = ep_far - ep[1];
 jack_mouth = ep_rear - jack_over;
-tray_bolts = [[-18, ep_rear - 6], [18, ep_rear - 6], [-18.5, reach - 30], [18.5, reach - 30]];   // front pair clear of the EndPoint wall, and back where the underside is low enough to hold the 4 mm inserts
+tray_bolts = [[-16.5, ep_rear - 6], [16.5, ep_rear - 6], [-16.5, ep_rear - 20], [16.5, ep_rear - 20]];   // all four behind the EndPoint, inside the edge wall, where the floor is thick enough for the inserts
 qwiic_y = ep_far - 12.7;     // the EndPoint's two Qwiic ports sit this far along, one on each long edge (Eagle .brd J1/J2)
 assert(lux_bot - ep_bot >= 6, "plinth too short");
 echo(cable_z = cable_z, length = reach + tip_w/2, loop = jack_mouth - (R + wall), plinth_h = lux_bot - ep_bot);
@@ -80,9 +80,15 @@ module corners(x0, y0, sx, sy, h) for (cx = [0, 1], cy = [0, 1]) {   // four L-s
   translate([cx ? px - 6 : px, cy ? py : py - 2, 0]) cube([6, 2, h]);
   translate([cx ? px : px - 2, cy ? py - 6 : py, 0]) cube([2, 6, h]);
 }
+tray_y0 = ep_rear - 24;      // tray rear edge; the rear bolt pairs sit where the chamber is widest
+module tray_body() intersection() { translate([-23, tray_y0, tray_bot]) cube([46, reach + 10 - tray_y0, tray_t + 5]); pocket(0.6); }
 module tray() difference() {   // prints flat, plate down
   union() {
-    intersection() { translate([-22, ep_rear - 9, tray_bot]) cube([44, reach + 10 - (ep_rear - 9), tray_t]); pocket(0.6); }
+    difference() {   // plate plus a complete wall round its whole edge, to hold potting; low only where the jack and plug cross the rear edge
+      tray_body();
+      translate([0, 0, ep_bot]) linear_extrude(20) offset(delta = -2) projection() tray_body();
+      translate([-10, tray_y0 - 1, ep_bot + 1]) cube([20, 5, 20]);
+    }
     translate([0, 0, ep_bot]) difference() {   // potting wall all round the EndPoint, 2 thick
       translate([-ep[0]/2 - 2.2, ep_rear - 2.2, 0]) cube([ep[0] + 4.4, ep[1] + 4.4, 3]);
       translate([-ep[0]/2 - 0.2, ep_rear - 0.2, -1]) cube([ep[0] + 0.4, ep[1] + 0.4, 6]);
@@ -124,7 +130,6 @@ module board() {
   color("green") translate([-lux[0]/2, reach - lux[1]/2, lux_bot]) cube(lux);
   color("red", 0.9) translate([-ep[0]/2, ep_rear, ep_bot]) cube(ep);
   color("DimGray") translate([-jack[0]/2, jack_mouth, ep_top]) cube([jack[0], jack[1], jack[2]]);
-  color("gold") hull() { translate([0, ep_far - 3, ep_top + 1]) sphere(d = 2.5); translate([0, plinth_y0 + 1, lux_top + 1]) sphere(d = 2.5); }   // Qwiic cable
 }
 module cable() { color("SkyBlue") translate([-plug[0]/2, jack_mouth - plug[1] + 6, cable_z - plug[2]/2]) cube(plug);
   color("blue") hull() { translate([0, jack_mouth - plug[1] + 6, cable_z]) sphere(d = 5); translate([0, -4, cable_z - 8]) sphere(d = 5); }
