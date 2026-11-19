@@ -39,7 +39,8 @@ plinth_y0 = reach - plinth/2;
 ep_far = plinth_y0 - 6;      // 6 mm for the Qwiic cable between the boards
 ep_rear = ep_far - ep[1];
 jack_mouth = ep_rear - jack_over;
-tray_bolts = [[-17, ep_rear - 4], [17, ep_rear - 4], [-14, reach], [14, reach]];
+tray_bolts = [[-18, ep_rear - 6], [18, ep_rear - 6], [-14, reach], [14, reach]];
+qwiic_y = ep_far - 12.7;     // the EndPoint's two Qwiic ports sit this far along, one on each long edge (Eagle .brd J1/J2)
 assert(lux_bot - ep_bot >= 6, "plinth too short");
 echo(cable_z = cable_z, length = reach + tip_w/2, loop = jack_mouth - (R + wall), plinth_h = lux_bot - ep_bot);
 $fn = 120;
@@ -81,8 +82,13 @@ module corners(x0, y0, sx, sy, h) for (cx = [0, 1], cy = [0, 1]) {   // four L-s
 }
 module tray() difference() {   // prints flat, plate down
   union() {
-    intersection() { translate([-20.5, ep_rear - 9, tray_bot]) cube([41, reach + 10 - (ep_rear - 9), tray_t]); pocket(0.6); }
-    translate([0, 0, ep_bot]) corners(-ep[0]/2 - 0.2, ep_rear - 0.2, ep[0] + 0.4, ep[1] + 0.4, 3);
+    intersection() { translate([-22, ep_rear - 9, tray_bot]) cube([44, reach + 10 - (ep_rear - 9), tray_t]); pocket(0.6); }
+    translate([0, 0, ep_bot]) difference() {   // potting wall all round the EndPoint, 2 thick
+      translate([-ep[0]/2 - 2.2, ep_rear - 2.2, 0]) cube([ep[0] + 4.4, ep[1] + 4.4, 3]);
+      translate([-ep[0]/2 - 0.2, ep_rear - 0.2, -1]) cube([ep[0] + 0.4, ep[1] + 0.4, 6]);
+      for (sx = [-1, 1]) translate([sx*(ep[0]/2 + 1.2) - 2.5, qwiic_y - 6, 1]) cube([5, 12, 5]);   // Qwiic notches, 1 mm lip kept
+      translate([-ep[0]/2 - 3, ep_rear - 3, ep[2]]) cube([ep[0] + 6, 3, 5]);                      // rear wall flush with the board so the jack overhangs it
+    }
     translate([-plinth/2, plinth_y0, ep_bot - 0.01]) cube([plinth, plinth, lux_bot - ep_bot + 0.01]);
     translate([0, 0, lux_bot]) corners(-lux[0]/2 - 0.2, reach - lux[1]/2 - 0.2, lux[0] + 0.4, lux[1] + 0.4, 2.2);
   }
