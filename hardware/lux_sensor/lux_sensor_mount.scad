@@ -137,6 +137,7 @@ module cable() { color("SkyBlue") translate([-plug[0]/2, jack_mouth - plug[1] + 
   color("blue") hull() { translate([0, -4, cable_z - 8]) sphere(d = 5); translate([0, -4, -40]) sphere(d = 5); } }
 module tube() color("silver", 0.3) difference() { translate([0,0,-40]) cylinder(d = tube_od, h = H + 170); translate([0, R - 4, cable_z]) rotate([-90,0,0]) cylinder(d = 12, h = 10); }   // tube hole: the cable only; the plug is crimped inside the head
 if (view == "arm_half") arm_half();
+if (view == "back_half") back_half();
 if (view == "lid_print") translate([0, -reach, -Z]) lid();             // bottom face down; the seat is a dome ceiling
 if (view == "tray_print") translate([0, -reach, -tray_bot]) tray();
 if (view == "ring_print") translate([0, -reach, -(Z - ring_t)]) ring();
