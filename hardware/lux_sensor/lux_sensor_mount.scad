@@ -39,7 +39,7 @@ plinth_y0 = reach - plinth/2;
 ep_far = plinth_y0 - 6;      // 6 mm for the Qwiic cable between the boards
 ep_rear = ep_far - ep[1];
 jack_mouth = ep_rear - jack_over;
-tray_bolts = [[-18, ep_rear - 6], [18, ep_rear - 6], [-14, reach], [14, reach]];
+tray_bolts = [[-18, ep_rear - 6], [18, ep_rear - 6], [-18.5, reach - 30], [18.5, reach - 30]];   // front pair clear of the EndPoint wall, and back where the underside is low enough to hold the 4 mm inserts
 qwiic_y = ep_far - 12.7;     // the EndPoint's two Qwiic ports sit this far along, one on each long edge (Eagle .brd J1/J2)
 assert(lux_bot - ep_bot >= 6, "plinth too short");
 echo(cable_z = cable_z, length = reach + tip_w/2, loop = jack_mouth - (R + wall), plinth_h = lux_bot - ep_bot);
