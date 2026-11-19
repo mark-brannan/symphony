@@ -27,6 +27,10 @@ not as-built values.
   SVG/PNG/PDF from File → Export.
 - `symphony-dc-overview.svg` — hand-authored SVG of the same system.
   Renders directly on GitHub and in any browser; editable as text.
+- `chart-table-cabinet.drawio` — DIN-rail layout of the cabinet behind the
+  chart-table breaker panel: two horizontal 610 mm rails, front view, drawn
+  1 unit = 1 mm. Hand-edited in draw.io; part widths are guesses until
+  measured, dashed boxes are spare slots.
 - `voltplan/symphony.json` — system description for the VoltPlan API.
 - `voltplan/symphony.png` — diagram generated from it.
 
