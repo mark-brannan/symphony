@@ -49,7 +49,7 @@ module collar() hull() for (s = [-1, 1]) translate([s*6, 0, 0]) ecyl(tube_od + 2
 module outer() hull() { collar(); translate([0, reach, H - tip_d]) ecyl(tip_w, tip_d); }
 module bore() translate([0,0,-1]) cylinder(d = tube_od + 0.4, h = H + 2);
 bolt_xz = [for (s = [-1, 1]) for (z = [10, H - 10]) [s*(R + 6), z]];
-lid_bosses = [[-21, 45], [21, 45], [0, reach + plinth/2 + 5]];
+lid_bosses = [[-21, 45], [21, 45], [0, reach + plinth/2 + 7]];
 module pocket(m = 0) difference() {
   hull() { translate([0, reach, H - tip_d + w + m]) ecyl(tip_w - 2*(w + m), tip_d); for (s = [-1, 1]) translate([s*6, 0, w + m]) ecyl(tube_od + 2*wall - 2*(w + m), H); }
   collar();   // bolt meat and ring stay whole
@@ -96,10 +96,10 @@ module tray() difference() {   // prints flat, plate down
     }
     intersection() { tray_body(); translate([-23, ep_rear - 3.4, ep_bot]) cube([46, 2, 5]); }                    // cross wall at the RJ45 end, full width
     translate([-17.4, plinth_y0, lux_bot - 2]) cube([34.8, plinth, 2]);                                         // bridge carrying the VEML over the EndPoint
+    translate([0, 0, lux_bot]) difference() { translate([-17.4, plinth_y0, 0]) cube([34.8, plinth, 2.4]); translate([-15.4, plinth_y0 + 2, -1]) cube([30.8, plinth - 4, 5]); }   // lip all round the bridge, 2.4 high: pots the VEML and its Qwiic port, stops short of burying the chip
     for (sx = [-1, 1], dy = [4, -9]) translate([sx > 0 ? 15 : -17.4, reach + dy, ep_bot - 0.01]) cube([2.4, 5, lux_bot - ep_bot - 1.99]);   // four legs outside the EndPoint wall
     translate([0, 0, lux_bot]) corners(-lux[0]/2 - 0.2, reach - lux[1]/2 - 0.2, lux[0] + 0.4, lux[1] + 0.4, 2.2);
   }
-  translate([-3, reach - 3, lux_bot - 3]) cube([6, 6, 5]);                                                      // window through the bridge under the VEML
   translate([-8.75, ep_rear - 4, ep_bot + 1]) cube([17.5, 5, 20]);                                              // break in the cross wall for the RJ45
   for (b = tray_bolts) translate([b[0], b[1], 0]) { cylinder(d = 3.4, h = 100); translate([0, 0, ep_bot - cb[1]]) cylinder(d = cb[0], h = 10); }
   for (b = lid_bosses) translate([b[0], b[1], 0]) cylinder(d = 9, h = 100);
