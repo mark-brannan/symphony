@@ -2,58 +2,61 @@
 
 Starting point for consolidating the old circuits into the chart-table
 cabinet. The panel labels are what the 1980s Newmar panel says, which is
-often wrong; the *Mark* column copies the hand marks on the panel.
+often wrong; the *Mark* column copies the hand marks on the panel. *Pos* counts
+down each column; *Terminal #* is the matching number at the nav-desk terminals.
 
 ## Existing breaker panel (Newmar, chart table)
 
+The panel's circuits run to at least 24 numbered screw terminals below the
+nav desk; the terminal numbers match the panel's breaker numbering.
+
 ### AC
 
-| # | Label | Mark | Notes |
-|---|---|---|---|
-| — | AC master breaker | | reverse-polarity lamp beside it |
-| 1 | Outlets | | |
-| 2 | Water heater | ? | |
-| 3 | Battery charger | ? | |
-| 4 | Microwave oven | | |
-| 5 | (blank) | | |
-| 6 | (blank) | | |
-| 7 | (blank, no switch) | | |
+| Pos | Terminal # | Label | Mark | Notes |
+|---|---|---|---|---|
+| — | | AC master breaker | | reverse-polarity lamp beside it |
+| 1 | | Outlets | | |
+| 2 | | Water heater | ? | |
+| 3 | | Battery charger | ? | |
+| 4 | | Microwave oven | | |
+| 5 | | (blank) | | |
+| 6 | | (blank) | | |
+| 7 | | (blank, no switch) | | |
 
 ### DC, left column
 
-| # | Label | Mark | Notes |
-|---|---|---|---|
-| 1 | Cabin lights port | ✓ | |
-| 2 | Cabin lights stbd | ✓ | |
-| 3 | Courtesy lights | ✓ | |
-| 4 | Engine room | ✓ | |
-| 5 | Running | ✗ | label crossed out |
-| 6 | Bow | ? | |
-| 7 | Anchor | ✗ | label crossed out |
-| 8 | Spreader | ? | |
-| 9 | Nav/Com | ? | |
-| 10 | Stereo | | |
+| Pos | Terminal # | Label | Mark | Notes |
+|---|---|---|---|---|
+| 1 | | Cabin lights port | ✓ | |
+| 2 | | Cabin lights stbd | ✓ | |
+| 3 | | Courtesy lights | ✓ | |
+| 4 | | Engine room | ✓ | |
+| 5 | | Running | ✗ | label crossed out |
+| 6 | | Bow | ? | |
+| 7 | | Anchor | ✗ | label crossed out |
+| 8 | | Spreader | ? | |
+| 9 | | Nav/Com | ? | |
+| 10 | | Stereo | | |
 
 ### DC, right column
 
-| # | Label | Mark | Notes |
-|---|---|---|---|
-| 1 | Compass light | ✓ | |
-| 2 | Bilge pump | ? | |
-| 3 | Bilge pump | | |
-| 4 | Sump pump | ✓ | |
-| 5 | Water pressure | ✓ | |
-| 6 | LPG control | | |
-| 7 | Refrigerator | | |
-| 8 | Windlass | | |
-| 9 | Heater | ✓ | |
-| 10 | Radar | | |
+| Pos | Terminal # | Label | Mark | Notes |
+|---|---|---|---|---|
+| 1 | | Compass light | ✓ | |
+| 2 | | Bilge pump | ? | |
+| 3 | | Bilge pump | | |
+| 4 | | Sump pump | ✓ | |
+| 5 | | Water pressure | ✓ | |
+| 6 | | LPG control | | |
+| 7 | | Refrigerator | | |
+| 8 | | Windlass | | |
+| 9 | | Heater | ✓ | |
+| 10 | | Radar | | |
 
 ## Existing circuits not on the breaker panel
 
 | Circuit | Where it lands | Notes |
 |---|---|---|
-| Old numbered circuits | screw terminals below the nav desk | 1980s wiring; circuits not yet traced |
 
 ## Planned circuits
 
