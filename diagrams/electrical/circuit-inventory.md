@@ -82,8 +82,8 @@ right, is not yet traced.
 | 18 | white / pink | Windlass |
 | 19 | brown | Heater |
 | 20 | black | Radar |
-| 21–23 | black | |
-| 24 | | |
+| 21–23 | black | negatives |
+| 24 | | main negative: house bank → SmartShunt; shunt input side → engine block |
 
 ## Existing circuits not on the breaker panel
 
