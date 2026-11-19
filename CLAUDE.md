@@ -27,6 +27,29 @@ doesn't count: it records what a session did, not what the host now runs.
   Don't impose section structure on these until asked — the owner wants to
   arrive at the right structure organically, not have it templated in.
 
+## Sibling repo: workshop (the parts)
+- Physical parts for the boat are designed in `workshop` (private;
+  local checkout `~/workshop`): mounts, enclosures, PCBs, the wiring
+  inside one box, caliper numbers, print and cut files. This repo holds
+  the system: what is installed, boat wiring, firmware, Signal K. The
+  seam is the box's connectors: inside is workshop, outside is here.
+- Before changing firmware pins, a circuit or a cabinet layout, run
+  `grep -l '^Symphony:.*<path>' ~/workshop/projects/*/README.md` for the
+  path you're touching; the part that plugs into it lives there.
+  `uv run shop symphony` in `~/workshop` prints the whole index.
+- Links run one way: workshop links here (its CI fails on a dead
+  link). Don't link workshop from this repo's files; it is private, so
+  the link 404s for every reader but us. Name it in prose.
+- A fact has one home. Don't copy a part's geometry or numbers here.
+
+| Diagram | Home | Format |
+|---|---|---|
+| Boat wiring: DC overview, circuits, cabinet layouts | here, `diagrams/electrical/` | `.drawio` |
+| Flows, software, signal paths | here | `.mmd` |
+| Inside one box: sensor-to-MCU hookup | workshop `projects/<slug>/` | `.drawio` |
+| PCB | workshop `projects/<slug>/` | KiCad |
+| One-off mockup nobody will edit | not committed | SVG |
+
 ## log.md
 - **A human file.** Written for Mark skimming for "when did X change." Claude
   appends only when a meaningful, high-level piece of work is actually DONE —
