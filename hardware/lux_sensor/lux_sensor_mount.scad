@@ -1,8 +1,8 @@
 // Lux sensor mount, rev 8. Tube frame (z up the tube, aft +x); the head faces along the tube, so it tips aft with the cant.
 // Arm half: collar half + open trough + cup, top open. Cable slot open to the top. Top plate is the only cover.
 cant = 15;
-hw = 56; lid_t = 4; e = 5; w = 3;
-tube_od = 38.1; R = tube_od/2; H = 48; wall = 6; gap = 20;
+hw = 68; lid_t = 4; e = 5; w = 3;
+tube_od = 38.1; R = tube_od/2; H = 48; wall = 6; gap = 34;
 view = "open";      // open | exploded | closed | section
 reach = R + gap + hw/2;
 Z = H - lid_t;      // top of the base = underside of the plate
@@ -36,7 +36,7 @@ lux_top = Z - ring_t - board_gap; lux_bot = lux_top - lux[2];
 deck_bot = lux_bot - deck_t;
 ep_top = Z - jack_clear - jack[2]; ep_bot = ep_top - ep[2];
 cable_z = ep_top + plug_z;   // tube hole centre: the plug's axis
-slot_w = plug[0] + 1.3;
+slot_w = 12;
 floor_z = ep_bot - post_h;
 ph = H - floor_z + 3;        // head height, from the stack (w = 3)
 ep_c = reach + ep_shift;     // EndPoint hole-square centre
@@ -119,7 +119,7 @@ module board() {
 module cable() { color("SkyBlue") translate([-plug[0]/2, jack_mouth - plug[1] + 6, cable_z - plug[2]/2]) cube(plug);
   color("blue") hull() { translate([0, jack_mouth - plug[1] + 6, cable_z]) sphere(d = 5); translate([0, -4, cable_z - 8]) sphere(d = 5); }
   color("blue") hull() { translate([0, -4, cable_z - 8]) sphere(d = 5); translate([0, -4, -40]) sphere(d = 5); } }
-module tube() color("silver", 0.3) difference() { translate([0,0,-40]) cylinder(d = tube_od, h = H + 170); translate([0, R - 4, cable_z]) rotate([-90,0,0]) cylinder(d = 16, h = 10); }   // tube hole passes the plug: 16 mm
+module tube() color("silver", 0.3) difference() { translate([0,0,-40]) cylinder(d = tube_od, h = H + 170); translate([0, R - 4, cable_z]) rotate([-90,0,0]) cylinder(d = 12, h = 10); }   // tube hole: the cable only; the plug is crimped inside the head
 if (view == "arm_half") arm_half();
 if (view == "lid_print") translate([0, -reach, -Z]) lid();             // bottom face down; the seat is a dome ceiling
 if (view == "deck_print") translate([0, -reach, lux_bot]) mirror([0, 0, 1]) deck();
