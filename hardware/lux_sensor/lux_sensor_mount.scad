@@ -4,7 +4,7 @@ cant = 15;
 lid_t = 6; e = 5; w = 3;
 tube_od = 38.1; R = tube_od/2; H = 48; wall = 6; 
 view = "open";      // open | exploded | closed | section
-reach = 135;        // window centre from the tube axis
+reach = 120;        // window centre from the tube axis
 tip_w = 46; tip_d = 30;   // the arm tapers evenly, in plan and in side view, from the collar to this tip
 Z = H - lid_t;      // top of the base = underside of the plate
 // Window: glass cabochon loaded from below, dome up through a curved lip; a square of 1 mm PTFE sheet on its flat back;
@@ -36,12 +36,12 @@ tray_bot = ep_bot - tray_t;
 cable_z = ep_top + plug_z;   // tube hole centre: the plug's axis
 slot_w = 12;
 plinth_y0 = reach - plinth/2;
-ep_far = plinth_y0 - 6;      // 6 mm for the Qwiic cable between the boards
+ep_far = reach + 9;          // the EndPoint's far end runs under the VEML: the boards overlap in plan and stack in z
 ep_rear = ep_far - ep[1];
 jack_mouth = ep_rear - jack_over;
 tray_bolts = [[-16.5, ep_rear - 6], [16.5, ep_rear - 6], [-16.5, ep_rear - 20], [16.5, ep_rear - 20]];   // all four behind the EndPoint, inside the edge wall, where the floor is thick enough for the inserts
 qwiic_y = ep_far - 12.7;     // the EndPoint's two Qwiic ports sit this far along, one on each long edge (Eagle .brd J1/J2)
-assert(lux_bot - ep_bot >= 6, "plinth too short");
+assert(lux_bot - 2 - (ep_top + 4) >= 3, "bridge too low to clear the EndPoint Qwiic ports");
 echo(cable_z = cable_z, length = reach + tip_w/2, loop = jack_mouth - (R + wall), plinth_h = lux_bot - ep_bot);
 $fn = 120;
 module ecyl(d, h) rotate_extrude() hull() { translate([d/2 - e, e]) circle(e); translate([d/2 - e, h - e]) circle(e); square([0.01, h]); }
@@ -93,13 +93,14 @@ module tray() difference() {   // prints flat, plate down
       translate([-ep[0]/2 - 2.2, ep_rear - 2.2, 0]) cube([ep[0] + 4.4, ep[1] + 4.4, 3]);
       translate([-ep[0]/2 - 0.2, ep_rear - 0.2, -1]) cube([ep[0] + 0.4, ep[1] + 0.4, 6]);
       for (sx = [-1, 1]) translate([sx*(ep[0]/2 + 1.2) - 2.5, qwiic_y - 6, 1]) cube([5, 12, 5]);   // Qwiic notches, 1 mm lip kept
-      translate([-ep[0]/2 - 3, ep_rear - 3, ep[2]]) cube([ep[0] + 6, 3, 5]);                      // rear wall flush with the board so the jack overhangs it
     }
-    translate([-plinth/2, plinth_y0, ep_bot - 0.01]) cube([plinth, plinth, lux_bot - ep_bot + 0.01]);
+    intersection() { tray_body(); translate([-23, ep_rear - 3.4, ep_bot]) cube([46, 2, 5]); }                    // cross wall at the RJ45 end, full width
+    translate([-17.4, plinth_y0, lux_bot - 2]) cube([34.8, plinth, 2]);                                         // bridge carrying the VEML over the EndPoint
+    for (sx = [-1, 1], dy = [4, -9]) translate([sx > 0 ? 15 : -17.4, reach + dy, ep_bot - 0.01]) cube([2.4, 5, lux_bot - ep_bot - 1.99]);   // four legs outside the EndPoint wall
     translate([0, 0, lux_bot]) corners(-lux[0]/2 - 0.2, reach - lux[1]/2 - 0.2, lux[0] + 0.4, lux[1] + 0.4, 2.2);
   }
-  translate([-plinth/2 + 2.5, plinth_y0 + 2.5, ep_bot]) cube([plinth - 5, plinth - 5, lux_bot - ep_bot - 2.5]);   // hollow plinth
-  translate([-3, reach - 3, lux_bot - 4]) cube([6, 6, 5]);                                                      // opens the plinth top
+  translate([-3, reach - 3, lux_bot - 3]) cube([6, 6, 5]);                                                      // window through the bridge under the VEML
+  translate([-8.75, ep_rear - 4, ep_bot + 1]) cube([17.5, 5, 20]);                                              // break in the cross wall for the RJ45
   for (b = tray_bolts) translate([b[0], b[1], 0]) { cylinder(d = 3.4, h = 100); translate([0, 0, ep_bot - cb[1]]) cylinder(d = cb[0], h = 10); }
   for (b = lid_bosses) translate([b[0], b[1], 0]) cylinder(d = 9, h = 100);
 }
