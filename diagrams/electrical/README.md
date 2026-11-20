@@ -29,8 +29,10 @@ not as-built values.
   Renders directly on GitHub and in any browser; editable as text.
 - `chart-table-cabinet.drawio` — DIN-rail layout of the chart-table cabinet, two 610 mm rails, front view,
   1 unit = 1 mm. Part widths are guesses until measured; dashed boxes are TBD.
-- `house-bank-busbar-board.drawio` — bus bar, fuse and breaker layout on the 12 × 18 in HDPE board beside the
-  house bank, 1 unit = 1 mm. Part sizes are guesses until measured; dashed boxes are TBD.
+- `house-bank-busbar-board.py` — generates `house-bank-busbar-board.svg` and `.drawio`: the bus bars, fuse blocks,
+  breakers, switch and shunt on the 12 × 18 in HDPE board beside the house bank, 1 unit = 1 mm, with the copper
+  cut-and-drill list. Part sizes are the makers' drawings, tagged in the file where scaled or guessed; none are
+  measured on the boat's own parts. Dashed = fuse type open, or a future battery. Run it from the repo root.
 - `circuit-inventory.md` — existing breakers, circuits off the panel, and planned circuits.
 - `voltplan/symphony.json` — system description for the VoltPlan API.
 - `voltplan/symphony.png` — diagram generated from it.
