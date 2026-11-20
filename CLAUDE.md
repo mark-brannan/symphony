@@ -37,7 +37,7 @@ doesn't count: it records what a session did, not what the host now runs.
   `grep -l '^Symphony:.*<path>' ~/workshop/projects/*/README.md` for the
   path you're touching; the part that plugs into it lives there.
   `uv run shop symphony` in `~/workshop` prints the whole index.
-- Links run one way: workshop links here (its CI fails on a dead
+- Links run one way: workshop links here (its tests fail on a dead
   link). Don't link workshop from this repo's files; it is private, so
   the link 404s for every reader but us. Name it in prose.
 - A fact has one home. Don't copy a part's geometry or numbers here.
