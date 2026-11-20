@@ -8,7 +8,10 @@ picture) or guess; nothing here was measured on the boat's own parts.
 """
 import os
 
-BOARD_W, BOARD_H = 457.2, 304.8          # 18 x 12 in HDPE
+BOARD_W, BOARD_H = 295.0, 304.8          # positive board: the 18 x 12 in HDPE sheet cut at 295
+NEG = (310.0, 87.0, 304.8, 162.2)        # negative board: the offcut, turned; x, y, w, h
+PITCH = 44.0                             # battery stud pitch, the same on both bars
+TOTAL_W = NEG[0] + NEG[2]
 BAR = 25.0                               # main copper bar width
 COPPER, LINK = "#d9925a", "#e8b07a"
 INK = "#111111"
@@ -136,6 +139,7 @@ def bar(name, x, y, w, h, holes, label=None, fill=COPPER):
 
 def build():
     rect(0, 0, BOARD_W, BOARD_H, "#f7f7f2")
+    rect(NEG[0], NEG[1], NEG[2], NEG[3], "#f7f7f2")
 
     # ---- positive side, left ------------------------------------------------
     sw_in, sw_out = switch(10, 10)
@@ -149,7 +153,7 @@ def build():
     # the shunt at the left end, so every battery sees about the same length of bar.
     batts = [anl("Battery ANL %d" % (i + 1), cx, 180.7,
                  "ANL  battery %d%s" % (i + 1, "" if i < 2 else " (future)"), 78, dash=i >= 2)
-             for i, cx in enumerate((82, 126, 170, 214))]
+             for i, cx in enumerate(82 + PITCH * k for k in range(4))]
 
     y_sw = tops[0][1][1]                  # switched bar lies over the fuses' lower studs
     y_bt = batts[0][0][1]                 # battery bar lies over the fuses' upper studs
@@ -181,60 +185,65 @@ def build():
     bar("Link, Class T to battery bar", ct_batt[0] - 10, ct_batt[1] - 12.5, 20, y_bt - ct_batt[1] + 25,
         [(ct_batt[0], ct_batt[1], "Class T stud"), (ct_batt[0], y_bt, "bar")], fill=LINK)
 
-    # ---- divider --------------------------------------------------------------
-    rect(290.5, 3, 3, BOARD_H - 6, "#ffffff", dash=True)
-
-    # ---- negative side, right ---------------------------------------------------
-    sx = 342.5                            # shunt centreline; the bars are as wide as its base
-    body("SmartShunt base", sx - 12.5, y_bt - 87.5, 25, 120, "#7fb3e6", "")
-    body("SmartShunt housing", sx - 39.5, y_bt - 65.5, 27, 76, "#a9cdf0", "SmartShunt", rot=-90)
-    s_sys, s_bat = (sx, y_bt - 55.0), (sx, y_bt)
-    screw(sx, y_bt - 78.0)
-    screw(sx, y_bt + 23.0)
-
-    bar("Battery - bar", sx - 12.5, y_bt - BAR / 2, 120.0, BAR,
-        [(s_bat[0], y_bt, "shunt, battery side, M10")]
-        + [(x, y_bt, "battery %d -, M8" % (i + 1)) for i, x in enumerate((366, 390, 414, 438))],
-        "BATTERY - BAR")
-    ys = (25, 46, 67, 88, 109, 130)
+    # ---- negative board, to the right ------------------------------------------
+    # Shunt lies level: system block left, battery block right, housing below.
+    x_sys = NEG[0] + 45.0
+    x_bat = x_sys + 55.0
+    y_rt = NEG[1] + 30.0                  # returns bar
+    body("SmartShunt base", x_sys - 32.5, y_bt - 12.5, 120, 25, "#7fb3e6", "")
+    body("SmartShunt housing", x_sys - 10.5, y_bt + 12.5, 76, 27, "#a9cdf0", "SmartShunt")
+    screw(x_sys - 23.0, y_bt)
+    screw(x_bat + 23.0, y_bt)
+    neg = [x_bat + 30.0 + PITCH * k for k in range(4)]
+    bar("Battery - bar", x_bat - 12.5, y_bt - BAR / 2, neg[-1] + 13.0 - (x_bat - 12.5), BAR,
+        [(x_bat, y_bt, "shunt, battery side, M10")]
+        + [(x, y_bt, "battery %d -, M8" % (i + 1)) for i, x in enumerate(neg)], "BATTERY - BAR")
     names = ("inverter/charger -", "DC-DC -", "2nd charger -", "house -", "always-on -", "Cerbo -")
-    bar("Returns - bar", sx - 12.5, 12.0, BAR, s_sys[1] + 12.5 - 12.0,
-        [(sx, y, "%s, %s" % (n, "M8" if i < 3 else "M6")) for i, (y, n) in enumerate(zip(ys, names))]
-        + [(s_sys[0], s_sys[1], "shunt, system side, M10")], "- BAR (returns)")
-    for p in (s_sys, s_bat):
-        stud(p[0], p[1], 10)
-    for x in (366, 390, 414, 438):
+    rts = [x_sys + 30.0 * (k + 1) for k in range(6)]
+    bar("Returns - bar", x_sys - 12.5, y_rt - BAR / 2, rts[-1] + 13.0 - (x_sys - 12.5), BAR,
+        [(x_sys, y_rt, "link to shunt")]
+        + [(x, y_rt, "%s, %s" % (n, "M8" if i < 3 else "M6")) for i, (x, n) in enumerate(zip(rts, names))],
+        "- BAR (returns)")
+    bar("Link, shunt to returns bar", x_sys - 12.5, y_rt - 12.5, BAR, y_bt - y_rt + 25,
+        [(x_sys, y_rt, "bar"), (x_sys, y_bt, "shunt, system side, M10")], fill=LINK)
+    for x in (x_sys, x_bat):
+        stud(x, y_bt, 10)
+    for i, x in enumerate(neg):
         stud(x, y_bt, 8)
-    for i, (y, n) in enumerate(zip(ys, names)):
-        stud(sx, y, 8 if i < 3 else 6)
-        text(sx + 16, y + 1.5, n, 3.8, anchor="start")
+        text(x, y_bt + 19, "B%d-" % (i + 1), 3.8)
+    for i, (x, n) in enumerate(zip(rts, names)):
+        stud(x, y_rt, 8 if i < 3 else 6)
+        text(x - 2.0, y_rt + 17, n, 3.8, anchor="start", rot=40)
 
     # ---- leads and dimensions ---------------------------------------------------
     text(160, -5, "switched leads leave the top edge", 4.6)
-    text(400, -5, "returns leave the top edge", 4.6)
+    text(NEG[0] + 150, NEG[1] - 5, "returns leave the top edge", 4.6)
     text(148, BOARD_H + 8, "battery + leads, one per fuse", 4.6)
-    text(402, BOARD_H + 8, "battery - leads", 4.6)
+    text(neg[1] + PITCH / 2, NEG[1] + NEG[3] + 8, "battery - leads, same order as +", 4.6)
     text(35, BOARD_H + 8, "always-on leads", 4.6)
-    text(BOARD_W / 2, -14, "457.2 (18 in)", 5)
-    text(-8, BOARD_H / 2, "304.8 (12 in)", 5, rot=-90)
+    text(BOARD_W / 2, -14, "positive board 295 x 304.8, cut from the 18 x 12 in sheet", 5)
+    text(NEG[0] + NEG[2] / 2, NEG[1] + NEG[3] + 16, "negative board 304.8 x 162, the offcut turned", 5)
     for i, b in enumerate(batts):
         text(b[1][0], BOARD_H - 3.5, "B%d+" % (i + 1), 3.8)
-    for i, x in enumerate((366, 390, 414, 438)):
-        text(x, y_bt + 19, "B%d-" % (i + 1), 3.8)
+
+
+def on_a_board(x, y, w, h):
+    return any(bx <= x and by <= y and x + w <= bx + bw and y + h <= by + bh
+               for bx, by, bw, bh in ((0, 0, BOARD_W, BOARD_H), NEG))
 
 
 def check():
     """Every part on the board, no two part bodies overlapping."""
     bad = []
     for n, x, y, w, h in bodies:
-        if x < 0 or y < 0 or x + w > BOARD_W or y + h > BOARD_H:
+        if not on_a_board(x, y, w, h):
             bad.append("%s is off the board" % n)
     for i, a in enumerate(bodies):
         for b in bodies[i + 1:]:
             if a[1] < b[1] + b[3] and b[1] < a[1] + a[3] and a[2] < b[2] + b[4] and b[2] < a[2] + a[4]:
                 bad.append("%s overlaps %s" % (a[0], b[0]))
     for n, x, y, w, h, holes in bars:
-        if x < 0 or y < 0 or x + w > BOARD_W or y + h > BOARD_H:
+        if not on_a_board(x, y, w, h):
             bad.append("%s is off the board" % n)
         for hx, hy, what in holes:
             if not (x + 5 <= hx <= x + w - 5 and y + 5 <= hy <= y + h - 5):
@@ -263,7 +272,7 @@ def svg():
     rows, parts = drill_rows(), PARTS
     total_h = oy + tab_y + 9 + 6.2 * (len(rows) + len(parts) + 5) + 8
     o = ["<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 %g %g' "
-         "font-family='DejaVu Sans, Helvetica, Arial, sans-serif'>" % (BOARD_W + 44, total_h),
+         "font-family='DejaVu Sans, Helvetica, Arial, sans-serif'>" % (TOTAL_W + 44, total_h),
          "<rect width='100%' height='100%' fill='#ffffff'/>", "<g transform='translate(%g,%g)'>" % (ox, oy)]
     for s in shapes:
         if s[0] == "rect":
@@ -326,7 +335,7 @@ def drawio():
                      % (cid, val, style, x + 40, y + 40, w, h))
     return ("<mxfile host=\"drawio\"><diagram id=\"board\" name=\"Bus bar board\">"
             "<mxGraphModel dx=\"1000\" dy=\"600\" grid=\"1\" gridSize=\"5\" guides=\"1\" page=\"1\" "
-            "background=\"#ffffff\" pageWidth=\"540\" pageHeight=\"400\" math=\"0\" shadow=\"0\"><root>\n"
+            "background=\"#ffffff\" pageWidth=\"700\" pageHeight=\"400\" math=\"0\" shadow=\"0\"><root>\n"
             + "\n".join(cells) + "\n</root></mxGraphModel></diagram></mxfile>\n")
 
 
