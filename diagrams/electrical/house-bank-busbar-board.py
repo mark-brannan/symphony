@@ -32,7 +32,7 @@ PARTS = [
      "2 x M10, 55 apart, bar seat 33.5 above the board",
      "victronenergy.com DimensionDrawing-SmartShunt-500A50mV.pdf", "drawing; housing scaled"),
     ("Copper bar", "25 wide; links 25, 20 and 15 wide", "", "", "widths given or guessed; thickness open"),
-    ("Small always-on fuses", "76 x 135 kept", "", "", "guess; no part chosen"),
+    ("Small always-on fuses", "86 x 135 kept", "", "", "guess; fits a 6-way blade block, 124.3 x 84.2"),
 ]
 
 shapes = []      # ("rect", x, y, w, h, fill, stroke, dash, opacity) | ("circ", x, y, r, fill) | ("text", ...)
@@ -165,10 +165,10 @@ def build():
              for i, cx in enumerate(240 + PITCH * k for k in range(4))]
     hb_up, hb_lo = breaker("House breaker", ms_out[0] - 11.145, 150, "60 A house", upper_right=False)
     ab_up, ab_lo = breaker("Always-on breaker", 80, 150, "60 A always-on", upper_right=False)
-    body("Small always-on fuses", 138, 150, 76, 135, "#ffffff", "", dash=True)
+    body("Small always-on fuses", 131, 150, 86, 135, "#ffffff", "", dash=True)
     for i, s in enumerate(("space kept for the", "small always-on fuses:", "Cerbo", "bilge pumps",
                            "monitoring, alarms", "(part open)", "fed from the", "always-on breaker")):
-        text(176, 196 + 6.5 * i + (6 if i >= 6 else 0), s, 4.2)
+        text(174, 196 + 6.5 * i + (6 if i >= 6 else 0), s, 4.2)
 
     bar("Unswitched + bar", ms_in[0] - 12.5, y_un - BAR / 2, x_ct + 12.5 - (ms_in[0] - 12.5), BAR,
         [(ms_in[0], y_un, "link to master switch"), (ab_up[0], y_un, "link to always-on breaker")]
@@ -227,7 +227,7 @@ def build():
         text(b[1][0], BOARD_H + 6, "B%d+" % (i + 1), 3.8)
     text(batts[1][1][0] + PITCH / 2, BOARD_H + 13, "battery + leads, one per fuse", 4.6)
     text(hb_lo[0], BOARD_H + 6, "house lead", 4.6)
-    text(176, BOARD_H + 6, "always-on leads", 4.6)
+    text(174, BOARD_H + 6, "always-on leads", 4.6)
     text(NEG[0] + NEG[2] + 6, NEG[1] + 20, "returns leave the top edge", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb + 2, "battery - leads leave the bottom edge,", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb + 8.5, "same order as +", 4.6, anchor="start")
