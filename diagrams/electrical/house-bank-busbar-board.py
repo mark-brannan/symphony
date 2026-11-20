@@ -9,9 +9,9 @@ picture) or guess; nothing here was measured on the boat's own parts.
 import os
 
 BOARD_W, BOARD_H = 457.2, 304.8          # positive board: the whole 18 x 12 in HDPE sheet
-NEG = (0.0, BOARD_H + 34.0, 310.0, 166.0)  # negative board, its own piece, sized to its parts; x, y, w, h
+NEG = (0.0, BOARD_H + 34.0, 262.0, 144.0)    # negative board, its own piece, sized to its parts; x, y, w, h
 PITCH = 44.0                             # battery stud pitch, the same on both bars
-CT_STUDS = 102.0                         # Class T cable studs; sets the gap between the two + bars
+CT_STUDS = 46.8                          # Class T fuse bolt centres; the cable lands on the same studs
 TOTAL_W = BOARD_W
 BAR = 25.0                               # main copper bar width
 COPPER, LINK = "#d9925a", "#e8b07a"
@@ -21,8 +21,8 @@ INK = "#111111"
 PARTS = [
     ("ANL fuse block, Blue Sea 5005", "114.3 x 38.1, cover 41.9 high",
      "2 x 5/16in (M8), 61.72 apart", "bluesea.com/products/5005", "drawing"),
-    ("Class T fuse block, Blue Sea 5502 (225-400 A)", "177.8 x 50.8, cover 58.4 high",
-     "cable studs about 102 apart", "bluesea.com/products/5502", "drawing; stud spacing scaled"),
+    ("Class T fuse block, compact, part not named", "about 100 x 40",
+     "2 x M10 on the fuse's bolt centres, 46.8 apart", "", "guess, sized like the ANL block"),
     ("Battery switch, Blue Sea m-Series 6006", "74.9 square, 45.6 deep behind the flange",
      "2 x 3/8in (M10) underneath, about 44.5 apart", "bluesea.com/products/6006",
      "drawing; stud spacing scaled"),
@@ -32,7 +32,6 @@ PARTS = [
      "2 x M10, 55 apart, bar seat 33.5 above the board",
      "victronenergy.com DimensionDrawing-SmartShunt-500A50mV.pdf", "drawing; housing scaled"),
     ("Copper bar", "25 wide; links 25, 20 and 15 wide", "", "", "widths given or guessed; thickness open"),
-    ("Small always-on fuses", "86 x 135 kept", "", "", "guess; fits a 6-way blade block, 124.3 x 84.2"),
 ]
 
 shapes = []      # ("rect", x, y, w, h, fill, stroke, dash, opacity) | ("circ", x, y, r, fill) | ("text", ...)
@@ -80,22 +79,6 @@ def anl(name, cx, y0, label, label_at, dash=False):
     return top, bot
 
 
-def class_t(cx, cy):
-    """Blue Sea 5502, long axis vertical. Returns (upper cable stud, lower cable stud)."""
-    body("Class T", cx - 25.4, cy - 88.9, 50.8, 177.8, "#e8837a", "")
-    rect(cx - 12.7, cy - 34.95, 25.4, 69.9, "#fde0dc")          # the fuse, 69.9 x 25.4 blades
-    text(cx + 1.6, cy, "Class T", 4.6, rot=-90)
-    for dy in (-23.4, 23.4):
-        stud(cx, cy + dy, 8)
-    for dy in (-79.37, 79.37):
-        for dx in (-16.77, 16.77):
-            screw(cx + dx, cy + dy)
-    up, lo = (cx, cy - CT_STUDS / 2), (cx, cy + CT_STUDS / 2)
-    for p in (up, lo):
-        stud(p[0], p[1], 10)
-    return up, lo
-
-
 def breaker(name, x, y, label, upper_right):
     """Blue Sea 285 surface mount, long axis vertical. Returns (upper stud, lower stud)."""
     w, h = 48.13, 81.28
@@ -139,98 +122,106 @@ def bar(name, x, y, w, h, holes, label=None, fill=COPPER, label_x=None):
     bars.append((name, x, y, w, h, holes))
 
 
+def class_t(cx, cy):
+    """Compact Class T holder, long axis horizontal; the cable lands on the fuse studs.
+    Returns (left stud, right stud)."""
+    body("Class T", cx - 50.0, cy - 20.0, 100.0, 40.0, "#e8837a", "")
+    rect(cx - 34.95, cy - 12.7, 69.9, 25.4, "#fde0dc")          # the fuse, 69.9 x 25.4 blades
+    text(cx, cy + 17.5, "Class T", 4.2)
+    left, right = (cx - CT_STUDS / 2, cy), (cx + CT_STUDS / 2, cy)
+    for p in (left, right):
+        stud(p[0], p[1], 10)
+    return left, right
+
+
 def build():
     rect(0, 0, BOARD_W, BOARD_H, "#f7f7f2")
     rect(NEG[0], NEG[1], NEG[2], NEG[3], "#f7f7f2")
 
     # ---- positive board: the whole sheet ----------------------------------------
-    # Top row hangs off the unswitched bar; the Class T stands at the right end with one
-    # cable stud on each + bar; batteries and the breakers fill the bottom row.
-    ms_in, ms_out = (lambda l, r: (r, l))(*switch("Master switch", 10, 10))
-    y_top = ms_in[1] - 26.29              # fuse row: upper studs level with the switch studs
-    x_ct = BOARD_W - 10 - 25.4
-    inv = anl("Inverter/charger fuse", 372, y_top, "Inverter/charger (type open)", 48, dash=True)
-    dis_l, dis_r = switch("Inverter disconnect", inv[0][0] - 46 - 22.25 - 37.465, 10, dash=True)
-    tops = [anl("Solar fuse", 156, y_top, "Solar (planned, type open)", 48, dash=True),
-            anl("2nd charger fuse", 200, y_top, "2nd charger (type open)", 48, dash=True),
-            anl("DC-DC ANL", 244, y_top, "ANL 60 A  DC-DC", 48),
-            inv]
-    y_un = inv[1][1]                      # unswitched bar lies over the fuses' lower studs
-    y_bt = y_un + CT_STUDS                # battery bar lies over the fuses' upper studs
-    ct_un, ct_bt = class_t(x_ct, y_un + CT_STUDS / 2)
-    # Batteries run 1-4 left to right on both bars, with the + takeoff at the right end and
-    # the shunt at the left end, so every battery sees about the same length of bar.
-    batts = [anl("Battery ANL %d" % (i + 1), cx, y_bt - 26.29,
-                 "ANL  battery %d%s" % (i + 1, "" if i < 2 else " (future)"), 78, dash=i >= 2)
-             for i, cx in enumerate(240 + PITCH * k for k in range(4))]
-    hb_up, hb_lo = breaker("House breaker", ms_out[0] - 11.145, 150, "60 A house", upper_right=False)
-    ab_up, ab_lo = breaker("Always-on breaker", 80, 150, "60 A always-on", upper_right=False)
-    body("Small always-on fuses", 131, 150, 86, 135, "#ffffff", "", dash=True)
-    for i, s in enumerate(("space kept for the", "small always-on fuses:", "Cerbo", "bilge pumps",
-                           "monitoring, alarms", "(part open)", "fed from the", "always-on breaker")):
-        text(174, 196 + 6.5 * i + (6 if i >= 6 else 0), s, 4.2)
+    # Batteries come in at the top right; the Class T carries their bar to a riser down to
+    # the unswitched bar, and everything unswitched hangs below that bar.
+    # Batteries run 4-1 left to right on both bars, with the + takeoff at the left end and
+    # the shunt at the right end, so every battery sees about the same length of bar.
+    batts = [anl("Battery ANL %d" % n, BOARD_W - 29.2 - PITCH * (n - 1), 10,
+                 "ANL  battery %d%s" % (n, "" if n < 3 else " (future)"), 48, dash=n >= 3)
+             for n in (4, 3, 2, 1)]
+    y_bt = batts[0][1][1]                 # battery bar lies over the fuses' lower studs
+    y_un = 190.0                          # unswitched bar; its fuses hang below it
+    x_b4 = batts[0][0][0]
+    ct_l, ct_r = class_t(x_b4 - 19.05 - 3 - 50.0, y_bt)
 
-    bar("Unswitched + bar", ms_in[0] - 12.5, y_un - BAR / 2, x_ct + 12.5 - (ms_in[0] - 12.5), BAR,
-        [(ms_in[0], y_un, "link to master switch"), (ab_up[0], y_un, "link to always-on breaker")]
-        + [(t[1][0], y_un, "fuse stud") for t in tops] + [(x_ct, y_un, "Class T stud")],
-        "UNSWITCHED + BAR", label_x=308)
+    inv = anl("Inverter/charger fuse", 115.7, y_un - 26.29, "Inverter/charger", 57, dash=True)
+    dis_l, dis_r = switch("Inverter disconnect", inv[1][0] - 46 - 22.25 - 37.465, inv[1][1] - 37.465,
+                          dash=True)
+    hung = [inv,
+            anl("DC-DC ANL", 160, y_un - 26.29, "ANL 60 A  DC-DC", 78),
+            anl("2nd charger fuse", 242, y_un - 26.29, "2nd charger (type open)", 78, dash=True),
+            anl("Solar fuse", 286, y_un - 26.29, "Solar (planned, type open)", 78, dash=True)]
+    ab_up, ab_lo = breaker("Always-on breaker", 320, 212, "60 A always-on", upper_right=False)
+    ms_out, ms_in = switch("Master switch", 10, 92)
+    hb_up, hb_lo = breaker("House breaker", ms_out[0] - 11.145, 8, "60 A house", upper_right=True)
+
+    x0 = ms_in[0] - 12.5
+    x1 = ab_up[0] + 12.5
+    bar("Unswitched + bar", x0, y_un - BAR / 2, x1 - x0, BAR,
+        [(ms_in[0], y_un, "link to master switch")] + [(h[0][0], y_un, "fuse stud") for h in hung]
+        + [(ct_l[0], y_un, "riser from Class T"), (ab_up[0], y_un, "link to always-on breaker")],
+        "UNSWITCHED + BAR", label_x=264)
+    bar("Riser, Class T to unswitched bar", ct_l[0] - 12.5, y_bt - 12.5, BAR, y_un - y_bt + 25,
+        [(ct_l[0], y_bt, "Class T stud"), (ct_l[0], y_un, "bar")], fill=LINK)
+    bar("Battery + bar", ct_r[0] - 12.5, y_bt - BAR / 2, batts[-1][0][0] + 13.0 - (ct_r[0] - 12.5), BAR,
+        [(ct_r[0], y_bt, "Class T stud")] + [(b[0][0], y_bt, "fuse stud") for b in batts],
+        "BATTERY + BAR", label_x=batts[1][0][0] + PITCH / 2)
     bar("Link, master switch in", ms_in[0] - BAR / 2, ms_in[1] - 12.5, BAR, y_un - ms_in[1] + 25,
         [(ms_in[0], ms_in[1], "switch stud"), (ms_in[0], y_un, "bar")], fill=LINK)
-    bar("Link, master switch to house breaker", ms_out[0] - 10, ms_out[1] - 12.5, 20,
-        hb_up[1] - ms_out[1] + 22.5,
-        [(ms_out[0], ms_out[1], "switch stud"), (hb_up[0], hb_up[1], "breaker stud")], fill=LINK)
+    bar("Link, house breaker to master switch", ms_out[0] - 10, hb_lo[1] - 10, 20,
+        ms_out[1] - hb_lo[1] + 22.5,
+        [(hb_lo[0], hb_lo[1], "breaker stud"), (ms_out[0], ms_out[1], "switch stud")], fill=LINK)
     bar("Link, always-on breaker", ab_up[0] - 7.5, y_un - 7.5, 15, ab_up[1] - y_un + 15,
         [(ab_up[0], y_un, "bar"), (ab_up[0], ab_up[1], "breaker stud")], fill=LINK)
-    bar("Link, inverter fuse to disconnect", dis_r[0] - 12.5, dis_r[1] - 12.5, inv[0][0] - dis_r[0] + 25,
-        BAR, [(dis_r[0], dis_r[1], "switch stud"), (inv[0][0], inv[0][1], "fuse stud")], fill=LINK)
-    bar("Battery + bar", batts[0][0][0] - 13.0, y_bt - BAR / 2, x_ct + 12.5 - (batts[0][0][0] - 13.0), BAR,
-        [(b[0][0], y_bt, "fuse stud") for b in batts] + [(x_ct, y_bt, "Class T stud")],
-        "BATTERY + BAR", label_x=306)
+    bar("Link, inverter fuse to disconnect", dis_r[0] - 12.5, dis_r[1] - 12.5, inv[1][0] - dis_r[0] + 25,
+        BAR, [(dis_r[0], dis_r[1], "switch stud"), (inv[1][0], inv[1][1], "fuse stud")], fill=LINK)
 
     # ---- negative board, below ---------------------------------------------------
-    # Shunt lies level: system block left, battery block right, housing below.
-    x_sys = NEG[0] + 44.5
-    x_bat = x_sys + 55.0
-    y_rt = NEG[1] + 24.5                  # returns bar
-    y_nb = y_rt + 90.0                    # shunt and battery - bar
-    body("SmartShunt base", x_sys - 32.5, y_nb - 12.5, 120, 25, "#7fb3e6", "")
-    body("SmartShunt housing", x_sys - 10.5, y_nb + 12.5, 76, 27, "#a9cdf0", "SmartShunt")
-    screw(x_sys - 23.0, y_nb)
-    screw(x_bat + 23.0, y_nb)
-    neg = [x_bat + 30.0 + PITCH * k for k in range(4)]
-    bar("Battery - bar", x_bat - 12.5, y_nb - BAR / 2, neg[-1] + 13.0 - (x_bat - 12.5), BAR,
-        [(x_bat, y_nb, "shunt, battery side, M10")]
-        + [(x, y_nb, "battery %d -, M8" % (i + 1)) for i, x in enumerate(neg)], "BATTERY - BAR", label_x=neg[1] + PITCH / 2)
-    names = ("inverter/charger -", "DC-DC -", "2nd charger -", "solar -", "house -",
-             "Cerbo -", "bilge pumps -", "monitoring -")
-    rts = [x_sys + 30.0 * (k + 1) for k in range(len(names))]
-    bar("Returns - bar", x_sys - 12.5, y_rt - BAR / 2, rts[-1] + 13.0 - (x_sys - 12.5), BAR,
-        [(x_sys, y_rt, "link to shunt")]
-        + [(x, y_rt, "%s, %s" % (n, "M8" if i < 4 else "M6")) for i, (x, n) in enumerate(zip(rts, names))],
-        )
-    text(rts[3] + 15, y_rt - 15.5, "- BAR (returns)", 4.4)
-    bar("Link, shunt to returns bar", x_sys - 12.5, y_rt - 12.5, BAR, y_nb - y_rt + 25,
-        [(x_sys, y_rt, "bar"), (x_sys, y_nb, "shunt, system side, M10")], fill=LINK)
-    for x in (x_sys, x_bat):
-        stud(x, y_nb, 10)
-    for i, x in enumerate(neg):
+    # The shunt stands upright at the right end and is the only bridge between the bars:
+    # system stud on the returns bar, battery stud on the battery - bar.
+    x_sh = NEG[0] + 210.0
+    y_mid = NEG[1] + NEG[3] / 2
+    y_rt, y_nb = y_mid - 27.5, y_mid + 27.5
+    body("SmartShunt base", x_sh - 12.5, y_mid - 60, 25, 120, "#7fb3e6", "")
+    body("SmartShunt housing", x_sh + 12.5, y_mid - 38, 27, 76, "#a9cdf0", "SmartShunt", rot=-90)
+    screw(x_sh, y_mid - 50.5)
+    screw(x_sh, y_mid + 50.5)
+    neg = [x_sh - 30.0 - PITCH * (n - 1) for n in (4, 3, 2, 1)]
+    bar("Battery - bar", neg[0] - 13.0, y_nb - BAR / 2, x_sh + 12.5 - (neg[0] - 13.0), BAR,
+        [(x, y_nb, "battery %d -, M8" % n) for n, x in zip((4, 3, 2, 1), neg)]
+        + [(x_sh, y_nb, "shunt, battery side, M10")], "BATTERY - BAR", label_x=neg[1] + PITCH / 2)
+    names = ("inverter/charger -", "DC-DC -", "2nd charger -", "solar -", "house -", "always-on -")
+    rts = [x_sh - 5.0 - 30.0 * (len(names) - k) for k in range(len(names))]
+    bar("Returns - bar", rts[0] - 13.0, y_rt - BAR / 2, x_sh + 12.5 - (rts[0] - 13.0), BAR,
+        [(x, y_rt, "%s, %s" % (n, "M8" if i < 4 else "M6")) for i, (x, n) in enumerate(zip(rts, names))]
+        + [(x_sh, y_rt, "shunt, system side, M10")])
+    text(rts[1], y_rt + 19, "- BAR (returns)", 4.4)
+    for y in (y_rt, y_nb):
+        stud(x_sh, y, 10)
+    for n, x in zip((4, 3, 2, 1), neg):
         stud(x, y_nb, 8)
-        text(x, y_nb + 19, "B%d-" % (i + 1), 3.8)
+        text(x, y_nb + 19, "B%d-" % n, 3.8)
     for i, (x, n) in enumerate(zip(rts, names)):
         stud(x, y_rt, 8 if i < 4 else 6)
-        text(x - 2.0, y_rt + 17, n, 3.8, anchor="start", rot=40)
+        text(x + 2.0, y_rt - 15, n, 3.8, anchor="start", rot=-40)
 
     # ---- leads and dimensions ---------------------------------------------------
     text(BOARD_W / 2, -14, "positive board 457.2 x 304.8, the whole 18 x 12 in sheet", 5)
-    text(264, -5, "always-on chargers and the inverter/charger leave the top edge", 4.6)
-    for i, b in enumerate(batts):
-        text(b[1][0], BOARD_H + 6, "B%d+" % (i + 1), 3.8)
-    text(batts[1][1][0] + PITCH / 2, BOARD_H + 13, "battery + leads, one per fuse", 4.6)
-    text(hb_lo[0], BOARD_H + 6, "house lead", 4.6)
-    text(174, BOARD_H + 6, "always-on leads", 4.6)
-    text(NEG[0] + NEG[2] + 6, NEG[1] + 20, "returns leave the top edge", 4.6, anchor="start")
-    text(NEG[0] + NEG[2] + 6, y_nb + 2, "battery - leads leave the bottom edge,", 4.6, anchor="start")
-    text(NEG[0] + NEG[2] + 6, y_nb + 8.5, "same order as +", 4.6, anchor="start")
+    for n, b in zip((4, 3, 2, 1), batts):
+        text(b[0][0], -1.5, "B%d+" % n, 3.8)
+    text(batts[1][0][0] + PITCH / 2, -7, "battery + leads, one per fuse", 4.6)
+    text(hb_up[0], -1.5, "house lead", 4.6)
+    text(201, BOARD_H + 7, "everything unswitched leaves the bottom edge", 4.6)
+    text(NEG[0] + NEG[2] + 6, y_rt + 1.5, "returns leave the top edge", 4.6, anchor="start")
+    text(NEG[0] + NEG[2] + 6, y_nb - 1, "battery - leads leave the bottom edge,", 4.6, anchor="start")
+    text(NEG[0] + NEG[2] + 6, y_nb + 5.5, "same order as +", 4.6, anchor="start")
     text(NEG[0] + NEG[2] / 2, NEG[1] - 5, "negative board %g x %g, its own piece" % (NEG[2], NEG[3]), 5)
 
 
