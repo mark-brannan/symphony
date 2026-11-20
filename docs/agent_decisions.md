@@ -51,3 +51,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261118t043831z
 - Err covers oil pressure, alternator and low memory; not reset or Signal K link Undo: edit err_alert in the OLED alert loop ([#163](https://github.com/mark-brannan/symphony/pull/163))
+
+### 20261120t030309z
+- lux rev 10: collar 36->48, bar notches open aft, tip 52x18, window 4 mm above joint, flat flange pocket, M3 inserts throughout ([#173](https://github.com/mark-brannan/symphony/pull/173))
