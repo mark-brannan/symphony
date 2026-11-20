@@ -30,9 +30,10 @@ doesn't count: it records what a session did, not what the host now runs.
 ## Sibling repo: workshop (the parts)
 - Physical parts for the boat are designed in `workshop` (private;
   local checkout `~/workshop`): mounts, enclosures, PCBs, the wiring
-  inside one box, caliper numbers, print and cut files. This repo holds
-  the system: what is installed, boat wiring, firmware, Signal K. The
-  seam is the box's connectors: inside is workshop, outside is here.
+  inside one enclosure, caliper numbers, print and cut files. This repo holds
+  the system: what is installed, boat wiring, cabinet layouts, firmware,
+  Signal K. The seam is the enclosure's connectors: inside is workshop,
+  outside is here.
 - Before changing firmware pins, a circuit or a cabinet layout, run
   `grep -l '^Symphony:.*<path>' ~/workshop/projects/*/README.md` for the
   path you're touching; the part that plugs into it lives there.
