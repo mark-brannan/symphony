@@ -60,3 +60,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261120t231406z
 - IMU research README: bench experiments stay in symphony; driver trials and the board go to workshop when they start Undo: edit research/imu-mag/README.md ([#175](https://github.com/mark-brannan/symphony/pull/175))
+
+### 20261120t232636z
+- Battery leads enter at the top edge so the unswitched leads can leave the bottom Class T holder drawn 100 x 40 mm with the cable on the fuse studs, a guess until the part is named Undo: edit build() in house-bank-busbar-board.py and regenerate ([#174](https://github.com/mark-brannan/symphony/pull/174))
