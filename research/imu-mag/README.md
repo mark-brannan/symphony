@@ -19,7 +19,7 @@ experiments, proofs of concept and, later, the board.
 | [`software.md`](software.md) | What pypilot's RTIMULib2 fork already has, and what a new driver must do |
 | [`placement.md`](placement.md) | Where the sensor goes on the boat, and why |
 | [`claims-reviewed.md`](claims-reviewed.md) | Outside claims checked against sources: a chatbot's case for the ISM330DHCX, the ocean-imu project |
-| [`decisions.md`](decisions.md) | Solace's decisions, one dated line each |
+| [`decisions.md`](decisions.md) | The owner's decisions, one dated line each |
 | [`sources.md`](sources.md) | Every link used |
 
 `experiments/` arrives with the first bench test, one folder per test, with its data.
@@ -39,7 +39,7 @@ project when they start.
 | Question | What would answer it |
 |---|---|
 | How do the ISM330BX and ICM-45686 compare on specs? | Two datasheet reads |
-| Is a bare chip on our own board acceptable, or must it be a ready-made Qwiic board? | Solace |
+| Is a bare chip on our own board acceptable, or must it be a ready-made Qwiic board? | The owner |
 | Which magnetometer? | Research not started; `mag-candidates.md` |
 | Do the chips differ in real gyro drift over temperature? Datasheets don't separate them | Bench log of two boards through a warm-up; about two breakout boards |
 | Are Bosch and other makers worth a look? Only ST and TDK were searched | One search pass |

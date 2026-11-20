@@ -32,5 +32,5 @@ and MPU-9255.
 | ICM-42688-P | Nothing related; banked registers |
 | ISM330BX, ICM-45686 | Not looked at |
 
-Solace has set aside "an older part's driver already exists" as a reason to pick a chip;
+The owner has set aside "an older part's driver already exists" as a reason to pick a chip;
 see `criteria.md`. The table is here for effort planning only.

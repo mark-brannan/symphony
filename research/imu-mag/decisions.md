@@ -1,6 +1,6 @@
 # Decisions
 
-Lines here are Solace's. Each is a date, the statement, a link, and a one-clause because
+Lines here are the owner's. Each is a date, the statement, a link, and a one-clause because
 written by the agent from the question and the evidence. A line marked "current thinking"
 is lightly held.
 

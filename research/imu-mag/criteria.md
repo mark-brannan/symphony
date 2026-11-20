@@ -1,8 +1,8 @@
 # Criteria
 
-The choice is a multi-criteria one. Weights are Solace's and none are set yet.
+The choice is a multi-criteria one. Weights are the owner's and none are set yet.
 
-## Stated by Solace
+## Stated by the owner
 
 | Criterion | In their words or close to it | Date |
 |---|---|---|
@@ -15,7 +15,7 @@ Given as constraints, same date:
 
 - We write our own driver in RTIMULib2.
 - The 6-axis chip is paired with a separate magnetometer.
-- The ICM-20948 is not for new designs. The LIS3MDL is being phased out. Both are Solace's
+- The ICM-20948 is not for new designs. The LIS3MDL is being phased out. Both are the owner's
   statements; neither maker's notice has been looked up.
 
 ## Proposed by the agent, not yet accepted or weighted

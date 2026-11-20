@@ -33,7 +33,7 @@ transcribed here yet. The floor plan is in the private state repo.
 | Heading error per 1° of tilt error at about 69° dip | about 2.6° |
 | False tilt in a turn, 6 kn at 3°/s | about 1° |
 
-## Given by Solace
+## Given by the owner
 
 - The keel is probably all lead.
 - The engine is directly under the galley sink.
