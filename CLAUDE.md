@@ -28,8 +28,9 @@ doesn't count: it records what a session did, not what the host now runs.
   arrive at the right structure organically, not have it templated in.
 
 ## Sibling repo: workshop (the parts)
-- Physical parts for the boat are designed in `workshop` (private;
-  local checkout `~/workshop`): mounts, enclosures, PCBs, the wiring
+- Physical parts for the boat are designed in
+  [workshop](https://github.com/mark-brannan/workshop) (local checkout
+  `~/workshop`): mounts, enclosures, PCBs, the wiring
   inside one enclosure, caliper numbers, print and cut files. This repo holds
   the system: what is installed, boat wiring, cabinet layouts, firmware,
   Signal K. The seam is the enclosure's connectors: inside is workshop,
@@ -39,9 +40,9 @@ doesn't count: it records what a session did, not what the host now runs.
   `grep -l '^Symphony:.*<path>' ~/workshop/projects/*/README.md` for the
   path you're touching; the part that plugs into it lives there.
   `uv run shop symphony` in `~/workshop` prints the whole index.
-- Links run one way: workshop links here (its tests fail on a dead
-  link). Don't link workshop from this repo's files; it is private, so
-  the link 404s for every reader but us. Name it in prose.
+- Workshop's `Symphony:` lines are the index of links between the two
+  repos, and its tests fail on a dead one. Link a workshop project from
+  here only where a reader needs it; that link has no check.
 - A fact has one home. Don't copy a part's geometry or numbers here.
 
 | Diagram | Home | Format |
