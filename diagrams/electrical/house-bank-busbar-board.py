@@ -145,6 +145,8 @@ def build():
     hb_up, hb_lo = breaker("House breaker", 231, 10, "60 A house", upper_right=True)
     ct_load, ct_batt = class_t(196, 152.5)
     ab_up, ab_lo = breaker("Always-on breaker", 11, 199.4, "60 A always-on", upper_right=True)
+    # Batteries run 1-4 left to right on both bars, with the + takeoff at the right end and
+    # the shunt at the left end, so every battery sees about the same length of bar.
     batts = [anl("Battery ANL %d" % (i + 1), cx, 180.7,
                  "ANL  battery %d%s" % (i + 1, "" if i < 2 else " (future)"), 78, dash=i >= 2)
              for i, cx in enumerate((82, 126, 170, 214))]
