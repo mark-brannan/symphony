@@ -38,6 +38,7 @@ The owner's, 2026-11-19.
 | pypilot on the HALPI2 | not recorded | — |
 | Spare computer | a Raspberry Pi Zero W, bought to run tinypilot | owner, 2026-11-19 |
 | Spare compass sensor | an ICM-20948 | owner's notes, 2025 |
+| pypilot under HaLOS | 0.71 ran an ICM-20948 on the HALOS bench card, calibration carried over, 2026-09-03 | [pypilot_containerization.md](pypilot_containerization.md) |
 | Rudder angle into pypilot | pypilot takes it from an NMEA `RSA` sentence, and maps SignalK `steering.rudderAngle` | pypilot source, `pypilot/nmea.py` and `pypilot/signalk.py`, master, read 2026-11-19 |
 
 ## What the plan has to answer
