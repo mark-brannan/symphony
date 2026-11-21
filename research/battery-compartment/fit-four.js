@@ -241,7 +241,7 @@ function Planner(shellIn) {
       if (r.e[2][2] < -0.2) notes[i].push('terminals face down');
       r.sup = support(r);
       r.near = nearest(r, sol, U, i);
-      r.access = termAccess(r, sol, i);
+      r.access = termAccess(r, sol, U, i);
       r.face = faceWord(r.e[2]);
     }
     return { sol, U, list, notes, ub, S, raise };
@@ -254,7 +254,7 @@ function Planner(shellIn) {
     return best;
   }
   // can a hand and a lug reach the terminals: is the 3 in past each tip open?
-  function termAccess(r, sol, i) {
+  function termAccess(r, sol, U, i) {
     const e3 = r.e[2]; let blocked = null;
     for (const t of r.tips) for (let s = 0.5; s <= 3; s += 0.5) {
       const p = add(t, mul(e3, s));
@@ -263,6 +263,7 @@ function Planner(shellIn) {
       if (p[1] < 0) blocked = blocked || 'fwd wall';
       if (p[1] > S.W) blocked = blocked || 'aft wall';
       sol.forEach((q, j) => { if (q && j !== i && inside(p, q.boxes[0])) blocked = blocked || 'B' + (j + 1); });
+      U.forEach(u => { if (!u.lid && inside(p, u)) blocked = blocked || u.n; });
     }
     return blocked;
   }

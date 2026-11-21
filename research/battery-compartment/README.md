@@ -9,27 +9,12 @@ inverter-charger and their cables.
 
 [`fit-four.html`](fit-four.html) is an interactive 3D planner. Open it in a
 browser; it needs no build. Its geometry is [`fit-four.js`](fit-four.js);
-`node fit-four.test.js` checks it.
+`node fit-four.test.js` checks it, and
+[`fit-four.search.js`](fit-four.search.js) reruns the search below.
 
-- A 3D view you can orbit; a top view; a side view either from forward or
-  along the hull line, which shows the slope at its true angle.
-- Batteries behave like real ones. A battery rests with one face flat on the
-  floor, the lower hull or the upper hull, or settles onto whichever leaves
-  it lowest, and can lie upright, on its side or on its end. It then spins
-  about that surface's normal, with one click to run its long edge along the
-  hull line or up the slope.
-- A battery can also be turned any way at all (roll, pitch, yaw) and lifted.
-  The planner draws the shelf or wedge that would hold it there, and the
-  table gives the shelf's tilt and the height of each leg above the hull.
-- Only the hull is solid. Batteries pass through each other, the lip, the
-  lid and the wall units, so all four can always be placed; anything
-  overlapping turns red and the table says by how much. With "batteries rest
-  on batteries" on, a battery comes to rest on any below it instead.
-- The table also says what holds each battery (flat, a stop on its low edge,
-  a shelf), which way its terminals face, whether 3 in past them is open, and
-  the gap to its nearest neighbour.
-- The layout lives in the page address: "Copy link" saves it, and the page
-  reopens where it was left. Undo, and keys for moving and spinning.
+- Only the hull is solid: batteries pass through everything else, so red
+  means "look here", not "does not fit".
+- "Copy link" keeps a layout; the page explains its own controls.
 
 ## What the numbers are
 
@@ -69,14 +54,16 @@ places are partly guessed.
 
 ## What a search of these numbers found (2026-11-21)
 
-A brute-force search over the planner's geometry (half-inch steps; upright
-or on its side; square, along the hull line or up the slope; Orion and
-MultiPlus on the inboard wall), counting only placements with 1/8 clear all
-round. These rest on guessed numbers, so they say where to measure, not what
-to build.
+`node fit-four.search.js` (half-inch steps; terminals facing at least partly
+up; square, along the hull line or up the slope; Orion and MultiPlus on the
+inboard wall), counting only placements with 1/8 clear all round. It is
+greedy: each battery takes the placement reaching least far outboard.
+These rest on guessed numbers, so they say where to measure, not what to
+build.
 
-- **Resting flat, two fit; never three.** With nothing on the inboard wall
-  it is still two.
+- **Resting flat, two fit, and the search finds no room for a third.** With
+  nothing on the inboard wall (`node fit-four.search.js off off`) it is
+  still two.
 - **Along the hull line does not fit across.** A battery square to the rise
   line spans 20 in of a 19 1/2 in width.
 - **Four fit with shelves:** three upright in a row across the compartment,

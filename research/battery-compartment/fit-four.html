@@ -89,7 +89,10 @@ const undo=[];
 const snap=()=>JSON.stringify({B,O});
 function change(f){undo.push(snap());if(undo.length>200)undo.shift();f();save();draw();}
 function save(){const s=snap();try{history.replaceState(null,'','#'+encodeURIComponent(s));localStorage.setItem('fitfour',s);}catch(e){}}
-function load(s){try{const v=JSON.parse(s);if(!v.B||v.B.length!==4)return false;B=v.B.map(b=>Object.assign(fresh(),b));O=Object.assign(O,v.O||{});return true;}catch(e){return false;}}
+// a saved layout may come from an older page: a battery with an unknown face, surface or mode starts fresh
+const known=b=>FACES[b.face]&&(b.surf==='auto'||S.facets.some(f=>f.id===b.surf))&&(b.mode==='rest'||b.mode==='free');
+function load(s){try{const v=JSON.parse(s);if(!v.B||v.B.length!==4)return false;B=v.B.map(b=>{const m=Object.assign(fresh(),b);return known(m)?m:fresh();});O=Object.assign(O,v.O||{});if(O.side!=='line'&&O.side!=='fwd')O.side='line';return true;}catch(e){return false;}}
+const fromHash=()=>{try{return decodeURIComponent(location.hash.slice(1));}catch(e){return '';}};
 // ---- presets ----
 const along=b=>pl.spinAlong(b,S.strike);
 function preset(k){change(()=>{
@@ -232,7 +235,7 @@ function draw(){const L=pl.layout(B,O);lastL=L;const{sol,U,list,notes,ub}=L;
  $('t').innerHTML='<tr>'+['','Pose','Along','Lowest','Terminals to lid · facing','Held by','Room fwd / aft','Nearest','Overlaps'].map(c=>td(c,1)).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>td(c)).join('')+'</tr>').join('')
   +`<tr><td colspan=9 class="ok" style="padding-top:8px">Open at the inboard end: ${fr(Math.max(0,first-wall))}. Batteries end at ${fr(last)}. Lid: ${fr(O.raise)} above the rim aft of the lip (dashed).</td></tr>`;
  chips();}
-if(!(location.hash.length>1&&load(decodeURIComponent(location.hash.slice(1))))&&!load(localStorage.getItem('fitfour')||''))preset(1);
+if(!(location.hash.length>1&&load(fromHash()))&&!load(localStorage.getItem('fitfour')||''))preset(1);
 draw();
 function frame(){const{w,hw,vh}=vp();$('ls').style.left=(hw+8)+'px';
  R.setViewport(0,HO,w,H3);R.setScissor(0,HO,w,H3);R.setClearColor(0x1e2126);C.aspect=w/H3;C.updateProjectionMatrix();R.render(SC,C);

@@ -21,4 +21,7 @@ M.forEach((row, i) => row.forEach((v, j) => near(v, M2[i][j], 2e-3)));
 // stacking rests a battery on one below it
 const L = pl.layout([bat({ cx: 6 }), bat({ cx: 6 }), bat({ on: false }), bat({ on: false })], { stack: true });
 near(L.sol[1].z0, P.BH + P.TN, 0.02); assert.strictEqual(L.sol[1].sup.kind, 'stacked');
+// terminals facing a wall unit within 3 in read as blocked by it, not as reachable
+const T = pl.layout([bat({ cx: 10, cy: 9, face: 'side', spin: 90 }), bat({ on: false }), bat({ on: false }), bat({ on: false })], { orion: 'ai', mp: false });
+assert.strictEqual(T.sol[0].access, 'Orion');
 console.log('fit-four: all checks pass');
