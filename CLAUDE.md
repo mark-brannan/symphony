@@ -127,7 +127,8 @@ doesn't count: it records what a session did, not what the host now runs.
 ## Physical tasks: Joplin, with Evernote being retired
 - The task lists are moving from Evernote to Joplin, gradually. **New tasks
   go in Joplin**, in its "Symphony" notebook. Evernote is read-only: read it,
-  never add to it. "Is X already on the list" means checking both.
+  never add to it. "Is X already on the list" means checking both. If the
+  mirror has no Symphony notebook yet, say so instead of creating one.
 - In Joplin, one note per task, titled with the task. Before adding one,
   check the notebook for a note that already covers it.
 - A task moves from Evernote to Joplin when the owner moves it, not by a
