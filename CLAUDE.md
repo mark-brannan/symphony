@@ -68,11 +68,12 @@ doesn't count: it records what a session did, not what the host now runs.
   with no date yet.
 
 ## priorities.md
-- **Physical boat work is tracked in Evernote, not here.** When the owner asks
-  for a hands-on task — rewiring something, a paint job, a fitting to replace —
-  Evernote is the authoritative list; don't answer from this file and don't add
-  the task to it. What's still listed here overlaps by history, which is fine
-  and gets pruned over time. This file stays authoritative for the SignalK /
+- **Physical boat work is tracked in Joplin and Evernote, not here.** When
+  the owner asks for a hands-on task — rewiring something, a paint job, a
+  fitting to replace — those two are the authoritative list (§ Physical
+  tasks below); don't answer from this file and don't add the task to it.
+  What's still listed here overlaps by history, which is fine and gets
+  pruned over time. This file stays authoritative for the SignalK /
   IoT section.
 - **A human file.** High-level items only, one to a few lines each. Claude
   edits it when real feature-level work completes or the owner asks — never
@@ -123,34 +124,44 @@ doesn't count: it records what a session did, not what the host now runs.
   files — that experiment was rolled back 2026-08-19; those boards are for
   dotfiles work only.
 
-## Evernote (where physical tasks actually live)
-- Sessions can read and write Evernote directly. The MCP tools
-  (`create_task`, `search_tasks`, `search_notes`, `get_note`, …) are
+## Physical tasks: Joplin, with Evernote being retired
+- The task lists are moving from Evernote to Joplin, gradually. **New tasks
+  go in Joplin**, in its "Symphony" notebook. Evernote is read-only: read it,
+  never add to it. "Is X already on the list" means checking both.
+- A task moves from Evernote to Joplin when the owner moves it, not by a
+  session. Once Evernote's Symphony notebook is empty, the Evernote half of
+  this section goes.
+- Task granularity, in either app: size each task so one person can finish
+  it in a single work session, with few interdependent steps — ADHD-friendly
+  sizing, per the owner's explicit ask (made twice). "Paint the bilge" is
+  several tasks — de-rust, clean, prime, paint — not one.
+
+### Joplin
+- Sessions reach Joplin through its Markdown mirror in the private state
+  repo, `joplin/`, kept in step by `joplin-md-sync` (the `joplin-git-bridge`
+  job syncs and commits it). Read and write the Markdown there; the bridge
+  carries it to Joplin. Its last run, exit code included, is in
+  `~/.local/state/joplin-git-bridge/last-run.json`; if it failed, say so
+  rather than treating the mirror as current.
+
+### Evernote (read-only)
+- Sessions can read Evernote directly. The MCP tools
+  (`search_tasks`, `search_notes`, `get_note`, …) are
   **deferred** — they appear by name in the deferred-tools list, currently
   prefixed `mcp__38e9d000-…`, and must be loaded with ToolSearch
   (`select:<full tool name>`) before calling. If no such tools are in the
   deferred list, the connector isn't attached to your session; say so
   instead of improvising.
-- Everything is in the "Symphony" notebook. The task notes:
+- Everything is in its "Symphony" notebook. The task notes:
   - **"Symphony Important Tasks"** — the priority list and the catchall,
-    both (owner's description). Default destination for a new physical
-    task unless a per-system note clearly fits better. Note GUID
+    both (owner's description). Note GUID
     `8a3a821c-90b4-e29b-db37-6b261d0dbfec` — pass this directly to
-    `get_note`/`create_task` rather than re-resolving it via `search_notes`.
+    `get_note` rather than re-resolving it via `search_notes`.
   - "Symphony Electrical Tasks", "Symphony Plumbing Tasks", "Symphony
     Rigging Tasks", "Symphony Clean/Paint/Finish", "Symphony Woody Tasks" —
     per-system lists.
-- To add a task to an existing list: `get_note` for the note, take a task
-  group id from the ENML placeholder (`--en-id:` in the group div), pass it
-  as `taskGroupNoteLevelId` to `create_task`. Omitting the group id creates
-  a new group at the end of the note, which clutters — reuse the existing
-  group.
 - `search_tasks` is a case-insensitive substring match on task labels and
   is the quick answer to "is X already on the list."
-- Task granularity: size each task so one person can finish it in a single
-  work session, with few interdependent steps — ADHD-friendly sizing, per
-  the owner's explicit ask (made twice). "Paint the bilge" is several
-  tasks — de-rust, clean, prime, paint — not one.
 
 ## reference/specs.md
 - Flat `key: value` list, one item per bullet (plain consecutive lines
