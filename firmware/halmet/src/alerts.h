@@ -27,8 +27,10 @@ struct Inputs {
 
 // What to put on the hardware; anything not flagged stays as it is.
 struct Writes {
-  bool segment = false;
+  bool segment = false;  // the RPM display: RPM, Hot, Err, FIrE
   uint8_t pattern[4]{};
+  bool hours_segment = false;  // the hours display: engine hours, FIrE
+  uint8_t hours_pattern[4]{};
   bool row6 = false;
   std::string row6_text;
   bool row7 = false;
@@ -36,14 +38,14 @@ struct Writes {
   int8_t piezo = -1;  // -1 untouched, 0 off, 1 on
 };
 
-// The segment display, OLED rows 6-7 and the piezo, drawn only on a change.
+// The two segment displays, OLED rows 6-7 and the piezo, drawn only on a change.
 class Panel {
  public:
   // The flame input changed: onset latches the alarm at once.
   Writes Seen(uint32_t now_ms, bool seen);
   // Every 20 ms: the flash burst, the hold and the clearing countdown.
   Writes FlameTick(uint32_t now_ms, bool seen, const FlameTiming& t);
-  // Every 1 s: the segment number or alert word, and the alert rows.
+  // Every 1 s: the segment numbers or alert word, and the alert rows.
   Writes SecondTick(const Inputs& in);
   bool flame_alarm() const { return flame_alarm_; }
 
@@ -61,6 +63,7 @@ class Panel {
 
   uint32_t tick_ = 0;
   uint8_t shown_[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+  uint8_t shown_hours_[4] = {0xFF, 0xFF, 0xFF, 0xFF};
   uint32_t alt_low_since_ = 0;
   std::string row6_, row7_;
 };

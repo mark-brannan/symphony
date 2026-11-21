@@ -30,6 +30,10 @@ const gpio_num_t kOneWirePin = GPIO_NUM_4;
 // the schematic): DIO on pin 5, CLK on pin 7, per the enclosure wiring table.
 const int kSegmentDioPin = GPIO_NUM_17;
 const int kSegmentClkPin = GPIO_NUM_16;
+// The second TM1637 shares CLK, 3V3 and GND with the first and has its own DIO,
+// on J201 (IO5, the only other free output pin). The first shows RPM, the
+// second engine hours.
+const int kHoursDioPin = GPIO_NUM_5;
 
 // IR flame module (LM393) DO, on J201 header pin 10. A 3.3 V module inside the
 // enclosure needs no isolated D input. GPIO 34 is input-only with no internal

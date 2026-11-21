@@ -28,6 +28,10 @@ def segments(world):
     return [s["segment"] for s in world.watched()]
 
 
+def hours_shown(world):
+    return [s["hours_segment"] for s in world.watched()]
+
+
 def rows(world, row):
     return [s[f"row{row}"] for s in world.watched()]
 
@@ -209,6 +213,39 @@ def countdown_ends(world):
 @then(parsers.parse('the segment display shows "{text}" every second'))
 def segment_every_second(world, text):
     assert set(segments(world)) == {text}
+
+
+@then(parsers.re(r'the hours display shows "(?P<text>[^"]*)" every second(?:, _ being a blank)?$'))
+def hours_every_second(world, text):
+    assert set(hours_shown(world)) == {text.replace("_", " ")}
+
+
+@then(parsers.re(r'the hours display shows "(?P<text>[^"]*)"$'))
+def hours_shows(world, text):
+    assert text in hours_shown(world)
+
+
+@then("the hours display is unchanged")
+def hours_unchanged(world):
+    shown = set(hours_shown(world))
+    assert len(shown) == 1 and shown != {"    "}, shown
+
+
+@then(parsers.re(r'the hours display never shows "(?P<a>[^"]*)"(?: or "(?P<b>[^"]*)")?$'))
+def hours_never(world, a, b):
+    shown = set(hours_shown(world))
+    assert a not in shown and b not in shown, shown
+
+
+@then(parsers.parse('the hours display flashes "{text}" with it'))
+def hours_flashes(world, text):
+    seq = [s["hours_segment"] for s in world.steps]
+    assert [v for v, _ in runs(seq)][:4] == [text, "    ", text, "    "], runs(seq)[:4]
+
+
+@then(parsers.parse('the hours display returns to "{text}"'))
+def hours_return(world, text):
+    assert set(hours_shown(world)) == {text}
 
 
 @then(parsers.parse('the segment display shows "{text}" for 1 second in every 4'))

@@ -23,6 +23,8 @@ struct CInputs {
 struct CWrites {
   int segment;
   uint8_t pattern[4];
+  int hours_segment;
+  uint8_t hours_pattern[4];
   int row6;
   char row6_text[40];
   int row7;
@@ -34,6 +36,8 @@ static void Out(const Writes& w, CWrites* out) {
   std::memset(out, 0, sizeof *out);
   out->segment = w.segment;
   std::memcpy(out->pattern, w.pattern, 4);
+  out->hours_segment = w.hours_segment;
+  std::memcpy(out->hours_pattern, w.hours_pattern, 4);
   out->row6 = w.row6;
   std::strncpy(out->row6_text, w.row6_text.c_str(), sizeof out->row6_text - 1);
   out->row7 = w.row7;
