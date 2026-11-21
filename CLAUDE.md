@@ -290,9 +290,8 @@ doesn't count: it records what a session did, not what the host now runs.
   This covers spare hardware paths, fallback services and duplicate config.
 
 ## Working style, generally
-- No unsolicited notes, hedges, or "this may have changed" commentary
-  embedded in any doc — flag uncertainty in conversation, keep the files
-  themselves clean and current.
+- Keep docs clean and current; flag uncertainty in conversation, not in the
+  file. The one exception is a labelled guess in `research/`.
 - Ambiguity in old records (multiple sources disagreeing, unclear dates)
   gets flagged to the owner rather than silently resolved by guessing.
 
