@@ -139,10 +139,13 @@ doesn't count: it records what a session did, not what the host now runs.
 ### Joplin
 - Sessions reach Joplin through its Markdown mirror in the private state
   repo, `joplin/`, kept in step by `joplin-md-sync` (the `joplin-git-bridge`
-  job syncs and commits it). Read and write the Markdown there; the bridge
-  carries it to Joplin. Its last run, exit code included, is in
-  `~/.local/state/joplin-git-bridge/last-run.json`; if it failed, say so
-  rather than treating the mirror as current.
+  job runs a two-way `sync` and commits it). Read and write the Markdown
+  there. A task counts as added once a bridge run after its commit exits 0,
+  not when the Markdown is committed. The last run, exit code included, is
+  in `~/.local/state/joplin-git-bridge/last-run.json`; if it failed, say so
+  rather than treating the mirror as current. A session without that file
+  (a cloud one) names the date of the last state-repo commit touching
+  `joplin/` when it reports from the mirror.
 
 ### Evernote (read-only)
 - Sessions can read Evernote directly. The MCP tools
