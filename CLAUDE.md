@@ -134,16 +134,19 @@ doesn't count: it records what a session did, not what the host now runs.
 - A task moves from Evernote to Joplin when the owner moves it, not by a
   session. Once Evernote's Symphony notebook is empty, the Evernote half of
   this section goes.
-- Task granularity, in either app: size each task so one person can finish
-  it in a single work session, with few interdependent steps — ADHD-friendly
-  sizing, per the owner's explicit ask (made twice). "Paint the bilge" is
-  several tasks — de-rust, clean, prime, paint — not one.
+- Task granularity: size each task so one person can finish it in a single
+  work session, with few interdependent steps — ADHD-friendly sizing, per the
+  owner's explicit ask (made twice). "Paint the bilge" is several tasks —
+  de-rust, clean, prime, paint — not one.
 
 ### Joplin
 - Sessions reach Joplin through its Markdown mirror in the private state
   repo, `joplin/`, kept in step by `joplin-md-sync` (the `joplin-git-bridge`
   job runs a two-way `sync` and commits it). Read and write the Markdown
-  there. A task counts as added once a bridge run after its commit exits 0,
+  there. The Symphony notebook is `joplin/Symphony/`. A new task is a new
+  `<task title>.md` there with no header: the sync takes the title from the
+  filename and writes the header itself. Never copy a sibling's header; its
+  id would claim that note. A task counts as added once a bridge run after its commit exits 0,
   not when the Markdown is committed. The last run, exit code included, is
   in `~/.local/state/joplin-git-bridge/last-run.json`; if it failed, say so
   rather than treating the mirror as current. A session without that file

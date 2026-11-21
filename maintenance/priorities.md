@@ -2,8 +2,9 @@
 
 Physical boat work — anything hands-on that isn't SignalK or embedded software
 — is tracked in Joplin (moving over from Evernote), not here. That's the
-authoritative list for what Mark is actually working on aboard. This file is not the place to look up or
-add a physical task, and the two overlapping in the short term is fine.
+authoritative list for what Mark is actually working on aboard. This file is
+not the place to look up or add a physical task, and the two overlapping in
+the short term is fine.
 
 This file is for humans. High-level items only. Claude-session micro-tasks,
 blocked questions, and detailed working state live in
