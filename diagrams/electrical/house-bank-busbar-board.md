@@ -15,6 +15,8 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
   giving up the 12 in dimension before the 18 in one.
 - B3. Splitting the assembly across boards SHOULD NOT force a complicated
   pattern; the layout stays simple.
+- B4. The two positive boards SHALL butt edge to edge, or with a small gap,
+  so they sit level; neither overlaps the other.
 
 ## Bars
 

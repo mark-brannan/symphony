@@ -1,175 +1,267 @@
-<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 726.65 551.8' font-family='DejaVu Sans, Helvetica, Arial, sans-serif'>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 689.55 577.8' font-family='DejaVu Sans, Helvetica, Arial, sans-serif'>
 <rect width='100%' height='100%' fill='#ffffff'/>
-<g transform='translate(46,26)'>
-<rect x='0.00' y='0.00' width='400.05' height='203.20' fill='#f7f7f2' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<rect x='430.05' y='0.00' width='228.60' height='139.70' fill='#f7f7f2' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<g transform='translate(60,32)'>
+<rect x='0.00' y='0.00' width='361.95' height='203.20' fill='#f7f7f2' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<rect x='364.95' y='0.00' width='228.60' height='139.70' fill='#f7f7f2' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
 <rect x='0.00' y='237.20' width='262.00' height='144.00' fill='#f7f7f2' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<rect x='92.28' y='28.28' width='74.93' height='74.93' fill='#9ccc9c' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='129.75' y='65.75' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<circle cx='129.75' cy='65.75' r='24.00' fill='#c4e3c4' stroke='#111111' stroke-width='0.35'/>
-<text x='129.75' y='67.25' font-size='4.2' text-anchor='middle' fill='#111111'>Master switch</text>
-<circle cx='102.12' cy='38.12' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='102.12' cy='93.38' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='157.37' cy='38.12' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='157.37' cy='93.38' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='129.75' cy='43.50' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='129.75' cy='43.50' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='129.75' cy='88.00' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='129.75' cy='88.00' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<rect x='92.28' y='112.25' width='74.93' height='74.93' fill='#9ccc9c' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
-<text x='129.75' y='149.72' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<circle cx='129.75' cy='149.72' r='24.00' fill='#c4e3c4' stroke='#111111' stroke-width='0.35'/>
-<text x='129.75' y='120.75' font-size='4.2' text-anchor='middle' fill='#111111'>Service disconnect</text>
-<circle cx='102.12' cy='122.09' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='102.12' cy='177.34' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='157.37' cy='122.09' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='157.37' cy='177.34' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='107.50' cy='149.72' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='107.50' cy='149.72' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='152.00' cy='149.72' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='152.00' cy='149.72' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<rect x='6.00' y='6.51' width='81.28' height='48.13' fill='#cfcfcf' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='46.64' y='30.58' font-size='4.6' text-anchor='middle' fill='#111111'>60 A house</text>
-<circle cx='78.19' cy='43.50' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='78.19' cy='43.50' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='15.09' cy='17.66' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='15.09' cy='17.66' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='74.96' cy='17.24' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='18.32' cy='43.91' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='6.00' y='76.86' width='81.28' height='48.13' fill='#cfcfcf' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='46.64' y='100.92' font-size='4.6' text-anchor='middle' fill='#111111'>60 A always-on</text>
-<circle cx='78.19' cy='88.00' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='78.19' cy='88.00' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='15.09' cy='113.84' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='15.09' cy='113.84' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='74.96' cy='114.25' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='18.32' cy='87.59' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='6.00' y='138.57' width='81.28' height='48.13' fill='#cfcfcf' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
-<text x='46.64' y='162.64' font-size='4.6' text-anchor='middle' fill='#111111'>inverter breaker (rating open)</text>
-<circle cx='78.19' cy='149.72' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='78.19' cy='149.72' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='15.09' cy='175.56' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='15.09' cy='175.56' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='74.96' cy='175.97' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='18.32' cy='149.30' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='170.79' y='61.71' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
-<text x='189.84' y='118.86' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<rect x='178.75' y='78.36' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='175.84' y='118.71' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 175.84 118.71)'>Inverter/charger</text>
-<circle cx='189.84' cy='88.00' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='189.84' cy='88.00' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='189.84' cy='149.72' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='189.84' cy='149.72' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='189.84' cy='69.64' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='189.84' cy='168.08' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='214.79' y='61.71' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
-<text x='233.84' y='118.86' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<rect x='222.75' y='78.36' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='219.84' y='139.71' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 219.84 139.71)'>Solar (planned, type open)</text>
-<circle cx='233.84' cy='88.00' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='233.84' cy='88.00' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='233.84' cy='149.72' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='233.84' cy='149.72' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='233.84' cy='69.64' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='233.84' cy='168.08' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='258.80' y='61.71' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
-<text x='277.85' y='118.86' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<rect x='266.75' y='78.36' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='263.85' y='139.71' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 263.85 139.71)'>2nd charger (type open)</text>
-<circle cx='277.85' cy='88.00' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='277.85' cy='88.00' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='277.85' cy='149.72' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='277.85' cy='149.72' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='277.85' cy='69.64' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='277.85' cy='168.08' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='302.80' y='61.71' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='321.85' y='118.86' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<rect x='310.75' y='78.36' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='307.85' y='139.71' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 307.85 139.71)'>ANL 60 A  DC-DC</text>
-<circle cx='321.85' cy='88.00' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='321.85' cy='88.00' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='321.85' cy='149.72' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='321.85' cy='149.72' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='321.85' cy='69.64' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='321.85' cy='168.08' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='65.69' y='75.50' width='327.41' height='25.00' fill='#d9925a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
-<circle cx='78.19' cy='88.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='129.75' cy='88.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='189.84' cy='88.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='233.84' cy='88.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='277.85' cy='88.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='321.85' cy='88.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='353.60' cy='88.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='380.60' cy='88.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<text x='211.84' y='82.50' font-size='4.4' text-anchor='middle' fill='#111111'>UNSWITCHED + BAR</text>
-<circle cx='380.60' cy='88.00' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='380.60' cy='88.00' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<text x='353.60' y='72.50' font-size='3.8' text-anchor='middle' fill='#111111'>spare</text>
-<text x='380.60' y='72.50' font-size='3.8' text-anchor='middle' fill='#111111'>feed</text>
-<rect x='68.19' y='33.50' width='71.56' height='20.00' fill='#e8b07a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
-<circle cx='78.19' cy='43.50' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='129.75' cy='43.50' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<rect x='68.19' y='139.72' width='49.31' height='20.00' fill='#e8b07a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
-<circle cx='78.19' cy='149.72' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='107.50' cy='149.72' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<rect x='139.50' y='137.22' width='62.85' height='25.00' fill='#e8b07a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
-<circle cx='152.00' cy='149.72' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='189.84' cy='149.72' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<rect x='436.05' y='12.50' width='40.00' height='100.00' fill='#e8837a' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='456.05' y='62.50' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<rect x='443.35' y='27.55' width='25.40' height='69.90' fill='#fde0dc' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='440.55' y='62.50' font-size='4.2' text-anchor='middle' fill='#111111' transform='rotate(-90 440.55 62.50)'>Class T</text>
-<circle cx='456.05' cy='39.10' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='456.05' cy='39.10' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='456.05' cy='85.90' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='456.05' cy='85.90' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<rect x='481.00' y='12.81' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='500.05' y='69.96' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<rect x='488.95' y='29.46' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='486.05' y='90.81' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 486.05 90.81)'>ANL  battery 1</text>
-<circle cx='500.05' cy='39.10' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='500.05' cy='39.10' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='500.05' cy='100.82' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='500.05' cy='100.82' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='500.05' cy='20.74' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='500.05' cy='119.18' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='525.00' y='12.81' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='544.05' y='69.96' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<rect x='532.95' y='29.46' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='530.05' y='90.81' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 530.05 90.81)'>ANL  battery 2</text>
-<circle cx='544.05' cy='39.10' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='544.05' cy='39.10' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='544.05' cy='100.82' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='544.05' cy='100.82' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='544.05' cy='20.74' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='544.05' cy='119.18' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='569.00' y='12.81' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
-<text x='588.05' y='69.96' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<rect x='576.95' y='29.46' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='574.05' y='90.81' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 574.05 90.81)'>ANL  battery 3 (future)</text>
-<circle cx='588.05' cy='39.10' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='588.05' cy='39.10' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='588.05' cy='100.82' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='588.05' cy='100.82' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='588.05' cy='20.74' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='588.05' cy='119.18' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='613.00' y='12.81' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
-<text x='632.05' y='69.96' font-size='4.6' text-anchor='middle' fill='#111111'></text>
-<rect x='620.95' y='29.46' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
-<text x='618.05' y='90.81' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 618.05 90.81)'>ANL  battery 4 (future)</text>
-<circle cx='632.05' cy='39.10' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='632.05' cy='39.10' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='632.05' cy='100.82' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='632.05' cy='100.82' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
-<circle cx='632.05' cy='20.74' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<circle cx='632.05' cy='119.18' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
-<rect x='443.55' y='26.60' width='201.50' height='25.00' fill='#d9925a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
-<circle cx='456.05' cy='39.10' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='500.05' cy='39.10' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='544.05' cy='39.10' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='588.05' cy='39.10' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<circle cx='632.05' cy='39.10' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
-<text x='566.05' y='33.60' font-size='4.4' text-anchor='middle' fill='#111111'>BATTERY + BAR</text>
+<rect x='85.00' y='32.28' width='74.93' height='74.93' fill='#9ccc9c' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='122.47' y='69.75' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<circle cx='122.47' cy='69.75' r='24.00' fill='#c4e3c4' stroke='#111111' stroke-width='0.35'/>
+<text x='122.47' y='71.25' font-size='4.2' text-anchor='middle' fill='#111111'>Master switch</text>
+<circle cx='94.84' cy='42.12' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='94.84' cy='97.38' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='150.09' cy='42.12' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='150.09' cy='97.38' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='122.47' cy='47.50' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='122.47' cy='47.50' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='122.47' cy='92.00' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='122.47' cy='92.00' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<rect x='85.00' y='116.25' width='74.93' height='74.93' fill='#9ccc9c' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
+<text x='122.47' y='153.72' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<circle cx='122.47' cy='153.72' r='24.00' fill='#c4e3c4' stroke='#111111' stroke-width='0.35'/>
+<text x='122.47' y='124.75' font-size='4.2' text-anchor='middle' fill='#111111'>Service disconnect</text>
+<circle cx='94.84' cy='126.09' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='94.84' cy='181.34' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='150.09' cy='126.09' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='150.09' cy='181.34' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='100.22' cy='153.72' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='100.22' cy='153.72' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='144.72' cy='153.72' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='144.72' cy='153.72' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<rect x='6.00' y='3.00' width='74.00' height='48.40' fill='#cfcfcf' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='43.00' y='27.20' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<text x='46.00' y='10.00' font-size='3.6' text-anchor='middle' fill='#111111'>60 A house</text>
+<circle cx='74.00' cy='38.95' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='74.00' cy='38.95' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='12.00' cy='15.45' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='12.00' cy='15.45' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='71.35' cy='12.05' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='14.65' cy='42.35' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<text x='74.00' y='31.95' font-size='3.2' text-anchor='middle' fill='#111111'>BAT</text>
+<text x='12.00' y='24.95' font-size='3.2' text-anchor='middle' fill='#111111'>LOAD</text>
+<rect x='6.00' y='56.05' width='74.00' height='48.40' fill='#cfcfcf' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='43.00' y='80.25' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<text x='46.00' y='63.05' font-size='3.6' text-anchor='middle' fill='#111111'>60 A always-on</text>
+<circle cx='74.00' cy='92.00' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='74.00' cy='92.00' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='12.00' cy='68.50' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='12.00' cy='68.50' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='71.35' cy='65.10' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='14.65' cy='95.40' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<text x='74.00' y='85.00' font-size='3.2' text-anchor='middle' fill='#111111'>BAT</text>
+<text x='12.00' y='78.00' font-size='3.2' text-anchor='middle' fill='#111111'>LOAD</text>
+<rect x='6.00' y='117.77' width='74.00' height='48.40' fill='#cfcfcf' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
+<text x='43.00' y='141.97' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<text x='46.00' y='124.77' font-size='3.6' text-anchor='middle' fill='#111111'>inverter breaker (rating open)</text>
+<circle cx='74.00' cy='153.72' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='74.00' cy='153.72' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='12.00' cy='130.22' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='12.00' cy='130.22' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='71.35' cy='126.82' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='14.65' cy='157.12' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<text x='74.00' y='146.72' font-size='3.2' text-anchor='middle' fill='#111111'>BAT</text>
+<text x='12.00' y='139.72' font-size='3.2' text-anchor='middle' fill='#111111'>LOAD</text>
+<rect x='163.51' y='65.71' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
+<text x='182.56' y='122.86' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<rect x='171.47' y='82.36' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='168.56' y='122.71' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 168.56 122.71)'>MultiPlus 12/500</text>
+<circle cx='182.56' cy='92.00' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='182.56' cy='92.00' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='182.56' cy='153.72' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='182.56' cy='153.72' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='182.56' cy='73.64' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='182.56' cy='172.08' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<rect x='207.51' y='65.71' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
+<text x='226.56' y='122.86' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<rect x='215.47' y='82.36' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='212.56' y='143.71' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 212.56 143.71)'>Solar (planned, type open)</text>
+<circle cx='226.56' cy='92.00' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='226.56' cy='92.00' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='226.56' cy='153.72' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='226.56' cy='153.72' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='226.56' cy='73.64' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='226.56' cy='172.08' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<rect x='251.51' y='65.71' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
+<text x='270.56' y='122.86' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<rect x='259.46' y='82.36' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='256.56' y='143.71' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 256.56 143.71)'>2nd charger (type open)</text>
+<circle cx='270.56' cy='92.00' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='270.56' cy='92.00' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='270.56' cy='153.72' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='270.56' cy='153.72' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='270.56' cy='73.64' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='270.56' cy='172.08' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<rect x='295.51' y='65.71' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='314.56' y='122.86' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<rect x='303.46' y='82.36' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='300.56' y='143.71' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 300.56 143.71)'>ANL 60 A  DC-DC</text>
+<circle cx='314.56' cy='92.00' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='314.56' cy='92.00' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='314.56' cy='153.72' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='314.56' cy='153.72' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='314.56' cy='73.64' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='314.56' cy='172.08' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<rect x='370.95' y='18.60' width='40.00' height='100.00' fill='#e8837a' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='390.95' y='68.60' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<rect x='378.25' y='33.65' width='25.40' height='69.90' fill='#fde0dc' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='375.45' y='68.60' font-size='4.2' text-anchor='middle' fill='#111111' transform='rotate(-90 375.45 68.60)'>Class T</text>
+<circle cx='390.95' cy='45.20' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='390.95' cy='45.20' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='390.95' cy='92.00' r='9.00' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='390.95' cy='92.00' r='5.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<rect x='415.90' y='18.91' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='434.95' y='76.06' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<rect x='423.85' y='35.56' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='420.95' y='96.91' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 420.95 96.91)'>ANL  battery 1</text>
+<circle cx='434.95' cy='45.20' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='434.95' cy='45.20' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='434.95' cy='106.92' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='434.95' cy='106.92' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='434.95' cy='26.84' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='434.95' cy='125.28' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<rect x='459.90' y='18.91' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='478.95' y='76.06' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<rect x='467.85' y='35.56' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='464.95' y='96.91' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 464.95 96.91)'>ANL  battery 2</text>
+<circle cx='478.95' cy='45.20' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='478.95' cy='45.20' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='478.95' cy='106.92' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='478.95' cy='106.92' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='478.95' cy='26.84' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='478.95' cy='125.28' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<rect x='503.90' y='18.91' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
+<text x='522.95' y='76.06' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<rect x='511.85' y='35.56' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='508.95' y='96.91' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 508.95 96.91)'>ANL  battery 3 (future)</text>
+<circle cx='522.95' cy='45.20' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='522.95' cy='45.20' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='522.95' cy='106.92' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='522.95' cy='106.92' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='522.95' cy='26.84' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='522.95' cy='125.28' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<rect x='547.90' y='18.91' width='38.10' height='114.30' fill='#f2b84b' stroke='#111111' stroke-width='0.5' fill-opacity='1' stroke-dasharray='3 2'/>
+<text x='566.95' y='76.06' font-size='4.6' text-anchor='middle' fill='#111111'></text>
+<rect x='555.85' y='35.56' width='22.20' height='81.00' fill='#fff3d0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
+<text x='552.95' y='96.91' font-size='3.8' text-anchor='middle' fill='#111111' transform='rotate(-90 552.95 96.91)'>ANL  battery 4 (future)</text>
+<circle cx='566.95' cy='45.20' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='566.95' cy='45.20' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='566.95' cy='106.92' r='7.20' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='566.95' cy='106.92' r='4.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
+<circle cx='566.95' cy='26.84' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<circle cx='566.95' cy='125.28' r='2.50' fill='#ffffff' stroke='#111111' stroke-width='0.35'/>
+<rect x='378.45' y='32.70' width='201.50' height='25.00' fill='#d9925a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
+<circle cx='390.95' cy='45.20' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='434.95' cy='45.20' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='478.95' cy='45.20' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='522.95' cy='45.20' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='566.95' cy='45.20' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<text x='500.95' y='39.70' font-size='4.4' text-anchor='middle' fill='#111111'>BATTERY + BAR</text>
+<rect x='61.50' y='79.50' width='341.95' height='25.00' fill='#d9925a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
+<circle cx='74.00' cy='92.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='122.47' cy='92.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='182.56' cy='92.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='226.56' cy='92.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='270.56' cy='92.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='314.56' cy='92.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='346.31' cy='92.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='390.95' cy='92.00' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<text x='204.56' y='86.50' font-size='4.4' text-anchor='middle' fill='#111111'>UNSWITCHED + BAR</text>
+<text x='346.31' y='76.50' font-size='3.8' text-anchor='middle' fill='#111111'>spare</text>
+<rect x='64.00' y='33.23' width='68.47' height='20.00' fill='#e8b07a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
+<circle cx='74.00' cy='38.95' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='122.47' cy='47.50' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<rect x='64.00' y='143.72' width='46.22' height='20.00' fill='#e8b07a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
+<circle cx='74.00' cy='153.72' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='100.22' cy='153.72' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<rect x='132.22' y='141.22' width='62.85' height='25.00' fill='#e8b07a' stroke='#111111' stroke-width='0.5' fill-opacity='0.78'/>
+<circle cx='144.72' cy='153.72' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<circle cx='182.56' cy='153.72' r='2.20' fill='#5a3a1a' stroke='#111111' stroke-width='0.35'/>
+<line x1='0.00' y1='-3.00' x2='0.00' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='74.00' y1='89.00' x2='74.00' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='122.47' y1='89.00' x2='122.47' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='182.56' y1='89.00' x2='182.56' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='226.56' y1='89.00' x2='226.56' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='270.56' y1='89.00' x2='270.56' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='314.56' y1='89.00' x2='314.56' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='346.31' y1='89.00' x2='346.31' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='390.95' y1='89.00' x2='390.95' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='434.95' y1='42.20' x2='434.95' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='478.95' y1='42.20' x2='478.95' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='522.95' y1='42.20' x2='522.95' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='566.95' y1='42.20' x2='566.95' y2='-10.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='0.00' y1='-8.00' x2='74.00' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='37.00' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>74.0</text>
+<line x1='74.00' y1='-8.00' x2='122.47' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='98.23' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>48.5</text>
+<line x1='122.47' y1='-8.00' x2='182.56' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='152.51' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>60.1</text>
+<line x1='182.56' y1='-8.00' x2='226.56' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='204.56' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='226.56' y1='-8.00' x2='270.56' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='248.56' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='270.56' y1='-8.00' x2='314.56' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='292.56' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='314.56' y1='-8.00' x2='346.31' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='330.44' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>31.8</text>
+<line x1='346.31' y1='-8.00' x2='390.95' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='368.63' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>44.6</text>
+<line x1='390.95' y1='-8.00' x2='434.95' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='412.95' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='434.95' y1='-8.00' x2='478.95' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='456.95' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='478.95' y1='-8.00' x2='522.95' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='500.95' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='522.95' y1='-8.00' x2='566.95' y2='-8.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='544.95' y='-9.20' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='-1.20' y1='-6.80' x2='1.20' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='72.80' y1='-6.80' x2='75.20' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='121.27' y1='-6.80' x2='123.67' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='181.37' y1='-6.80' x2='183.76' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='225.37' y1='-6.80' x2='227.76' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='269.37' y1='-6.80' x2='271.76' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='313.37' y1='-6.80' x2='315.76' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='345.12' y1='-6.80' x2='347.51' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='389.75' y1='-6.80' x2='392.15' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='433.75' y1='-6.80' x2='436.15' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='477.75' y1='-6.80' x2='480.15' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='521.75' y1='-6.80' x2='524.15' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='565.75' y1='-6.80' x2='568.15' y2='-9.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='579.95' y1='0.00' x2='605.55' y2='0.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='602.35' y1='1.20' x2='604.75' y2='-1.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='579.95' y1='45.20' x2='605.55' y2='45.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='602.35' y1='46.40' x2='604.75' y2='44.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='579.95' y1='92.00' x2='605.55' y2='92.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='602.35' y1='93.20' x2='604.75' y2='90.80' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='579.95' y1='139.70' x2='605.55' y2='139.70' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='602.35' y1='140.90' x2='604.75' y2='138.50' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='603.55' y1='0.00' x2='603.55' y2='45.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='602.35' y='22.60' font-size='3.2' text-anchor='middle' fill='#111111' transform='rotate(-90 602.35 22.60)'>45.2</text>
+<line x1='603.55' y1='45.20' x2='603.55' y2='92.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='602.35' y='68.60' font-size='3.2' text-anchor='middle' fill='#111111' transform='rotate(-90 602.35 68.60)'>46.8</text>
+<line x1='603.55' y1='92.00' x2='603.55' y2='139.70' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='602.35' y='115.85' font-size='3.2' text-anchor='middle' fill='#111111' transform='rotate(-90 602.35 115.85)'>47.7</text>
+<line x1='-40.00' y1='0.00' x2='-44.00' y2='0.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='-47.20' y1='1.20' x2='-44.80' y2='-1.20' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='-40.00' y1='38.95' x2='-44.00' y2='38.95' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='-47.20' y1='40.15' x2='-44.80' y2='37.75' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='-40.00' y1='47.50' x2='-44.00' y2='47.50' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='-47.20' y1='48.70' x2='-44.80' y2='46.30' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='-40.00' y1='92.00' x2='-44.00' y2='92.00' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='-47.20' y1='93.20' x2='-44.80' y2='90.80' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='-40.00' y1='153.72' x2='-44.00' y2='153.72' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='-47.20' y1='154.92' x2='-44.80' y2='152.52' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='-40.00' y1='203.20' x2='-44.00' y2='203.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='-47.20' y1='204.40' x2='-44.80' y2='202.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='-46.00' y1='0.00' x2='-46.00' y2='38.95' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='-47.20' y='19.48' font-size='3.2' text-anchor='middle' fill='#111111' transform='rotate(-90 -47.20 19.48)'>39.0</text>
+<line x1='-46.00' y1='38.95' x2='-46.00' y2='47.50' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='-47.20' y='43.23' font-size='3.2' text-anchor='middle' fill='#111111' transform='rotate(-90 -47.20 43.23)'>8.5</text>
+<line x1='-46.00' y1='47.50' x2='-46.00' y2='92.00' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='-47.20' y='69.75' font-size='3.2' text-anchor='middle' fill='#111111' transform='rotate(-90 -47.20 69.75)'>44.5</text>
+<line x1='-46.00' y1='92.00' x2='-46.00' y2='153.72' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='-47.20' y='122.86' font-size='3.2' text-anchor='middle' fill='#111111' transform='rotate(-90 -47.20 122.86)'>61.7</text>
+<line x1='-46.00' y1='153.72' x2='-46.00' y2='203.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='-47.20' y='178.46' font-size='3.2' text-anchor='middle' fill='#111111' transform='rotate(-90 -47.20 178.46)'>49.5</text>
 <rect x='39.50' y='249.20' width='25.00' height='120.00' fill='#7fb3e6' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
 <text x='52.00' y='309.20' font-size='4.6' text-anchor='middle' fill='#111111'></text>
 <rect x='12.50' y='271.20' width='27.00' height='76.00' fill='#a9cdf0' stroke='#111111' stroke-width='0.5' fill-opacity='1'/>
@@ -226,71 +318,117 @@
 <circle cx='237.00' cy='281.70' r='5.40' fill='#8a8a8a' stroke='#111111' stroke-width='0.35'/>
 <circle cx='237.00' cy='281.70' r='3.00' fill='#333333' stroke='#111111' stroke-width='0.35'/>
 <text x='239.00' y='266.70' font-size='3.8' text-anchor='start' fill='#111111' transform='rotate(-40 239.00 266.70)'>always-on -</text>
-<text x='200.03' y='-14.00' font-size='5' text-anchor='middle' fill='#111111'>distribution board 400.05 x 203.2, 15.75 x 8 in, from a 12 x 18 in sheet</text>
-<text x='544.35' y='-14.00' font-size='5' text-anchor='middle' fill='#111111'>battery board 228.6 x 139.7, 9 x 5.5 in</text>
-<text x='500.05' y='146.70' font-size='3.8' text-anchor='middle' fill='#111111'>B1+</text>
-<text x='544.05' y='146.70' font-size='3.8' text-anchor='middle' fill='#111111'>B2+</text>
-<text x='588.05' y='146.70' font-size='3.8' text-anchor='middle' fill='#111111'>B3+</text>
-<text x='632.05' y='146.70' font-size='3.8' text-anchor='middle' fill='#111111'>B4+</text>
-<text x='566.05' y='153.70' font-size='4.6' text-anchor='middle' fill='#111111'>battery + leads leave the bottom edge</text>
-<text x='456.05' y='146.70' font-size='3.8' text-anchor='middle' fill='#111111'>to feed</text>
-<text x='-3.00' y='19.16' font-size='4.6' text-anchor='end' fill='#111111'>house lead</text>
-<text x='-3.00' y='115.34' font-size='4.6' text-anchor='end' fill='#111111'>always-on lead</text>
-<text x='-3.00' y='177.06' font-size='4.6' text-anchor='end' fill='#111111'>inverter lead</text>
-<text x='255.85' y='210.20' font-size='4.6' text-anchor='middle' fill='#111111'>unswitched leads leave the bottom edge</text>
-<text x='380.60' y='210.20' font-size='3.8' text-anchor='middle' fill='#111111'>feed cable from the Class T</text>
+<line x1='0.00' y1='384.20' x2='0.00' y2='391.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='52.00' y1='339.70' x2='52.00' y2='391.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='82.00' y1='339.70' x2='82.00' y2='391.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='126.00' y1='339.70' x2='126.00' y2='391.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='170.00' y1='339.70' x2='170.00' y2='391.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='214.00' y1='339.70' x2='214.00' y2='391.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='0.00' y1='389.20' x2='52.00' y2='389.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='26.00' y='388.00' font-size='3.2' text-anchor='middle' fill='#111111'>52.0</text>
+<line x1='52.00' y1='389.20' x2='82.00' y2='389.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='67.00' y='388.00' font-size='3.2' text-anchor='middle' fill='#111111'>30.0</text>
+<line x1='82.00' y1='389.20' x2='126.00' y2='389.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='104.00' y='388.00' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='126.00' y1='389.20' x2='170.00' y2='389.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='148.00' y='388.00' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='170.00' y1='389.20' x2='214.00' y2='389.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='192.00' y='388.00' font-size='3.2' text-anchor='middle' fill='#111111'>44.0</text>
+<line x1='-1.20' y1='390.40' x2='1.20' y2='388.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='50.80' y1='390.40' x2='53.20' y2='388.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='80.80' y1='390.40' x2='83.20' y2='388.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='124.80' y1='390.40' x2='127.20' y2='388.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='168.80' y1='390.40' x2='171.20' y2='388.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='212.80' y1='390.40' x2='215.20' y2='388.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='52.00' y1='284.70' x2='52.00' y2='403.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='87.00' y1='284.70' x2='87.00' y2='403.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='117.00' y1='284.70' x2='117.00' y2='403.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='147.00' y1='284.70' x2='147.00' y2='403.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='177.00' y1='284.70' x2='177.00' y2='403.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='207.00' y1='284.70' x2='207.00' y2='403.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='237.00' y1='284.70' x2='237.00' y2='403.20' stroke='#1f5fbf' stroke-width='0.2' stroke-dasharray='2 1.5'/>
+<line x1='52.00' y1='401.20' x2='87.00' y2='401.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='69.50' y='400.00' font-size='3.2' text-anchor='middle' fill='#111111'>35.0</text>
+<line x1='87.00' y1='401.20' x2='117.00' y2='401.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='102.00' y='400.00' font-size='3.2' text-anchor='middle' fill='#111111'>30.0</text>
+<line x1='117.00' y1='401.20' x2='147.00' y2='401.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='132.00' y='400.00' font-size='3.2' text-anchor='middle' fill='#111111'>30.0</text>
+<line x1='147.00' y1='401.20' x2='177.00' y2='401.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='162.00' y='400.00' font-size='3.2' text-anchor='middle' fill='#111111'>30.0</text>
+<line x1='177.00' y1='401.20' x2='207.00' y2='401.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='192.00' y='400.00' font-size='3.2' text-anchor='middle' fill='#111111'>30.0</text>
+<line x1='207.00' y1='401.20' x2='237.00' y2='401.20' stroke='#1f5fbf' stroke-width='0.3'/>
+<text x='222.00' y='400.00' font-size='3.2' text-anchor='middle' fill='#111111'>30.0</text>
+<line x1='50.80' y1='402.40' x2='53.20' y2='400.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='85.80' y1='402.40' x2='88.20' y2='400.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='115.80' y1='402.40' x2='118.20' y2='400.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='145.80' y1='402.40' x2='148.20' y2='400.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='175.80' y1='402.40' x2='178.20' y2='400.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='205.80' y1='402.40' x2='208.20' y2='400.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<line x1='235.80' y1='402.40' x2='238.20' y2='400.00' stroke='#1f5fbf' stroke-width='0.4'/>
+<text x='180.97' y='-20.00' font-size='5' text-anchor='middle' fill='#111111'>distribution board 361.9 x 203.2, 14.25 x 8 in, from a 12 x 18 in sheet</text>
+<text x='479.25' y='-20.00' font-size='5' text-anchor='middle' fill='#111111'>battery board 228.6 x 139.7, 9 x 5.5 in</text>
+<text x='434.95' y='146.70' font-size='3.8' text-anchor='middle' fill='#111111'>B1+</text>
+<text x='478.95' y='146.70' font-size='3.8' text-anchor='middle' fill='#111111'>B2+</text>
+<text x='522.95' y='146.70' font-size='3.8' text-anchor='middle' fill='#111111'>B3+</text>
+<text x='566.95' y='146.70' font-size='3.8' text-anchor='middle' fill='#111111'>B4+</text>
+<text x='500.95' y='153.70' font-size='4.6' text-anchor='middle' fill='#111111'>battery + leads leave the bottom edge</text>
+<text x='-3.00' y='16.95' font-size='4.6' text-anchor='end' fill='#111111'>house lead</text>
+<text x='-3.00' y='70.00' font-size='4.6' text-anchor='end' fill='#111111'>always-on lead</text>
+<text x='-3.00' y='131.72' font-size='4.6' text-anchor='end' fill='#111111'>inverter lead</text>
+<text x='248.56' y='210.20' font-size='4.6' text-anchor='middle' fill='#111111'>unswitched leads leave the bottom edge</text>
 <text x='268.00' y='283.20' font-size='4.6' text-anchor='start' fill='#111111'>returns leave the top edge</text>
 <text x='268.00' y='335.70' font-size='4.6' text-anchor='start' fill='#111111'>battery - leads leave the bottom edge,</text>
 <text x='268.00' y='342.20' font-size='4.6' text-anchor='start' fill='#111111'>order mirrored from +: B4 nearest the shunt</text>
 <text x='131.00' y='232.20' font-size='5' text-anchor='middle' fill='#111111'>negative board 262 x 144, its own piece</text>
-<text x='0' y='397.2' font-size='4.4' fill='#111111' font-weight='bold'>Copper to cut: length x width, then hole centres from the left end (top end for an upright piece), all on the centreline, mm</text>
-<text x='0' y='403.4' font-size='4.4' fill='#111111'>Unswitched + bar</text>
-<text x='95' y='403.4' font-size='4.4' fill='#111111'>327.4 x 25</text>
-<text x='140' y='403.4' font-size='4.4' fill='#111111'>12.5, 64.1, 124.2, 168.2, 212.2, 256.2, 287.9, 314.9</text>
-<text x='0' y='409.6' font-size='4.4' fill='#111111'>Link, house breaker to master switch</text>
-<text x='95' y='409.6' font-size='4.4' fill='#111111'>71.6 x 20</text>
-<text x='140' y='409.6' font-size='4.4' fill='#111111'>10.0, 61.6</text>
-<text x='0' y='415.8' font-size='4.4' fill='#111111'>Link, service disconnect to inverter breaker</text>
-<text x='95' y='415.8' font-size='4.4' fill='#111111'>49.3 x 20</text>
-<text x='140' y='415.8' font-size='4.4' fill='#111111'>10.0, 39.3</text>
-<text x='0' y='422.0' font-size='4.4' fill='#111111'>Link, inverter fuse to service disconnect</text>
-<text x='95' y='422.0' font-size='4.4' fill='#111111'>62.8 x 25</text>
-<text x='140' y='422.0' font-size='4.4' fill='#111111'>12.5, 50.3</text>
-<text x='0' y='428.2' font-size='4.4' fill='#111111'>Battery + bar</text>
-<text x='95' y='428.2' font-size='4.4' fill='#111111'>201.5 x 25</text>
-<text x='140' y='428.2' font-size='4.4' fill='#111111'>12.5, 56.5, 100.5, 144.5, 188.5</text>
-<text x='0' y='434.4' font-size='4.4' fill='#111111'>Battery - bar</text>
-<text x='95' y='434.4' font-size='4.4' fill='#111111'>187.5 x 25</text>
-<text x='140' y='434.4' font-size='4.4' fill='#111111'>12.5, 42.5, 86.5, 130.5, 174.5</text>
-<text x='0' y='440.6' font-size='4.4' fill='#111111'>Returns - bar</text>
-<text x='95' y='440.6' font-size='4.4' fill='#111111'>210.5 x 25</text>
-<text x='140' y='440.6' font-size='4.4' fill='#111111'>12.5, 47.5, 77.5, 107.5, 137.5, 167.5, 197.5</text>
-<text x='0' y='451.6' font-size='4.4' fill='#111111' font-weight='bold'>Parts as drawn</text>
-<text x='140' y='451.6' font-size='4.4' fill='#111111' font-weight='bold'>size, mm</text>
-<text x='240' y='451.6' font-size='4.4' fill='#111111' font-weight='bold'>studs</text>
-<text x='345' y='451.6' font-size='4.4' fill='#111111' font-weight='bold'>numbers from</text>
-<text x='0' y='457.8' font-size='4.4' fill='#111111'>ANL fuse block, Blue Sea 5005</text>
-<text x='140' y='457.8' font-size='4.4' fill='#111111'>114.3 x 38.1, cover 41.9 high</text>
-<text x='240' y='457.8' font-size='4.4' fill='#111111'>2 x 5/16in (M8), 61.72 apart</text>
-<text x='345' y='457.8' font-size='4.4' fill='#111111'>drawing</text>
-<text x='0' y='464.0' font-size='4.4' fill='#111111'>Class T fuse block, compact, part not named</text>
-<text x='140' y='464.0' font-size='4.4' fill='#111111'>about 100 x 40, long axis vertical</text>
-<text x='240' y='464.0' font-size='4.4' fill='#111111'>2 x M10 on the fuse's bolt centres, 46.8 apart</text>
-<text x='345' y='464.0' font-size='4.4' fill='#111111'>guess, sized like the ANL block</text>
-<text x='0' y='470.2' font-size='4.4' fill='#111111'>Battery switch, Blue Sea m-Series 6006</text>
-<text x='140' y='470.2' font-size='4.4' fill='#111111'>74.9 square, 45.6 deep behind the flange</text>
-<text x='240' y='470.2' font-size='4.4' fill='#111111'>2 x 3/8in (M10) underneath, about 44.5 apart</text>
-<text x='345' y='470.2' font-size='4.4' fill='#111111'>drawing; stud spacing scaled</text>
-<text x='0' y='476.4' font-size='4.4' fill='#111111'>60 A breaker, Blue Sea 285-Series 7184</text>
-<text x='140' y='476.4' font-size='4.4' fill='#111111'>81.3 x 48.1, 31.5 high</text>
-<text x='240' y='476.4' font-size='4.4' fill='#111111'>2 x M6 on opposite corners, 63.1 x 25.8</text>
-<text x='345' y='476.4' font-size='4.4' fill='#111111'>drawing</text>
-<text x='0' y='482.6' font-size='4.4' fill='#111111'>Victron SmartShunt 500 A</text>
-<text x='140' y='482.6' font-size='4.4' fill='#111111'>base 120 x 25, about 52 wide with the housing</text>
-<text x='240' y='482.6' font-size='4.4' fill='#111111'>2 x M10, 55 apart, bar seat 33.5 above the board</text>
-<text x='345' y='482.6' font-size='4.4' fill='#111111'>drawing; housing scaled</text>
-<text x='0' y='488.8' font-size='4.4' fill='#111111'>Copper bar</text>
-<text x='140' y='488.8' font-size='4.4' fill='#111111'>25 wide; links 25, 20 and 15 wide</text>
-<text x='240' y='488.8' font-size='4.4' fill='#111111'></text>
-<text x='345' y='488.8' font-size='4.4' fill='#111111'>widths given or guessed; thickness open</text>
+<text x='0' y='417.2' font-size='4.4' fill='#111111' font-weight='bold'>Copper to cut: length x width, then hole centres from the left end (top end for an upright piece), all on the centreline, mm</text>
+<text x='0' y='423.4' font-size='4.4' fill='#111111'>Battery + bar</text>
+<text x='95' y='423.4' font-size='4.4' fill='#111111'>201.5 x 25</text>
+<text x='140' y='423.4' font-size='4.4' fill='#111111'>12.5, 56.5, 100.5, 144.5, 188.5</text>
+<text x='0' y='429.6' font-size='4.4' fill='#111111'>Unswitched + bar</text>
+<text x='95' y='429.6' font-size='4.4' fill='#111111'>341.9 x 25</text>
+<text x='140' y='429.6' font-size='4.4' fill='#111111'>12.5, 61.0, 121.1, 165.1, 209.1, 253.1, 284.8, 329.4</text>
+<text x='0' y='435.8' font-size='4.4' fill='#111111'>Link, house breaker to master switch</text>
+<text x='95' y='435.8' font-size='4.4' fill='#111111'>68.5 x 20</text>
+<text x='140' y='435.8' font-size='4.4' fill='#111111'>10.0, 58.5</text>
+<text x='0' y='442.0' font-size='4.4' fill='#111111'>Link, service disconnect to inverter breaker</text>
+<text x='95' y='442.0' font-size='4.4' fill='#111111'>46.2 x 20</text>
+<text x='140' y='442.0' font-size='4.4' fill='#111111'>10.0, 36.2</text>
+<text x='0' y='448.2' font-size='4.4' fill='#111111'>Link, inverter fuse to service disconnect</text>
+<text x='95' y='448.2' font-size='4.4' fill='#111111'>62.8 x 25</text>
+<text x='140' y='448.2' font-size='4.4' fill='#111111'>12.5, 50.3</text>
+<text x='0' y='454.4' font-size='4.4' fill='#111111'>Battery - bar</text>
+<text x='95' y='454.4' font-size='4.4' fill='#111111'>187.5 x 25</text>
+<text x='140' y='454.4' font-size='4.4' fill='#111111'>12.5, 42.5, 86.5, 130.5, 174.5</text>
+<text x='0' y='460.6' font-size='4.4' fill='#111111'>Returns - bar</text>
+<text x='95' y='460.6' font-size='4.4' fill='#111111'>210.5 x 25</text>
+<text x='140' y='460.6' font-size='4.4' fill='#111111'>12.5, 47.5, 77.5, 107.5, 137.5, 167.5, 197.5</text>
+<text x='0' y='471.6' font-size='4.4' fill='#111111' font-weight='bold'>Parts as drawn</text>
+<text x='140' y='471.6' font-size='4.4' fill='#111111' font-weight='bold'>size, mm</text>
+<text x='240' y='471.6' font-size='4.4' fill='#111111' font-weight='bold'>studs</text>
+<text x='345' y='471.6' font-size='4.4' fill='#111111' font-weight='bold'>numbers from</text>
+<text x='0' y='477.8' font-size='4.4' fill='#111111'>ANL fuse block, Blue Sea 5005</text>
+<text x='140' y='477.8' font-size='4.4' fill='#111111'>114.3 x 38.1, cover 41.9 high</text>
+<text x='240' y='477.8' font-size='4.4' fill='#111111'>2 x 5/16in (M8), 61.72 apart</text>
+<text x='345' y='477.8' font-size='4.4' fill='#111111'>drawing</text>
+<text x='0' y='484.0' font-size='4.4' fill='#111111'>Class T fuse block, compact, part not named</text>
+<text x='140' y='484.0' font-size='4.4' fill='#111111'>about 100 x 40, long axis vertical</text>
+<text x='240' y='484.0' font-size='4.4' fill='#111111'>2 x M10 on the fuse's bolt centres, 46.8 apart</text>
+<text x='345' y='484.0' font-size='4.4' fill='#111111'>guess, sized like the ANL block</text>
+<text x='0' y='490.2' font-size='4.4' fill='#111111'>Battery switch, Blue Sea m-Series 6006</text>
+<text x='140' y='490.2' font-size='4.4' fill='#111111'>74.9 square, 45.6 deep behind the flange</text>
+<text x='240' y='490.2' font-size='4.4' fill='#111111'>2 x 3/8in (M10) underneath, about 44.5 apart</text>
+<text x='345' y='490.2' font-size='4.4' fill='#111111'>drawing; stud spacing scaled</text>
+<text x='0' y='496.4' font-size='4.4' fill='#111111'>Breaker, surface mount, waterproof (owner's)</text>
+<text x='140' y='496.4' font-size='4.4' fill='#111111'>74 x 48.4, 34 high</text>
+<text x='240' y='496.4' font-size='4.4' fill='#111111'>BAT, LOAD on opposite corners, ~62 x 23.5</text>
+<text x='345' y='496.4' font-size='4.4' fill='#111111'>outline drawing; studs scaled</text>
+<text x='0' y='502.6' font-size='4.4' fill='#111111'>Victron SmartShunt 500 A</text>
+<text x='140' y='502.6' font-size='4.4' fill='#111111'>base 120 x 25, about 52 wide with the housing</text>
+<text x='240' y='502.6' font-size='4.4' fill='#111111'>2 x M10, 55 apart, bar seat 33.5 above the board</text>
+<text x='345' y='502.6' font-size='4.4' fill='#111111'>drawing; housing scaled</text>
+<text x='0' y='508.8' font-size='4.4' fill='#111111'>Copper bar</text>
+<text x='140' y='508.8' font-size='4.4' fill='#111111'>25 wide; links 25, 20 and 15 wide</text>
+<text x='240' y='508.8' font-size='4.4' fill='#111111'></text>
+<text x='345' y='508.8' font-size='4.4' fill='#111111'>widths given or guessed; thickness open</text>
 </g></svg>
