@@ -66,3 +66,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261121t024917z
 - Spare hole on the unswitched bar costs 1 in of board width Unswitched bar drawn passing under the master switch body; not checked against the part Positive board drawn 22 x 9.5 in, shorter than the 10 in before Undo: set SPARE = 0 and BOARD_W back 25.4 in house-bank-busbar-board.py ([#174](https://github.com/mark-brannan/symphony/pull/174))
+
+### 20261121t025455z
+- Breakers drawn on their sides, input right, lead leaving the left edge Inverter breaker drawn with its rating open, not 60 A Undo: swap breaker_side for breaker in house-bank-busbar-board.py ([#174](https://github.com/mark-brannan/symphony/pull/174))
