@@ -179,6 +179,8 @@ jobs:
       - run: python3 scripts/test_boat_down_watch.py
       - run: python3 scripts/test_boat_triage.py
       - run: python3 scripts/test_discord_notify.py
+      # The battery-compartment planner's geometry; node ships on the runner, under a second.
+      - run: node research/battery-compartment/fit-four.test.js
 
   # The HALMET alert logic (firmware/halmet/src/alerts.cpp), built for the
   # runner and driven through test/features/alerts.feature. Seconds, not minutes.

@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Battery compartment: fit four</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+ body{margin:0;background:#16181c;color:#e6e6e6;font:13px system-ui,sans-serif;color-scheme:dark}
+ main{max-width:1150px;margin:0 auto;padding:12px;user-select:none}
+ h1{font-size:16px;margin:4px 0 10px}
+ button,select,input{background:#2a2e35;color:#e6e6e6;border:1px solid #555;border-radius:5px;padding:3px 8px;font:inherit}
+ button{cursor:pointer}button:hover{background:#363b44}.on{outline:2px solid #ffe066}
+ input[type=number]{width:60px}input[type=range]{width:150px;padding:0}
+ .row{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+ .lab{color:#b8bcc4;min-width:84px}.val{min-width:46px;color:#ffe9a0;font-variant-numeric:tabular-nums}
+ .note{color:#9aa1ab;margin-top:6px;font-size:11.5px}
+ table{margin-top:10px;border-collapse:collapse;width:100%;font-size:12.5px}
+ th,td{border-bottom:1px solid #3a3f47;padding:3px 6px;text-align:left;vertical-align:top}
+ .ov{position:absolute;font-size:12px;pointer-events:none}
+ .bad{color:#ff9b8f}.ok{color:#7ee2a8}.warn{color:#ffd27a}
+ fieldset{border:1px solid #3a3f47;border-radius:6px;margin:8px 0 0;padding:4px 8px 8px}legend{color:#b8bcc4}
+</style>
+</head>
+<body><main>
+<h1>Battery compartment: how to fit four</h1>
+<div id="v" style="width:100%;position:relative;border-radius:8px;overflow:hidden">
+ <div class="ov" style="left:8px;top:6px;color:#b8bcc4">3D · looking aft over the forward lip · inboard left · hull rises to port. Drag to orbit, scroll to zoom. Cyan: where the hull rises and where it steepens.</div>
+ <div id="sum" class="ov" style="right:10px;top:6px;font-size:13px;font-weight:600"></div>
+ <div class="ov" style="left:8px;top:386px;color:#ffe9a0">TOP · aft wall at top · drag a battery anywhere</div>
+ <div id="ls" class="ov" style="top:386px;color:#ffe9a0"></div>
+</div>
+
+<div class="row" id="sel"></div>
+<fieldset><legend id="selname"></legend>
+ <div class="row"><span class="lab">Pose</span>
+  <button data-mode="rest">Resting on a face</button><button data-mode="free">Free (on a shelf)</button>
+  <button data-a="hide"></button>
+ </div>
+ <div id="restc">
+  <div class="row"><span class="lab">Lies on</span>
+   <button data-surf="auto" title="whichever leaves it lowest, as a real one would settle">Settle (auto)</button>
+   <button data-surf="floor">Floor</button><button data-surf="hull1">Lower hull</button><button data-surf="hull2">Upper hull</button></div>
+  <div class="row"><span class="lab">Face down</span>
+   <button data-face="up">Upright</button><button data-face="side">On its side</button><button data-face="end">On its end</button><button data-face="down">Upside down</button></div>
+  <div class="row"><span class="lab">Spin</span>
+   <button data-spin="-15">−15°</button><button data-spin="-1">−1°</button><span class="val" id="spinv"></span><button data-spin="1">+1°</button><button data-spin="15">+15°</button>
+   <button data-al="line" title="long edge parallel to where the hull rises">Along the hull line</button>
+   <button data-al="fall" title="long edge running up the slope">Up the slope</button>
+   <button data-al="sq">Square to the walls</button><button data-spin="90">Turn 90°</button></div>
+ </div>
+ <div id="freec">
+  <div class="row"><span class="lab">Roll (x)</span><input type="range" min="-180" max="180" step="0.5" data-e="roll"><span class="val" data-ev="roll"></span>
+   <span class="lab">Pitch (y)</span><input type="range" min="-90" max="90" step="0.5" data-e="pitch"><span class="val" data-ev="pitch"></span>
+   <span class="lab">Yaw (z)</span><input type="range" min="-180" max="180" step="0.5" data-e="yaw"><span class="val" data-ev="yaw"></span></div>
+  <div class="row"><span class="lab"></span><button data-fa="hull1">Square to lower hull</button><button data-fa="hull2">Square to upper hull</button><button data-fa="level">Level</button>
+   <span class="note">Free starts from the resting pose; the shelf under it is drawn orange, its leg heights in the table.</span></div>
+ </div>
+ <div class="row"><span class="lab">Lift (shelf)</span><input type="range" min="0" max="14" step="0.125" id="lift"><span class="val" id="liftv"></span>
+  <button data-mv="fwd">Push fwd</button><button data-mv="aft">Push aft</button><button data-mv="in">Push inboard</button><button data-mv="drop">Drop to rest</button></div>
+</fieldset>
+<div class="row">
+ <span class="lab">All four</span>
+ <button data-p="0">All level</button><button data-p="1">Two level, two along the hull line</button><button data-p="2">All settled</button><button data-p="3">Three level, stepping up</button><button id="pack">Close up the gaps</button>
+</div>
+<div class="row">
+ <span class="lab">Shell</span>
+ <label>Room above the rim aft of the lip <input id="raise" type="number" min="0" max="6" step="0.125"> in</label>
+ <label><input id="stack" type="checkbox"> Batteries rest on batteries</label>
+ <span>Orion <select id="op"><option value="in">inboard wall, beside MultiPlus</option><option value="now">fwd wall, as now</option><option value="ai">low on aft wall</option><option value="off">elsewhere</option></select></span>
+ <label><input id="sm" type="checkbox"> MultiPlus</label>
+ <span>Side view <select id="sv"><option value="line">along the hull line</option><option value="fwd">from forward</option></select></span>
+ <button id="undo" title="Ctrl+Z">Undo</button><button id="link">Copy link to this layout</button><span id="copied" class="ok"></span>
+</div>
+<table id="t"></table>
+<div class="note">Inches. Only the hull is solid: a battery drops until it meets the floor or hull (or, with "rest on batteries", a battery below) and passes through everything else, so all four can always be placed. Whatever overlaps, or comes within 1/8, turns red and see-through, and the table says by how much. "Resting" lays one face flat on a surface, then spins it about that surface's normal; "along the hull line" runs the long edge parallel to the skewed rise line. "Free" turns it any way at all; the planner draws the shelf that would hold it there. A battery on the hull needs a stop on its low edge; one on a shelf, the shelf. Keys: arrows move (Shift: 1 in), PgUp/PgDn lift, [ and ] spin, 1–4 pick, Ctrl+Z undo. The layout is kept in the address, so a copied link reopens it. The shell numbers in fit-four.js are best guesses from photos, not confirmed aboard; see README.md.</div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf" crossorigin="anonymous"></script>
+<script src="fit-four.js"></script>
+<script>
+const {Planner,fr,FACES,vec:{add,sub,mul,dot,cross,norm}}=FitFour,pl=Planner(),S=pl.S,P=pl.P,W=S.W,TOP=S.TOP;
+const $=id=>document.getElementById(id),Q=s=>[...document.querySelectorAll(s)];
+const T=(x,y,z)=>new THREE.Vector3(x,z,-y), Tv=v=>T(v[0],v[1],v[2]);   // drawing (x along, y aft, z up) -> three
+const HEX=['3d86d6','2fa3a8','7b6fd6','4f9a4f'];
+// ---- state ----
+const fresh=()=>({on:true,cx:8,cy:W/2,lift:0,mode:'rest',surf:'auto',face:'up',spin:0,roll:0,pitch:0,yaw:0});
+let B=[0,1,2,3].map(fresh),O={orion:'in',mp:true,stack:false,raise:S.RAISE,side:'line'},sel=0;
+const undo=[];
+const snap=()=>JSON.stringify({B,O});
+function change(f){undo.push(snap());if(undo.length>200)undo.shift();f();save();draw();}
+function save(){const s=snap();try{history.replaceState(null,'','#'+encodeURIComponent(s));localStorage.setItem('fitfour',s);}catch(e){}}
+// a saved layout may come from an older page: a battery with an unknown face, surface or mode starts fresh
+const known=b=>FACES[b.face]&&(b.surf==='auto'||S.facets.some(f=>f.id===b.surf))&&(b.mode==='rest'||b.mode==='free');
+function load(s){try{const v=JSON.parse(s);if(!v.B||v.B.length!==4)return false;B=v.B.map(b=>{const m=Object.assign(fresh(),b);return known(m)?m:fresh();});O=Object.assign(O,v.O||{});if(O.side!=='line'&&O.side!=='fwd')O.side='line';return true;}catch(e){return false;}}
+const fromHash=()=>{try{return decodeURIComponent(location.hash.slice(1));}catch(e){return '';}};
+// ---- presets ----
+const along=b=>pl.spinAlong(b,S.strike);
+function preset(k){change(()=>{
+ if(k===0)B.forEach((b,i)=>Object.assign(b,fresh(),{cx:6+i*12,surf:'floor'}));
+ if(k===1)B.forEach((b,i)=>{Object.assign(b,fresh(),{cx:6+i*12,surf:i<2?'floor':'hull1'});if(i>=2)b.spin=along(b);});
+ if(k===2)B.forEach((b,i)=>Object.assign(b,fresh(),{cx:6+i*12,surf:'auto'}));
+ // the lowest clear four a search found (fit-four.js shell, Orion and MultiPlus inboard): three level in a row, the fourth on a shelf over the first
+ if(k===3)[[9,9.25,0],[9,9.25,10],[19,9.25,0],[29,9.25,0]].forEach(([cx,cy,lift],i)=>Object.assign(B[i],fresh(),{cx,cy,lift,surf:'floor'}));
+ if(k!==3)pl.pack(B,O);});}
+// ---- three.js scene ----
+const el=$('v'),H3=380,HO=300,HT=H3+HO;el.style.height=HT+'px';
+const R=new THREE.WebGLRenderer({antialias:true});R.setPixelRatio(devicePixelRatio);R.setSize(el.clientWidth,HT);R.setScissorTest(true);el.appendChild(R.domElement);
+const SC=new THREE.Scene(),C=new THREE.PerspectiveCamera(38,el.clientWidth/H3,0.1,1000);C.position.set(24,42,46);
+const OC=new THREE.OrbitControls(C,R.domElement);OC.target.set(24,6,-9.75);OC.update();
+SC.add(new THREE.AmbientLight(0xffffff,0.65));const DL=new THREE.DirectionalLight(0xffffff,0.5);DL.position.set(10,60,40);SC.add(DL);
+// flat views: centre, right and up, in drawing coords
+const DIP=norm([1,S.K,0]);
+const VIEWS={top:{c:[31,W/2,0],r:[1,0,0],u:[0,1,0],sw:66,sh:22},fwd:{c:[31,W/2,11.5],r:[1,0,0],u:[0,0,1],sw:66,sh:26,name:'SIDE · from forward · drag a battery along'},
+ line:{c:[31,W/2,11.5],r:DIP,u:[0,0,1],sw:66,sh:26,name:'SIDE · along the hull line (looking aft along the rise) · the true slope'}};
+for(const v of Object.values(VIEWS)){const back=cross(v.r,v.u),c=new THREE.OrthographicCamera(-1,1,1,-1,0.1,500);c.position.copy(Tv(add(v.c,mul(back,150))));c.up.copy(Tv(v.u));c.lookAt(Tv(v.c));v.cam=c;}
+function fit(v,w,h){const a=w/h;let hw=v.sw/2,hh=v.sh/2;if(hw/hh>a)hh=hw/a;else hw=hh*a;Object.assign(v.cam,{left:-hw,right:hw,top:hh,bottom:-hh});v.cam.updateProjectionMatrix();}
+// shell
+{const nx=80,ny=12,xm=64,g=new THREE.BufferGeometry(),p=[],ix=[];
+ for(let j=0;j<=ny;j++)for(let i=0;i<=nx;i++){const x=i/nx*xm,y=j/ny*W,v=T(x,y,Math.min(TOP+3,S.hull(x,y)));p.push(v.x,v.y,v.z);}
+ for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const a=j*(nx+1)+i,b=a+1,c=a+nx+1,d=c+1;ix.push(a,c,b,b,c,d);}
+ g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setIndex(ix);g.computeVertexNormals();
+ SC.add(new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0x6e757d,side:THREE.DoubleSide})));
+ SC.add(new THREE.LineSegments(new THREE.WireframeGeometry(g),new THREE.LineBasicMaterial({color:0x9aa1ab,transparent:true,opacity:0.14})));}
+const line=(pts,color,o)=>{const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),o||new THREE.LineBasicMaterial({color}));if(o)l.computeLineDistances();return l;};
+function panel(pts,col,op){const g=new THREE.BufferGeometry().setFromPoints(pts),ix=[];for(let i=1;i<pts.length-1;i++)ix.push(0,i,i+1);g.setIndex(ix);
+ SC.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,side:THREE.DoubleSide,depthWrite:false})));SC.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xc8c8c8})));}
+function alongWall(y){const a=[T(0,y,0)];for(let x=0;x<=64;x+=1){const h=S.hull(x,y);a.push(T(x,y,Math.min(TOP,h)));if(h>=TOP)break;}a.push(T(0,y,TOP));return a;}
+panel([T(0,0,0),T(0,W,0),T(0,W,TOP),T(0,0,TOP)],0x8a7a5c,0.12);panel(alongWall(W),0x8a7a5c,0.35);panel(alongWall(0),0x8a7a5c,0.04);
+{const a=[];for(const[y,dx]of[[0,0],[W,0],[W,3.5],[0,3.5]])a.push(T(42-y*S.K+dx,y,10.3));panel(a,0xa0703f,0.4);} // existing wooden step
+for(const[ds,z]of[[0,0.04],[S.S1,S.STEP_Z+0.04]])SC.add(line([T(S.RISE_AT+ds,0,z),T(S.RISE_AT+ds-W*S.K,W,z)],0x4fd6e0));
+const dm=new THREE.LineDashedMaterial({color:0xffe066,dashSize:0.5,gapSize:0.35});
+const ring=(f,cx,cz,r)=>{const a=[];for(let i=0;i<=40;i++){const t=i/40*2*Math.PI;a.push(f(cx+r*Math.cos(t),cz+r*Math.sin(t)));}return a;};
+const onAft=(x,z)=>T(x,W-0.05,z),onFwd=(x,z)=>T(x,0.05,z),onFloor=(x,y)=>T(x,y,0.05),onIn=(y,z)=>T(0.05,y,z),box2=(f,a,b,c,d)=>[f(a,b),f(c,b),f(c,d),f(a,d),f(a,b)];
+[ring(onAft,3.3,12.75,2.4),ring(onAft,4.9,18.25,1.9),ring(onFloor,5,17.5,1.25),box2(onAft,39.5,18.65,41.5,19.75),box2(onIn,1.5,0.4,4,2.9),box2(onFwd,3.7,3.04,11.45,7.85)].forEach(p=>SC.add(line(p,0,dm)));
+const xe=S.RISE_AT+S.S1+(TOP-S.STEP_Z)/S.T2;
+SC.add(line([T(0,0,TOP),T(xe,0,TOP),T(xe-W*S.K,W,TOP),T(0,W,TOP),T(0,0,TOP)],0xff9b8f));
+let lidLine=null,G=new THREE.Group();SC.add(G);
+const mat=(hex,bad,op)=>new THREE.MeshLambertMaterial({color:bad?0xff4d3d:parseInt(hex,16),transparent:bad||op<1,opacity:bad?0.55:(op||1),depthWrite:!bad&&!(op<1)});
+function label(txt){const c=document.createElement('canvas');c.width=128;c.height=64;const x=c.getContext('2d');x.font='bold 44px system-ui';x.fillStyle='#fff';x.fillText(txt,14,48);
+ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));sp.scale.set(4,2,1);return sp;}
+// the shelf or wedge under a battery: its down face, straight down to the hull
+function shelfMesh(s){const q=s.quad,cen=q.reduce((a,p)=>add(a,mul(p,1/4)),[0,0,0]),n=s.downN,a0=norm(cross(n,Math.abs(n[2])<0.9?[0,0,1]:[1,0,0])),b0=cross(n,a0);
+ const top=q.slice().sort((p,r)=>Math.atan2(dot(sub(p,cen),b0),dot(sub(p,cen),a0))-Math.atan2(dot(sub(r,cen),b0),dot(sub(r,cen),a0)));
+ const bot=top.map(p=>[p[0],p[1],S.hull(p[0],p[1])]),pts=[...top,...bot].map(Tv),ix=[0,1,2,0,2,3,4,6,5,4,7,6];
+ for(let i=0;i<4;i++){const j=(i+1)%4;ix.push(i,j,4+j,i,4+j,4+i);}
+ const g=new THREE.BufferGeometry().setFromPoints(pts);g.setIndex(ix);g.computeVertexNormals();
+ const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0xf2a33a,transparent:true,opacity:0.45,side:THREE.DoubleSide,depthWrite:false}));
+ const e=new THREE.LineSegments(new THREE.EdgesGeometry(g,1),new THREE.LineBasicMaterial({color:0xf2a33a}));const grp=new THREE.Group();grp.add(m,e);return grp;}
+// ---- controls ----
+const deg=v=>Math.round(v*10)/10;
+function chips(){$('sel').innerHTML='<span class="lab">Battery</span>'+B.map((b,i)=>`<button class="${i==sel?'on':''}" data-s=${i} style="border-color:#${HEX[i]};${b.on?'':'opacity:.45'}"><b style="color:#${HEX[i]}">B${i+1}</b>${b.on?'':' (removed)'}</button>`).join('');
+ Q('[data-s]').forEach(e=>e.onclick=()=>{sel=+e.dataset.s;chips();draw();});
+ const b=B[sel],free=b.mode==='free';
+ $('selname').textContent=`B${sel+1}`;$('restc').style.display=free?'none':'';$('freec').style.display=free?'':'none';
+ Q('[data-mode]').forEach(e=>e.classList.toggle('on',e.dataset.mode===b.mode));Q('[data-surf]').forEach(e=>e.classList.toggle('on',e.dataset.surf===b.surf));Q('[data-face]').forEach(e=>e.classList.toggle('on',e.dataset.face===b.face));
+ $('spinv').textContent=deg(b.spin)+'°';Q('[data-e]').forEach(e=>{e.value=b[e.dataset.e];});Q('[data-ev]').forEach(e=>e.textContent=deg(b[e.dataset.ev])+'°');
+ $('lift').value=b.lift;$('liftv').textContent=fr(b.lift);Q('[data-a=hide]').forEach(e=>e.textContent=b.on?'Remove':'Put back');
+ $('raise').value=O.raise;$('stack').checked=O.stack;$('op').value=O.orion;$('sm').checked=O.mp;$('sv').value=O.side;$('ls').textContent=VIEWS[O.side].name;}
+const cur=()=>B[sel];
+Q('[data-mode]').forEach(e=>e.onclick=()=>change(()=>{const b=cur(),m=e.dataset.mode;if(m===b.mode)return;
+ if(m==='free')Object.assign(b,pl.eulerOf(pl.matrixOf(b).M));b.mode=m;}));
+Q('[data-surf]').forEach(e=>e.onclick=()=>change(()=>{cur().surf=e.dataset.surf;}));
+Q('[data-face]').forEach(e=>e.onclick=()=>change(()=>{cur().face=e.dataset.face;}));
+Q('[data-spin]').forEach(e=>e.onclick=()=>change(()=>{const b=cur();b.spin=deg(((b.spin+ +e.dataset.spin)%360+540)%360-180);}));
+Q('[data-al]').forEach(e=>e.onclick=()=>change(()=>{const b=cur(),a=e.dataset.al;b.spin=a==='sq'?0:pl.spinAlong(b,a==='line'?S.strike:[S.strike[1],-S.strike[0],0]);}));
+Q('[data-e]').forEach(e=>{e.onpointerdown=()=>undo.push(snap());e.oninput=()=>{cur()[e.dataset.e]=+e.value;save();draw();};});
+Q('[data-fa]').forEach(e=>e.onclick=()=>change(()=>{const b=cur(),f=e.dataset.fa;const tmp=Object.assign({},b,{mode:'rest',surf:f==='level'?'floor':f,face:'up'});
+ const e0=pl.eulerOf(pl.matrixOf(b).M);tmp.spin=0;const base=pl.eulerOf(pl.matrixOf(tmp).M);
+ // keep the heading it had, then square it to the chosen surface
+ tmp.spin=deg(e0.yaw-base.yaw);Object.assign(b,pl.eulerOf(pl.matrixOf(tmp).M));}));
+$('lift').onpointerdown=()=>undo.push(snap());$('lift').oninput=()=>{cur().lift=+$('lift').value;save();draw();};
+Q('[data-a=hide]').forEach(e=>e.onclick=()=>change(()=>{cur().on=!cur().on;}));
+Q('[data-mv]').forEach(e=>e.onclick=()=>change(()=>{const b=cur(),r=pl.solve(b),m=e.dataset.mv;
+ if(m==='fwd')b.cy+=FitFour.CL-r.y0;if(m==='aft')b.cy+=W-FitFour.CL-r.y1;if(m==='drop')b.lift=0;
+ if(m==='in')pl.slideIn(B,sel,O);}));
+Q('[data-p]').forEach(e=>e.onclick=()=>preset(+e.dataset.p));
+$('pack').onclick=()=>change(()=>pl.pack(B,O));
+$('raise').oninput=()=>change(()=>{O.raise=Math.max(0,+$('raise').value||0);});
+$('stack').oninput=()=>change(()=>{O.stack=$('stack').checked;});
+$('op').oninput=()=>change(()=>{O.orion=$('op').value;});$('sm').oninput=()=>change(()=>{O.mp=$('sm').checked;});
+$('sv').oninput=()=>change(()=>{O.side=$('sv').value;});
+$('undo').onclick=doUndo;function doUndo(){if(!undo.length)return;load(undo.pop());save();draw();}
+$('link').onclick=()=>{save();navigator.clipboard.writeText(location.href).then(()=>{$('copied').textContent='copied';setTimeout(()=>$('copied').textContent='',1500);});};
+addEventListener('keydown',ev=>{if(ev.target.tagName==='INPUT'||ev.target.tagName==='SELECT')return;const k=ev.key,st=ev.shiftKey?1:0.125,b=cur();
+ if((ev.ctrlKey||ev.metaKey)&&k==='z'){doUndo();ev.preventDefault();return;}
+ if('1234'.includes(k)&&k.length===1){sel=+k-1;chips();draw();return;}
+ const mv={ArrowLeft:['cx',-st],ArrowRight:['cx',st],ArrowUp:['cy',st],ArrowDown:['cy',-st],PageUp:['lift',st],PageDown:['lift',-st],'[':[b.mode==='free'?'yaw':'spin',ev.shiftKey?-15:-1],']':[b.mode==='free'?'yaw':'spin',ev.shiftKey?15:1]}[k];
+ if(!mv)return;ev.preventDefault();change(()=>{b[mv[0]]=Math.round((b[mv[0]]+mv[1])*8)/8;if(b.lift<0)b.lift=0;});});
+// ---- drag in the flat views ----
+function vp(){const w=el.clientWidth,hw=Math.floor(w/2);return{w,hw,vy:H3+22,vh:HO-24};}
+function toView(ev){const r=el.getBoundingClientRect(),px=ev.clientX-r.left,py=ev.clientY-r.top,{hw,vy,vh}=vp();if(py<vy)return null;
+ const v=px<hw?VIEWS.top:VIEWS[O.side],c=v.cam,fx=(px-(px<hw?2:hw+2))/(hw-4),fy=(py-vy)/vh;
+ return{v,X:c.left+fx*(c.right-c.left),Y:c.top-fy*(c.top-c.bottom)};}
+let drag=null,lastL=null;
+el.addEventListener('pointerdown',ev=>{const w=toView(ev);if(!w){OC.enabled=true;return;}OC.enabled=false;if(!lastL)return;
+ const back=cross(w.v.r,w.v.u);let hit=-1,best=-1e9;
+ lastL.sol.forEach((r,i)=>{if(!r)return;const pr=r.body.map(p=>[dot(sub(p,w.v.c),w.v.r),dot(sub(p,w.v.c),w.v.u)]);
+  const inBox=w.X>=Math.min(...pr.map(p=>p[0]))&&w.X<=Math.max(...pr.map(p=>p[0]))&&w.Y>=Math.min(...pr.map(p=>p[1]))&&w.Y<=Math.max(...pr.map(p=>p[1]));
+  const depthv=dot(r.c,back)+(i===sel?100:0);if(inBox&&depthv>best){best=depthv;hit=i;}});
+ if(hit<0)return;sel=hit;undo.push(snap());drag={i:hit,w0:w,cx:B[hit].cx,cy:B[hit].cy};chips();el.setPointerCapture(ev.pointerId);ev.preventDefault();},true);
+el.addEventListener('pointermove',ev=>{if(!drag)return;const w=toView(ev);if(!w||w.v!==drag.w0.v)return;const b=B[drag.i];
+ let d=add(mul(w.v.r,w.X-drag.w0.X),mul(w.v.u,w.Y-drag.w0.Y));b.cx=Math.round((drag.cx+d[0])*8)/8;b.cy=Math.round((drag.cy+d[1])*8)/8;draw();});
+addEventListener('pointerup',()=>{if(drag)save();drag=null;OC.enabled=true;});
+// ---- draw ----
+const surfName=b=>b.surf==='auto'?'settled':S.facets.find(f=>f.id===b.surf).name;
+function poseText(r){const b=r.b;let s=b.mode==='free'?`free ${deg(b.roll)}/${deg(b.pitch)}/${deg(b.yaw)}°`:`${FACES[b.face].name} on ${b.surf==='auto'?r.facet.name+' (settled)':r.facet.name}, spin ${deg(b.spin)}°`;
+ return s+(b.lift>0?`, lifted ${fr(b.lift)}`:'');}
+function heldText(r){const s=r.sup,t=Math.round(s.shelfTilt);
+ if(s.kind==='stacked')return `on B${r.on.i+1}`;
+ if(s.kind==='flat')return `<span class="ok">${r.facet?r.facet.name:'floor'}, flat</span>`;
+ if(s.kind==='slope')return `<span class="warn">${r.facet?r.facet.name:'hull'} at ${t}°: a stop on its low edge</span>`;
+ return `<span class="warn">shelf ${t}° from level, legs ${s.gaps.slice().sort((a,b)=>a-b).map(fr).join(', ')}</span>`;}
+function draw(){const L=pl.layout(B,O);lastL=L;const{sol,U,list,notes,ub}=L;
+ SC.remove(G);G=new THREE.Group();SC.add(G);
+ if(lidLine)SC.remove(lidLine);lidLine=line([T(0,S.LIPIN,TOP+O.raise),T(xe,S.LIPIN,TOP+O.raise),T(xe-W*S.K,W,TOP+O.raise),T(0,W,TOP+O.raise),T(0,S.LIPIN,TOP+O.raise)],0,new THREE.LineDashedMaterial({color:0xff9b8f,dashSize:0.6,gapSize:0.4}));if(O.raise>0)SC.add(lidLine);
+ sol.forEach((r,i)=>{if(!r)return;const[e1,e2,e3]=r.e,X3=Tv(e1),Y3=Tv(e3),Z3=X3.clone().cross(Y3);
+  const g=new THREE.Group();g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X3,Y3,Z3));g.position.copy(Tv(r.c));G.add(g);
+  const bad=list[i].length>0,m=new THREE.Mesh(new THREE.BoxGeometry(P.BW,P.BH,P.BL),mat(HEX[i],bad));g.add(m);
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),new THREE.LineBasicMaterial({color:i==sel?0xffe066:0xdde6f0})));
+  for(const f of[-P.TP,P.TP]){const t=new THREE.Mesh(new THREE.BoxGeometry(P.TS,P.TN,P.TS),new THREE.MeshLambertMaterial({color:f<0?0xe04444:0x333333}));t.position.set(0,P.BH/2+P.TN/2,f*P.BL);g.add(t);}
+  const sp=label('B'+(i+1));sp.position.set(0,P.BH/2+2.2,0);g.add(sp);
+  if(r.sup.kind==='shelf')G.add(shelfMesh(r.sup));});
+ U.forEach((u,k)=>{if(u.hidden)return;const[x0,x1,y0,y1,z0,z1]=u.show||u.box,col=u.lip?'d9b77a':u.n=='Orion'?'f2a33a':'5aa0ea',m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,z1-z0,y1-y0),mat(col,ub[k],u.lip?0.6:1));
+  m.position.copy(T((x0+x1)/2,(y0+y1)/2,(z0+z1)/2));G.add(m);});
+ const n=sol.filter(Boolean).length,bad=list.filter(l=>l.length).length,shelves=sol.filter(r=>r&&r.sup.kind==='shelf').length;
+ $('sum').innerHTML=(bad?`<span class="bad">${n} batteries · ${bad} touching or overlapping</span>`:`<span class="ok">${n} batteries · all clear</span>`)+(shelves?` <span class="warn">· ${shelves} on a shelf</span>`:'');
+ const order=sol.map((r,i)=>r?i:-1).filter(i=>i>=0).sort((a,b)=>sol[a].x0-sol[b].x0);
+ const td=(c,h)=>h?`<th>${c}</th>`:`<td>${c}</td>`;
+ const rows=order.map(i=>{const r=sol[i],tt=TOP+O.raise-r.termTop,iss=list[i].map(([w,d])=>d>0?`${w} by ${fr(d)}`:`${w} (touching)`);
+  return[`<b style="color:#${HEX[i]}">B${i+1}</b>`,poseText(r),`${fr(r.x0)} → ${fr(r.x1)}`,fr(r.z0),
+   `<span class="${tt<1.5?'bad':''}">${fr(tt)}</span> · facing ${r.face}${r.access?` <span class="bad">blocked by ${r.access}</span>`:''}`,heldText(r),`${fr(r.y0)} / ${fr(W-r.y1)}`,
+   r.near?`${r.near.n} ${r.near.d>0?fr(r.near.d):'—'}`:'',
+   (iss.length?`<span class="bad">${iss.join(', ')}</span>`:'<span class="ok">clear</span>')+(notes[i].length?` <span class="warn">${notes[i].join(', ')}</span>`:'')];});
+ const first=order.length?sol[order[0]].x0:0,last=order.length?Math.max(...order.map(i=>sol[i].x1)):0,wall=U.filter(u=>!u.lip&&!u.lid&&u.box[0]==0).reduce((m,u)=>Math.max(m,u.box[1]),0);
+ $('t').innerHTML='<tr>'+['','Pose','Along','Lowest','Terminals to lid · facing','Held by','Room fwd / aft','Nearest','Overlaps'].map(c=>td(c,1)).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>td(c)).join('')+'</tr>').join('')
+  +`<tr><td colspan=9 class="ok" style="padding-top:8px">Open at the inboard end: ${fr(Math.max(0,first-wall))}. Batteries end at ${fr(last)}. Lid: ${fr(O.raise)} above the rim aft of the lip (dashed).</td></tr>`;
+ chips();}
+if(!(location.hash.length>1&&load(fromHash()))&&!load(localStorage.getItem('fitfour')||''))preset(1);
+draw();
+function frame(){const{w,hw,vh}=vp();$('ls').style.left=(hw+8)+'px';
+ R.setViewport(0,HO,w,H3);R.setScissor(0,HO,w,H3);R.setClearColor(0x1e2126);C.aspect=w/H3;C.updateProjectionMatrix();R.render(SC,C);
+ [VIEWS.top,VIEWS[O.side]].forEach((v,i)=>{fit(v,hw-4,vh);R.setViewport(i*hw+2,2,hw-4,vh);R.setScissor(i*hw+2,2,hw-4,vh);R.setClearColor(0x14161a);R.render(SC,v.cam);});}
+(function a(){requestAnimationFrame(a);frame();})();
+addEventListener('resize',()=>R.setSize(el.clientWidth,HT));
+</script>
+</body>
+</html>
