@@ -28,7 +28,7 @@ doesn't count: it records what a session did, not what the host now runs.
   arrive at the right structure organically, not have it templated in.
 - `research/<topic>/` — the working record of a choice being made for the
   boat: candidates, criteria, outside claims checked, decisions. A guess is
-  allowed there when marked **[unverified]**.
+  allowed there when labelled as one.
 
 ## Sibling repo: workshop (the parts)
 - Physical parts live in [workshop](https://github.com/mark-brannan/workshop) (checkout `~/workshop`);
