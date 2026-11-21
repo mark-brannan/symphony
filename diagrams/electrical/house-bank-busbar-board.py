@@ -23,10 +23,12 @@ INK = "#111111"
 
 # name, size, studs, source, how the numbers were got
 PARTS = [
-    ("ANL fuse block, Blue Sea 5005", "114.3 x 38.1, cover 41.9 high",
-     "2 x 5/16in (M8), 61.72 apart", "bluesea.com/products/5005", "drawing"),
-    ("Class T fuse block, compact, part not named", "about 100 x 40, long axis vertical",
-     "2 x M10 on the fuse's bolt centres, 46.8 apart", "", "guess, sized like the ANL block"),
+    ("ANL fuse holder, irhapsody 60 A (owner's)", "121.9 x 36.8, cover 37.3 high",
+     "2 x M8; centres 61.72, the ANL fuse's, from the Blue Sea 5005 drawing", "seller's dimensioned photo",
+     "outline drawing; stud centres from another maker"),
+    ("Class T fuse holder, uxcell 200 A (owner's)", "126 x 44 over the ears, 38 high",
+     "2 on the fuse's bolt centres, 46.8 apart; size not stated", "seller's dimensioned photo",
+     "outline drawing; stud centres guess"),
     ("Battery switch, Blue Sea m-Series 6006", "74.9 square, 45.6 deep behind the flange",
      "2 x 3/8in (M10) underneath, about 44.5 apart", "bluesea.com/products/6006",
      "drawing; stud spacing scaled"),
@@ -71,16 +73,21 @@ def screw(x, y):
     circ(x, y, 2.5, "#ffffff")
 
 
-def anl(name, cx, y0, label, label_at, dash=False):
-    """Blue Sea 5005, long axis vertical. Returns (top stud, bottom stud)."""
-    body(name, cx - 19.05, y0, 38.1, 114.3, "#f2b84b", "", dash=dash)
-    rect(cx - 11.1, y0 + 16.65, 22.2, 81.0, "#fff3d0")          # the ANL fuse, 81 x 22.2
-    text(cx - 14.0, y0 + label_at, label, 3.8, rot=-90)   # beside the fuse, clear of the bar
-    top, bot = (cx, y0 + 26.29), (cx, y0 + 88.01)
+ANL_L, ANL_W, ANL_STUDS = 121.9, 36.8, 61.72
+
+
+def anl(name, cx, y_top, label, label_at, dash=False):
+    """irhapsody ANL holder, long axis vertical, top stud at y_top; studs assumed centred.
+    Returns (top stud, bottom stud)."""
+    y0 = y_top - (ANL_L - ANL_STUDS) / 2
+    body(name, cx - ANL_W / 2, y0, ANL_W, ANL_L, "#f2b84b", "", dash=dash)
+    rect(cx - 11.1, y0 + ANL_L / 2 - 40.5, 22.2, 81.0, "#fff3d0")   # the ANL fuse, 81 x 22.2
+    text(cx - 13.5, y0 + label_at, label, 3.8, rot=-90)   # beside the fuse, clear of the bar
+    top, bot = (cx, y_top), (cx, y_top + ANL_STUDS)
     for p in (top, bot):
         stud(p[0], p[1], 8)
-    screw(cx, y0 + 7.93)
-    screw(cx, y0 + 106.37)
+    screw(cx, y0 + 6.0)                  # mounting holes at the ends, placed by eye
+    screw(cx, y0 + ANL_L - 6.0)
     return top, bot
 
 
@@ -165,10 +172,12 @@ def bar(name, x, y, w, h, holes, label=None, fill=COPPER, label_x=None):
 
 
 def class_t(cx, y_top):
-    """Compact Class T holder, long axis vertical, hanging from the battery bar.
-    Returns (top stud, bottom stud)."""
+    """uxcell Class T holder, long axis vertical, hanging from the battery bar; studs assumed
+    centred. Returns (top stud, bottom stud)."""
     cy = y_top + CT_STUDS / 2
-    body("Class T", cx - 20.0, cy - 50.0, 40.0, 100.0, "#e8837a", "")
+    body("Class T", cx - 22.0, cy - 63.0, 44.0, 126.0, "#e8837a", "")
+    screw(cx, cy - 57.0)                 # holes in the end ears, placed by eye
+    screw(cx, cy + 57.0)
     rect(cx - 12.7, cy - 34.95, 25.4, 69.9, "#fde0dc")          # the fuse, 69.9 x 25.4 blades
     text(cx - 15.5, cy, "Class T", 4.2, rot=-90)
     top, bot = (cx, y_top), (cx, y_top + CT_STUDS)
@@ -205,11 +214,11 @@ def build():
     xf = [dis_r[0] + 37.85 + PITCH * i for i in range(4)]    # inverter fuse beside the disconnect
     specs = (("MultiPlus 12/500", True), ("Solar (planned, type open)", True),
              ("2nd charger (type open)", True), ("ANL 60 A  DC-DC", False))
-    hung = [anl(("Inverter/charger fuse" if i == 0 else "Fuse %d" % (i + 1)), x, y_un - 26.29,
+    hung = [anl(("Inverter/charger fuse" if i == 0 else "Fuse %d" % (i + 1)), x, y_un,
                 lab, 57 if i == 0 else 78, dash=d)       # the inverter fuse has a link on its lower stud
             for i, (x, (lab, d)) in enumerate(zip(xf, specs))]
     inv = hung[0]
-    x_sp = xf[-1] + 19.05 + SPARE / 2             # spare hole
+    x_sp = xf[-1] + ANL_W / 2 + SPARE / 2             # spare hole
     BOARD_W = -(-(x_sp + SPARE / 2) // 3.175) * 3.175      # up to the next 1/8 in
     BATT = (BOARD_W + GAP, 0.0, BATT[2], BATT[3])
     TOTAL_W = BATT[0] + BATT[2]
@@ -219,9 +228,9 @@ def build():
 
     # battery board
     y_bt = y_un - CT_STUDS                # battery bar; the Class T's lower stud is on the unswitched bar
-    x_ct = BATT[0] + 6.0 + 20.0
+    x_ct = BATT[0] + 6.0 + 22.0
     ct_t, ct_b = class_t(x_ct, y_bt)
-    batts = [anl("Battery ANL %d" % n, x_ct + PITCH * (i + 1), y_bt - 26.29,
+    batts = [anl("Battery ANL %d" % n, x_ct + PITCH * (i + 1), y_bt,
                  "ANL  battery %d%s" % (n, "" if n < 3 else " (future)"), 78, dash=n >= 3)
              for i, n in enumerate((1, 2, 3, 4))]
     x_bb = ct_t[0] - 12.5
