@@ -56,7 +56,7 @@ then RUNBOOK.md § *A hook blocks your commit*.
 
 **The boat herself**
 - [maintenance/log.md](maintenance/log.md) — ship's log of work done, oldest entry first.
-- [maintenance/priorities.md](maintenance/priorities.md) — what is still open: In Progress / Backlog / Someday-Maybe. Physical jobs live in Joplin (moving over from Evernote); this file is authoritative only for its SignalK / IoT section.
+- [maintenance/priorities.md](maintenance/priorities.md) — what is still open: In Progress / Backlog / Someday-Maybe. Physical jobs live in Joplin; this file is authoritative only for its SignalK / IoT section.
 - [systems/](systems/) — one file per boat system, added as each gets written up.
 - [reference/specs.md](reference/specs.md) — vessel identity, registration, and physical particulars.
 - [reference/vendors-parts.md](reference/vendors-parts.md) — vendor contacts and parts sourcing.
