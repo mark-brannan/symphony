@@ -149,29 +149,30 @@ def build():
     # the same length of bar.
     y_un = 142.0                          # unswitched bar
     y_bt = y_un - CT_STUDS                # battery bar, one Class T stud pitch higher
-    xf = [6.0 + 19.05 + PITCH * i for i in range(4)]
-    specs = (("ANL 60 A  DC-DC", False), ("2nd charger (type open)", True),
-             ("Solar (planned, type open)", True), ("Inverter/charger", True))
-    hung = [anl(("Inverter/charger fuse" if i == 3 else "Fuse %d" % (i + 1)), x, y_un - 26.29,
+    ms_x = 8.0                            # master switch and service disconnect, far left
+    dis_right_x = ms_x + 37.465 + 22.25
+    xf = [dis_right_x + 37.85 + PITCH * i for i in range(4)]    # inverter fuse beside the disconnect
+    specs = (("Inverter/charger", True), ("Solar (planned, type open)", True),
+             ("2nd charger (type open)", True), ("ANL 60 A  DC-DC", False))
+    hung = [anl(("Inverter/charger fuse" if i == 0 else "Fuse %d" % (i + 1)), x, y_un - 26.29,
                 lab, 78, dash=d) for i, (x, (lab, d)) in enumerate(zip(xf, specs))]
-    inv = hung[-1]
+    inv = hung[0]
 
-    ms_x = inv[1][0] + 37.85 + 22.25 - 37.465    # service disconnect's left stud 37.85 right of the fuse
-    x_ct = ms_x + 74.93 + 5.0 + 20.0
+    x_ct = xf[-1] + PITCH
     ct_t, ct_b = class_t(x_ct, y_bt)
     batts = [anl("Battery ANL %d" % n, x_ct + PITCH * (i + 1), y_bt - 26.29,
                  "ANL  battery %d%s" % (n, "" if n < 3 else " (future)"), 78, dash=n >= 3)
              for i, n in enumerate((1, 2, 3, 4))]
 
-    hb_x = ms_x - 5.0 - 48.13
-    hb_up, hb_lo = breaker("House breaker", hb_x, 8.0, "60 A house", upper_right=False)
-    ms_out, ms_in = switch("Master switch", ms_x, hb_lo[1] - 37.465)
+    hb_x = ms_x + 74.93 + 5.0
+    hb_up, hb_lo = breaker("House breaker", hb_x, 8.0, "60 A house", upper_right=True)
+    ms_in, ms_out = switch("Master switch", ms_x, hb_lo[1] - 37.465)
     dis_l, dis_r = switch("Service disconnect", ms_x, inv[1][1] - 37.465, dash=True)
-    ab_stud = xf[1] + PITCH / 2           # always-on link rises between two fuse columns
+    ab_stud = xf[2] + PITCH / 2           # always-on link rises between two fuse columns
     ab_up, ab_lo = breaker("Always-on breaker", ab_stud - 12.92 - 24.065, 26.0, "60 A always-on",
                            upper_right=False)
 
-    x0 = hung[0][0][0] - 12.5
+    x0 = ms_in[0] - 12.5
     x1 = ct_b[0] + 12.5
     bar("Unswitched + bar", x0, y_un - BAR / 2, x1 - x0, BAR,
         [(h[0][0], y_un, "fuse stud") for h in hung]
@@ -184,14 +185,14 @@ def build():
         "BATTERY + BAR", label_x=(batts[1][0][0] + batts[2][0][0]) / 2)
     bar("Link, master switch in", ms_in[0] - 12.5, ms_in[1] - 12.5, BAR, y_un - ms_in[1] + 25,
         [(ms_in[0], ms_in[1], "switch stud"), (ms_in[0], y_un, "bar")], fill=LINK)
-    bar("Link, house breaker to master switch", hb_lo[0] - 10, hb_lo[1] - 10,
-        ms_out[0] - hb_lo[0] + 20, 20,
+    bar("Link, house breaker to master switch", ms_out[0] - 10, hb_lo[1] - 10,
+        hb_lo[0] - ms_out[0] + 20, 20,
         [(hb_lo[0], hb_lo[1], "breaker stud"), (ms_out[0], ms_out[1], "switch stud")], fill=LINK)
     bar("Link, always-on breaker", ab_lo[0] - 7.5, ab_lo[1] - 7.5, 15, y_un - ab_lo[1] + 15,
         [(ab_lo[0], ab_lo[1], "breaker stud"), (ab_lo[0], y_un, "bar")], fill=LINK)
-    bar("Link, inverter fuse to service disconnect", inv[1][0] - 12.5, inv[1][1] - 12.5,
-        dis_l[0] - inv[1][0] + 25, BAR,
-        [(inv[1][0], inv[1][1], "fuse stud"), (dis_l[0], dis_l[1], "switch stud")], fill=LINK)
+    bar("Link, inverter fuse to service disconnect", dis_r[0] - 12.5, inv[1][1] - 12.5,
+        inv[1][0] - dis_r[0] + 25, BAR,
+        [(dis_r[0], dis_r[1], "switch stud"), (inv[1][0], inv[1][1], "fuse stud")], fill=LINK)
 
     # ---- negative board, below ---------------------------------------------------
     # The shunt stands upright at the left end and is the only bridge between the bars:
@@ -230,7 +231,7 @@ def build():
     text(hb_up[0], -1.5, "house lead", 4.6)
     text(ab_up[0], -1.5, "always-on lead", 4.6)
     text(batts[1][0][0] + PITCH / 2, BOARD_H + 7, "battery + leads leave the bottom edge", 4.6)
-    text((xf[0] + dis_r[0]) / 2, BOARD_H + 7, "unswitched and inverter leads leave the bottom edge", 4.6)
+    text((xf[0] + xf[3]) / 2, BOARD_H + 7, "unswitched and inverter leads leave the bottom edge", 4.6)
     text(NEG[0] + NEG[2] + 6, y_rt + 1.5, "returns leave the top edge", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb - 1, "battery - leads leave the bottom edge,", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb + 5.5, "same order as +", 4.6, anchor="start")
