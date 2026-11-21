@@ -284,7 +284,8 @@ doesn't count: it records what a session did, not what the host now runs.
   This covers spare hardware paths, fallback services and duplicate config.
 
 ## Boat wiring
-- Wire size follows ABYC E-11: 16 AWG minimum; 18 AWG in a multi-conductor sheath, ≤30" outside it.
+- New designs and diagrams follow ABYC E-11; existing wiring is noted where it falls short, in one line.
+- Wire size: 16 AWG minimum; 18 AWG in a multi-conductor sheath, ≤30" outside it.
 - Exempt: electronic circuits under 1 A, and data cabling (N2K, Qwiic, VE.CAN) at its own spec.
 
 ## Working style, generally
