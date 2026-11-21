@@ -197,9 +197,9 @@ def build():
     # edge: breakers on the edge, lying on their sides with the input stud on the right and
     # the lead leaving the left edge; switches beside them. Fuses hang below the unswitched
     # bar to their right and their leads leave the bottom edge, so nothing is reached across.
-    # Batteries run 1-4 left to right on the battery bar (+ takes off at the left, B1
-    # nearest) and 4-1 on the negative board (shunt at its left, B4 nearest): the battery
-    # nearest one takeoff is the farthest from the other.
+    # Batteries run 1-4 left to right on both battery bars, leads straight (spec C4). The
+    # + bar takes off at its left end (Class T, B1 nearest), the - bar at its right end
+    # (shunt, B4 nearest), so every battery sees the same length of bar (spec C4a).
     y_un = 92.0                           # unswitched bar
     col_a = 6.0                           # breakers, on the left edge
     col_b = col_a + BRK_L + 5.0           # switches, beside them
@@ -262,26 +262,27 @@ def build():
     dim_v([0, hb_in[1], ms_out[1], y_un, dis_l[1], BOARD_H], -46, -40)
 
     # ---- negative board, below ---------------------------------------------------
-    # The shunt stands upright at the left end and is the only bridge between the bars:
-    # system stud on the returns bar, battery stud on the battery - bar.
-    x_sh = NEG[0] + 52.0
+    # The shunt stands upright at the right end, the takeoff diagonally opposite the Class T
+    # (spec C4a), and is the only bridge between the bars: system stud on the returns bar,
+    # battery stud on the battery - bar. Both bars run leftward from it.
+    x_sh = NEG[0] + NEG[2] - 52.0
     y_mid = NEG[1] + NEG[3] / 2
     y_rt, y_nb = y_mid - 27.5, y_mid + 27.5
     body("SmartShunt base", x_sh - 12.5, y_mid - 60, 25, 120, "#7fb3e6", "")
-    body("SmartShunt housing", x_sh - 39.5, y_mid - 38, 27, 76, "#a9cdf0", "SmartShunt", rot=-90)
+    body("SmartShunt housing", x_sh + 12.5, y_mid - 38, 27, 76, "#a9cdf0", "SmartShunt", rot=-90)
     screw(x_sh, y_mid - 50.5)
     screw(x_sh, y_mid + 50.5)
-    neg = [x_sh + 30.0 + PITCH * k for k in range(4)]            # batteries 4, 3, 2, 1
-    bar("Battery - bar", x_sh - 12.5, y_nb - BAR / 2, neg[-1] + 13.0 - (x_sh - 12.5), BAR,
+    neg = [x_sh - 30.0 - PITCH * k for k in range(4)]            # batteries 4, 3, 2, 1, from the shunt leftward
+    bar("Battery - bar", neg[-1] - 13.0, y_nb - BAR / 2, x_sh + 12.5 - (neg[-1] - 13.0), BAR,
         [(x_sh, y_nb, "shunt, battery side, M10")]
         + [(x, y_nb, "battery %d -, M8" % n) for n, x in zip((4, 3, 2, 1), neg)],
         "BATTERY - BAR", label_x=(neg[1] + neg[2]) / 2)
     names = ("inverter/charger -", "DC-DC -", "2nd charger -", "solar -", "house -", "always-on -")
-    rts = [x_sh + 35.0 + 30.0 * k for k in range(len(names))]
-    bar("Returns - bar", x_sh - 12.5, y_rt - BAR / 2, rts[-1] + 13.0 - (x_sh - 12.5), BAR,
+    rts = [x_sh - 35.0 - 30.0 * k for k in range(len(names))]   # inverter nearest the shunt
+    bar("Returns - bar", rts[-1] - 13.0, y_rt - BAR / 2, x_sh + 12.5 - (rts[-1] - 13.0), BAR,
         [(x_sh, y_rt, "shunt, system side, M10")]
         + [(x, y_rt, "%s, %s" % (n, "M8" if i < 4 else "M6")) for i, (x, n) in enumerate(zip(rts, names))])
-    text(rts[2], y_rt + 19, "- BAR (returns)", 4.4)
+    text((rts[2] + rts[3]) / 2, y_rt + 19, "- BAR (returns)", 4.4)
     for y in (y_rt, y_nb):
         stud(x_sh, y, 10)
     for n, x in zip((4, 3, 2, 1), neg):
@@ -308,7 +309,7 @@ def build():
     text((xf[0] + xf[3]) / 2, BOARD_H + 7, "unswitched leads leave the bottom edge", 4.6)
     text(NEG[0] + NEG[2] + 6, y_rt + 1.5, "returns leave the top edge", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb - 1, "battery - leads leave the bottom edge,", 4.6, anchor="start")
-    text(NEG[0] + NEG[2] + 6, y_nb + 5.5, "order mirrored from +: B4 nearest the shunt", 4.6, anchor="start")
+    text(NEG[0] + NEG[2] + 6, y_nb + 5.5, "B1-B4 left to right as on +; shunt at the far end", 4.6, anchor="start")
     text(NEG[0] + NEG[2] / 2, NEG[1] - 5, "negative board %g x %g, its own piece" % (NEG[2], NEG[3]), 5)
 
 

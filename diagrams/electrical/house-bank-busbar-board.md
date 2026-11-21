@@ -34,10 +34,26 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
   so that each battery's cable, about 1 ft, reaches its bar.
 - C3. On the positive board, the battery bar SHALL be on the right and
   everything else to its left.
-- C4. The battery nearest the positive takeoff SHALL be the farthest from
-  the negative takeoff, and so on in order, so that every battery sees the
-  same length of bar and the bank stays balanced. The left-to-right order on
-  the two bars follows from that and need not match.
+- C4. Each battery SHALL land on both battery bars in its physical order,
+  left to right, so every battery's leads run straight to its own studs. No
+  battery's lead crosses another's, and the order on the positive bar and the
+  negative bar is the same.
+- C4a. Every battery SHALL see the same length of bar: the bar from its
+  positive stud to the positive takeoff, plus the bar from its negative stud
+  to the negative takeoff, SHALL be equal for all four, so the bank stays
+  balanced. Balance comes from where the takeoffs sit, never from reordering
+  the batteries (C4). With both takeoffs at the same end, the battery nearest
+  them carries the most current on every charge and discharge and ages first.
+- C4b. Any arrangement that meets C4 and C4a MAY be used. Those that change
+  only the negative side, the easiest:
+  - the shunt at the end of the negative battery bar opposite the positive
+    takeoff, so the two takeoffs sit at diagonally opposite corners;
+  - the shunt kept at the same end as the positive takeoff, with the negative
+    battery bar fed from its far end by a return strap or second bar running
+    back to the shunt;
+
+  or, changing the positive side instead, the Class T moved to the end of the
+  positive battery bar opposite the shunt.
 - C5. Every battery's cables SHALL be the same length and gauge as every
   other battery's, and every battery fuse the same type, for the same reason.
 - C6. Each battery SHALL have its own fuse between it and the battery bar.
