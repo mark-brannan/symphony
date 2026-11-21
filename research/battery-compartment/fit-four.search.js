@@ -5,7 +5,7 @@
 const F = require('./fit-four.js'), pl = F.Planner(), S = pl.S, CL = F.CL;
 const ORION = process.argv[2] || 'in', MULTIPLUS = process.argv[3] !== 'off', RAISE = +(process.argv[4] || 0.5);
 const STEP_X = 0.5, STEP_Y = 0.25, X_MAX = 50, WALL_MARGIN = 3;   // search grid, inches
-const SURFS = ['floor', 'hull1', 'hull2'], FACES = ['up', 'side'];
+const SURFS = ['floor', 'hull1', 'hull2'], FACES = ['up', 'side', 'end', 'down'];
 const SPINS = ['square', 'square 90', 'along the hull line', 'up the slope'];
 const MIN_UP = 0.3;   // terminals must face at least this much upward
 
