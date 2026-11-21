@@ -160,5 +160,5 @@ phone/tablet holder.
 - engine room led lights
 - Lumitec SeaBlaze X3 underwater lights (2)
 - poco light controller (planned?)
-- GREDIA GR-108 freshwater flow sensor, G1", Hall pulse, 330 pulses/L (planned, to Cerbo digital input)
+- GREDIA GR-108 freshwater flow sensor (G1", Hall pulse output)
 
