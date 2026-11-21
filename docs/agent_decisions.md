@@ -69,3 +69,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261121t025455z
 - Breakers drawn on their sides, input right, lead leaving the left edge Inverter breaker drawn with its rating open, not 60 A Undo: swap breaker_side for breaker in house-bank-busbar-board.py ([#174](https://github.com/mark-brannan/symphony/pull/174))
+
+### 20261121t050644z
+- Drawing takes the shunt at the far end of the negative bar, of the C4b arrangements Undo: move the shunt back left and add a return strap from the far end (C4b second option) ([#174](https://github.com/mark-brannan/symphony/pull/174))
