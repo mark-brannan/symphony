@@ -148,7 +148,8 @@ doesn't count: it records what a session did, not what the host now runs.
   in `~/.local/state/joplin-git-bridge/last-run.json`; if it failed, say so
   rather than treating the mirror as current. A session without that file
   (a cloud one) names the date of the last state-repo commit touching
-  `joplin/` when it reports from the mirror.
+  `joplin/` when it reports from the mirror. No state repo checked out at
+  all: say so instead of improvising, as with a missing Evernote connector.
 
 ### Evernote (read-only)
 - Sessions can read Evernote directly. The MCP tools
