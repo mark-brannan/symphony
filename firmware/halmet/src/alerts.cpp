@@ -21,7 +21,7 @@ void HoursPattern(float hours, uint8_t out[4]) {
   std::memset(out, 0, 4);
   if (hours < 0) hours = 0;
   if (hours >= 999.95f) {
-    int v = hours > 9999 ? 9999 : (int)hours;
+    int v = hours > 9999 ? 9999 : hours < 1000 ? 1000 : (int)hours;
     for (int i = 3; i >= 0; i--, v /= 10) out[i] = kDigit[v % 10];
     return;
   }

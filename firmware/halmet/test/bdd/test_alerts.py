@@ -227,7 +227,8 @@ def hours_shows(world, text):
 
 @then("the hours display is unchanged")
 def hours_unchanged(world):
-    assert len(set(hours_shown(world))) == 1
+    shown = set(hours_shown(world))
+    assert len(shown) == 1 and shown != {"    "}, shown
 
 
 @then(parsers.re(r'the hours display never shows "(?P<a>[^"]*)"(?: or "(?P<b>[^"]*)")?$'))
