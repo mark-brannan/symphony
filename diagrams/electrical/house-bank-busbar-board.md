@@ -8,8 +8,9 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
 
 ## Boards
 
-- B1. Most of the positive side SHOULD fit on one 12 × 18 in HDPE board.
-  Some parts MAY go on a second board below or to the left of it.
+- B1. The positive side SHALL be two boards: a battery board for the Class T
+  and the battery fuses, and a distribution board for the rest. The
+  distribution board SHOULD come out of one 12 × 18 in HDPE sheet.
 - B2. The positive board MAY be widened or trimmed. It SHOULD stay narrow,
   giving up the 12 in dimension before the 18 in one.
 - B3. Splitting the assembly across boards SHOULD NOT force a complicated
@@ -63,6 +64,11 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
 - P7. What a hand operates, the switches and the breakers, SHOULD stand
   together at the left, so that no live bar is reached across.
 - P8. The unswitched bar SHOULD carry one spare hole for a future load.
+
+- P9. The inverter/charger feed SHOULD have a breaker after its service
+  disconnect, as well as its fuse.
+- P10. Breakers SHOULD lie with the input on the right and the lead leaving
+  the left edge.
 
 ## Negative side
 

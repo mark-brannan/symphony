@@ -8,12 +8,14 @@ picture) or guess; nothing here was measured on the boat's own parts.
 """
 import os
 
-BOARD_W, BOARD_H = 558.8, 241.3          # positive board: a 22 x 9.5 in HDPE sheet
+BOARD_W, BOARD_H = 400.05, 203.2         # distribution board: 15.75 x 8 in, cut from a 12 x 18 in sheet
+BATT = (BOARD_W + 30.0, 0.0, 228.6, 139.7)   # battery board, 9 x 5.5 in, its own piece; x, y, w, h
 NEG = (0.0, BOARD_H + 34.0, 262.0, 144.0)    # negative board, its own piece, sized to its parts; x, y, w, h
 PITCH = 44.0                             # battery stud pitch, the same on both bars
 CT_STUDS = 46.8                          # Class T fuse bolt centres; the cable lands on the same studs
 SPARE = 25.4                             # bare length of unswitched bar kept for one spare hole
-TOTAL_W = BOARD_W
+FEED = 27.0                              # from the spare hole on to the stud that takes the Class T feed
+TOTAL_W = BATT[0] + BATT[2]
 BAR = 25.0                               # main copper bar width
 COPPER, LINK = "#d9925a", "#e8b07a"
 INK = "#111111"
@@ -94,6 +96,21 @@ def breaker(name, x, y, label, upper_right):
     return up, lo
 
 
+def breaker_side(name, x, y, label, in_upper, dash=False):
+    """Blue Sea 285 surface mount, long axis horizontal: input stud on the right, output
+    stud on the left, on opposite corners. Returns (input stud, output stud)."""
+    w, h = 81.28, 48.13
+    body(name, x, y, w, h, "#cfcfcf", label, dash=dash)
+    cx, cy = x + w / 2, y + h / 2
+    s = -1 if in_upper else 1
+    inp, out = (cx + 31.545, cy + s * 12.92), (cx - 31.545, cy - s * 12.92)
+    for p in (inp, out):
+        stud(p[0], p[1], 6)
+    screw(cx + 28.32, cy - s * 13.335)
+    screw(cx - 28.32, cy + s * 13.335)
+    return inp, out
+
+
 def switch(name, x, y, dash=False, upright=False):
     """Blue Sea m-Series, studs underneath on a horizontal line, or a vertical one when
     upright. Returns (left, right), or (top, bottom)."""
@@ -139,29 +156,33 @@ def class_t(cx, y_top):
 
 def build():
     rect(0, 0, BOARD_W, BOARD_H, "#f7f7f2")
+    rect(BATT[0], BATT[1], BATT[2], BATT[3], "#f7f7f2")
     rect(NEG[0], NEG[1], NEG[2], NEG[3], "#f7f7f2")
 
     # ---- positive board ---------------------------------------------------------------
-    # What a hand operates stands in two columns at the left edge: breakers on the edge,
-    # switches beside them. Fuses and bars are to their right, so nothing is reached across.
-    # Every fuse hangs below its bar and its lead leaves the bottom edge: the battery bar
-    # carries four ANL fuses and the Class T, all upright; the Class T's lower stud feeds
-    # the unswitched bar, one step down, which carries the load fuses.
-    # The unswitched bar's left end lands on the master switch's lower stud and on the
-    # always-on breaker's stud, with no link between. Breaker leads leave the left edge.
-    # Batteries run 1-4 left to right on this bar (+ takes off at the left, B1 nearest) and
-    # 4-1 on the negative board (shunt at its left, B4 nearest): the battery nearest one
-    # takeoff is the farthest from the other.
-    y_un = 129.3                          # unswitched bar
-    y_bt = y_un - CT_STUDS                # battery bar, one Class T stud pitch higher
+    # Two boards. The battery board carries the battery bar, four ANL fuses hanging below it
+    # and the Class T upright at its left end; the Class T's lower stud is the only way off
+    # it, by one cable to the feed stud on the distribution board.
+    # On the distribution board, what a hand operates stands in two columns at the left
+    # edge: breakers on the edge, lying on their sides with the input stud on the right and
+    # the lead leaving the left edge; switches beside them. Fuses hang below the unswitched
+    # bar to their right and their leads leave the bottom edge, so nothing is reached across.
+    # The bar's left end lands on the master switch's lower stud and the always-on
+    # breaker's input stud, with no link between.
+    # Batteries run 1-4 left to right on the battery bar (+ takes off at the left, B1
+    # nearest) and 4-1 on the negative board (shunt at its left, B4 nearest): the battery
+    # nearest one takeoff is the farthest from the other.
+    y_un = 88.0                           # unswitched bar
     col_a = 6.0                           # breakers, on the left edge
-    col_b = col_a + 48.13 + 5.0           # switches, beside them
+    col_b = col_a + 81.28 + 5.0           # switches, beside them
     ms_out, ms_in = switch("Master switch", col_b, y_un - 22.25 - 37.465, upright=True)
-    hb_up, hb_lo = breaker("House breaker", col_a, ms_out[1] - 31.545 - 40.64, "60 A house",
-                           upper_right=False)       # lower stud level with the master's upper stud
-    ab_up, ab_lo = breaker("Always-on breaker", col_a, y_un + 31.545 - 40.64, "60 A always-on",
-                           upper_right=True)        # upper stud on the unswitched bar
     dis_l, dis_r = switch("Service disconnect", col_b, y_un + 61.72 - 37.465, dash=True)
+    hb_in, hb_out = breaker_side("House breaker", col_a, ms_out[1] - 12.92 - 24.065, "60 A house",
+                                 in_upper=False)    # input level with the master's upper stud
+    ab_in, ab_out = breaker_side("Always-on breaker", col_a, y_un + 12.92 - 24.065, "60 A always-on",
+                                 in_upper=True)     # input on the unswitched bar
+    ib_in, ib_out = breaker_side("Inverter breaker", col_a, dis_l[1] + 12.92 - 24.065,
+                                 "inverter breaker (rating open)", in_upper=True, dash=True)
 
     xf = [dis_r[0] + 37.85 + PITCH * i for i in range(4)]    # inverter fuse beside the disconnect
     specs = (("Inverter/charger", True), ("Solar (planned, type open)", True),
@@ -170,32 +191,39 @@ def build():
                 lab, 57 if i == 0 else 78, dash=d)       # the inverter fuse has a link on its lower stud
             for i, (x, (lab, d)) in enumerate(zip(xf, specs))]
     inv = hung[0]
+    x_sp = xf[-1] + 19.05 + SPARE / 2             # spare hole
+    x_fd = x_sp + FEED                            # feed stud, cable from the Class T
 
-    x_ct = xf[-1] + PITCH + SPARE
-    x_sp = (xf[-1] + 19.05 + x_ct - 20.0) / 2     # spare hole, midway between the two bodies
+    x0 = ab_in[0] - 12.5
+    bar("Unswitched + bar", x0, y_un - BAR / 2, x_fd + 12.5 - x0, BAR,
+        [(ab_in[0], y_un, "always-on breaker stud"), (ms_in[0], y_un, "master switch stud")]
+        + [(h[0][0], y_un, "fuse stud") for h in hung]
+        + [(x_sp, y_un, "spare"), (x_fd, y_un, "feed from the Class T, M10")],
+        "UNSWITCHED + BAR", label_x=(xf[0] + xf[1]) / 2)
+    stud(x_fd, y_un, 10)
+    text(x_sp, y_un - 15.5, "spare", 3.8)
+    text(x_fd, y_un - 15.5, "feed", 3.8)
+    bar("Link, house breaker to master switch", hb_in[0] - 10, hb_in[1] - 10,
+        ms_out[0] - hb_in[0] + 20, 20,
+        [(hb_in[0], hb_in[1], "breaker stud"), (ms_out[0], ms_out[1], "switch stud")], fill=LINK)
+    bar("Link, service disconnect to inverter breaker", ib_in[0] - 10, ib_in[1] - 10,
+        dis_l[0] - ib_in[0] + 20, 20,
+        [(ib_in[0], ib_in[1], "breaker stud"), (dis_l[0], dis_l[1], "switch stud")], fill=LINK)
+    bar("Link, inverter fuse to service disconnect", dis_r[0] - 12.5, inv[1][1] - 12.5,
+        inv[1][0] - dis_r[0] + 25, BAR,
+        [(dis_r[0], dis_r[1], "switch stud"), (inv[1][0], inv[1][1], "fuse stud")], fill=LINK)
+
+    # battery board
+    y_bt = BATT[1] + 12.5 + 26.6          # battery bar; the Class T body tops out 26.6 above it
+    x_ct = BATT[0] + 6.0 + 20.0
     ct_t, ct_b = class_t(x_ct, y_bt)
     batts = [anl("Battery ANL %d" % n, x_ct + PITCH * (i + 1), y_bt - 26.29,
                  "ANL  battery %d%s" % (n, "" if n < 3 else " (future)"), 78, dash=n >= 3)
              for i, n in enumerate((1, 2, 3, 4))]
-
-    x0 = ab_up[0] - 12.5
-    x1 = ct_b[0] + 12.5
-    bar("Unswitched + bar", x0, y_un - BAR / 2, x1 - x0, BAR,
-        [(ab_up[0], y_un, "always-on breaker stud"), (ms_in[0], y_un, "master switch stud")]
-        + [(h[0][0], y_un, "fuse stud") for h in hung]
-        + [(x_sp, y_un, "spare"), (ct_b[0], y_un, "Class T stud")],
-        "UNSWITCHED + BAR", label_x=(xf[0] + xf[1]) / 2)
-    text(x_sp, y_un - 15.5, "spare", 3.8)
     x_bb = ct_t[0] - 12.5
     bar("Battery + bar", x_bb, y_bt - BAR / 2, batts[-1][0][0] + 13.0 - x_bb, BAR,
         [(ct_t[0], y_bt, "Class T stud")] + [(b[0][0], y_bt, "fuse stud") for b in batts],
         "BATTERY + BAR", label_x=(batts[1][0][0] + batts[2][0][0]) / 2)
-    bar("Link, house breaker to master switch", hb_lo[0] - 10, hb_lo[1] - 10,
-        ms_out[0] - hb_lo[0] + 20, 20,
-        [(hb_lo[0], hb_lo[1], "breaker stud"), (ms_out[0], ms_out[1], "switch stud")], fill=LINK)
-    bar("Link, inverter fuse to service disconnect", dis_r[0] - 12.5, inv[1][1] - 12.5,
-        inv[1][0] - dis_r[0] + 25, BAR,
-        [(dis_r[0], dis_r[1], "switch stud"), (inv[1][0], inv[1][1], "fuse stud")], fill=LINK)
 
     # ---- negative board, below ---------------------------------------------------
     # The shunt stands upright at the left end and is the only bridge between the bars:
@@ -228,15 +256,19 @@ def build():
         text(x + 2.0, y_rt - 15, n, 3.8, anchor="start", rot=-40)
 
     # ---- leads and dimensions ---------------------------------------------------
-    text(BOARD_W / 2, -14, "positive board %g x %g, a %g x %g in sheet"
+    text(BOARD_W / 2, -14, "distribution board %g x %g, %g x %g in, from a 12 x 18 in sheet"
          % (BOARD_W, BOARD_H, BOARD_W / 25.4, BOARD_H / 25.4), 5)
+    text(BATT[0] + BATT[2] / 2, -14, "battery board %g x %g, %g x %g in"
+         % (BATT[2], BATT[3], BATT[2] / 25.4, BATT[3] / 25.4), 5)
     for n, b in zip((1, 2, 3, 4), batts):
-        text(b[1][0], b[1][1] + 38, "B%d+" % n, 3.8)
-    text(-3, hb_up[1] + 1.5, "house lead", 4.6, anchor="end")
-    text(-3, ab_lo[1] + 1.5, "always-on lead", 4.6, anchor="end")
-    text(dis_l[0], BOARD_H + 7, "inverter lead", 4.6)
-    text(batts[1][0][0] + PITCH / 2, BOARD_H + 7, "battery + leads leave the bottom edge", 4.6)
+        text(b[1][0], BATT[3] + 7, "B%d+" % n, 3.8)
+    text(batts[1][0][0] + PITCH / 2, BATT[3] + 14, "battery + leads leave the bottom edge", 4.6)
+    text(ct_b[0], BATT[3] + 7, "to feed", 3.8)
+    text(-3, hb_out[1] + 1.5, "house lead", 4.6, anchor="end")
+    text(-3, ab_out[1] + 1.5, "always-on lead", 4.6, anchor="end")
+    text(-3, ib_out[1] + 1.5, "inverter lead", 4.6, anchor="end")
     text((xf[0] + xf[3]) / 2, BOARD_H + 7, "unswitched leads leave the bottom edge", 4.6)
+    text(x_fd, BOARD_H + 7, "feed cable from the Class T", 3.8)
     text(NEG[0] + NEG[2] + 6, y_rt + 1.5, "returns leave the top edge", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb - 1, "battery - leads leave the bottom edge,", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb + 5.5, "order mirrored from +: B4 nearest the shunt", 4.6, anchor="start")
@@ -245,7 +277,7 @@ def build():
 
 def on_a_board(x, y, w, h):
     return any(bx <= x and by <= y and x + w <= bx + bw and y + h <= by + bh
-               for bx, by, bw, bh in ((0, 0, BOARD_W, BOARD_H), NEG))
+               for bx, by, bw, bh in ((0, 0, BOARD_W, BOARD_H), BATT, NEG))
 
 
 def check():
