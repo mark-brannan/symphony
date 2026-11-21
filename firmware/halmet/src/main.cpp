@@ -428,12 +428,17 @@ void setup() {
                                            enable_signalk_output);
   auto alarm_d3_input = ConnectAlarmSender(kDigitalInputPin3, "coolant-temp",
                                            enable_signalk_output);
-  // Segmented TM1637 display, driven by the panel's writes.
+  // Two segmented TM1637 displays on one clock, driven by the panel's writes:
+  // RPM (and the alert words), and engine hours.
   static const uint8_t kBlank[4] = {0, 0, 0, 0};
   static auto segment_display =
       segmented_led_display::createTm1637Facade<segmented_led_display::NUM_DIGITS_4>(
           kSegmentDioPin, kSegmentClkPin);
   segment_display.writePatterns(kBlank, 4);
+  static auto hours_display =
+      segmented_led_display::createTm1637Facade<segmented_led_display::NUM_DIGITS_4>(
+          kHoursDioPin, kSegmentClkPin);
+  hours_display.writePatterns(kBlank, 4);
   // IR flame module on GPIO 34 (header). Active-low: the LM393 pulls DO low on
   // a flame. The setting stays for other modules.
   auto* flame_active_low = new CheckboxConfig(
@@ -498,10 +503,11 @@ void setup() {
     return v > 0 ? static_cast<uint32_t>(v) : 1u;
   };
 
-  // Both displays block the loop while they write; the panel asks only for
+  // The displays block the loop while they write; the panel asks only for
   // changes. Without the OLED, its rows are skipped.
   static auto apply = [](const Writes& w) {
     if (w.segment) segment_display.writePatterns(w.pattern, 4);
+    if (w.hours_segment) hours_display.writePatterns(w.hours_pattern, 4);
     if (display != nullptr) {
       if (w.row6) PrintRow(display, 6, w.row6_text.c_str());
       if (w.row7) PrintRow(display, 7, w.row7_text.c_str());

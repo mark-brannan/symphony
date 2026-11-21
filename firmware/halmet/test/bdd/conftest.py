@@ -36,6 +36,8 @@ class CWrites(ctypes.Structure):
     _fields_ = [
         ("segment", ctypes.c_int),
         ("pattern", ctypes.c_uint8 * 4),
+        ("hours_segment", ctypes.c_int),
+        ("hours_pattern", ctypes.c_uint8 * 4),
         ("row6", ctypes.c_int),
         ("row6_text", ctypes.c_char * 40),
         ("row7", ctypes.c_int),
@@ -77,7 +79,8 @@ def segment_text(pattern):
     key = tuple(pattern)
     if key in WORDS:
         return WORDS[key]
-    return "".join(GLYPHS.get(b, "?") for b in key)
+    # A set top bit is the digit's decimal point.
+    return "".join(GLYPHS.get(b & 0x7F, "?") + ("." if b & 0x80 else "") for b in key)
 
 
 class World:
@@ -103,6 +106,7 @@ class World:
         self.piezo = False
         self.timing = (150, 150, 6, 4000, 60000)
         self.segment = "    "
+        self.hours_segment = "    "
         self.row6 = self.row7 = ""
         self.clear()
 
@@ -120,6 +124,8 @@ class World:
     def apply(self, w):
         if w.segment:
             self.segment = segment_text(w.pattern)
+        if w.hours_segment:
+            self.hours_segment = segment_text(w.hours_pattern)
         if w.row6:
             self.row6 = w.row6_text.decode()
         if w.row7:
@@ -174,7 +180,7 @@ class World:
         return bool(self.lib.panel_flame_alarm(self.panel))
 
     def snapshot(self):
-        return {"segment": self.segment, "row6": self.row6, "row7": self.row7,
+        return {"segment": self.segment, "hours_segment": self.hours_segment, "row6": self.row6, "row7": self.row7,
                 "rpm": self.rpm, "alarm": self.flame_alarm, "piezo": self.piezo}
 
     def watched(self):
