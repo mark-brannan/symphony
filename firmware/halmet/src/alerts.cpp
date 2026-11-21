@@ -12,13 +12,33 @@ const uint8_t kHot[4] = {0x00, 0x76, 0x5C, 0x78};
 const uint8_t kErr[4] = {0x00, 0x79, 0x50, 0x50};
 const uint8_t kDigit[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66,
                             0x6D, 0x7D, 0x07, 0x7F, 0x6F};
+
+constexpr uint8_t kPoint = 0x80;
+
+// Engine hours as 4 digits: one decimal up to 999.9, whole hours above, so
+// 5.0 reads "  5.0", 412.7 reads "412.7" and 1234.6 reads "1234".
+void HoursPattern(float hours, uint8_t out[4]) {
+  std::memset(out, 0, 4);
+  if (hours < 0) hours = 0;
+  if (hours >= 999.95f) {
+    int v = hours > 9999 ? 9999 : (int)hours;
+    for (int i = 3; i >= 0; i--, v /= 10) out[i] = kDigit[v % 10];
+    return;
+  }
+  int tenths = (int)(hours * 10 + 0.5f);
+  for (int i = 3, d = 0; i >= 0; i--, d++, tenths /= 10) {
+    if (tenths > 0 || d < 2) out[i] = kDigit[tenths % 10];
+  }
+  out[2] |= kPoint;
+}
 }  // namespace
 
 void Panel::DrawFlame(bool lit, const std::string& text, Writes& w) {
   if (lit != flame_lit_) {
     flame_lit_ = lit;
-    w.segment = true;
+    w.segment = w.hours_segment = true;
     std::memcpy(w.pattern, lit ? kFire : kBlank, 4);
+    std::memcpy(w.hours_pattern, lit ? kFire : kBlank, 4);
   }
   if (text != flame_row_) {
     flame_row_ = text;
@@ -105,11 +125,12 @@ Writes Panel::SecondTick(const Inputs& in) {
   // An engine alert the segment has no word of its own for.
   const bool err_alert = in.oil || alt_alert || sk_down || low_memory;
 
-  // Segment: RPM while the engine turns, whole hours while stopped. One second
-  // in every four goes to an alert: Hot for the coolant alarm, Err for any
-  // other but a reset; both on, they take turns. The flame owns it outright.
+  // RPM display: RPM, 0 when stopped. One second in every four goes to an
+  // alert: Hot for the coolant alarm, Err for any other but a reset; both on,
+  // they take turns. Hours display: engine hours, always. The flame owns both
+  // outright.
   if (flame_alarm_) {
-    shown_[0] = 0xFF;  // forces a redraw after it clears
+    shown_[0] = shown_hours_[0] = 0xFF;  // forces a redraw after it clears
   } else {
     uint8_t next[4] = {0, 0, 0, 0};
     if (in.coolant && tick_ % 4 == 0) {
@@ -117,7 +138,7 @@ Writes Panel::SecondTick(const Inputs& in) {
     } else if (err_alert && tick_ % 4 == (in.coolant ? 2u : 0u)) {
       std::memcpy(next, kErr, 4);
     } else {
-      int v = in.rpm > 0 ? (int)in.rpm : (int)in.hours;
+      int v = in.rpm > 0 ? (int)in.rpm : 0;
       v = v < 0 ? 0 : v > 9999 ? 9999 : v;
       for (int i = 3, d = 0; i >= 0; i--, d++) {
         if (v > 0 || d == 0) next[i] = kDigit[v % 10];
@@ -128,6 +149,13 @@ Writes Panel::SecondTick(const Inputs& in) {
       std::memcpy(shown_, next, 4);
       w.segment = true;
       std::memcpy(w.pattern, shown_, 4);
+    }
+    uint8_t hours[4];
+    HoursPattern(in.hours, hours);
+    if (std::memcmp(hours, shown_hours_, 4) != 0) {
+      std::memcpy(shown_hours_, hours, 4);
+      w.hours_segment = true;
+      std::memcpy(w.hours_pattern, shown_hours_, 4);
     }
   }
 

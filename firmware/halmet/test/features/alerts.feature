@@ -1,6 +1,7 @@
-Feature: HALMET alerts on the segment display and the OLED
-  The 4-digit segment display is for reading at a glance: a number most of the
-  time, one word for an alert. The OLED names every alert. Time is in whole
+Feature: HALMET alerts on the segment displays and the OLED
+  Two 4-digit segment displays are for reading at a glance. The hours display
+  always shows engine hours. The segment display (RPM) shows RPM, 0 when
+  stopped, and one word for an alert. The OLED names every alert. Time is in whole
   seconds of the display's 1 s tick; "uptime" is seconds since boot.
 
   Scenarios tagged @pending describe behaviour the firmware does not have yet.
@@ -24,14 +25,29 @@ Feature: HALMET alerts on the segment display and the OLED
     And engine hours are 412.7
     And Signal K is connected
     When I watch the displays for 8 seconds
-    Then the segment display shows " 412" every second
+    Then the segment display shows "   0" every second
+    And the hours display shows "412.7" every second
     And OLED row 6 is blank
 
-  Scenario: RPM and hours never share the screen
+  Scenario: Hours stay on their own display while the engine runs
     Given engine hours are 412.7
     When the engine goes from stopped to 850 RPM
-    Then the segment display changes from " 412" to " 850"
-    And it never shows " 412" while RPM is above 0
+    Then the segment display changes from "   0" to " 850"
+    And the hours display shows "412.7" every second
+
+  Scenario Outline: Engine hours format
+    Given engine hours are <hours>
+    When I watch the displays for 2 seconds
+    Then the hours display shows "<text>" every second, _ being a blank
+
+    Examples:
+      | hours  | text  |
+      | 0      | __0.0 |
+      | 5      | __5.0 |
+      | 99.96  | 100.0 |
+      | 412.7  | 412.7 |
+      | 1234.6 | 1234  |
+      | 12345  | 9999  |
 
   # ------------------------------------------------- one condition at a time
 
@@ -54,7 +70,7 @@ Feature: HALMET alerts on the segment display and the OLED
     Given the engine is stopped
     And Signal K has not connected since boot
     And the flash cache holds 412.7 engine hours
-    Then the segment display shows " 412"
+    Then the hours display shows "412.7"
 
   Scenario: Only the coolant alarm
     Given the engine is turning at 850 RPM
@@ -63,6 +79,7 @@ Feature: HALMET alerts on the segment display and the OLED
     Then the segment display shows " Hot" for 1 second in every 4
     And " 850" the other 3 seconds
     And OLED row 6 shows "COOLANT HOT"
+    And the hours display is unchanged
 
   Scenario Outline: One engine alert the segment has no word for
     Given the engine is turning at 850 RPM
@@ -83,6 +100,7 @@ Feature: HALMET alerts on the segment display and the OLED
     And the board reset 2 minutes ago after a brownout
     Then OLED row 6 shows "Reset: brownout"
     And the segment display never shows " Err" or " Hot"
+    And the hours display never shows " Err" or " Hot"
 
   # ------------------------------------------------------------ the alternator
 
@@ -194,11 +212,12 @@ Feature: HALMET alerts on the segment display and the OLED
 
   # ----------------------------------------------------------------- flame
 
-  Scenario: Flame owns the segment display and OLED row 6
+  Scenario: Flame owns both segment displays and OLED row 6
     Given the oil pressure alarm is on
     And Signal K is not connected
     When a flame is seen
     Then the segment display flashes "FIrE"
+    And the hours display flashes "FIrE" with it
     And OLED row 6 flashes "FLAME DETECTED"
     And the piezo sounds with each flash
     And the piezo is silent during the steady hold
@@ -206,12 +225,14 @@ Feature: HALMET alerts on the segment display and the OLED
     And the segment display never shows " Err" while the alarm is latched
 
   Scenario: After the flame clears, the alerts come back
-    Given the flame alarm is counting down "FLAME clearing 1s"
+    Given engine hours are 412.7
+    And the flame alarm is counting down "FLAME clearing 1s"
     And the coolant alarm is on
     When the countdown ends
     Then OLED row 6 cycles the alerts again
     And OLED row 7 is blank
     And the segment display returns to its number and " Hot"
+    And the hours display returns to "412.7"
 
   Scenario: The piezo is silent through the countdown
     Given the flame alarm is counting down "FLAME clearing 59s"
