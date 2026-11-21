@@ -63,3 +63,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261120t232636z
 - Battery leads enter at the top edge so the unswitched leads can leave the bottom Class T holder drawn 100 x 40 mm with the cable on the fuse studs, a guess until the part is named Undo: edit build() in house-bank-busbar-board.py and regenerate ([#174](https://github.com/mark-brannan/symphony/pull/174))
+
+### 20261121t024917z
+- Spare hole on the unswitched bar costs 1 in of board width Unswitched bar drawn passing under the master switch body; not checked against the part Positive board drawn 22 x 9.5 in, shorter than the 10 in before Undo: set SPARE = 0 and BOARD_W back 25.4 in house-bank-busbar-board.py ([#174](https://github.com/mark-brannan/symphony/pull/174))
