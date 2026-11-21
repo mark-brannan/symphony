@@ -167,7 +167,7 @@ doesn't count: it records what a session did, not what the host now runs.
     Rigging Tasks", "Symphony Clean/Paint/Finish", "Symphony Woody Tasks" —
     per-system lists.
 - `search_tasks` is a case-insensitive substring match on task labels and
-  is the quick answer to "is X already on the list."
+  is the quick answer for the Evernote half of "is X already on the list."
 
 ## reference/specs.md
 - Flat `key: value` list, one item per bullet (plain consecutive lines
