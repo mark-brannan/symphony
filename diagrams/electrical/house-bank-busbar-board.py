@@ -143,26 +143,26 @@ def build():
     # Every fuse hangs below its bar and its lead leaves the bottom edge: the battery bar
     # carries four ANL fuses and the Class T, all upright; the Class T's lower stud feeds
     # the unswitched bar, one step down, which carries the load fuses. Master switch and
-    # service disconnect stand at the right edge, master higher.
-    # Batteries run 4-1 left to right on both bars: + takes off at the right end (B1 nearest),
-    # the shunt is at the left end of the negative board (B4 nearest), so every battery sees
-    # about the same length of bar.
+    # service disconnect stand on the right of the load area, beside the Class T, master higher.
+    # Batteries run 1-4 left to right on this bar (+ takes off at the left, B1 nearest) and
+    # 4-1 on the negative board (shunt at its left, B4 nearest), so every battery sees about
+    # the same length of bar.
     y_un = 142.0                          # unswitched bar
     y_bt = y_un - CT_STUDS                # battery bar, one Class T stud pitch higher
-    batts = [anl("Battery ANL %d" % n, 6.0 + 19.05 + PITCH * i, y_bt - 26.29,
-                 "ANL  battery %d%s" % (n, "" if n < 3 else " (future)"), 78, dash=n >= 3)
-             for i, n in enumerate((4, 3, 2, 1))]
-    x_ct = batts[-1][0][0] + PITCH
-    ct_t, ct_b = class_t(x_ct, y_bt)
-
-    xf = [x_ct + PITCH * (i + 1) for i in range(4)]
+    xf = [6.0 + 19.05 + PITCH * i for i in range(4)]
     specs = (("ANL 60 A  DC-DC", False), ("2nd charger (type open)", True),
              ("Solar (planned, type open)", True), ("Inverter/charger", True))
     hung = [anl(("Inverter/charger fuse" if i == 3 else "Fuse %d" % (i + 1)), x, y_un - 26.29,
                 lab, 78, dash=d) for i, (x, (lab, d)) in enumerate(zip(xf, specs))]
     inv = hung[-1]
 
-    ms_x = BOARD_W - 8.0 - 74.93
+    ms_x = inv[1][0] + 37.85 + 22.25 - 37.465    # service disconnect's left stud 37.85 right of the fuse
+    x_ct = ms_x + 74.93 + 5.0 + 20.0
+    ct_t, ct_b = class_t(x_ct, y_bt)
+    batts = [anl("Battery ANL %d" % n, x_ct + PITCH * (i + 1), y_bt - 26.29,
+                 "ANL  battery %d%s" % (n, "" if n < 3 else " (future)"), 78, dash=n >= 3)
+             for i, n in enumerate((1, 2, 3, 4))]
+
     hb_x = ms_x - 5.0 - 48.13
     hb_up, hb_lo = breaker("House breaker", hb_x, 8.0, "60 A house", upper_right=False)
     ms_out, ms_in = switch("Master switch", ms_x, hb_lo[1] - 37.465)
@@ -171,15 +171,16 @@ def build():
     ab_up, ab_lo = breaker("Always-on breaker", ab_stud - 12.92 - 24.065, 26.0, "60 A always-on",
                            upper_right=False)
 
-    x0 = ct_b[0] - 12.5
-    x1 = ms_in[0] + 12.5
+    x0 = hung[0][0][0] - 12.5
+    x1 = ct_b[0] + 12.5
     bar("Unswitched + bar", x0, y_un - BAR / 2, x1 - x0, BAR,
-        [(ct_b[0], y_un, "Class T stud")] + [(h[0][0], y_un, "fuse stud") for h in hung]
-        + [(ab_lo[0], y_un, "link to always-on breaker"), (ms_in[0], y_un, "link to master switch")],
+        [(h[0][0], y_un, "fuse stud") for h in hung]
+        + [(ab_lo[0], y_un, "link to always-on breaker"), (ms_in[0], y_un, "link to master switch"),
+           (ct_b[0], y_un, "Class T stud")],
         "UNSWITCHED + BAR", label_x=(xf[0] + xf[1]) / 2)
-    x_bb = batts[0][0][0] - 13.0
-    bar("Battery + bar", x_bb, y_bt - BAR / 2, ct_t[0] + 12.5 - x_bb, BAR,
-        [(b[0][0], y_bt, "fuse stud") for b in batts] + [(ct_t[0], y_bt, "Class T stud")],
+    x_bb = ct_t[0] - 12.5
+    bar("Battery + bar", x_bb, y_bt - BAR / 2, batts[-1][0][0] + 13.0 - x_bb, BAR,
+        [(ct_t[0], y_bt, "Class T stud")] + [(b[0][0], y_bt, "fuse stud") for b in batts],
         "BATTERY + BAR", label_x=(batts[1][0][0] + batts[2][0][0]) / 2)
     bar("Link, master switch in", ms_in[0] - 12.5, ms_in[1] - 12.5, BAR, y_un - ms_in[1] + 25,
         [(ms_in[0], ms_in[1], "switch stud"), (ms_in[0], y_un, "bar")], fill=LINK)
@@ -224,13 +225,12 @@ def build():
 
     # ---- leads and dimensions ---------------------------------------------------
     text(BOARD_W / 2, -14, "positive board %g x %g, a 19 x 10 in sheet" % (BOARD_W, BOARD_H), 5)
-    for n, b in zip((4, 3, 2, 1), batts):
+    for n, b in zip((1, 2, 3, 4), batts):
         text(b[1][0], b[1][1] + 38, "B%d+" % n, 3.8)
     text(hb_up[0], -1.5, "house lead", 4.6)
     text(ab_up[0], -1.5, "always-on lead", 4.6)
     text(batts[1][0][0] + PITCH / 2, BOARD_H + 7, "battery + leads leave the bottom edge", 4.6)
-    text(xf[2], BOARD_H + 7, "unswitched leads leave the bottom edge", 4.6)
-    text(BOARD_W - 8, BOARD_H + 14, "inverter lead leaves the right edge", 4.6, anchor="end")
+    text((xf[0] + dis_r[0]) / 2, BOARD_H + 7, "unswitched and inverter leads leave the bottom edge", 4.6)
     text(NEG[0] + NEG[2] + 6, y_rt + 1.5, "returns leave the top edge", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb - 1, "battery - leads leave the bottom edge,", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb + 5.5, "same order as +", 4.6, anchor="start")
