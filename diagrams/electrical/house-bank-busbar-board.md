@@ -53,7 +53,8 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
   Cerbo GX, and the feed to the always-on fuses in the electrical panel SHALL
   bypass the master switch.
 - P4. The inverter/charger SHALL have a service disconnect switch.
-- P5. The inverter disconnect MAY sit at the far left.
+- P5. The master switch and the inverter service disconnect SHOULD sit at the
+  far left.
 - P6. Disconnects, fuses and outside connections SHOULD have their end points
   along the left and bottom edges of the board where reasonable.
 
