@@ -37,7 +37,7 @@ Verified against Hat Labs' documentation and the HALMET-hardware schematic
 | Analog A1–A4 | ADS1115 16-bit, 0–32 V via 33.3/3.3 divider; per-channel jumper-enabled 10 mA current source for resistive senders, 300 Ω maximum | 4 | A1 start-battery voltage · A2 alternator output voltage · A3 ignition sense · A4 fuel vacuum or oil-pressure transducer, not both |
 | 1-Wire | header (not fitted by default), pull-up and protection on board, DQ on GPIO4 | 1 bus | DS18B20 chain |
 | I2C | 4-pin 2.54 mm socket (J702), shared with the onboard ADS1115 at 0x4b | 1 bus | SSD1306 display (0x3c), thermocouple amplifier, second ADS1115, current monitor |
-| GPIO header (J201) | 2×10, raw 3.3 V ESP32 pins, no protection; GPIO0, 4, 18 and 19 are taken (boot, 1-Wire, CAN); the ESP32 sheet labels IO5, IO16, IO17, IO32–IO35, SENSOR_VP/VN and JTAG | — | SPI thermocouple boards if used; IO16/17 TM1637 (RPM), IO5 + IO16 TM1637 (hours, pin 2, shares CLK) · IO32 piezo FET · IO33 380 Hz test output · IO34 flame |
+| GPIO header (J201) | 2×10, raw 3.3 V ESP32 pins, no protection; GPIO0, 4, 18 and 19 are taken (boot, 1-Wire, CAN); the ESP32 sheet labels IO5, IO16, IO17, IO32–IO35, SENSOR_VP/VN and JTAG (IO13 = TCK, IO14 = TMS usable as outputs; IO12, IO15 and IO5 are strapping pins) | — | SPI thermocouple boards if used; IO16/17 TM1637 (RPM), IO13 + IO16 TM1637 (hours, pin 17, shares CLK) · IO32 piezo FET · IO33 380 Hz test output · IO34 flame |
 | NMEA 2000 | 4-pin screw terminal, CAN on GPIO18/19 | 1 | PGN 127488, 127489, 130316 |
 | Enclosure | IP65, PG7 glands, SP circular connectors | 2-pin, 3-pin, 5-pin | 12 V in · DS18B20 chain · I2C tether or thermocouple |
 
@@ -67,7 +67,7 @@ external divider and protection; the GPIO header takes 3.3 V logic only.
 | A4 voltage | A4 | none yet | `sensors.a4.voltage` | — | raw bench point until the A4 transducer is fitted |
 | IR flame | J201 GPIO 34 | IR flame module | `alarm.flame` | — | active-low, a web-UI setting; sampled every 10 ms, sent on change |
 | Local display | I2C SSD1306, blue/yellow | on the board | — | — | rows 0–4 status; row 6 cycles the alerts, 2 s each with k/n; a flame takes row 6, alerts move to row 7 |
-| Segmented displays | two TM1637s on one clock: RPM on IO17 (DIO), hours on IO5 (DIO, J201 pin 2), both on IO16 (CLK) | — | — | — | RPM display: RPM, 0 stopped; Hot (coolant) or Err 1 s in 4. Hours display: engine hours, one decimal under 1000. FIrE flashing on both with a flame |
+| Segmented displays | two TM1637s on one clock: RPM on IO17 (DIO), hours on IO13 (DIO, J201 pin 17, the JTAG TCK pin), both on IO16 (CLK) | — | — | — | RPM display: RPM, 0 stopped; Hot (coolant) or Err 1 s in 4. Hours display: engine hours, one decimal under 1000. FIrE flashing on both with a flame |
 | Engine run hours | read from Signal K `propulsion.main.runTime` (s), derived by the signalk-engine-hours plugin | — | listens only | — | the plugin is installed but disabled and unconfigured on the boat Pi |
 | N2K watchdog, heap and stack status | — | — | — | — | |
 | Test pulse | IO33 | — | — | — | enabled by default; off before install |
