@@ -11,7 +11,11 @@ import os
 BOARD_W, BOARD_H = 0.0, 203.2           # distribution board; its width ends just past the spare hole, set in build()
 BATT = (0.0, 0.0, 228.6, 139.7)         # battery board, 9 x 5.5 in, butted to the right of it; x set in build()
 GAP = 3.0                               # between the two positive boards, which butt and stay level
-NEG = (0.0, BOARD_H + 34.0, 262.0, 144.0)    # negative board, its own piece, sized to its parts; x, y, w, h
+NEG = (0.0, BOARD_H + 34.0, 0.0, 144.0)      # negative board, its own piece, sized to its parts; x, y, w, h; w set in build()
+RET_PITCH = 22.0                         # returns bar stud pitch: an M8 lug is about 20 wide, so no wider
+RET_NAMES = (("inverter/charger -", 8), ("engine block -", 8), ("DC-DC -", 8), ("2nd charger -", 8),
+             ("solar -", 8), ("house -", 6), ("always-on -", 6), ("Cerbo GX -", 6), ("SmartShunt -", 6),
+             ("AC ground", 6), ("spare", 8), ("spare", 8))
 PITCH = 44.0                             # battery stud pitch, the same on both bars
 CT_STUDS = 46.8                          # Class T fuse bolt centres
 SPARE = 25.4                             # bare length of unswitched bar kept for one spare hole
@@ -187,7 +191,7 @@ def class_t(cx, y_top):
 
 
 def build():
-    global BOARD_W, BATT, TOTAL_W
+    global BOARD_W, BATT, TOTAL_W, NEG
     # ---- positive boards -------------------------------------------------------------
     # Two boards, butted level with a small gap. The battery board carries the battery bar,
     # four ANL fuses hanging below it and the Class T upright at its left end. The
@@ -267,6 +271,11 @@ def build():
     # turn, never mirrored (spec N3): BATTERY MINUS stud at the top on the battery - bar,
     # SYSTEM MINUS at the bottom on the returns bar, housing outboard on the right. Both bars
     # leave the studs leftward, off the back of the shunt, never across the housing face.
+    # The returns bar is sized first: 12 studs at RET_PITCH, the last two spare, and the board
+    # takes its width from it.
+    ret_len = 36.0 + RET_PITCH * (len(RET_NAMES) - 1) + 13.0       # shunt stud to the bar's far end
+    NEG = (NEG[0], NEG[1], 6.0 + ret_len + 52.0, NEG[3])
+    shapes[2] = ("rect", NEG[0], NEG[1], NEG[2], NEG[3], "#f7f7f2", INK, False, 1.0)
     x_sh = NEG[0] + NEG[2] - 52.0
     y_mid = NEG[1] + NEG[3] / 2
     y_nb, y_rt = y_mid - 27.5, y_mid + 27.5             # battery - bar on top, returns below
@@ -279,19 +288,19 @@ def build():
         [(x_sh, y_nb, "shunt, battery side, M10")]
         + [(x, y_nb, "battery %d -, M8" % n) for n, x in zip((4, 3, 2, 1), neg)],
         "BATTERY - BAR", label_x=(neg[1] + neg[2]) / 2)
-    names = ("inverter/charger -", "DC-DC -", "2nd charger -", "solar -", "house -", "always-on -")
-    rts = [x_sh - 35.0 - 30.0 * k for k in range(len(names))]   # inverter nearest the shunt
+    names = [n for n, _ in RET_NAMES]
+    rts = [x_sh - 36.0 - RET_PITCH * k for k in range(len(names))]   # inverter nearest the shunt
     bar("Returns - bar", rts[-1] - 13.0, y_rt - BAR / 2, x_sh + 12.5 - (rts[-1] - 13.0), BAR,
         [(x_sh, y_rt, "shunt, system side, M10")]
-        + [(x, y_rt, "%s, %s" % (n, "M8" if i < 4 else "M6")) for i, (x, n) in enumerate(zip(rts, names))])
-    text((rts[2] + rts[3]) / 2, y_rt - 15.5, "- BAR (returns)", 4.4)
+        + [(x, y_rt, "%s, M%d" % (n, d)) for x, (n, d) in zip(rts, RET_NAMES)])
+    text((rts[4] + rts[5]) / 2, y_rt - 15.5, "- BAR (returns)", 4.4)
     for y in (y_rt, y_nb):
         stud(x_sh, y, 10)
     for n, x in zip((4, 3, 2, 1), neg):
         stud(x, y_nb, 8)
         text(x, y_nb - 15.5, "B%d-" % n, 3.8)
-    for i, (x, n) in enumerate(zip(rts, names)):
-        stud(x, y_rt, 8 if i < 4 else 6)
+    for x, (n, d) in zip(rts, RET_NAMES):
+        stud(x, y_rt, d)
         text(x + 2.0, y_rt + 17, n, 3.8, anchor="start", rot=40)
 
     dim_h([(NEG[0], NEG[1] + NEG[3]), (x_sh, y_nb)] + [(x, y_nb) for x in neg], NEG[1] + NEG[3] + 8, below=True)
