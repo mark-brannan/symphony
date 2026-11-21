@@ -283,6 +283,9 @@ doesn't count: it records what a session did, not what the host now runs.
   failures). Report the idle thing and what keeping it costs; Mark decides.
   This covers spare hardware paths, fallback services and duplicate config.
 
+## Boat wiring
+- Wire size meets ABYC E-11: 16 AWG minimum, 18 AWG only inside a multi-conductor sheath.
+
 ## Working style, generally
 - No unsolicited notes, hedges, or "this may have changed" commentary
   embedded in any doc — flag uncertainty in conversation, keep the files
