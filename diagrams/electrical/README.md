@@ -35,6 +35,7 @@ not as-built values.
   cut-and-drill list. Part sizes are the makers' drawings, tagged in the file where scaled or guessed; none are
   measured on the boat's own parts. Dashed = type or part open, planned, or a future battery. Run it from the
   repo root.
+- `house-bank-busbar-board.md` — the requirements that layout has to meet.
 - `circuit-inventory.md` — existing breakers, circuits off the panel, and planned circuits.
 - `voltplan/symphony.json` — system description for the VoltPlan API.
 - `voltplan/symphony.png` — diagram generated from it.
