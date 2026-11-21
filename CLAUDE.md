@@ -26,10 +26,16 @@ doesn't count: it records what a session did, not what the host now runs.
 - `systems/*.md` — one file per boat system, intentionally empty for now.
   Don't impose section structure on these until asked — the owner wants to
   arrive at the right structure organically, not have it templated in.
+- `research/<topic>/` — the working record of a choice being made for the
+  boat: candidates, criteria, outside claims checked, decisions. A guess is
+  allowed there when labelled as one.
 
 ## Sibling repo: workshop (the parts)
 - Physical parts live in [workshop](https://github.com/mark-brannan/workshop) (checkout `~/workshop`);
   the system lives here. The seam is the enclosure's connectors: inside is workshop, outside is here.
+- Undecided is not a home. Work goes where its purpose is: choosing
+  something for Symphony starts here, in `research/`. Workshop gets a
+  project when there is a thing to make.
 - Before changing firmware pins, a circuit or a cabinet layout, or
   moving or renaming a file under `diagrams/`, `firmware/` or `hardware/`, run
   `grep -l '^Symphony:.*<path>' ~/workshop/projects/*/README.md` for the
@@ -291,7 +297,8 @@ doesn't count: it records what a session did, not what the host now runs.
 ## Working style, generally
 - No unsolicited notes, hedges, or "this may have changed" commentary
   embedded in any doc — flag uncertainty in conversation, keep the files
-  themselves clean and current.
+  themselves clean and current. The one exception is a labelled guess in
+  `research/`.
 - Ambiguity in old records (multiple sources disagreeing, unclear dates)
   gets flagged to the owner rather than silently resolved by guessing.
 
