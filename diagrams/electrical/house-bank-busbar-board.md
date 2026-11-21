@@ -31,11 +31,12 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
   so that each battery's cable, about 1 ft, reaches its bar.
 - C3. On the positive board, the battery bar SHALL be on the right and
   everything else to its left.
-- C4. Batteries SHALL land on the positive and negative battery bars in the
-  same left-to-right order.
-- C5. The positive takeoff and the negative takeoff SHALL leave their battery
-  bars at opposite ends, so that every battery sees the same path length and
-  the bank stays balanced.
+- C4. The battery nearest the positive takeoff SHALL be the farthest from
+  the negative takeoff, and so on in order, so that every battery sees the
+  same length of bar and the bank stays balanced. The left-to-right order on
+  the two bars follows from that and need not match.
+- C5. Every battery's cables SHALL be the same length and gauge as every
+  other battery's, and every battery fuse the same type, for the same reason.
 - C6. Each battery SHALL have its own fuse between it and the battery bar.
   That fuse SHOULD be an ANL.
 - C7. The cable from each battery to its fuse SHOULD be short, with no fuse
@@ -53,10 +54,15 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
   Cerbo GX, and the feed to the always-on fuses in the electrical panel SHALL
   bypass the master switch.
 - P4. The inverter/charger SHALL have a service disconnect switch.
-- P5. The master switch and the inverter service disconnect SHOULD sit at the
-  far left.
+- P5. The master switch and the inverter service disconnect SHOULD sit on
+  the left, where they are reached without lifting more than one berth
+  board. A breaker MAY stand between a switch and the left edge.
 - P6. Disconnects, fuses and outside connections SHOULD have their end points
   along the left and bottom edges of the board where reasonable.
+
+- P7. What a hand operates, the switches and the breakers, SHOULD stand
+  together at the left, so that no live bar is reached across.
+- P8. The unswitched bar SHOULD carry one spare hole for a future load.
 
 ## Negative side
 
@@ -69,5 +75,6 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
 ## Out of scope
 
 - The always-on fuse bank lives in the electrical panel, not on this board.
+- The Cerbo GX is fused inline on its feeder wire, not on this board.
 - Ratings, ampacity and wire sizing are out of scope for the layout. A
   serious problem with any of them is still raised when it shows.
