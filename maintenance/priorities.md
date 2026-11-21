@@ -1,9 +1,10 @@
 # Priorities
 
 Physical boat work — anything hands-on that isn't SignalK or embedded software
-— is tracked in Evernote, not here. That's the authoritative list for what
-Mark is actually working on aboard. This file is not the place to look up or
-add a physical task, and the two overlapping in the short term is fine.
+— is tracked in Joplin (moving over from Evernote), not here. That's the
+authoritative list for what Mark is actually working on aboard. This file is
+not the place to look up or add a physical task, and the two overlapping in
+the short term is fine.
 
 This file is for humans. High-level items only. Claude-session micro-tasks,
 blocked questions, and detailed working state live in
@@ -68,7 +69,7 @@ the global work-item board (state repo; `worklist`), not here.
 
 ### Electrical (core, non-IoT)
 - Bring the second house battery into service — charge the spare pack to match
-  before paralleling. *(Parked here for transfer to Evernote.)*
+  before paralleling. *(Parked here for transfer to Joplin.)*
 - GFCI outlet in head
 - Secure batteries with straps; cover exposed positive battery terminals
 - Wrap up DC-DC converter install (Victron Orion-Tr, purchased 2025-05-08)
