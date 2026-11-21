@@ -263,11 +263,13 @@ def build():
 
     # ---- negative board, below ---------------------------------------------------
     # The shunt stands upright at the right end, the takeoff diagonally opposite the Class T
-    # (spec C4a), and is the only bridge between the bars: system stud on the returns bar,
-    # battery stud on the battery - bar. Both bars run leftward from it.
+    # (spec C4a), and is the only bridge between the bars. It is the real part turned half a
+    # turn, never mirrored (spec N3): BATTERY MINUS stud at the top on the battery - bar,
+    # SYSTEM MINUS at the bottom on the returns bar, housing outboard on the right. Both bars
+    # leave the studs leftward, off the back of the shunt, never across the housing face.
     x_sh = NEG[0] + NEG[2] - 52.0
     y_mid = NEG[1] + NEG[3] / 2
-    y_rt, y_nb = y_mid - 27.5, y_mid + 27.5
+    y_nb, y_rt = y_mid - 27.5, y_mid + 27.5             # battery - bar on top, returns below
     body("SmartShunt base", x_sh - 12.5, y_mid - 60, 25, 120, "#7fb3e6", "")
     body("SmartShunt housing", x_sh + 12.5, y_mid - 38, 27, 76, "#a9cdf0", "SmartShunt", rot=-90)
     screw(x_sh, y_mid - 50.5)
@@ -282,15 +284,15 @@ def build():
     bar("Returns - bar", rts[-1] - 13.0, y_rt - BAR / 2, x_sh + 12.5 - (rts[-1] - 13.0), BAR,
         [(x_sh, y_rt, "shunt, system side, M10")]
         + [(x, y_rt, "%s, %s" % (n, "M8" if i < 4 else "M6")) for i, (x, n) in enumerate(zip(rts, names))])
-    text((rts[2] + rts[3]) / 2, y_rt + 19, "- BAR (returns)", 4.4)
+    text((rts[2] + rts[3]) / 2, y_rt - 15.5, "- BAR (returns)", 4.4)
     for y in (y_rt, y_nb):
         stud(x_sh, y, 10)
     for n, x in zip((4, 3, 2, 1), neg):
         stud(x, y_nb, 8)
-        text(x, y_nb + 19, "B%d-" % n, 3.8)
+        text(x, y_nb - 15.5, "B%d-" % n, 3.8)
     for i, (x, n) in enumerate(zip(rts, names)):
         stud(x, y_rt, 8 if i < 4 else 6)
-        text(x + 2.0, y_rt - 15, n, 3.8, anchor="start", rot=-40)
+        text(x + 2.0, y_rt + 17, n, 3.8, anchor="start", rot=40)
 
     dim_h([(NEG[0], NEG[1] + NEG[3]), (x_sh, y_nb)] + [(x, y_nb) for x in neg], NEG[1] + NEG[3] + 8, below=True)
     dim_h([(x_sh, y_rt)] + [(x, y_rt) for x in rts], NEG[1] + NEG[3] + 20, below=True)
@@ -307,8 +309,8 @@ def build():
     text(-3, ab_out[1] + 1.5, "always-on lead", 4.6, anchor="end")
     text(-3, ib_out[1] + 1.5, "inverter lead", 4.6, anchor="end")
     text((xf[0] + xf[3]) / 2, BOARD_H + 7, "unswitched leads leave the bottom edge", 4.6)
-    text(NEG[0] + NEG[2] + 6, y_rt + 1.5, "returns leave the top edge", 4.6, anchor="start")
-    text(NEG[0] + NEG[2] + 6, y_nb - 1, "battery - leads leave the bottom edge,", 4.6, anchor="start")
+    text(NEG[0] + NEG[2] + 6, y_rt + 1.5, "returns leave the bottom edge", 4.6, anchor="start")
+    text(NEG[0] + NEG[2] + 6, y_nb - 1, "battery - leads leave the top edge,", 4.6, anchor="start")
     text(NEG[0] + NEG[2] + 6, y_nb + 5.5, "B1-B4 left to right as on +; shunt at the far end", 4.6, anchor="start")
     text(NEG[0] + NEG[2] / 2, NEG[1] - 5, "negative board %g x %g, its own piece" % (NEG[2], NEG[3]), 5)
 

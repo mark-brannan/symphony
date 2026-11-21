@@ -32,6 +32,8 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
   two are a future expansion.
 - C2. The batteries SHALL connect from below, and the board SHALL be placed
   so that each battery's cable, about 1 ft, reaches its bar.
+  Battery negatives MAY reach their bar from above where the shunt's
+  orientation needs it (N3).
 - C3. On the positive board, the battery bar SHALL be on the right and
   everything else to its left.
 - C4. Each battery SHALL land on both battery bars in its physical order,
@@ -95,6 +97,10 @@ The keywords MUST, SHALL, SHOULD and MAY are used as in RFC 2119.
 - N2. Only battery negatives SHALL land on the battery side of the shunt.
   Every other negative, the engine block included, SHALL land on the
   distribution side.
+- N3. The SmartShunt's BATTERY MINUS and SYSTEM MINUS studs are fixed by the
+  part, and the part SHALL NOT be drawn mirrored: it may only be turned.
+  Bars SHALL leave its studs along its length or off its back, never across
+  the housing face with the electronics and LEDs.
 
 ## Out of scope
 
