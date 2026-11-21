@@ -285,7 +285,7 @@ doesn't count: it records what a session did, not what the host now runs.
 
 ## Boat wiring
 - Wire size follows ABYC E-11: 16 AWG minimum; 18 AWG in a multi-conductor sheath, ≤30" outside it.
-- Exempt: circuits under 1 A (33 CFR 183.425), and data cabling (N2K, Qwiic, VE.CAN) at its own spec.
+- Exempt: electronic circuits under 1 A, and data cabling (N2K, Qwiic, VE.CAN) at its own spec.
 
 ## Working style, generally
 - No unsolicited notes, hedges, or "this may have changed" commentary
