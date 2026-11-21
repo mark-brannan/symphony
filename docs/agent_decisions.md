@@ -72,3 +72,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261121t050644z
 - Drawing takes the shunt at the far end of the negative bar, of the C4b arrangements Undo: move the shunt back left and add a return strap from the far end (C4b second option) ([#174](https://github.com/mark-brannan/symphony/pull/174))
+
+### 20261121t073959z
+- chart-table cabinet sheet: a bold outline marks a box drawn to measured size chart-table cabinet sheet: the V/A meter gets its own legend colour, metering chart-table cabinet sheet: one measured lever terminal takes the first 54 mm of the dashed rail 2 placeholder, the rest stays TBD chart-table cabinet sheet: measured parts drawn centred on the rail's height Undo: revert e913986 ([#181](https://github.com/mark-brannan/symphony/pull/181))
