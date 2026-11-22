@@ -54,7 +54,7 @@ The shell was measured aboard on 2026-11-21 (tape and speed square). Inches.
 | Hull rise from the rise line | 25.6 deg | fitted to the two corner drops; the model is within 3/8 of both |
 | Hull steepens at | 15.8 up, to 37.1 deg | fitted: the steeper angle is the 2026-11-20 angle-ruler photo; the height is where that slope gives the measured overhang |
 | Deep lip | solid from 20 up | assumed: its panel thickness is not measured |
-| Room above the rim, clear of the lip | 1/2, set in the page | guess; one side of the berth has raised lid panels |
+| Room above the rim, clear of the lip | 3/4, set in the page | guess; one side of the berth has raised lid panels |
 | Battery | 17.8 x 9.37 x 8.7, both posts at one end | retailer listing; photos of the two aboard |
 | MultiPlus 12/500 | 12.24 H x 7.17 W x 3.94 D | Victron datasheet |
 | Orion-Tr | about 7 W x 6.5 H x 3.3 D | photo, +/- 1/2 |

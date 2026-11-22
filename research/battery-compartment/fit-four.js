@@ -299,7 +299,7 @@ function Planner(shellIn, partIn, clIn) {
     let r = solve(b); b.cx += wall - r.x0;
     for (let k = 0; k < 800; k++) {
       r = solve(b);
-      const hit = done.some(q => Math.max(...r.boxes.flatMap(a => q.boxes.map(c => depth(a, c)))) > -CL) || U.some(u => Math.max(...r.boxes.map(a => depth(a, u))) > -CL);
+      const hit = hits(r, done, U);
       if (!hit) break; b.cx += 0.125;
     }
     b.cx = Math.ceil(b.cx * 8 - 1e-9) / 8; return solve(b);
