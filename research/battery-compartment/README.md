@@ -31,6 +31,10 @@ browser; it needs no build. Its geometry is [`fit-four.js`](fit-four.js).
   means "look here", not "does not fit".
 - "Copy link" keeps a layout; the page explains its own controls.
 
+[`compartment-map.html`](compartment-map.html) is the compartment as measured
+on 2026-11-21, with the equipment placed from that night's photos: a map to
+look around in, not a planner.
+
 ## What the numbers are
 
 The shell was measured aboard on 2026-11-21 (tape and speed square). Inches.
