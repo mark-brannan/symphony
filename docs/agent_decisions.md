@@ -75,3 +75,6 @@ heading is the UTC stamp, so `agent_decisions.md#<stamp>` links one entry.
 
 ### 20261121t073959z
 - chart-table cabinet sheet: a bold outline marks a box drawn to measured size chart-table cabinet sheet: the V/A meter gets its own legend colour, metering chart-table cabinet sheet: one measured lever terminal takes the first 54 mm of the dashed rail 2 placeholder, the rest stays TBD chart-table cabinet sheet: measured parts drawn centred on the rail's height Undo: revert e913986 ([#181](https://github.com/mark-brannan/symphony/pull/181))
+
+### 20261122t101536z
+- Homes for the 3D maps: research/nav-desk/ and research/shower-sump/; single-file fit-four-planner.html bundle left out as a duplicate Undo: move the folders in a follow-up PR ([#184](https://github.com/mark-brannan/symphony/pull/184))
