@@ -1,0 +1,642 @@
+<title>Symphony Nav Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one survey sheet. The 3D stage first, its controls under it, then the notes and the dimension table the model is built from. */
+:root{
+  --bg:#eef1f3; --panel:#ffffff; --ink:#16212b; --muted:#566571; --line:#c9d2d9; --stage:#dde4e9;
+  --accent:#0b6e8f;
+  --measured:#12754a; --photo:#9a5a00; --guess:#b3372f; --proposed:#6d44ad;
+  --wood:#a9773f; --wood-dark:#7c5326; --paint:#f3f1ea; --plate:#1b1e22; --equip:#3d464f; --copper:#b5682a;
+  --hose:#2b2f33; --victron:#2468c9; --free:#2f9e6b; --tape:#d9b300; --cushion:#2e6b4a; --sole:#8d99a3;
+  --handle:#c23b3b; --meter:#e8e8e2; --hole:#101418; --label-bg:#ffffff; --label-ink:#16212b;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11161b; --panel:#182028; --ink:#e4eaee; --muted:#95a3ae; --line:#2c3944; --stage:#0b1015;
+    --accent:#58c4e4;
+    --measured:#55d79a; --photo:#ffc04d; --guess:#ff8a80; --proposed:#c3a2f2;
+    --wood:#c08f55; --wood-dark:#94683a; --paint:#cfd3d0; --plate:#3a4048; --equip:#7d8894; --copper:#d08a4a;
+    --hose:#5a626b; --victron:#4f93f0; --free:#4fd29a; --tape:#ffd84a; --cushion:#3f8f66; --sole:#46545f;
+    --handle:#ef6b6b; --meter:#d9dbd6; --hole:#000000; --label-bg:#182028; --label-ink:#e4eaee;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11161b; --panel:#182028; --ink:#e4eaee; --muted:#95a3ae; --line:#2c3944; --stage:#0b1015;
+  --accent:#58c4e4;
+  --measured:#55d79a; --photo:#ffc04d; --guess:#ff8a80; --proposed:#c3a2f2;
+  --wood:#c08f55; --wood-dark:#94683a; --paint:#cfd3d0; --plate:#3a4048; --equip:#7d8894; --copper:#d08a4a;
+  --hose:#5a626b; --victron:#4f93f0; --free:#4fd29a; --tape:#ffd84a; --cushion:#3f8f66; --sole:#46545f;
+  --handle:#ef6b6b; --meter:#d9dbd6; --hole:#000000; --label-bg:#182028; --label-ink:#e4eaee;
+  color-scheme:dark;
+}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);margin:0}
+.sheet{max-width:1180px;margin:0 auto;padding-block:20px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px;min-width:0}
+.eyebrow{margin:0;font:500 12px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{margin:2px 0 0;font:600 26px/1.2 var(--sans);text-wrap:balance}
+h2{margin:0 0 8px;font:600 17px/1.3 var(--sans)}
+p{margin:0}
+.lede{margin:6px 0 0;color:var(--muted);max-width:76ch}
+#stage{position:relative;width:100%;height:min(68vh,640px);min-height:340px;background:var(--stage);
+  border:1px solid var(--line);border-radius:6px;overflow:hidden;touch-action:none}
+#stage canvas{display:block;width:100%;height:100%}
+#err{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--muted)}
+#hint{position:absolute;left:10px;top:8px;right:10px;font:500 12px/1.35 var(--mono);color:var(--muted);pointer-events:none}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bar .cap{font:500 12px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:4px;min-width:64px}
+button{font:500 13px/1 var(--sans);color:var(--ink);background:var(--panel);border:1px solid var(--line);
+  border-radius:4px;padding:8px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.tog{display:inline-flex;gap:6px;align-items:center;font-size:13px;padding:6px 10px;background:var(--panel);
+  border:1px solid var(--line);border-radius:4px;cursor:pointer}
+label.tog input{accent-color:var(--accent);margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{display:inline-block;width:26px;height:16px;border-radius:2px;box-sizing:border-box}
+.sw.m{background:var(--equip);border:2px solid var(--measured)}
+.sw.p{background:color-mix(in srgb,var(--equip) 50%,transparent);border:2px dashed var(--photo)}
+.sw.g{background:color-mix(in srgb,var(--equip) 22%,transparent);border:2px dotted var(--guess)}
+.sw.d{background:color-mix(in srgb,var(--proposed) 45%,transparent);border:2px dashed var(--proposed)}
+.sw.f{background:color-mix(in srgb,var(--free) 25%,transparent);border:1px solid var(--free)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
+.card ul{margin:0;padding-left:18px}
+.card li{margin:4px 0}
+.card li b{font-weight:600}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:720px}
+th,td{padding:6px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{font:500 11.5px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);position:sticky;top:0;background:var(--panel)}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.src{font-family:var(--mono);font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.tag{display:inline-block;font:600 11px/1 var(--mono);padding:3px 6px;border-radius:3px;border:1px solid currentColor;white-space:nowrap}
+.tag.M{color:var(--measured)} .tag.S{color:var(--photo)} .tag.P{color:var(--photo)} .tag.G{color:var(--guess)}
+details{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 16px}
+summary{cursor:pointer;font-weight:600}
+details p{margin-top:8px;color:var(--muted);font-size:13.5px}
+code{font-family:var(--mono);font-size:.92em}
+</style>
+
+<main class="sheet">
+  <header>
+    <p class="eyebrow">Symphony, 1985 HC38T, space A of 2</p>
+    <h1>Nav desk, electrical panel and the cabinet behind it</h1>
+    <p class="lede">An approximate 3D sketch for planning the new wiring: where terminal blocks and two 24 inch DIN rails could go. Inches throughout. Nothing here was taken with a tape by the owner except the sizes of two loose DIN parts; everything else is read off photos or guessed, and drawn that way. Good to the nearest inch at best, worse where marked.</p>
+  </header>
+
+  <div id="stage" aria-label="3D view of the nav desk and electrical cabinet">
+    <div id="hint">Drag to orbit, scroll or pinch to zoom, right-drag or two fingers to pan. Facing the panel: forward is left, aft is right.</div>
+    <div id="err" hidden></div>
+  </div>
+
+  <div class="bar" role="group" aria-label="Views">
+    <span class="cap">View</span>
+    <button type="button" data-view="iso">Three-quarter</button>
+    <button type="button" data-view="front">Front elevation</button>
+    <button type="button" data-view="top">From above</button>
+    <button type="button" data-view="behind">From behind the panel</button>
+    <button type="button" data-view="inside">Into the open cabinet</button>
+  </div>
+  <div class="bar" role="group" aria-label="Panel door">
+    <span class="cap">Panel</span>
+    <button type="button" id="btn-door" aria-pressed="false">Swing the panel open</button>
+  </div>
+  <div class="bar" role="group" aria-label="Show or hide">
+    <span class="cap">Show</span>
+    <label class="tog"><input type="checkbox" id="t-fascia" checked> Panel wall (fascia)</label>
+    <label class="tog"><input type="checkbox" id="t-overhead" checked> Overhead</label>
+    <label class="tog"><input type="checkbox" id="t-back" checked> Hull-side wall</label>
+    <label class="tog"><input type="checkbox" id="t-bulk" checked> Bulkheads</label>
+    <label class="tog"><input type="checkbox" id="t-desk" checked> Desk and surroundings</label>
+    <label class="tog"><input type="checkbox" id="t-equip" checked> Existing equipment</label>
+    <label class="tog"><input type="checkbox" id="t-din" checked> DIN rail candidates</label>
+    <label class="tog"><input type="checkbox" id="t-free"> Free volumes</label>
+    <label class="tog"><input type="checkbox" id="t-dims" checked> Dimensions</label>
+    <label class="tog"><input type="checkbox" id="t-labels" checked> Labels</label>
+  </div>
+  <div class="legend" aria-label="Legend">
+    <span><i class="sw m"></i> Measured by the owner: solid, solid outline</span>
+    <span><i class="sw p"></i> Read from a photo or a maker's figure: see-through, dashed outline</span>
+    <span><i class="sw g"></i> Guess: fainter, fine dashes</span>
+    <span><i class="sw d"></i> Proposed, not installed</span>
+    <span><i class="sw f"></i> Free volume</span>
+  </div>
+
+  <div class="cols">
+    <section class="card">
+      <h2>Datum (shared with the page for the space below)</h2>
+      <ul>
+        <li><b>x</b>: aft from the bulkhead just forward of the desk and panel. This is the zero of the long tape in the 21 November photos.</li>
+        <li><b>y</b>: inboard from the face of the panel wall at desk level, where the black desk surface starts. Behind the panel is negative.</li>
+        <li><b>z</b>: up from the desk top.</li>
+        <li>The February tape (set L) started about 0.6 further aft, at a black blob in the corner; its readings are shifted by that much.</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h2>What the picture says about wiring room</h2>
+      <ul id="summary"></ul>
+    </section>
+    <section class="card">
+      <h2>Where the sources disagree</h2>
+      <ul>
+        <li><b>Depth of the cabinet.</b> Inside, near the floor: 10 1/2 to the back of the sill, 12 to its front (set I). Outside, at the aft end: 9 5/16 at outlet height (set K) and about 12 at the overhead (set N). Drawn as read: a plumb back wall at 12 inside, a leaning planked wall aft of the post.</li>
+        <li><b>Panel frame width.</b> The 21 November hand-off note gives the frame as 0 to 15.5 and the fascia as 15.5 to 23. The close-up photo and the February tape both put the plate's edge at 17.4, the frame's rail end at 18.0, and the next joints at 19.7 and 21.6. The close-ups are used.</li>
+        <li><b>Which part swings.</b> The model treats the finger-hole board as the door's own stile (door 1.0 to 19.7). February's notes left that open.</li>
+        <li><b>Zeus size.</b> The photos give 8.75 wide; a maker's figure was not found in the project files.</li>
+      </ul>
+    </section>
+  </div>
+
+  <details>
+    <summary>Breakers on the Newmar panel, as labelled</summary>
+    <p><b>AC</b>: master breaker (reverse polarity lamp), Outlets, Water heater, Battery charger, Microwave oven, three blanks.</p>
+    <p><b>DC, left column (terminals 1 to 10)</b>: Cabin lights port, Cabin lights stbd, Courtesy lights, Engine room, Running, Bow, Anchor, Spreader, Nav/Com, Stereo.</p>
+    <p><b>DC, right column (terminals 11 to 20)</b>: Compass light, Bilge pump, Bilge pump, Sump pump, Water pressure, LPG control, Refrigerator, Windlass, Heater, Radar.</p>
+    <p>From <code>symphony/diagrams/electrical/circuit-inventory.md</code> and the 21 November close-up. The labels are often wrong, per that file.</p>
+  </details>
+
+  <section>
+    <h2>Dimensions used</h2>
+    <div class="tablewrap"><table id="dimtable"><thead><tr><th>Name</th><th>Inches</th><th>Class</th><th>What, and how sure</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf" crossorigin="anonymous"></script>
+<script>
+/* =======================================================================================
+   DIMENSIONS. Inches. This is the only place a number lives: change one here and the
+   model, the callouts, the free volumes and the table all follow.
+
+   Each entry is  NAME: [value, class, what (with its uncertainty), source]
+   class  'M'  MEASURED  owner's tape or calipers
+          'S'  SPEC      maker's figure, not measured aboard (drawn like a photo read)
+          'P'  PHOTO     read from a photo, uncertainty in the text
+          'G'  GUESS     no reading at all
+   Frame: x aft from the forward bulkhead (zero of the 2026-11-21 long tape),
+          y inboard from the panel wall's face at desk level, z up from the desk top.
+   mm sources are written mm(...) so the original number stays visible.
+   ======================================================================================= */
+const mm = v => v / 25.4;
+const NOV   = 'symphony-photos-2026-11-21/';                           // beside this folder, in claude_exploration
+const NOVMD = 'symphony-battery-compartment-readings-2026-11-21.md';   // same place
+const CTC   = 'claude_prompts_scratch/state/symphony/chart-table-cabinet/'; // WSL home; readings.md, batch_1..5.md, photo-sets.md
+const DRAW  = 'symphony/diagrams/electrical/chart-table-cabinet.drawio';
+const PARTS = 'workshop/parts.md';
+const FEB   = 0.6;   // PHOTO +/-0.3: February set L zero sat this far aft of the bulkhead (same joints read on both tapes)
+
+const DIM = {
+  /* ---- ties between this page and below-nav-desk.html. Identical block in both files. None is measured. ---- */
+  DESK_DEPTH:       [24,    'G', 'Desk, panel wall to its inboard edge. No reading anywhere', 'none'],
+  DESK_T:           [1.75,  'G', 'Desk top surface down to the ceiling of the cabinet below', 'none'],
+  UD_X0:            [5,     'G', 'Forward jamb (inner face) of the opening below the desk, aft of the bulkhead', 'none'],
+  UD_INT_H:         [20.75, 'P', 'Cabinet below: floor to ceiling, 20 5/8 to 20 7/8, lower end of the tape not seen', CTC + 'batch_1.md set A'],
+  UD_LEDGE_UP:      [0,     'G', 'Ledge outside the opening below the desk, above that cabinet floor. Taken as level', 'none'],
+  SOLE_BELOW_LEDGE: [8,     'G', 'Cabin sole below that ledge', 'none'],
+
+  /* ---- along the tape, on the panel wall (x) ---- */
+  X_HINGE:        [1.0,   'P', 'Hinge line of the panel door, +/-0.5', NOV + 'ce763b0f-image.jpg'],
+  X_PLATE_L:      [3.7,   'P', 'Black plate, forward edge, +/-0.4 (Feb set H gives 3.85)', NOV + 'ce763b0f-image.jpg; ' + CTC + 'batch_2.md set H'],
+  X_PLATE_R:      [17.4,  'P', 'Black plate, aft edge, +/-0.3 (Feb set H gives 17.5)', NOV + 'fa55461d-image.jpg; ' + CTC + 'batch_2.md set H'],
+  X_RAIL_END:     [18.0,  'P', 'Door bottom rail ends against the finger-hole board, +/-0.2 (Feb L 17 3/8 + 0.6)', NOV + 'fa55461d-image.jpg; ' + CTC + 'batch_2.md set L'],
+  X_DOOR_R:       [19.7,  'P', 'Joint aft of the finger-hole board, taken as the door edge, +/-0.2 (Feb L 19 1/8 + 0.6)', NOV + 'fa55461d-image.jpg; ' + CTC + 'batch_2.md sets G, L'],
+  X_PLOTBOARD_L:  [21.6,  'P', 'Forward joint of the plotter board, +/-0.2 (Feb L 20 7/8 to 21, + 0.6)', NOV + 'fa55461d-image.jpg; ' + CTC + 'batch_2.md sets L, M'],
+  X_PLOTTER_L:    [22.5,  'P', 'Chartplotter bezel, forward edge, +/-0.3', NOV + 'fa55461d-image.jpg'],
+  X_PLOTTER_R:    [31.25, 'P', 'Chartplotter bezel, aft edge, +/-0.3', NOV + '6d064e05-image.jpg'],
+  X_DESK_AFT:     [31.2 + FEB, 'P', 'Black desk surface stops at the aft rail (Feb L 31 3/16 + 0.6), +/-0.4', CTC + 'batch_2.md set L'],
+  X_POST_L:       [32.0,  'P', 'Joint between plotter board and post, +/-0.2 (Feb L 31 3/8 + 0.6 = 31.98)', NOV + '6d064e05-image.jpg; ' + CTC + 'batch_2.md set L'],
+  X_POST_R:       [33.9,  'P', 'Aft edge of the post, rounded, +/-0.3 (Feb L 33 3/16 + 0.6 = 33.8)', NOV + '6d064e05-image.jpg; ' + CTC + 'batch_2.md set L'],
+
+  /* ---- heights on the panel wall (z, above the desk). No tape has been run vertically here. ---- */
+  Z_SILL_TOP:     [0.6,   'P', 'Top of the fixed sill under the door, +/-0.3, scaled from the tape below it', NOV + 'ce763b0f-image.jpg'],
+  Z_PLATE_BOT:    [2.0,   'P', 'Bottom edge of the black plate, +/-0.5, scaled', NOV + 'fa55461d-image.jpg'],
+  PLATE_H:        [12.0,  'P', 'Black plate height, +/-1, from its proportions against the plotter', NOV + 'f1d1690b-image.jpg'],
+  Z_DOOR_TOP:     [15.4,  'G', 'Top of the door frame (hidden behind the beam in every photo)', 'none'],
+  Z_CEIL:         [16.0,  'P', 'Cabinet ceiling above its floor: at least 15 1/4, probably about 16, tape curled. Also used for the overhead outside', CTC + 'batch_3.md set J'],
+  Z_FINGER:       [7.3,   'P', 'Finger hole centre, +/-1', NOV + 'f1d1690b-image.jpg'],
+  FINGER_DIA:     [1.0,   'P', 'Finger hole diameter, +/-0.25', NOV + 'ce763b0f-image.jpg'],
+  Z_PLOTTER_BOT:  [1.3,   'P', 'Bottom of the plotter bezel, +/-0.4', NOV + 'fa55461d-image.jpg'],
+  PLOTTER_H:      [5.6,   'P', 'Plotter bezel height, +/-0.5 (width 8.75 times the 0.63 aspect seen)', NOV + 'f1d1690b-image.jpg'],
+  CUTOUT_X0:      [1.0,   'P', 'Open cut-out, forward end, from the plotter board joint, soft', CTC + 'batch_2.md set M'],
+  CUTOUT_X1:      [9.75,  'P', 'Open cut-out, aft end, from the plotter board joint, 9 1/2 to 9 3/4', CTC + 'batch_2.md set M'],
+  CUTOUT_Z0:      [8.5,   'P', 'Open cut-out, bottom, +/-1', NOV + 'f1d1690b-image.jpg'],
+  CUTOUT_Z1:      [11.6,  'P', 'Open cut-out, top, +/-1', NOV + 'f1d1690b-image.jpg'],
+
+  /* ---- depths (y) ---- */
+  SILL_DEPTH:     [1.5,   'P', 'Sill of the opening, front to back (reads 10 1/2 to 12 on the tape), 1/2 raised lip at the back', CTC + 'batch_3.md set I'],
+  CAB_DEPTH_IN:   [10.5,  'P', 'Back wall to the inside of the sill, near the floor. Number sharp; hook end and level unproven, could be 3/8 less', CTC + 'batch_3.md set I'],
+  WALL_T:         [0.75,  'G', 'Thickness of the fascia boards and the outlet wall', 'none'],
+  BREAKER_D:      [3.0,   'G', 'How far breaker bodies and their wiring reach behind the plate when shut. Not in any photo', 'none'],
+  PLOTTER_BEHIND: [3.5,   'G', 'Plotter body and plugs behind its board', 'none'],
+  PLOTTER_PROUD:  [0.5,   'G', 'Plotter bezel proud of its board', 'none'],
+  OUTLET_WALL_W:  [9.3125,'P', 'Outlet wall, planked wall to its outside corner at the post, at 12 V socket height: 9 5/16, could be 9 1/4 to 9 3/8', CTC + 'batch_3.md set K'],
+  Z_OUTLETS:      [7,     'G', 'Height of that reading above the desk', 'none'],
+  TOP_WALL_W:     [12.0,  'P', 'Same wall at the overhead: 11 1/2 to 12 7/16, three oblique views', CTC + 'batch_3.md set N1'],
+  BEAM_FROM_WALL: [18.25, 'P', 'Planked wall to the near edge of the wood beam, along the overhead, 17 3/4 to 18 3/8', CTC + 'batch_3.md set N2'],
+  BEAM_W:         [5,     'G', 'Beam width', 'none'],
+  BEAM_H:         [4,     'G', 'Beam depth below the overhead', 'none'],
+
+  /* ---- on the back wall inside the cabinet. Heights are read DOWN from the ceiling on set J's tape. ---- */
+  X_TAPE_J:       [7.0,   'G', 'Where set J tape hangs, aft of the bulkhead. Scaled from one dark photo, +/-2. Everything on the back wall hangs off this', CTC + 'batch_3.md set J'],
+  HOSE_GAP:       [2.5,   'P', 'Duct hose, its aft side to set J tape, scaled', CTC + 'batch_3.md set J'],
+  HOSE_DIA:       [3.0,   'P', 'Black duct hose diameter, +/-0.5, floor to ceiling', CTC + 'batch_3.md set J'],
+  TB_W:           [1.25,  'P', 'Barrier terminal blocks (8 positions, two rows): width, just forward of the tape', CTC + 'batch_3.md set J'],
+  TB1_TOP:        [1.875, 'P', 'Upper terminal block, top, below the ceiling', CTC + 'batch_3.md set J'],
+  TB1_BOT:        [6.25,  'P', 'Upper terminal block, bottom, below the ceiling', CTC + 'batch_3.md set J'],
+  TB2_TOP:        [6.625, 'P', 'Lower terminal block, top, below the ceiling', CTC + 'batch_3.md set J'],
+  TB2_BOT:        [10.5,  'P', 'Lower terminal block, bottom, below the ceiling', CTC + 'batch_3.md set J'],
+  NAIS_GAP:       [3.0,   'P', 'NAIS-500, its forward edge aft of set J tape, scaled', CTC + 'batch_3.md set J'],
+  NAIS_TOP:       [7.5,   'P', 'NAIS-500 top, below the ceiling, 1/4 at best', CTC + 'batch_3.md set J'],
+  NAIS_BOT:       [11.25, 'P', 'NAIS-500 bottom, below the ceiling', CTC + 'batch_3.md set J'],
+  NAIS_W:         [6.0,   'G', 'NAIS-500 width with its flanges', 'none'],
+  NAIS_D:         [2.0,   'G', 'NAIS-500 depth off the wall', 'none'],
+  PLANK_BOT:      [12.25, 'P', 'Bottom edge of the varnished planking, below the ceiling, 12 1/8 to 12 3/8. Black band below it', CTC + 'batch_3.md set J'],
+  BUS1_TOP:       [12.25, 'P', 'Upper brass bus bar, 12 1/4 to 12 3/4 below the ceiling', CTC + 'batch_3.md set J'],
+  BUS2_TOP:       [13.125,'P', 'Lower brass bus bar, 13 1/8 to 13 5/8 below the ceiling', CTC + 'batch_3.md set J'],
+  BUS_LEN:        [6.5,   'G', 'Bus bar length (only partly in frame)', 'none'],
+
+  /* ---- aft of the post: the HALPI2 and its neighbours. May move; nothing else hangs off these. ---- */
+  HALPI_FROM_WALL:[3.6,   'P', 'HALPI2 case, forward edge aft of the outlet wall, +/-0.5 (case stands proud of the tape)', NOV + 'acfde6a2-image.jpg'],
+  HALPI_TOP:      [2.45,  'P', 'HALPI2 case top, below the underside of the shelf above, +/-0.3', NOV + '7c488e44-image.jpg'],
+  HALPI_SIZE:     [[mm(200), mm(130), mm(60)], 'S', 'HALPI2 case, w x h x d: 200 x 130 x 60 mm as recalled from Hat Labs, not re-checked. The photo reads 5.1 tall', NOV + '7c488e44-image.jpg'],
+  ROUTER_SIZE:    [[1.4, 4.5, 3.5], 'G', 'GL.iNet router on the outlet wall, thickness x height x depth', NOV + '7c488e44-image.jpg'],
+  SWITCH_SIZE:    [[1.2, 4.3, 4.0], 'G', 'Netgear switch below the router', NOV + '7c488e44-image.jpg'],
+  X_VHF:          [51,    'G', 'VHF radio, forward edge. Only its edge is in frame', NOV + 'f1d1690b-image.jpg'],
+
+  /* ---- DIN rail candidates. Sizes from the layout drawing; positions in the cabinet are this page's proposal. ---- */
+  RAIL_LEN:       [mm(610),  'S', 'Rail length in the layout drawing: 610 mm (two rails of about 24 in)', DRAW],
+  RAIL_W:         [mm(34.5), 'M', 'TS35 rail width: 34.5 mm measured, 35 nominal', PARTS],
+  RAIL_T:         [mm(7.5),  'G', 'Rail depth, assuming the 7.5 mm profile', 'none'],
+  RAIL_X0:        [5.0,   'G', 'Proposed: rails start just aft of the duct hose', 'none'],
+  RAIL1_Z:        [11.5,  'G', 'Proposed: upper rail centre height', 'none'],
+  RAIL2_Z:        [5.2,   'G', 'Proposed: lower rail centre height (160 mm below the upper in the drawing)', DRAW],
+  PART_D:         [1.6,   'G', 'Depth off the rail for parts with no measured depth', 'none'],
+  PSU_FOOT:       [[mm(58), mm(85)], 'M', 'AC to 12 V PSU 5 A, footprint along x across the rail: 58 x 85 mm, owner calipers', 'workshop/projects/din-rail-psu-mount/model.scad'],
+  VSR_FOOT:       [[mm(80), mm(80)], 'G', 'Voltage sensitive relay: 80 x 80 mm in the drawing', DRAW],
+  BP_FOOT:        [[mm(100), mm(90)],'G', 'Victron BatteryProtect 65 A (a suggestion): 100 x 90 mm in the drawing', DRAW],
+  FUSE6_FOOT:     [[mm(120), mm(80)],'G', '6-way fuse block: 120 x 80 mm in the drawing', DRAW],
+  LEVER_SIZE:     [[mm(54), mm(42), mm(27.5)], 'M', 'Lever terminal, 2 into 10: 54 x 42 x 27.5 mm, owner 2026-11-20', PARTS],
+  LEVER_MORE:     [[mm(92), mm(50)], 'G', 'More lever terminals, quantity open: 92 x 50 mm in the drawing', DRAW],
+  VA_SIZE:        [[mm(57), mm(45), mm(42.3)], 'M', 'V/A meter on its DIN mount: 57 x 45 x 42.3 mm, depth from the rail outermost edge, owner 2026-11-20', PARTS]
+};
+const V = k => DIM[k][0];
+const CLASS_NAME = {M:'MEASURED', S:'SPEC', P:'PHOTO', G:'GUESS'};
+const fmt = v => Array.isArray(v) ? v.map(fmt).join(' x ') : (Math.round(v * 100) / 100).toString();
+
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ---------- dimension table: works even if the 3D library is blocked ---------- */
+(function(){
+  const tb = $('dimtable').tBodies[0];
+  for(const k in DIM){
+    const [v, c, what, src] = DIM[k], tr = document.createElement('tr');
+    const cell = (txt, cls) => {const td = document.createElement('td'); if(cls) td.className = cls; td.textContent = txt; tr.appendChild(td); return td;};
+    cell(k, 'num'); cell(fmt(v), 'num');
+    const td = document.createElement('td'), s = document.createElement('span'); s.className = 'tag ' + c; s.textContent = CLASS_NAME[c]; td.appendChild(s); tr.appendChild(td);
+    cell(what); cell(src, 'src'); tb.appendChild(tr);
+  }
+})();
+
+/* ---------- derived numbers used by both the summary and the model ---------- */
+const back   = -(V('SILL_DEPTH') + V('CAB_DEPTH_IN'));        // y of the back wall, inside face
+const cabX1  = V('X_POST_R') - V('WALL_T');                   // x of the inside of the outlet wall
+const zC     = V('Z_CEIL');
+const sole   = -(V('DESK_T') + V('UD_INT_H') - V('UD_LEDGE_UP') + V('SOLE_BELOW_LEDGE'));
+const hoseX  = V('X_TAPE_J') - V('HOSE_GAP') - V('HOSE_DIA') / 2;
+const plateY = -0.45;                                         // plate sits this far inside the door's face
+const breakerBack = plateY - V('BREAKER_D');                  // y of the back of the breaker bodies
+const clearBehindBreakers = breakerBack - back;               // free depth behind the shut panel
+const openW  = (V('X_PLATE_R') + 0.3) - (V('X_PLATE_L') - 0.3);
+const openH  = V('PLATE_H') + 0.6;
+const doorW  = V('X_DOOR_R') - V('X_HINGE');
+const zoneA  = {x:[hoseX + V('HOSE_DIA') / 2 + 0.5, V('X_DOOR_R')], y:[back, breakerBack], z:[0, zC]};
+const zoneB  = {x:[V('X_DOOR_R'), cabX1], y:[back, -(V('WALL_T') + V('PLOTTER_BEHIND'))], z:[0, zC]};
+const vol = z => (z.x[1] - z.x[0]) * (z.y[1] - z.y[0]) * (z.z[1] - z.z[0]);
+const span = z => [z.x[1] - z.x[0], z.y[1] - z.y[0], z.z[1] - z.z[0]].map(n => n.toFixed(1));
+(function(){
+  const li = t => {const e = document.createElement('li'); e.innerHTML = t; $('summary').appendChild(e);};
+  li('<b>Width inside</b>: about ' + cabX1.toFixed(1) + ' from the forward bulkhead to the outlet wall, if nothing divides the space behind the plain board. A ' + V('RAIL_LEN').toFixed(0) + ' in rail fits lengthwise only if that holds.');
+  li('<b>Depth</b>: ' + V('CAB_DEPTH_IN') + ' behind the sill near the floor. With the panel shut, about ' + clearBehindBreakers.toFixed(1) + ' is left behind the breakers (the breaker depth is a guess).');
+  li('<b>Height</b>: about ' + zC + ' floor to ceiling, at least 15 1/4.');
+  li('<b>Way in</b>: the door opening is roughly ' + openW.toFixed(1) + ' wide by ' + openH.toFixed(1) + ' high (guess). The aft ' + (cabX1 - V('X_DOOR_R')).toFixed(0) + ' in of the cabinet is reached past the door edge or through the cut-out above the plotter.');
+  li('<b>Free volume behind the door</b>: ' + span(zoneA).join(' x ') + ' in, about ' + Math.round(vol(zoneA)) + ' cu in (' + (vol(zoneA) * 0.016387).toFixed(0) + ' L), before the existing gear on the back wall.');
+  li('<b>Free volume behind the plain board and plotter</b>: ' + span(zoneB).join(' x ') + ' in, about ' + Math.round(vol(zoneB)) + ' cu in (' + (vol(zoneB) * 0.016387).toFixed(0) + ' L). Never photographed.');
+  li('<b>In the way of a straight 24 in rail today</b>: the duct hose, two terminal blocks, the NAIS-500 and the bus bars. Switch the DIN candidates on and off to see the clash.');
+})();
+
+/* ---------- 3D ---------- */
+const stage = $('stage'), errBox = $('err');
+function fail(msg){ errBox.textContent = msg; errBox.hidden = false; $('hint').hidden = true; }
+if(!window.THREE || !THREE.OrbitControls){ fail('The 3D library did not load, so there is no model to show. The notes and the dimension table below are complete without it.'); return; }
+let renderer;
+try{ renderer = new THREE.WebGLRenderer({antialias:true}); }
+catch(e){ fail('This browser could not start WebGL, so there is no model to show. The notes and the dimension table below are complete without it.'); return; }
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+stage.appendChild(renderer.domElement);
+
+const FOV = 35, KFOV = 2 * Math.tan(FOV * Math.PI / 360);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(FOV, 1, 0.5, 3000);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = false; controls.minDistance = 4; controls.maxDistance = 400;
+let need = true; controls.addEventListener('change', () => { need = true; });
+
+/* boat frame (x aft, y inboard, z up) to three.js (X right, Y up, Z toward the viewer) */
+const T = (x, y, z) => new THREE.Vector3(x, z, y);
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888888';
+let pal = {};
+function readPalette(){
+  for(const k of ['stage','wood','wood-dark','paint','plate','equip','copper','hose','victron','free','tape','cushion','sole','handle','meter','hole','measured','photo','guess','proposed','label-bg','label-ink','line'])
+    pal[k] = cssv('--' + k);
+}
+const state = {fascia:true, overhead:true, back:true, bulk:true, desk:true, equip:true, din:true, free:false, dims:true, labels:true, open:false};
+let cats = {}, labels = [], door = null, doorAngle = 0;
+const reg = (c, o) => { (cats[c] = cats[c] || []).push(o); return o; };
+
+const OP = {M:1, S:0.72, P:0.72, G:0.38};
+function lineMat(p, colorOverride){
+  const c = colorOverride || (p === 'M' ? pal.measured : p === 'G' ? pal.guess : pal.photo);
+  if(p === 'M') return new THREE.LineBasicMaterial({color:c});
+  const d = p === 'G' ? [0.16, 0.2] : [0.45, 0.25];
+  return new THREE.LineDashedMaterial({color:c, dashSize:d[0], gapSize:d[1]});
+}
+function outline(mesh, p, colorOverride, soft){
+  const mat = lineMat(p, colorOverride); if(soft){ mat.transparent = true; mat.opacity = 0.55; }
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), mat);
+  if(p !== 'M') e.computeLineDistances();
+  mesh.add(e); return e;
+}
+function fill(color, p, op){
+  const o = op != null ? op : OP[p];
+  return new THREE.MeshLambertMaterial({color, transparent:o < 1, opacity:o, depthWrite:o >= 0.9, side:THREE.DoubleSide});
+}
+/* a labelled box given by its extents in the boat frame (or in a parent's local frame) */
+function box(cat, x, y, z, color, p, o){
+  o = o || {};
+  const dx = Math.abs(x[1] - x[0]), dy = Math.abs(y[1] - y[0]), dz = Math.abs(z[1] - z[0]);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(dx, dz, dy), fill(color, p, o.op));
+  m.position.copy(T((x[0] + x[1]) / 2, (y[0] + y[1]) / 2, (z[0] + z[1]) / 2));
+  if(!o.noEdge) outline(m, p, o.edge, o.op != null && o.op < 0.6);
+  (o.parent || scene).add(m); if(cat) reg(cat, m);
+  if(o.label) label(m, o.label, p, o.off || [0, dy / 2 + 0.05, dz / 2 + 0.45], {pri:o.pri != null ? o.pri : (o.op != null && o.op < 0.6 ? 1 : 3)});
+  return m;
+}
+function cyl(cat, cx, cy, z0, z1, r, color, p, o){
+  o = o || {};
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, Math.abs(z1 - z0), 24), fill(color, p, o.op));
+  m.position.copy(T(cx, cy, (z0 + z1) / 2)); outline(m, p);
+  (o.parent || scene).add(m); if(cat) reg(cat, m);
+  if(o.label) label(m, o.label, p, o.off || [0, r, 0]);
+  return m;
+}
+function quad(cat, pts, color, p, o){
+  o = o || {};
+  const g = new THREE.BufferGeometry().setFromPoints(pts.map(a => T(a[0], a[1], a[2]))); g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, fill(color, p, o.op));
+  const l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts.map(a => T(a[0], a[1], a[2]))), lineMat(p));
+  if(p !== 'M') l.computeLineDistances(); m.add(l);
+  scene.add(m); if(cat) reg(cat, m);
+  if(o.label){ const c = pts.reduce((s, a) => [s[0] + a[0] / 4, s[1] + a[1] / 4, s[2] + a[2] / 4], [0, 0, 0]); label(scene, o.label, p, c, {cat, pri:1}); }
+  return m;
+}
+/* text label: a canvas-texture sprite that keeps its size on screen */
+function label(parent, text, p, off, o){
+  o = o || {};
+  const lines = String(text).split('\n'), fs = 26, pad = 9, bar = p ? 8 : 0;
+  const c = document.createElement('canvas'), g = c.getContext('2d');
+  g.font = '600 ' + fs + 'px system-ui, -apple-system, Segoe UI, sans-serif';
+  const w = Math.ceil(Math.max.apply(null, lines.map(s => g.measureText(s).width))) + pad * 2 + bar, h = Math.ceil(lines.length * fs * 1.22) + pad * 2 - 4;
+  c.width = w; c.height = h;
+  g.font = '600 ' + fs + 'px system-ui, -apple-system, Segoe UI, sans-serif'; g.textBaseline = 'top';
+  g.globalAlpha = 0.9; g.fillStyle = pal['label-bg']; g.fillRect(0, 0, w, h); g.globalAlpha = 1;
+  const pc = o.color || (p === 'M' ? pal.measured : p === 'G' ? pal.guess : p ? pal.photo : pal['label-ink']);
+  if(bar){ g.fillStyle = pc; g.fillRect(0, 0, bar - 2, h); }
+  g.strokeStyle = pc; g.lineWidth = 2; if(p && p !== 'M') g.setLineDash(p === 'G' ? [3, 4] : [9, 5]); g.strokeRect(1, 1, w - 2, h - 2);
+  g.fillStyle = pal['label-ink']; lines.forEach((s, i) => g.fillText(s, pad + bar, pad - 2 + i * fs * 1.22));
+  const tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:false, depthWrite:false, sizeAttenuation:false, transparent:true}));
+  sp.renderOrder = 20; sp.userData = {isLabel:true, aspect:w / h, n:lines.length, dim:!!o.dim, small:!!o.small, cat:o.cat || null, pri:o.pri != null ? o.pri : (o.dim ? 5 : 3), px:20};
+  sp.position.copy(T(off[0], off[1], off[2])); parent.add(sp); labels.push(sp); return sp;
+}
+function sizeLabels(){
+  const H = stage.clientHeight || 500;
+  for(const s of labels){ const px = (s.userData.small ? 11.5 : 13.5) * s.userData.n * 1.22 + 8, k = px / H * KFOV; s.userData.px = px; s.scale.set(k * s.userData.aspect, k, 1); }
+}
+/* show a label only if it is switched on, its object is shown, and no more important label already sits there */
+const _v = new THREE.Vector3();
+function cullLabels(){
+  const W = stage.clientWidth, H = stage.clientHeight, placed = [], live = [];
+  for(const s of labels){
+    let ok = (s.userData.dim || state.labels) && (!s.userData.cat || state[s.userData.cat] !== false);
+    for(let o = s.parent; ok && o; o = o.parent) if(!o.visible) ok = false;
+    s.visible = ok; if(ok) live.push(s);
+  }
+  live.sort((a, b) => b.userData.pri - a.userData.pri);
+  for(const s of live){
+    s.getWorldPosition(_v); _v.project(camera);
+    if(_v.z > 1 || _v.z < -1){ s.visible = false; continue; }
+    const x = (_v.x + 1) / 2 * W, y = (1 - _v.y) / 2 * H, hh = s.userData.px / 2, hw = hh * s.userData.aspect, r = [x - hw, y - hh, x + hw, y + hh];
+    if(placed.some(q => r[0] < q[2] + 3 && r[2] > q[0] - 3 && r[1] < q[3] + 3 && r[3] > q[1] - 3)){ s.visible = false; continue; }
+    placed.push(r);
+  }
+}
+/* a dimension callout between two points in the boat frame */
+function dim(a, b, text, p, o){
+  o = o || {};
+  const g = new THREE.Group(), A = T(a[0], a[1], a[2]), B = T(b[0], b[1], b[2]);
+  const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([A, B]), lineMat(p)); if(p !== 'M') l.computeLineDistances(); g.add(l);
+  const col = p === 'M' ? pal.measured : p === 'G' ? pal.guess : pal.photo;
+  for(const P of [A, B]){ const s = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({color:col})); s.position.copy(P); g.add(s); }
+  const mid = [(a[0] + b[0]) / 2 + (o.off ? o.off[0] : 0), (a[1] + b[1]) / 2 + (o.off ? o.off[1] : 0), (a[2] + b[2]) / 2 + (o.off ? o.off[2] : 0)];
+  label(g, text, p, mid, {dim:true});
+  scene.add(g); reg(o.cat || 'dims', g); return g;
+}
+function polyline(cat, pts, p, color){
+  const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(a => T(a[0], a[1], a[2]))), p ? lineMat(p, color) : new THREE.LineBasicMaterial({color}));
+  if(p && p !== 'M') l.computeLineDistances(); scene.add(l); reg(cat, l); return l;
+}
+
+/* ============================ THE MODEL ============================ */
+function model(){
+  const xH = V('X_HINGE'), xPL = V('X_PLATE_L'), xPR = V('X_PLATE_R'), xDR = V('X_DOOR_R'), xPB = V('X_PLOTBOARD_L');
+  const xPoL = V('X_POST_L'), xPoR = V('X_POST_R'), wt = V('WALL_T'), deskD = V('DESK_DEPTH'), xDesk = V('X_DESK_AFT');
+  const zSill = V('Z_SILL_TOP'), zPB = V('Z_PLATE_BOT'), zPT = zPB + V('PLATE_H'), zDT = V('Z_DOOR_TOP'), xJ = V('X_TAPE_J');
+  const beamY = V('BEAM_FROM_WALL') - V('TOP_WALL_W');
+  const xEnd = 60;   // how far aft the drawing runs
+  /* planked wall aft of the post leans: 9 5/16 at outlet height, about 12 at the overhead */
+  const wallY = z => -(V('OUTLET_WALL_W') + (V('TOP_WALL_W') - V('OUTLET_WALL_W')) * (z - V('Z_OUTLETS')) / (zC - V('Z_OUTLETS')));
+
+  /* ---- enclosing surfaces ---- */
+  box('bulk', [-wt, 0], [back - 1, deskD + 3], [sole, zC + 1.5], pal.wood, 'P', {op:0.14, label:'Forward bulkhead: x = 0, tape zero', off:[0, 6, zC / 2 + 9]});
+  box('back', [0, cabX1], [back - 0.5, back], [0, zC], pal.wood, 'P', {op:0.3, label:'Cabinet back wall, planked (hull side)', off:[8, 0, zC / 2 + 0.5]});
+  box('back', [0, cabX1], [back, back + 0.04], [0, zC - V('PLANK_BOT')], pal.plate, 'P', {op:0.55, noEdge:true});
+  quad('back', [[xPoR, wallY(0), 0], [xEnd, wallY(0), 0], [xEnd, wallY(zC), zC], [xPoR, wallY(zC), zC]], pal.wood, 'P', {op:0.25, label:'Planked wall aft of the post\n9 5/16 out at outlet height, about 12 at the top'});
+  box('bulk', [cabX1, xPoR], [back, -1.9], [0, zC], pal.wood, 'P', {op:0.22, label:'Outlet wall: aft end of the cabinet', off:[0, 3, zC / 2 + 0.5]});
+  box('desk', [0, cabX1], [back, 0], [-0.5, 0], pal.plate, 'P', {op:0.6, label:'Cabinet floor: black, same level as the desk (guess)', off:[-6, 4, 0.3]});
+  box('desk', [0, xDesk], [0, deskD], [-V('DESK_T'), 0], pal.plate, 'G', {op:0.5, label:'Desk top: ' + fmt(xDesk) + ' long (photo), ' + deskD + ' deep (guess)', off:[0, 6, 0.3]});
+  box('desk', [xDesk, xDesk + 1.2], [0, deskD + 1.2], [-V('DESK_T'), 1.5], pal.wood, 'G', {op:0.4});
+  box('desk', [0, xDesk], [deskD, deskD + 1.2], [-V('DESK_T'), 1.5], pal.wood, 'G', {op:0.4});
+  box('desk', [-wt, xEnd], [-8, deskD + 10], [sole - 0.5, sole], pal.sole, 'G', {op:0.45, label:'Cabin sole: ' + (-sole).toFixed(1) + ' below the desk (guess)', off:[10, 9, 0.4]});
+  box('desk', [xPoR, xEnd], [-7, deskD - 4], [sole + 14.5, sole + 18.5], pal.cushion, 'G', {op:0.35, label:'Berth cushion'});
+  box('desk', [V('UD_X0') - 1.5, V('UD_X0') + 20.5], [deskD - 23.4, deskD], [-(V('DESK_T') + V('UD_INT_H')), -V('DESK_T')], pal.free, 'G', {op:0.07, label:'Space B: cabinet below the desk\n(below-nav-desk.html)', off:[0, 11.8, -2]});
+  box('overhead', [0, xEnd], [back - 1, beamY], [zC, zC + 0.5], pal.paint, 'P', {op:0.2, label:'Overhead, white: about ' + zC + ' above the desk', off:[14, -3, 0.6]});
+  box('overhead', [0, xEnd], [beamY, beamY + V('BEAM_W')], [zC - V('BEAM_H') + 1, zC + 1], pal.wood, 'G', {op:0.28, label:'Wood beam: starts ' + beamY.toFixed(1) + ' inboard of the panel face', off:[-12, 3, 2.6]});
+
+  /* ---- the panel wall (fascia), forward to aft ---- */
+  box('fascia', [0, xH], [-wt, 0], [0, zC], pal.wood, 'P', {op:0.5});
+  box('fascia', [xH, xDR], [-V('SILL_DEPTH'), 0], [0, zSill], pal['wood-dark'], 'P', {op:0.6});
+  box('fascia', [xH, xDR], [-wt, 0], [zDT, zC], pal.wood, 'G', {op:0.35});
+  box('fascia', [xDR, xPB], [-wt, 0], [0, zC], pal.wood, 'P', {op:0.5, label:'Plain board', off:[0, 0.5, zC / 2 - 3]});
+  box('fascia', [xPB, xPoL], [-wt, 0], [0, zC], pal.wood, 'P', {op:0.4, label:'Plotter board: ' + (xPoL - xPB).toFixed(1) + ' wide', off:[0, 0.5, zC / 2 - 1.2]});
+  box('fascia', [xPB + V('CUTOUT_X0'), xPB + V('CUTOUT_X1')], [-wt - 0.03, 0.03], [V('CUTOUT_Z0'), V('CUTOUT_Z1')], pal.hole, 'P', {op:0.75, label:'Open cut-out', off:[0, 0.5, 0]});
+  box('fascia', [xPoL, xPoR], [-1.9, 0.3], [-V('DESK_T'), zC], pal['wood-dark'], 'P', {op:0.55, label:'Post', off:[0, 0.9, zC / 2 + 3]});
+
+  /* ---- the hinged panel door: hinge on its forward (left) side, swings inboard ---- */
+  door = new THREE.Group(); door.position.copy(T(xH, 0, 0)); scene.add(door);
+  const D = x => x - xH;   // door-local x
+  const dw = (x, z, p, o) => box('fascia', x, [-wt, 0.15], z, pal.wood, p, Object.assign({parent:door, op:0.62}, o || {}));
+  dw([0, D(xPL)], [zSill, zDT], 'P');
+  dw([D(xPR), D(xDR)], [zSill, zDT], 'P', {label:'Panel door: ' + doorW.toFixed(1) + ' wide, hinge forward', off:[-4, 0.6, (zDT - zSill) / 2 + 0.5]});
+  dw([D(xPL), D(xPR)], [zSill, zPB], 'P');
+  dw([D(xPL), D(xPR)], [zPT, zDT], 'G');
+  const hole = new THREE.Mesh(new THREE.CylinderGeometry(V('FINGER_DIA') / 2, V('FINGER_DIA') / 2, wt + 0.4, 20), fill(pal.hole, 'P', 0.9));
+  hole.rotation.x = Math.PI / 2; hole.position.copy(T(D((V('X_RAIL_END') + xDR) / 2), -wt / 2 + 0.08, V('Z_FINGER'))); door.add(hole); reg('fascia', hole);
+  box('equip', [D(xPL), D(xPR)], [plateY - 0.06, plateY + 0.06], [zPB, zPT], pal.plate, 'P', {parent:door, op:0.92,
+    label:'Newmar panel plate: ' + (xPR - xPL).toFixed(1) + ' x ' + V('PLATE_H'), off:[0, 1.0, V('PLATE_H') / 2 - 1.2]});
+  box('equip', [D(xPL) + 0.2, D(xPR) - 0.2], [breakerBack, plateY - 0.06], [zPB + 0.3, zPT - 0.3], pal.equip, 'G', {parent:door,
+    label:'Breaker bodies and wiring: ' + V('BREAKER_D') + ' deep', off:[0, -V('BREAKER_D') / 2 - 0.5, 0]});
+  /* plate furniture, by eye from the close-up: u from the plate's forward edge, v down from its top */
+  const pu = (u, v, w, h, color, proud) => box('equip', [D(xPL) + u - w / 2, D(xPL) + u + w / 2], [plateY, plateY + proud], [zPT - v - h / 2, zPT - v + h / 2], color, 'P', {parent:door, op:0.95, noEdge:true});
+  for(const u of [1.7, 4.5, 9.3, 12.1]) pu(u, 1.6, 2.5, 2.5, pal.meter, 0.25);
+  pu(6.9, 2.0, 0.7, 0.7, pal.equip, 0.5);
+  pu(2.0, 4.5, 0.55, 0.3, pal.handle, 0.4);
+  for(let i = 0; i < 10; i++){ const v = 3.6 + i * 0.87; pu(5.6, v, 0.55, 0.3, pal.handle, 0.4); pu(10.0, v, 0.55, 0.3, pal.handle, 0.4); if(i >= 3) pu(1.5, v, 0.55, 0.3, pal.handle, 0.4); }
+  door.rotation.y = -doorAngle;
+  /* swing arc on the desk */
+  { const a = []; for(let i = 0; i <= 42; i++){ const t = i / 42 * 90 * Math.PI / 180; a.push([xH + doorW * Math.cos(t), doorW * Math.sin(t), 0.06]); }
+    polyline('dims', a, 'P'); label(scene, 'Door swing: ' + doorW.toFixed(1) + ' radius', 'P', [xH + doorW * 0.72, doorW * 0.72, 0.4], {dim:true, cat:'dims', pri:2}); }
+
+  /* ---- chartplotter ---- */
+  box('equip', [V('X_PLOTTER_L'), V('X_PLOTTER_R')], [-wt, V('PLOTTER_PROUD')], [V('Z_PLOTTER_BOT'), V('Z_PLOTTER_BOT') + V('PLOTTER_H')], pal.plate, 'P', {op:0.9,
+    label:'B&G Zeus plotter: ' + (V('X_PLOTTER_R') - V('X_PLOTTER_L')).toFixed(2) + ' x ' + V('PLOTTER_H'), off:[0, 0.8, 0]});
+  box('equip', [V('X_PLOTTER_L') + 0.4, V('X_PLOTTER_R') - 0.4], [-wt - V('PLOTTER_BEHIND'), -wt], [V('Z_PLOTTER_BOT') + 0.3, V('Z_PLOTTER_BOT') + V('PLOTTER_H') - 0.3], pal.equip, 'G', {label:'Plotter body and plugs', off:[0, -V('PLOTTER_BEHIND') / 2 - 0.4, 0]});
+
+  /* ---- existing equipment inside the cabinet, on or near the back wall ---- */
+  cyl('equip', hoseX, back + V('HOSE_DIA') / 2 + 0.5, 0, zC, V('HOSE_DIA') / 2, pal.hose, 'P', {label:'Duct hose, floor to ceiling', off:[0, 1.8, 3]});
+  box('equip', [xJ - 0.25 - V('TB_W'), xJ - 0.25], [back, back + 0.7], [zC - V('TB1_BOT'), zC - V('TB1_TOP')], pal.plate, 'P', {label:'Terminal block, 8 way', off:[0, 0.8, 1]});
+  box('equip', [xJ - 0.25 - V('TB_W'), xJ - 0.25], [back, back + 0.7], [zC - V('TB2_BOT'), zC - V('TB2_TOP')], pal.plate, 'P', {label:'Terminal block, 8 way', off:[0, 0.8, -1]});
+  box('equip', [xJ + V('NAIS_GAP'), xJ + V('NAIS_GAP') + V('NAIS_W')], [back, back + V('NAIS_D')], [zC - V('NAIS_BOT'), zC - V('NAIS_TOP')], pal.equip, 'P', {label:'NAIS-500 AIS', off:[1, V('NAIS_D') / 2 + 0.3, 0.6]});
+  for(const k of ['BUS1_TOP', 'BUS2_TOP']) box('equip', [xJ - 2, xJ - 2 + V('BUS_LEN')], [back + 0.2, back + 0.9], [zC - V(k) - 0.5, zC - V(k)], pal.copper, 'P', k === 'BUS2_TOP' ? {label:'Two brass bus bars', off:[2, 1.4, -0.7]} : {});
+  box('equip', [xJ + 5.2, xJ + 7.7], [back + 6.2, back + 7.8], [0.5, 1.3], pal.equip, 'G', {label:'5 V converter, loose', off:[0, 1.2, 0.4]});
+
+  /* ---- aft of the post ---- */
+  { const s = V('HALPI_SIZE'), x0 = xPoR + V('HALPI_FROM_WALL'), z1 = zC - V('HALPI_TOP'), yw = wallY(z1 - s[1] / 2);
+    box('equip', [x0, x0 + s[0]], [yw, yw + s[2]], [z1 - s[1], z1], pal.victron, 'P', {label:'HALPI2 case (may move)', off:[0, s[2] / 2 + 0.3, -s[1] / 2 - 0.9]});
+    const r = V('ROUTER_SIZE'), sw = V('SWITCH_SIZE');
+    box('equip', [xPoR, xPoR + r[0]], [-2.6 - r[2], -2.6], [zC - 1.6 - r[1], zC - 1.6], pal.equip, 'G', {label:'Router', off:[1.6, 0, 1.2]});
+    box('equip', [xPoR, xPoR + sw[0]], [-2.4 - sw[2], -2.4], [zC - 7 - sw[1], zC - 7], pal.meter, 'G', {label:'Network switch', off:[1.8, 0, -1.6]});
+    box('equip', [V('X_VHF'), V('X_VHF') + 6], [wallY(10), wallY(10) + 3], [zC - 7.5, zC - 2.5], pal.plate, 'G', {label:'VHF radio'}); }
+
+  /* ---- DIN rail candidates on the back wall: sizes from the layout drawing, places proposed here ---- */
+  { const x0 = V('RAIL_X0'), rt = V('RAIL_T'), y0 = back, pd = V('PART_D');
+    const rail = (z, name) => box('din', [x0, x0 + V('RAIL_LEN')], [y0, y0 + rt], [z - V('RAIL_W') / 2, z + V('RAIL_W') / 2], pal.sole, 'S', {op:0.85, edge:pal.proposed, label:name, off:[V('RAIL_LEN') / 2 - 5.5, 1.2, 1.3]});
+    const part = (z, atmm, foot, d, p, name) => { const xa = x0 + mm(atmm); box('din', [xa, xa + foot[0]], [y0 + rt, y0 + rt + d], [z - foot[1] / 2, z + foot[1] / 2], pal.proposed, p, {edge:p === 'M' ? pal.measured : pal.proposed, label:name, pri:2, off:[0, d / 2 + 0.3, 0]}); };
+    const z1 = V('RAIL1_Z'), z2 = V('RAIL2_Z'), psu = V('PSU_FOOT'), lev = V('LEVER_SIZE'), va = V('VA_SIZE');
+    rail(z1, 'Rail 1, 610 mm: at-dock supply'); rail(z2, 'Rail 2, 610 mm: distribution');
+    part(z1, 5, psu, pd, 'G', 'PSU 5 A'); part(z1, 67, psu, pd, 'G', 'PSU 5 A');
+    part(z1, 129, V('VSR_FOOT'), pd, 'G', 'VSR'); part(z1, 213, V('BP_FOOT'), pd, 'G', 'BatteryProtect');
+    part(z2, 5, V('FUSE6_FOOT'), pd, 'G', '6-way fuse block'); part(z2, 129, lev, lev[2], 'M', 'Lever terminal');
+    part(z2, 187, V('LEVER_MORE'), lev[2], 'G', 'More lever terminals'); part(z2, 283, va, va[2] - rt, 'M', 'V/A meter'); }
+
+  /* ---- free volumes ---- */
+  box('free', zoneA.x, zoneA.y, zoneA.z, pal.free, 'G', {op:0.12, edge:pal.free, label:'Free behind the door\n' + span(zoneA).join(' x ') + ' in, ' + Math.round(vol(zoneA)) + ' cu in', pri:6, off:[0, 0, 2]});
+  box('free', zoneB.x, zoneB.y, zoneB.z, pal.free, 'G', {op:0.12, edge:pal.free, label:'Free behind plain board and plotter\n' + span(zoneB).join(' x ') + ' in, ' + Math.round(vol(zoneB)) + ' cu in', pri:6, off:[0, 0, -2]});
+
+  /* ---- dimension callouts ---- */
+  dim([0, back + 0.3, zC - 0.6], [cabX1, back + 0.3, zC - 0.6], cabX1.toFixed(1) + ' inside width, if undivided', 'P', {off:[4, 0, 0]});
+  dim([xJ + 3.5, -V('SILL_DEPTH'), 0.25], [xJ + 3.5, back, 0.25], V('CAB_DEPTH_IN') + ' deep at the floor (set I)', 'P');
+  dim([xJ, back + 0.15, 0], [xJ, back + 0.15, zC], 'about ' + zC + ' high, at least 15 1/4 (set J)', 'P', {off:[0, 0, 5.2]});
+  dim([xPR - 2, breakerBack, zPB + 1], [xPR - 2, back, zPB + 1], clearBehindBreakers.toFixed(1) + ' clear behind the breakers', 'G');
+  dim([xPL - 0.3, 0.25, zPB - 0.35], [xPR + 0.3, 0.25, zPB - 0.35], 'Opening about ' + openW.toFixed(1) + ' x ' + openH.toFixed(1), 'G');
+  dim([xPoR, wallY(V('Z_OUTLETS')), V('Z_OUTLETS')], [xPoR, 0, V('Z_OUTLETS')], '9 5/16 (set K)', 'P', {off:[2.5, 0, 0]});
+  /* the long tape of 21 November, laid along the foot of the panel wall */
+  polyline('dims', [[0, 0.45, 0.05], [48, 0.45, 0.05]], null, pal.tape);
+  for(const [x, t] of [[0, '0'], [xH, fmt(xH)], [V('X_RAIL_END'), '18.0'], [xDR, fmt(xDR)], [xPB, fmt(xPB)], [xPoL, fmt(xPoL)], [xPoR, fmt(xPoR)], [48, '48']]){
+    polyline('dims', [[x, 0.45, 0.05], [x, 1.7, 0.05]], null, pal.tape);
+    label(scene, t, null, [x, 2.5, 0.1], {dim:true, small:true, color:pal.tape, cat:'dims', pri:4});
+  }
+}
+
+/* ---------- build, theme, visibility ---------- */
+function build(){
+  while(scene.children.length){ const o = scene.children[scene.children.length - 1]; scene.remove(o);
+    o.traverse(n => { if(n.geometry) n.geometry.dispose(); if(n.material){ if(n.material.map) n.material.map.dispose(); n.material.dispose(); } }); }
+  cats = {}; labels = []; readPalette();
+  scene.background = new THREE.Color(pal.stage);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.78));
+  const d1 = new THREE.DirectionalLight(0xffffff, 0.5); d1.position.set(30, 60, 80); scene.add(d1);
+  const d2 = new THREE.DirectionalLight(0xffffff, 0.25); d2.position.set(-20, 30, -70); scene.add(d2);
+  model(); applyVis(); sizeLabels(); need = true;
+}
+function applyVis(){
+  for(const c in cats) for(const o of cats[c]) o.visible = state[c] !== false;
+  need = true;
+}
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight; if(!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); sizeLabels(); need = true;
+}
+
+/* ---------- views ---------- */
+const VIEWS = {   // three.js coordinates: [camera], [target]
+  iso:    {p:[50, 30, 62],   t:[17, 5, -2]},
+  front:  {p:[22, 4, 84],    t:[22, 4, 0]},
+  top:    {p:[20, 110, 5],   t:[20, 0, 4.9], hide:['overhead']},
+  behind: {p:[2, 15, -58],   t:[15, 7, -3],  hide:['back']},
+  inside: {p:[13, 13, 36],   t:[11, 7, -10], open:true}
+};
+let anim = null;
+const OPEN_ANGLE = 88 * Math.PI / 180;   // the forward bulkhead stops it near square
+function go(name, instant){
+  const v = VIEWS[name], t = new THREE.Vector3().fromArray(v.t), p = new THREE.Vector3().fromArray(v.p);
+  const k = Math.max(1, 1.25 / camera.aspect); p.sub(t).multiplyScalar(k).add(t);   // back off on narrow screens
+  for(const c of (v.hide || [])) setTog(c, false);
+  if(v.open) setDoor(true);
+  if(instant){ camera.position.copy(p); controls.target.copy(t); controls.update(); need = true; return; }
+  anim = {p0:camera.position.clone(), t0:controls.target.clone(), p1:p, t1:t, s:performance.now()};
+}
+function setTog(c, on){ state[c] = on; const el = $('t-' + c); if(el) el.checked = on; applyVis(); }
+function setDoor(open, instant){ state.open = open; const b = $('btn-door'); b.setAttribute('aria-pressed', String(open)); b.textContent = open ? 'Close the panel' : 'Swing the panel open';
+  if(instant){ doorAngle = open ? OPEN_ANGLE : 0; if(door) door.rotation.y = -doorAngle; } need = true; }
+
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => go(b.dataset.view)));
+$('btn-door').addEventListener('click', () => setDoor(!state.open));
+for(const c of ['fascia', 'overhead', 'back', 'bulk', 'desk', 'equip', 'din', 'free', 'dims', 'labels'])
+  $('t-' + c).addEventListener('change', e => { state[c] = e.target.checked; applyVis(); });
+
+const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function frame(now){
+  requestAnimationFrame(frame);
+  const target = state.open ? OPEN_ANGLE : 0;
+  if(doorAngle !== target){ doorAngle = reduce ? target : doorAngle + Math.sign(target - doorAngle) * Math.min(Math.abs(target - doorAngle), 0.06); if(door) door.rotation.y = -doorAngle; need = true; }
+  if(anim){ let u = reduce ? 1 : Math.min(1, (now - anim.s) / 450); const e = u * u * (3 - 2 * u);
+    camera.position.lerpVectors(anim.p0, anim.p1, e); controls.target.lerpVectors(anim.t0, anim.t1, e); controls.update(); if(u >= 1) anim = null; need = true; }
+  if(need){ need = false; scene.updateMatrixWorld(); camera.updateMatrixWorld(); cullLabels(); renderer.render(scene, camera); }
+}
+
+build(); resize(); go('iso', true);
+if(window.ResizeObserver) new ResizeObserver(resize).observe(stage); else window.addEventListener('resize', resize);
+if(window.matchMedia) { const mq = matchMedia('(prefers-color-scheme: dark)'); (mq.addEventListener ? mq.addEventListener('change', build) : mq.addListener(build)); }
+new MutationObserver(build).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+requestAnimationFrame(frame);
+window.__navdesk = {state, go, setDoor, setTog};   // handy from the console
+})();
+</script>

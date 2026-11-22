@@ -1,0 +1,640 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sump Bilge Map</title>
+<style>
+/* Layout: one survey sheet. The 3D stage first, its controls under it, then the numbers the model is built from. */
+:root{
+  --bg:#eef1f3; --panel:#ffffff; --ink:#16212b; --muted:#566571; --line:#c9d2d9; --stage:#dde4e9;
+  --accent:#0b6e8f; --est:#6d44ad; --plat:#c2571a;
+  --hull:#a8946c; --bottom:#7d6c4c; --sole:#a9773f; --box:#eef2f4; --box-edge:#56636d; --pump:#fbfaf5;
+  --hose-black:#23272b; --hose-white:#e9e4d6; --hose-clear:#9fc3cf; --cable:#c23b3b; --wire:#6a4a2f;
+  --label-bg:#ffffff;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11161b; --panel:#182028; --ink:#e4eaee; --muted:#95a3ae; --line:#2c3944; --stage:#0b1015;
+    --accent:#58c4e4; --est:#c3a2f2; --plat:#ff9450;
+    --hull:#b59f74; --bottom:#8a7955; --sole:#c08f55; --box:#c9d3d9; --box-edge:#d4dce1; --pump:#f1efe6;
+    --hose-black:#5b646c; --hose-white:#d9d3c2; --hose-clear:#7fb4c4; --cable:#ef6b6b; --wire:#b98b63;
+    --label-bg:#182028;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11161b; --panel:#182028; --ink:#e4eaee; --muted:#95a3ae; --line:#2c3944; --stage:#0b1015;
+  --accent:#58c4e4; --est:#c3a2f2; --plat:#ff9450;
+  --hull:#b59f74; --bottom:#8a7955; --sole:#c08f55; --box:#c9d3d9; --box-edge:#d4dce1; --pump:#f1efe6;
+  --hose-black:#5b646c; --hose-white:#d9d3c2; --hose-clear:#7fb4c4; --cable:#ef6b6b; --wire:#b98b63;
+  --label-bg:#182028;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);margin:0;overflow-x:hidden}
+.sheet{max-width:1180px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.eyebrow{margin:0;font:500 12px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{margin:2px 0 0;font:600 26px/1.2 var(--sans);text-wrap:balance}
+h2{margin:0 0 8px;font:600 17px/1.3 var(--sans)}
+.lede{margin:6px 0 0;color:var(--muted);max-width:72ch}
+#stage{position:relative;width:100%;height:min(68vh,640px);min-height:340px;background:var(--stage);
+  border:1px solid var(--line);border-radius:6px;overflow:hidden;touch-action:none}
+#stage canvas{display:block;width:100%;height:100%}
+#err[hidden]{display:none}
+#err:not([hidden]){position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--muted)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bar .cap{font:500 12px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+button{font:500 13px/1 var(--sans);color:var(--ink);background:var(--panel);border:1px solid var(--line);
+  border-radius:4px;padding:8px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.tog{display:inline-flex;gap:6px;align-items:center;font-size:13px;padding:6px 10px;background:var(--panel);
+  border:1px solid var(--line);border-radius:4px;cursor:pointer}
+.legend{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px;color:var(--muted)}
+.legend li{display:inline-flex;align-items:center;gap:8px}
+.sw{display:inline-block;width:30px;height:12px;border-radius:2px;flex:none}
+.sw.m{background:var(--accent);border:2px solid var(--accent)}
+.sw.e{background:transparent;border:2px dashed var(--est)}
+.sw.p{background:var(--plat);border:2px solid var(--plat);opacity:.8}
+.cols{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:22px}
+@media (max-width:820px){.cols{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:6px 10px 6px 0;border-bottom:1px solid var(--line)}
+th{font:500 11.5px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.k{font-family:var(--mono);font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.tag{font:500 11px/1 var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:3px 6px;border-radius:3px;
+  border:1px solid var(--line);white-space:nowrap;display:inline-block}
+.tag.m{color:var(--accent);border-color:var(--accent)}
+.tag.p{color:var(--est);border-color:var(--est);border-style:dashed}
+.tag.g{color:var(--est);border-color:var(--est);border-style:dotted}
+.tag.d{color:var(--plat);border-color:var(--plat)}
+ul.notes{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+ul.notes li{max-width:65ch}
+@media (max-width:520px){h1{font-size:21px} .sheet{padding-top:14px} #stage{height:min(62vh,112vw)}}
+</style>
+
+<main class="sheet">
+  <header>
+    <p class="eyebrow">Symphony · HC38T · bilge at the shower sump</p>
+    <h1>Shower sump bilge, a sketch to look around in</h1>
+    <p class="lede">Inches. Two hull widths and the hull lean at tab height are tape readings from 21 November 2026. Nearly everything else is read off that night's photos or guessed, and is good to a few inches at best. This is for seeing the space, not for cutting parts. Drag to orbit, scroll or pinch to zoom, right-drag or two-finger drag to pan.</p>
+  </header>
+
+  <div id="stage"><div id="err" hidden>The 3D library did not load, so the model cannot be drawn. The table of numbers below is still complete.</div></div>
+
+  <div class="bar" id="views">
+    <span class="cap">View</span>
+    <button type="button" data-v="quarter">Three-quarter</button>
+    <button type="button" data-v="hatch">Above, through the hatch</button>
+    <button type="button" data-v="section">Section, looking forward</button>
+    <button type="button" data-v="side">Side, from starboard</button>
+  </div>
+  <div class="bar" id="toggles">
+    <span class="cap">Show</span>
+    <label class="tog"><input type="checkbox" id="t-sole" checked> Cabin sole</label>
+    <label class="tog"><input type="checkbox" id="t-plat" checked> Platform</label>
+    <label class="tog"><input type="checkbox" id="t-labels" checked> Labels</label>
+    <label class="tog"><input type="checkbox" id="t-dims" checked> Dimensions</label>
+    <label class="tog"><input type="checkbox" id="t-cut"> Cut away aft of the tape station</label>
+  </div>
+
+  <ul class="legend" aria-label="Legend">
+    <li><span class="sw m"></span>Measured aboard: solid, solid outline</li>
+    <li><span class="sw e"></span>Read from a photo, or guessed: fainter, dashed outline</li>
+    <li><span class="sw p"></span>Platform: proposed part, not built</li>
+  </ul>
+
+  <div class="cols">
+    <section class="card">
+      <h2>Every number in the model</h2>
+      <div class="scroll"><table id="dims"><thead><tr><th>What</th><th>Value</th><th>Kind</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <section class="card">
+      <h2>How to read it</h2>
+      <ul class="notes">
+        <li>Height zero is tab height: the plane the box rests on, where the two hull widths were taken. The sole is above it, the bilge bottom below.</li>
+        <li>The hull is drawn as two flat walls leaning 23 and 25 degrees below tab height, pulling together toward the bow at the taper the two widths give. Above tab height the walls flare out to meet the sole. The flare and the bottom are guesses guided by the photos.</li>
+        <li>The taper uses 3 1/2 in between the two widths. That is a working number, not a tape reading. With it, the hull at the box's forward end comes out narrower than the box, which cannot be true of a box that is sitting there. Read that overlap as the size of the error in the model.</li>
+        <li>Depths come from photo perspective, not from a tape held against the surface, so they carry the widest error: 2 to 3 in.</li>
+        <li>Hose and wire routes away from the box are guesses. Where they leave the box is from the photos.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf" crossorigin="anonymous"></script>
+<script>
+"use strict";
+/* =====================================================================================================
+   DIMENSIONS. Inches. Every number the model uses is here; a later measurement changes one line.
+   Each entry: [value, kind, plain name, source].
+   Kinds: MEASURED = owner's tape or square aboard (or the owner's earlier numbers for the box itself)
+          PHOTO    = read from a 2026-11-21 photo by perspective, with its +/-
+          GUESS    = not measured and not visible; chosen to look plausible
+          DESIGN   = from the prior platform design (workshop/projects/shower-sump-platform/model.scad)
+   Photos: P1 = 9c6f64ed (hatch from above, tape across the opening, 51 mm equiv lens, camera about 37 in up)
+           P2 = 2921815b (bilge looking forward, no tape)   P3/P4 = ef655ddd, 35cdeebf (same, vertical tape)
+   Axes: X to starboard, Y up, Z aft. Y = 0 is tab height. Z = 0 is the middle of the box.
+   ===================================================================================================== */
+const DIMS = {
+  // ---- hull at tab height (the only tape readings of the hull) ----
+  HULL_W_AFT:      [8.75, 'MEASURED', 'Hull width at tab height, aft reading', 'Mark, tape, 2026-11-21 ("best guess")'],
+  HULL_W_FWD:      [7.5,  'MEASURED', 'Hull width at tab height, forward reading', 'Mark, tape, 2026-11-21 ("best guess")'],
+  WIDTH_SPACING:   [3.5,  'GUESS',    'Fore-aft distance between the two widths', 'Mark\'s working number (the tab length), not a tape reading; real spacing unconfirmed'],
+  LEAN_STBD_DEG:   [23,   'MEASURED', 'Hull lean from vertical, starboard, degrees', 'Mark, speed square, 2026-11-21; rough, taken off the centerline'],
+  LEAN_PORT_DEG:   [25,   'MEASURED', 'Hull lean from vertical, port, degrees', 'Mark, speed square, 2026-11-21; rough'],
+
+  // ---- hull away from tab height (nothing measured) ----
+  FLARE_DEG:       [50,   'GUESS',    'Hull lean from vertical well above tab height, degrees', 'P1 shows the starboard hull running out under the hatch ledge; angle chosen to do that'],
+  FLARE_START:     [0.5,  'GUESS',    'Height above tabs where the flare begins', 'P2 shows rounded shoulders just above the box bottom'],
+  FLARE_FULL:      [3.5,  'GUESS',    'Height above tabs where the flare is complete', 'same'],
+  TAB_TO_BOTTOM:   [9,    'PHOTO',    'Tab height down to bilge bottom, at the tape station', 'P3/P4: tape zero on the bottom, box bottom at about 8 1/2 to 9 1/4; +/- 2'],
+  TAPE_AFT_OF_BOX: [5,    'PHOTO',    'Tape station, aft of the box\'s aft face', 'P3: tape about 8 1/2 in from the lens, box face about 13; +/- 2'],
+  KEEL_RISE:       [0.4,  'GUESS',    'Rise of the bilge bottom going forward, in per in', 'P2/P3 show the crease climbing toward the bow; value is what flat walls at this taper give'],
+  BOTTOM_MIN_HALF: [0.5,  'GUESS',    'Least half-width of the bilge bottom', 'room for the hoses lying in it (P2)'],
+  MODEL_FWD:       [18,   'GUESS',    'How far forward of box center the model runs', 'context only'],
+  MODEL_AFT:       [18,   'GUESS',    'How far aft of box center the model runs', 'context only'],
+
+  // ---- sump box ----
+  WING_SPAN:       [8.46, 'MEASURED', 'Box wings, tip to tip (215 mm)', 'owner, Fusion parameters 2026-02 via workshop parts.md'],
+  TAB_LEN:         [3.5,  'MEASURED', 'Wing tab length fore-aft', 'Mark 2026-11-21 ("the tab length"); Fusion had about 90 mm; P1 agrees'],
+  BOX_H:           [4.4,  'MEASURED', 'Box height with lid (112 mm)', 'owner, Fusion parameters 2026-02 via parts.md'],
+  BOX_L:           [10.8, 'PHOTO',    'Box body length (275 mm)', 'Fusion parameter flagged "measure it!"; P1 gives 11, +/- 3/4'],
+  BOX_W:           [6.6,  'PHOTO',    'Box body width', 'P1, solved against the 215 mm wing span, +/- 1/2. parts.md says 186 mm, which is the slot spacing'],
+  TAB_Z:           [1.75, 'PHOTO',    'Tab center, aft of box center', 'P1, +/- 3/4; Fusion had a 42 mm offset marked "TK measure"'],
+  TAB_T:           [0.15, 'GUESS',    'Tab thickness', 'typical molded foot'],
+  LID_T:           [0.25, 'GUESS',    'Lid thickness', 'clear lid in P1'],
+
+  // ---- pump inside the box ----
+  PUMP_L:          [4.4,  'PHOTO',    'Bilge pump length', 'P1, +/- 1/2 (750 GPH automatic, unbranded)'],
+  PUMP_W:          [2.9,  'PHOTO',    'Bilge pump width', 'P1, +/- 1/2'],
+  PUMP_H:          [3.2,  'GUESS',    'Bilge pump height', 'must fit under the lid'],
+
+  // ---- sole and hatch ----
+  SOLE_TO_LID:     [4.5,  'PHOTO',    'Top of sole down to the box lid', 'P1: lid looks 8 percent small against the wing span, lens 37 in up; P3 suggests more. +/- 2'],
+  SOLE_T:          [0.75, 'GUESS',    'Sole thickness', 'typical teak and holly ply'],
+  LEDGE_W:         [1.1,  'PHOTO',    'Hatch ledge width', 'P1 tape: white ledge runs 0 to about 1 1/8; +/- 1/4'],
+  LEDGE_T:         [0.75, 'GUESS',    'Hatch ledge thickness', 'cleat under the sole'],
+  HATCH_W:         [14.4, 'PHOTO',    'Hatch opening across the boat, ledge wall to ledge wall', 'P1 tape hooked on the port wall, starboard wall at about 14 3/8; +/- 1/2'],
+  HATCH_PORT:      [4.0,  'PHOTO',    'Hatch port wall, to port of box centerline', 'P1; assumes the box sits on the keel centerline; +/- 1 1/2'],
+  HATCH_AFT:       [13,   'PHOTO',    'Hatch aft edge, aft of box center', 'P1, +/- 1 1/2'],
+  HATCH_LEN_PORT:  [22,   'PHOTO',    'Hatch length along its port edge', 'P1, scaled from the tape; forward end is cut at an angle; +/- 1'],
+  HATCH_LEN_STBD:  [25.5, 'PHOTO',    'Hatch length along its starboard edge', 'P1, +/- 1'],
+  SOLE_HALF_W:     [16,   'GUESS',    'Half-width of sole drawn', 'context only'],
+
+  // ---- hoses and wires ----
+  HOSE_BLACK_OD:   [1.25, 'PHOTO',    'Black hose, outside diameter', 'P1/P3 against the box face; +/- 1/4. Leaves the aft face, starboard side'],
+  HOSE_WHITE_OD:   [1.0,  'PHOTO',    'White hose, outside diameter', 'P3; +/- 1/4. Leaves the aft face, port side, heading up'],
+  HOSE_CLEAR_OD:   [0.9,  'PHOTO',    'Clear hose lying in the bilge bottom', 'P2/P3; +/- 1/4'],
+  CABLE_OD:        [0.45, 'PHOTO',    'Red cables along the starboard hatch ledge', 'P1; +/- 1/8'],
+
+  // ---- platform (proposed) ----
+  PLAT_LEN:        [3.5,  'DESIGN',   'Platform length fore-aft', 'Mark 2026-11-21: minimum length wanted (SCAD default was 110 mm)'],
+  PLAT_DECK_T:     [0.157,'DESIGN',   'Platform deck thickness (4 mm)', 'model.scad deck_t'],
+  PLAT_SKIRT_H:    [0.79, 'DESIGN',   'Platform skirt depth (20 mm)', 'model.scad skirt_h'],
+  PLAT_SKIRT_T:    [0.157,'DESIGN',   'Platform skirt thickness (4 mm)', 'model.scad skirt_t'],
+  PLAT_BOND_GAP:   [0.06, 'DESIGN',   'Adhesive gap, each side (1.5 mm)', 'model.scad bond_gap'],
+  PLAT_OPEN_W:     [6.93, 'DESIGN',   'Platform center opening, across (176 mm)', 'model.scad opening; trimmed here to leave a rim on the narrower deck'],
+  PLAT_OPEN_L:     [3.15, 'DESIGN',   'Platform center opening, fore-aft (80 mm)', 'model.scad opening; trimmed here to leave a rim on the shorter deck']
+};
+const D = {};
+for (const k in DIMS) D[k] = DIMS[k][0];
+
+/* ---------- derived, nothing to edit below ---------- */
+const rad = d => d * Math.PI / 180;
+const TAN_S = Math.tan(rad(D.LEAN_STBD_DEG)), TAN_P = Math.tan(rad(D.LEAN_PORT_DEG));
+const Z_AFT_STN = D.TAB_Z + D.WIDTH_SPACING / 2;      // where the 8 3/4 reading sits
+const Z_FWD_STN = D.TAB_Z - D.WIDTH_SPACING / 2;      // where the 7 1/2 reading sits
+const TAPER = (D.HULL_W_AFT - D.HULL_W_FWD) / 2 / D.WIDTH_SPACING;   // half-width change per inch of Z
+const TAPE_Z = D.BOX_L / 2 + D.TAPE_AFT_OF_BOX;
+const SOLE_TOP = D.BOX_H + D.SOLE_TO_LID;
+const SOLE_UNDER = SOLE_TOP - D.SOLE_T;
+const Z_MIN = -D.MODEL_FWD, Z_MAX = D.MODEL_AFT;
+const smooth = t => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
+
+// half-width of the hull at tab height, at station z
+function halfW(z) { return Math.max(D.BOTTOM_MIN_HALF, D.HULL_W_FWD / 2 + (z - Z_FWD_STN) * TAPER); }
+// half-breadth of one side (side = +1 starboard, -1 port) at station z and height y
+function hullX(z, side, y) {
+  const w = halfW(z), lean = side > 0 ? D.LEAN_STBD_DEG : D.LEAN_PORT_DEG;
+  if (y <= 0) return Math.max(D.BOTTOM_MIN_HALF, w + y * Math.tan(rad(lean)));
+  let x = w, yy = 0;
+  while (yy < y - 1e-9) {
+    const h = Math.min(0.25, y - yy), ym = yy + h / 2;
+    const ang = lean + (D.FLARE_DEG - lean) * smooth((ym - D.FLARE_START) / (D.FLARE_FULL - D.FLARE_START));
+    x += h * Math.tan(rad(ang)); yy += h;
+  }
+  return x;
+}
+// height of the bilge bottom at station z (negative = below tab height)
+function bottomY(z) {
+  const y = -(D.TAB_TO_BOTTOM - D.KEEL_RISE * (TAPE_Z - z));
+  const lowest = -(halfW(z) - D.BOTTOM_MIN_HALF) / Math.max(TAN_S, TAN_P);   // where the flat walls would meet
+  return Math.min(SOLE_UNDER - 4, Math.max(y, lowest));
+}
+
+/* ---------- number formatting for labels ---------- */
+function frac(v) {                       // nearest 1/8, as "8 3/4"
+  const e = Math.round(Math.abs(v) * 8), w = Math.floor(e / 8), r = e % 8;
+  if (!r) return String(w);
+  const g = r % 4 === 0 ? 4 : r % 2 === 0 ? 2 : 1;
+  return (w ? w + ' ' : '') + (r / g) + '/' + (8 / g);
+}
+const half = v => frac(Math.round(v * 2) / 2);   // nearest 1/2, for estimates
+
+/* ---------- table of numbers ---------- */
+(function fillTable() {
+  const tb = document.querySelector('#dims tbody'), cls = { MEASURED: 'm', PHOTO: 'p', GUESS: 'g', DESIGN: 'd' };
+  for (const k in DIMS) {
+    const [v, kind, name, src] = DIMS[k], tr = document.createElement('tr');
+    const cell = (t, c) => { const td = document.createElement('td'); if (c) td.className = c; td.textContent = t; tr.appendChild(td); return td; };
+    cell(name);
+    cell(String(v), 'n');
+    const td = cell(''); const s = document.createElement('span'); s.className = 'tag ' + cls[kind]; s.textContent = kind; td.appendChild(s);
+    cell(src);
+    tb.appendChild(tr);
+  }
+})();
+
+/* ---------- 3D ---------- */
+const stage = document.getElementById('stage'), errBox = document.getElementById('err');
+function fail(msg) { errBox.hidden = false; if (msg) errBox.textContent = msg; }
+window.addEventListener('error', e => { if (!window.THREE) fail(); });
+
+if (!window.THREE || !THREE.OrbitControls) { fail(); }
+else (function main() {
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+  catch (e) { fail('This browser could not start WebGL, so the model cannot be drawn. The table of numbers below is still complete.'); return; }
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.localClippingEnabled = true;
+  stage.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 3000);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.12;
+  controls.minDistance = 4; controls.maxDistance = 900;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.75));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(20, 40, 30); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(-25, -10, -20); scene.add(fill);
+
+  const cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1e6);   // keeps z <= constant
+  const ui = { sole: document.getElementById('t-sole'), plat: document.getElementById('t-plat'),
+               labels: document.getElementById('t-labels'), dims: document.getElementById('t-dims'), cut: document.getElementById('t-cut') };
+  let world = null, groups = {}, sprites = [], hullMats = {};
+
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+  function build() {
+    if (world) {
+      scene.remove(world);
+      world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
+    }
+    world = new THREE.Group(); scene.add(world); sprites = [];
+    const C = {}; ['stage','ink','muted','line','accent','est','plat','hull','bottom','sole','box','box-edge','pump',
+      'hose-black','hose-white','hose-clear','cable','wire','label-bg'].forEach(n => C[n] = css('--' + n));
+    renderer.setClearColor(new THREE.Color(C.stage), 1);
+    const g = n => { const x = new THREE.Group(); world.add(x); groups[n] = x; return x; };
+    const G = { hull: g('hull'), sole: g('sole'), kit: g('kit'), plat: g('plat'), labels: g('labels'), dims: g('dims') };
+
+    /* material helpers; everything made here is cut by the section plane, labels and dimensions are not */
+    const clip = m => { m.clippingPlanes = [cutPlane]; return m; };
+    const surf = (color, opacity, extra) => clip(new THREE.MeshLambertMaterial(Object.assign({ color: new THREE.Color(color),
+      transparent: opacity < 1, opacity, side: THREE.DoubleSide, depthWrite: opacity >= 1 }, extra || {})));
+    const solidLine = color => clip(new THREE.LineBasicMaterial({ color: new THREE.Color(color) }));
+    const dashLine = (color, o) => clip(new THREE.LineDashedMaterial({ color: new THREE.Color(color), dashSize: 0.45, gapSize: 0.3,
+      transparent: true, opacity: o || 0.9 }));
+    function polyline(pts, mat, parent) {
+      const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+      if (mat.isLineDashedMaterial) l.computeLineDistances();
+      parent.add(l); return l;
+    }
+    function edges(mesh, mat, parent) {
+      const l = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 25), mat);
+      if (mat.isLineDashedMaterial) l.computeLineDistances();
+      l.position.copy(mesh.position); l.rotation.copy(mesh.rotation); l.scale.copy(mesh.scale);
+      parent.add(l); return l;
+    }
+    function rod(a, b, r, mat, parent) {
+      const d = new THREE.Vector3().subVectors(b, a), len = d.length();
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 10), mat);
+      m.position.copy(a).addScaledVector(d, 0.5);
+      m.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize());
+      parent.add(m); return m;
+    }
+    function tube(pts, od, mat, parent) {
+      const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, od / 2, 10), mat);
+      parent.add(m); return m;
+    }
+
+    /* ---- hull: one swept surface per side ---- */
+    function hullSurface(side, z0, z1, nz, yLo, yHi, ny, inset) {
+      const pos = [], idx = [];
+      for (let i = 0; i <= nz; i++) {
+        const z = z0 + (z1 - z0) * i / nz, a = yLo(z), b = yHi(z);
+        for (let j = 0; j <= ny; j++) { const y = a + (b - a) * j / ny; pos.push(side * (hullX(z, side, y) - inset), y, z); }
+      }
+      for (let i = 0; i < nz; i++) for (let j = 0; j < ny; j++) {
+        const a = i * (ny + 1) + j, b = a + 1, c = a + ny + 1, d = c + 1; idx.push(a, c, b, b, c, d);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+      return geo;
+    }
+    const estLine = dashLine(C.est, 0.85), gridLine = dashLine(C.est, 0.38), measMat = surf(C.accent, 0.9);
+    hullMats = {};
+    const BAND = 1.25;   // half-height of the strip drawn as measured, around tab height
+    for (const side of [1, -1]) {
+      hullMats[side] = surf(C.hull, 0.3);
+      const m = new THREE.Mesh(hullSurface(side, Z_MIN, Z_MAX, 72, bottomY, () => SOLE_UNDER, 30, 0), hullMats[side]);
+      m.renderOrder = 2; G.hull.add(m);
+      // estimated outline: top edge, tab-height line, bottom edge, a few stations
+      const along = f => { const p = []; for (let z = Z_MIN; z <= Z_MAX + 1e-6; z += 0.5) p.push(f(z)); return p; };
+      polyline(along(z => V(side * hullX(z, side, SOLE_UNDER), SOLE_UNDER, z)), estLine, G.hull);
+      polyline(along(z => V(side * hullX(z, side, 0), 0, z)), estLine, G.hull);
+      polyline(along(z => V(side * hullX(z, side, bottomY(z)), bottomY(z), z)), estLine, G.hull);
+      const station = (z, mat) => {
+        const p = [], yb = bottomY(z);
+        for (let j = 0; j <= 40; j++) { const y = yb + (SOLE_UNDER - yb) * j / 40; p.push(V(side * hullX(z, side, y), y, z)); }
+        polyline(p, mat, G.hull);
+      };
+      [Z_MIN, TAPE_Z, Z_MAX].forEach(z => station(z, estLine));
+      // a light mesh of stations and level lines so the shape reads; all of it estimated
+      for (let z = Math.ceil(Z_MIN / 3) * 3; z < Z_MAX; z += 3) if (z > Z_MIN) station(z, gridLine);
+      for (let y = -8; y < SOLE_UNDER; y += 2) {
+        if (y === 0) continue;
+        const p = [];
+        for (let z = Z_MAX; z >= Z_MIN - 1e-6; z -= 0.5) { if (bottomY(z) > y) break; p.push(V(side * hullX(z, side, y), y, z)); }
+        if (p.length > 1) polyline(p, gridLine, G.hull);
+      }
+      // measured strip: between the two width readings, a little above and below tab height
+      const band = new THREE.Mesh(hullSurface(side, Z_FWD_STN, Z_AFT_STN, 6, z => Math.max(-BAND, bottomY(z)), () => BAND, 8, 0.04), measMat);
+      band.renderOrder = 3; G.hull.add(band);
+      const rodMat = surf(C.accent, 1);
+      const corner = (z, y) => V(side * (hullX(z, side, y) - 0.04), y, z);
+      [[Z_FWD_STN, -BAND, Z_AFT_STN, -BAND], [Z_FWD_STN, BAND, Z_AFT_STN, BAND], [Z_FWD_STN, -BAND, Z_FWD_STN, 0],
+       [Z_FWD_STN, 0, Z_FWD_STN, BAND], [Z_AFT_STN, -BAND, Z_AFT_STN, 0], [Z_AFT_STN, 0, Z_AFT_STN, BAND]]
+        .forEach(q => rod(corner(q[0], q[1]), corner(q[2], q[3]), 0.045, rodMat, G.hull));
+    }
+    // bilge bottom strip
+    (function () {
+      const pos = [], idx = [], n = 72;
+      for (let i = 0; i <= n; i++) {
+        const z = Z_MIN + (Z_MAX - Z_MIN) * i / n, y = bottomY(z);
+        pos.push(-hullX(z, -1, y), y, z, hullX(z, 1, y), y, z);
+      }
+      for (let i = 0; i < n; i++) { const a = 2 * i; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, surf(C.bottom, 0.55)); m.renderOrder = 1; G.hull.add(m);
+    })();
+
+    /* ---- sole with hatch ---- */
+    const hx0 = -D.HATCH_PORT, hx1 = hx0 + D.HATCH_W, hza = D.HATCH_AFT;
+    const hzfP = hza - D.HATCH_LEN_PORT, hzfS = hza - D.HATCH_LEN_STBD, L = D.LEDGE_W;
+    const quad = pts => { const s = new THREE.Path(); s.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) s.lineTo(pts[i][0], pts[i][1]); s.closePath(); return s; };
+    const rabbet = [[hx0, hza], [hx1, hza], [hx1, hzfS], [hx0, hzfP]];
+    const clear = [[hx0 + L, hza - L], [hx1 - L, hza - L], [hx1 - L, hzfS + L], [hx0 + L, hzfP + L]];
+    function slab(outer, hole, thick, top, mat, parent) {
+      const s = new THREE.Shape(); s.moveTo(outer[0][0], outer[0][1]); for (let i = 1; i < outer.length; i++) s.lineTo(outer[i][0], outer[i][1]); s.closePath();
+      if (hole) s.holes.push(quad(hole));
+      const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: thick, bevelEnabled: false }), mat);
+      m.rotation.x = Math.PI / 2; m.position.y = top;    // shape y becomes Z (aft); the extrusion goes down from "top"
+      parent.add(m); return m;
+    }
+    const soleMat = surf(C.sole, 0.4), W = D.SOLE_HALF_W;
+    const sole = slab([[-W, Z_MAX], [W, Z_MAX], [W, Z_MIN], [-W, Z_MIN]], rabbet, D.SOLE_T, SOLE_TOP, soleMat, G.sole);
+    sole.renderOrder = 5; edges(sole, estLine, G.sole);
+    const ledge = slab(rabbet, clear, D.LEDGE_T, SOLE_UNDER, surf(C['hose-white'], 0.6), G.sole);
+    ledge.renderOrder = 5; edges(ledge, estLine, G.sole);
+
+    /* ---- sump box, tabs, pump ---- */
+    const bodyH = D.BOX_H - D.LID_T;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(D.BOX_W, bodyH, D.BOX_L), surf(C.box, 0.42));
+    body.position.set(0, bodyH / 2, 0); body.renderOrder = 4; G.kit.add(body); edges(body, dashLine(C['box-edge']), G.kit);
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(D.BOX_W + 0.3, D.LID_T, D.BOX_L + 0.3), surf(C['hose-clear'], 0.35));
+    lid.position.set(0, D.BOX_H - D.LID_T / 2, 0); lid.renderOrder = 4; G.kit.add(lid); edges(lid, dashLine(C['box-edge']), G.kit);
+    const tabOut = (D.WING_SPAN - D.BOX_W) / 2;
+    for (const s of [1, -1]) {
+      const t = new THREE.Mesh(new THREE.BoxGeometry(tabOut, D.TAB_T, D.TAB_LEN), surf(C.accent, 1));
+      t.position.set(s * (D.BOX_W / 2 + tabOut / 2), D.TAB_T / 2, D.TAB_Z); G.kit.add(t);
+      edges(t, solidLine(C.ink), G.kit);
+    }
+    const pump = new THREE.Mesh(new THREE.CylinderGeometry(D.PUMP_W / 2, D.PUMP_W / 2, D.PUMP_H, 28), surf(C.pump, 1));
+    pump.scale.z = D.PUMP_L / D.PUMP_W;
+    const pumpZ = D.BOX_L / 2 - 0.5 - D.PUMP_L / 2;
+    pump.position.set(0.6, 0.2 + D.PUMP_H / 2, pumpZ); G.kit.add(pump); edges(pump, dashLine(C['box-edge']), G.kit);
+
+    /* ---- hoses and wires (where they leave the box is from the photos; the routes are guesses) ---- */
+    const aftFace = D.BOX_L / 2, yBot = z => bottomY(z);
+    tube([V(1.6, 2.2, aftFace), V(2.2, 2.3, aftFace + 2.5), V(4.2, 3.2, aftFace + 6.5), V(6.5, 4.6, Z_MAX)], D.HOSE_BLACK_OD, surf(C['hose-black'], 1), G.kit);
+    tube([V(-1.6, 3.0, aftFace), V(-2.0, 3.4, aftFace + 1.5), V(-4.0, 5.0, aftFace + 4.5), V(-7.0, 6.6, aftFace + 9), V(-8.5, 7.0, Z_MAX)], D.HOSE_WHITE_OD, surf(C['hose-white'], 1), G.kit);
+    const cz0 = TAPE_Z - 0.5;
+    tube([V(-0.3, yBot(cz0) + 0.5, cz0), V(-0.35, yBot((cz0 + Z_MAX) / 2) + 0.5, (cz0 + Z_MAX) / 2), V(-0.4, yBot(Z_MAX) + 0.5, Z_MAX)], D.HOSE_CLEAR_OD, surf(C['hose-clear'], 0.75), G.kit);
+    tube([V(0.5, yBot(aftFace + 2) + 0.35, aftFace + 2), V(0.55, yBot(12) + 0.35, 12), V(0.6, yBot(Z_MAX) + 0.35, Z_MAX)], 0.5, surf(C['hose-black'], 1), G.kit);
+    const cabY = SOLE_UNDER - D.LEDGE_T - D.CABLE_OD / 2 - 0.05, cabX = hx1 - L - 0.35;
+    for (const o of [0, D.CABLE_OD + 0.05])
+      tube([V(cabX - o, cabY, Z_MAX), V(cabX - o, cabY - 0.25, 4), V(cabX - o, cabY, hzfS + 2), V(cabX - o - 1.5, cabY, hzfS - 1)], D.CABLE_OD, surf(C.cable, 1), G.kit);
+    const loop = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.07, 8, 40), surf(C.wire, 1));
+    loop.position.set(-0.6, D.BOX_H + 1.6, aftFace + 0.8); loop.rotation.y = 0.5; G.kit.add(loop);
+    tube([V(-0.6, D.BOX_H + 0.5, aftFace + 0.8), V(0.2, D.BOX_H + 0.1, aftFace - 0.6), V(0.6, D.BOX_H - 0.5, pumpZ + 1)], 0.14, surf(C.wire, 1), G.kit);
+
+    /* ---- platform (proposed): deck at tab height with a skirt down each hull wall ---- */
+    (function () {
+      const mat = surf(C.plat, 0.8), line = solidLine(C.plat);
+      const zA = D.TAB_Z + D.PLAT_LEN / 2, zF = D.TAB_Z - D.PLAT_LEN / 2, gap = D.PLAT_BOND_GAP;
+      const hw = (z, s) => hullX(z, s, 0) - gap;
+      const ow = Math.min(D.PLAT_OPEN_W / 2, Math.min(hw(zF, 1), hw(zF, -1)) - 0.6), ol = Math.min(D.PLAT_OPEN_L / 2, D.PLAT_LEN / 2 - 0.4);
+      const deck = slab([[-hw(zA, -1), zA], [hw(zA, 1), zA], [hw(zF, 1), zF], [-hw(zF, -1), zF]],
+        [[-ow, D.TAB_Z + ol], [ow, D.TAB_Z + ol], [ow, D.TAB_Z - ol], [-ow, D.TAB_Z - ol]], D.PLAT_DECK_T, 0, mat, G.plat);
+      deck.renderOrder = 4; edges(deck, line, G.plat);
+      for (const s of [1, -1]) {
+        const tl = s > 0 ? TAN_S : TAN_P, tn = D.PLAT_SKIRT_T / Math.cos(Math.atan(tl)), h = D.PLAT_SKIRT_H;
+        const sec = z => { const x = hw(z, s); return [[x, 0], [x - h * tl, -h], [x - h * tl - tn, -h], [x - tn, 0]].map(p => V(s * p[0], p[1], z)); };
+        const a = sec(zA), b = sec(zF), pos = [];
+        const face = (p, q, r, t) => [p, q, r, p, r, t].forEach(v => pos.push(v.x, v.y, v.z));
+        for (let i = 0; i < 4; i++) face(a[i], a[(i + 1) % 4], b[(i + 1) % 4], b[i]);
+        face(a[0], a[1], a[2], a[3]); face(b[0], b[1], b[2], b[3]);
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.computeVertexNormals();
+        const m = new THREE.Mesh(geo, mat); m.renderOrder = 4; G.plat.add(m); edges(m, line, G.plat);
+      }
+    })();
+
+    /* ---- labels: canvas-texture sprites, constant size on screen ---- */
+    const FONT = css('--sans') || 'sans-serif', small = stage.clientWidth < 560, FS = small ? 10 : 11.5;
+    function label(text, at, kind, parent, prio) {
+      const lines = text.split('\n'), dpr = 2, pad = 5, lh = FS + 3;
+      const cv = document.createElement('canvas'), cx = cv.getContext('2d');
+      cx.font = '600 ' + FS + 'px ' + FONT;
+      const w = Math.ceil(Math.max.apply(null, lines.map(s => cx.measureText(s).width))) + pad * 2 + 2, h = lines.length * lh + pad * 2 - 2;
+      cv.width = w * dpr; cv.height = h * dpr; cx.scale(dpr, dpr);
+      const r = 4, x0 = 1, y0 = 1, x1 = w - 1, y1 = h - 1;
+      cx.beginPath(); cx.moveTo(x0 + r, y0); cx.arcTo(x1, y0, x1, y1, r); cx.arcTo(x1, y1, x0, y1, r); cx.arcTo(x0, y1, x0, y0, r); cx.arcTo(x0, y0, x1, y0, r); cx.closePath();
+      cx.globalAlpha = 0.93; cx.fillStyle = C['label-bg']; cx.fill(); cx.globalAlpha = 1;
+      cx.lineWidth = kind === 'n' ? 1 : 1.5;
+      cx.strokeStyle = kind === 'm' ? C.accent : kind === 'e' ? C.est : kind === 'p' ? C.plat : C.line;
+      if (kind === 'e') cx.setLineDash([4, 3]);
+      cx.stroke(); cx.setLineDash([]);
+      cx.font = '600 ' + FS + 'px ' + FONT; cx.fillStyle = C.ink; cx.textBaseline = 'middle'; cx.textAlign = 'center';
+      lines.forEach((s, i) => cx.fillText(s, w / 2, pad + lh * i + lh / 2 - 1));
+      const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: false }));
+      sp.position.copy(at); sp.userData.px = [w, h]; sp.userData.prio = prio || 5; sp.userData.extras = [];
+      sp.renderOrder = 20; parent.add(sp); sprites.push(sp); return sp;
+    }
+    const leadMat = new THREE.LineBasicMaterial({ color: new THREE.Color(C.muted), transparent: true, opacity: 0.7, depthTest: false });
+    function callout(text, target, at, kind, parent, prio) {
+      const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([target, at]), leadMat); l.renderOrder = 19; parent.add(l);
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.muted), depthTest: false }));
+      dot.position.copy(target); dot.renderOrder = 19; parent.add(dot);
+      const sp = label(text, at, kind, parent, prio); sp.userData.extras.push(l, dot); return sp;
+    }
+    // dimension line a to b; solid rod if measured, dashed if estimated
+    function dimension(a, b, kind, parent) {
+      const col = new THREE.Color(kind === 'm' ? C.accent : C.est);
+      if (kind === 'm') {
+        const m = rod(a, b, 0.06, new THREE.MeshBasicMaterial({ color: col, depthTest: false }), parent); m.renderOrder = 18;
+      } else {
+        const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]),
+          new THREE.LineDashedMaterial({ color: col, dashSize: 0.4, gapSize: 0.25, depthTest: false }));
+        l.computeLineDistances(); l.renderOrder = 18; parent.add(l);
+      }
+      for (const p of [a, b]) {
+        const e = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), new THREE.MeshBasicMaterial({ color: col, depthTest: false }));
+        e.position.copy(p); e.renderOrder = 18; parent.add(e);
+      }
+    }
+
+    /* object labels. Short on purpose: the +/- and the source of each number are in the table under the model.
+       Last argument is priority: when two labels collide on screen the lower number stays. */
+    const yL = SOLE_TOP + 3.2;
+    callout('Sump box', V(-1.5, D.BOX_H, -3.5), V(-8, yL + 1.5, -7), 'e', G.labels, 3);
+    callout('Bilge pump, 750 GPH', V(0.6, 0.2 + D.PUMP_H, pumpZ), V(4.5, yL + 2.5, 1), 'e', G.labels, 3);
+    callout('Wing tabs, ' + half(D.WING_SPAN) + ' tip to tip', V(D.WING_SPAN / 2, D.TAB_T, D.TAB_Z), V(13.5, 4.5, 0), 'm', G.labels, 4);
+    callout('Hull, port', V(-hullX(10, -1, 4.5), 4.5, 10), V(-16, 4, 14), 'e', G.labels, 6);
+    callout('Hull, starboard', V(hullX(-10, 1, 4.5), 4.5, -10), V(15, 3, -15), 'e', G.labels, 6);
+    callout('Bilge bottom, climbs toward the bow', V(0.8, bottomY(15), 15), V(5, bottomY(15) - 3.5, 17), 'e', G.labels, 5);
+    callout('Black hose', V(4.2, 3.2, aftFace + 6.5), V(11, -0.5, 15), 'e', G.labels, 7);
+    callout('White hose', V(-4.0, 5.0, aftFace + 4.5), V(-13, yL, 7), 'e', G.labels, 7);
+    callout('Clear hose in the bilge', V(-0.35, bottomY(15) + 0.9, 15), V(-7, bottomY(15) - 2, 17), 'e', G.labels, 7);
+    callout('Red cables', V(cabX, cabY, -4), V(15, yL, -6), 'e', G.labels, 7);
+    callout('Pump wiring', V(-0.6, D.BOX_H + 2.7, aftFace + 0.8), V(-4, yL + 3.5, 9), 'e', G.labels, 8);
+    const lp = callout('Platform (proposed)', V(-(hullX(D.TAB_Z, -1, 0) - 0.5), -0.1, D.TAB_Z + 1), V(-13, -3, 4), 'p', G.plat, 3);
+    const ls = callout('Cabin sole', V(-12, SOLE_TOP, 12), V(-14, yL + 1, 16), 'e', G.sole, 6);
+    const lh = callout('Hatch, about ' + half(D.HATCH_W) + ' x ' + half(D.HATCH_LEN_PORT) + ' to ' + half(D.HATCH_LEN_STBD),
+      V(hx1 - L, SOLE_TOP - D.SOLE_T, hzfS + 5), V(9, yL + 1, -15), 'e', G.sole, 5);
+    [lp, ls, lh].forEach(s => { s.userData.needLabels = true; });
+    label('FWD (bow)', V(0, SOLE_TOP + 1.2, Z_MIN - 2.5), 'n', G.labels, 1);
+    label('AFT', V(0, SOLE_TOP + 1.2, Z_MAX + 2.5), 'n', G.labels, 1);
+    label('PORT', V(-W - 2, SOLE_TOP + 1.2, 0), 'n', G.labels, 1);
+    label('STBD', V(W + 2, SOLE_TOP + 1.2, 0), 'n', G.labels, 1);
+
+    /* dimension callouts */
+    const hA = D.HULL_W_AFT / 2, hF = D.HULL_W_FWD / 2;
+    dimension(V(-hA, 0, Z_AFT_STN), V(hA, 0, Z_AFT_STN), 'm', G.dims);
+    callout('Hull width ' + frac(D.HULL_W_AFT) + ' (aft reading)', V(hA, 0, Z_AFT_STN), V(11, -3.5, Z_AFT_STN + 3), 'm', G.dims, 1);
+    dimension(V(-hF, 0, Z_FWD_STN), V(hF, 0, Z_FWD_STN), 'm', G.dims);
+    callout('Hull width ' + frac(D.HULL_W_FWD) + ' (forward reading)', V(-hF, 0, Z_FWD_STN), V(-11, -6.5, Z_FWD_STN - 4), 'm', G.dims, 1);
+    const sx = hA + 0.9;
+    dimension(V(sx, 0, Z_AFT_STN), V(sx, 0, Z_FWD_STN), 'e', G.dims);
+    callout(frac(D.WIDTH_SPACING) + ' apart (working number)', V(sx, 0, D.TAB_Z), V(12, -6.5, D.TAB_Z - 4), 'e', G.dims, 4);
+    callout('Lean ' + D.LEAN_PORT_DEG + ' deg port, ' + D.LEAN_STBD_DEG + ' deg stbd', V(-(hullX(Z_AFT_STN, -1, -BAND) - 0.04), -BAND, Z_AFT_STN), V(-12, -9.5, Z_AFT_STN + 3), 'm', G.dims, 2);
+    // depths at the tape station
+    const yb = bottomY(TAPE_Z), dx = 0.9;
+    dimension(V(dx, SOLE_TOP, TAPE_Z), V(dx, 0, TAPE_Z), 'e', G.dims);
+    dimension(V(dx, 0, TAPE_Z), V(dx, yb, TAPE_Z), 'e', G.dims);
+    callout('About ' + half(SOLE_TOP) + ', sole to tab height', V(dx, SOLE_TOP / 2, TAPE_Z), V(9, 6.5, TAPE_Z + 5), 'e', G.dims, 3);
+    callout('About ' + half(-yb) + ', tab height to bottom', V(dx, yb / 2, TAPE_Z), V(9.5, -9.5, TAPE_Z + 5), 'e', G.dims, 3);
+    callout('About ' + half(SOLE_TOP - yb) + ', sole to bilge bottom', V(dx, yb, TAPE_Z), V(2, yb - 3.5, TAPE_Z + 3), 'e', G.dims, 2);
+    // lid to sole
+    dimension(V(-1.2, D.BOX_H, 3.5), V(-1.2, SOLE_TOP, 3.5), 'e', G.dims);
+    callout('Lid about ' + half(D.SOLE_TO_LID) + ' below the sole', V(-1.2, D.BOX_H + D.SOLE_TO_LID / 2, 3.5), V(-10, yL + 3.5, 0), 'e', G.dims, 4);
+    // clearance around the box at tab height
+    const cA = halfW(D.BOX_L / 2) - D.BOX_W / 2, cF = halfW(-D.BOX_L / 2) - D.BOX_W / 2;
+    const clr = (c, end) => c >= 0 ? 'About ' + half(c) + ' clear each side, ' + end + ' end'
+                                   : 'Model hull is ' + half(-c) + ' inside the box, ' + end + ' end';
+    dimension(V(D.BOX_W / 2, 0.3, D.BOX_L / 2), V(halfW(D.BOX_L / 2), 0.3, D.BOX_L / 2), 'e', G.dims);
+    callout(clr(cA, 'aft'), V((D.BOX_W / 2 + halfW(D.BOX_L / 2)) / 2, 0.3, D.BOX_L / 2), V(13, 1, 7), 'e', G.dims, 4);
+    dimension(V(-D.BOX_W / 2, 0.3, -D.BOX_L / 2), V(-halfW(-D.BOX_L / 2), 0.3, -D.BOX_L / 2), 'e', G.dims);
+    callout(clr(cF, 'forward'), V(-(D.BOX_W / 2 + halfW(-D.BOX_L / 2)) / 2, 0.3, -D.BOX_L / 2), V(-13, -1.5, -11), 'e', G.dims, 4);
+
+    sprites.sort((a, b) => a.userData.prio - b.userData.prio);
+    applyToggles(); sizeLabels();
+  }
+
+  function applyToggles() {
+    if (!world) return;
+    groups.sole.visible = ui.sole.checked;
+    groups.plat.visible = ui.plat.checked;
+    groups.dims.visible = ui.dims.checked;
+    groups.labels.visible = ui.labels.checked;
+    cutPlane.constant = ui.cut.checked ? TAPE_Z + 0.03 : 1e6;
+  }
+  // Labels are always drawn on top, so where two would collide on screen only the higher-priority one is kept.
+  const pv = new THREE.Vector3();
+  function declutter() {
+    const w = stage.clientWidth, h = stage.clientHeight, placed = [];
+    for (const s of sprites) {
+      let show = s.parent.visible && !(s.userData.needLabels && !ui.labels.checked);
+      if (show) {
+        pv.copy(s.position).project(camera);
+        const hw = s.userData.px[0] / 2 + 2, hh = s.userData.px[1] / 2 + 2, x = (pv.x + 1) / 2 * w, y = (1 - pv.y) / 2 * h;
+        show = pv.z < 1 && !placed.some(r => Math.abs(r[0] - x) < r[2] + hw && Math.abs(r[1] - y) < r[3] + hh);
+        if (show) placed.push([x, y, hw, hh]);
+      }
+      s.visible = show; for (const e of s.userData.extras) e.visible = show;
+    }
+  }
+  // The wall on the viewer's side fades so the inside shows; the far wall firms up.
+  function fadeHull() {
+    const dxn = (camera.position.x - controls.target.x) / Math.max(1e-6, camera.position.distanceTo(controls.target));
+    for (const side of [1, -1]) if (hullMats[side]) hullMats[side].opacity = 0.32 - 0.2 * smooth(Math.abs(dxn) * 1.6) * Math.sign(dxn) * side;
+  }
+  function sizeLabels() {
+    const k = 2 * Math.tan(rad(camera.fov / 2)) / Math.max(1, stage.clientHeight);
+    for (const s of sprites) s.scale.set(s.userData.px[0] * k, s.userData.px[1] * k, 1);
+  }
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); sizeLabels();
+  }
+
+  /* preset views: target, direction to the camera, lens, the half-width and half-height (inches) that must stay in frame */
+  const VIEWS = {
+    quarter: { t: [1, 0, 1],      d: [0.55, 0.5, 0.67], fov: 35, hx: 27, hy: 20, cut: false },
+    hatch:   { t: [3.2, 0, 0.5],  d: [0.012, 1, 0],     fov: 35, hx: 21, hy: 14, cut: false, sole: true },
+    section: { t: [0, -1, 0],     d: [0, 0, 1],         fov: 13, hx: 19, hy: 17, cut: true },
+    side:    { t: [0, -1, 0],     d: [1, 0.02, 0],      fov: 20, hx: 24, hy: 16, cut: false }
+  };
+  function setView(name) {
+    const v = VIEWS[name], tan = Math.tan(rad(v.fov / 2)), asp = stage.clientWidth / Math.max(1, stage.clientHeight);
+    const dist = Math.max(v.hy / tan, v.hx / (tan * asp)), n = Math.hypot(v.d[0], v.d[1], v.d[2]);
+    camera.fov = v.fov; camera.updateProjectionMatrix();
+    controls.target.set(v.t[0], v.t[1], v.t[2]);
+    camera.position.set(v.t[0] + v.d[0] / n * dist, v.t[1] + v.d[1] / n * dist, v.t[2] + v.d[2] / n * dist);
+    ui.cut.checked = v.cut; if (v.sole) ui.sole.checked = true;
+    applyToggles(); sizeLabels(); controls.update();
+  }
+
+  document.getElementById('views').addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (b) setView(b.dataset.v); });
+  Object.values(ui).forEach(el => el.addEventListener('change', applyToggles));
+  window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+  // keep the canvas and the label colors tied to the theme
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  if (mq.addEventListener) mq.addEventListener('change', build); else if (mq.addListener) mq.addListener(build);
+  new MutationObserver(build).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  resize(); build(); setView('quarter');
+  window.__sump = { setView, ui, applyToggles };   // handy from the console
+  (function loop() { requestAnimationFrame(loop); controls.update(); fadeHull(); declutter(); renderer.render(scene, camera); })();
+})();
+</script>
