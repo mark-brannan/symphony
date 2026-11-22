@@ -3,10 +3,10 @@
 // so "no room" means none for the next one after those placed, not a proof over every order.
 // orion: in | now | ai | off (as the page's Orion menu); multiplus: on | off; raise: room above the rim, inches.
 const F = require('./fit-four.js'), pl = F.Planner(), S = pl.S, CL = F.CL;
-const ORION = process.argv[2] || 'in', MULTIPLUS = process.argv[3] !== 'off', RAISE = +(process.argv[4] || 0.5);
+const ORION = process.argv[2] || 'off', MULTIPLUS = process.argv[3] === 'on', RAISE = +(process.argv[4] || 0.5);
 const STEP_X = 0.5, STEP_Y = 0.25, X_MAX = 50, WALL_MARGIN = 3;   // search grid, inches
 const SURFS = ['floor', 'hull1', 'hull2'], FACES = ['up', 'side', 'end', 'down'];
-const SPINS = ['square', 'square 90', 'along the hull line', 'up the slope'];
+const SPINS = ['square', 'square 90', 'along the hull line', 'up the slope', 'narrowest'];
 const MIN_UP = 0.3;   // terminals must face at least this much upward
 
 const U = pl.obstacles({ orion: ORION, mp: MULTIPLUS, raise: RAISE });
@@ -16,6 +16,7 @@ function battery(p, cx, cy) {
   if (p.sp === 'square 90') b.spin = 90;
   if (p.sp === 'along the hull line') b.spin = pl.spinAlong(b, S.strike);
   if (p.sp === 'up the slope') b.spin = pl.spinAlong(b, [S.strike[1], -S.strike[0], 0]);
+  if (p.sp === 'narrowest') b.spin = pl.spinNarrow(b, 0);
   return b;
 }
 const clear = (r, placed) =>
