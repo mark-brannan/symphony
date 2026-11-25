@@ -1,8 +1,8 @@
-# Midship ESP32 board — mast lights, forward sidelights, three-pump monitoring
+# Midship ESP32 board — mast lights, forward sidelights, four-pump monitoring
 
 One ESP32 board under the port dinette settee (position 2). It switches the
 mast lights and the forward sidelights, switches the dry-bilge pump, and
-measures volts and amps on three pumps. The IMU and the paddlewheel are not on
+measures volts and amps on four pumps. The IMU and the paddlewheel are not on
 this board.
 
 **Scope:** from the two feeds arriving at the board (the lighting feed and the
@@ -17,7 +17,7 @@ measured on this board.
 
 | | |
 |---|---|
-| [System block](midship-board-block.svg) | light channels, the pump channel, three INA226s on I²C |
+| [System block](midship-board-block.svg) | light channels, the pump channel, four INA226s on I²C |
 | [Pump sensing](midship-board-sensing.svg) | shunts in the negative leads, Kelvin pairs, Q8 and D8 |
 
 Regenerate both from the repo root:
@@ -43,22 +43,24 @@ masthead radio-group rule. Lights are fed from the lighting feed.
 | CH7 | Spreader lights | deck work light — not a navigation light |
 | CH8 | Dry-bilge pump (P3) | see below |
 
-CH5, the stern light, goes to the aft node, not this board.
+CH5, the stern light, is not on this board: it is neither a mast light nor a
+forward light.
 
 A future channel is cabin-light switching. It is deferred and has no
 footprint here yet.
 
 ## Pumps
 
-All three run from the always-on bus. The ESP32's logic supply (F-LOGIC and
+P1–P3 run from the always-on bus; P4's feed is open. The ESP32's logic supply (F-LOGIC and
 buck) also comes from the always-on bus, so monitoring keeps working with the
 house panel off.
 
 | | Pump | Max draw | Fuse | Switching | Shunt |
 |---|---|---|---|---|---|
 | P1 | SEAFLO 06-series 1100 GPH automatic bilge | 6.0 A (retailer listing) | per the pump's manual | its existing Auto/Off/Man panel switch and float; the board does not switch it | S1, external, 20 A / 75 mV (3.75 mΩ), in the pump's negative |
-| P2 | second SEAFLO bilge pump, model not yet identified; "slightly higher" draw | open | open | same as P1 | S2, external, 20 A / 75 mV, in the pump's negative |
+| P2 | SEAFLO 13A Series 2000 GPH bilge, non-automatic (SFBP1-G2000-13A) | 7.5 A (retailer listing) | per the pump's manual | its existing switching; the board does not switch it | S2, external, 20 A / 75 mV, in the pump's negative |
 | P3 | Amarine FLO-2202 12 V diaphragm pump, 4.3 L/min, 35 PSI — the "dry bilge" pump | 3.5 A max (label) | 4 A (label: "4A FUSE REQ'D") | CH8: opto and high-side P-MOSFET Q8 on the board; D8 flyback across the motor; F8 4 A; no bypass fuse | S3, 15 mΩ 2512 resistor on the board, in P3's negative return |
+| P4 | shower sump pump, model not yet identified | open | open | its existing switching; the board does not switch it | S4, external, 20 A / 75 mV, in the pump's negative |
 
 The crash pump is near the engine room and is not on this controller.
 
@@ -68,25 +70,30 @@ The crash pump is near the engine room and is not on this controller.
 
 An Auto/Off/Man switch, or a 3-wire automatic pump, feeds the motor through two
 positive leads. One positive-side shunt would miss a mode. The negative lead
-carries every mode. Sense leads on the negative side need no fuse, and the
-INA226's common-mode range covers near-0 V.
+carries every mode, and the INA226's common-mode range covers near-0 V.
 
-### Why P1 and P2 are external and P3 is on the board
+Each Kelvin lead of an external shunt (S1, S2, S4) has a fuse at the shunt end
+(*stand-in*, 0.5 A). If a pump's return opens downstream of its shunt, the
+motor's current would otherwise return through the sense lead and the board.
+The fuse protects the lead, not the INA226. S3 is on the board and needs none.
+
+### Why P1, P2 and P4 are external and P3 is on the board
 
 Bilge-pump current stays off the board, so a board fault cannot stop a bilge
-pump. P3's current already crosses the board through Q8, so an on-board shunt
+pump. P4's current does not otherwise cross the board either, and S4 is the
+same part as S1 and S2. P3's current already crosses the board through Q8, so an on-board shunt
 adds no failure path.
 
 ### Shunt sizing (*calculated*, INA226 datasheet: 2.5 µV shunt LSB, 81.92 mV full scale)
 
 | | Full scale | Current LSB | At the pump's draw |
 |---|---|---|---|
-| S1, S2 (3.75 mΩ) | 21.8 A | 0.67 mA | 22.5 mV, 0.14 W at 6 A |
+| S1, S2, S4 (3.75 mΩ) | 21.8 A | 0.67 mA | 22.5 mV, 0.14 W at 6 A (P1); 28.1 mV, 0.21 W at 7.5 A (P2) |
 | S3 (15 mΩ) | 5.46 A | 0.17 mA | 52.5 mV, 0.18 W at 3.5 A |
 
-S1 and S2 stay inside two-thirds of the shunt's 20 A rating, the continuous
-derating, up to about 13 A, so they cover P2 whatever its draw turns out to be
-within that.
+S1, S2 and S4 stay inside two-thirds of the shunt's 20 A rating, the
+continuous derating, up to about 13 A. That covers P2 at 7.5 A, and P4
+whatever its draw turns out to be within that.
 
 ### What each INA226 reports
 
@@ -95,11 +102,13 @@ within that.
 | P1 | 0x40 | S1 | volts, amps |
 | P2 | 0x41 | S2 | volts, amps |
 | P3 | 0x44 | S3 | volts, amps |
+| P4 | 0x45 | S4 | volts, amps |
 
 Firmware derives `running` from amps.
 
-Each INA226's bus-voltage pin taps that pump's breaker-side feed through a
-series resistor (*stand-in*, 10 kΩ). A tripped breaker therefore reads as zero
+Each INA226's bus-voltage pin taps that pump's feed downstream of its breaker
+or fuse and upstream of its switch or Q8, through a series resistor
+(*stand-in*, 10 kΩ). A tripped breaker or blown fuse therefore reads as zero
 volts, which is an alarm.
 
 ## Dry-bilge pump behaviour (firmware requirements)
@@ -112,15 +121,21 @@ volts, which is an alarm.
   Discharging overboard it should never reach cutoff, so "commanded on, about
   0 A" would mean a blocked outlet, for example a closed seacock. That is an
   alarm.
-- **Fails off:** unpowered, booting or hung-low means Q8 is off, as for every
-  light channel.
+- **Hardware watchdog:** the ESP32's watchdog resets the chip if firmware
+  hangs. The reset releases the GPIO to its pulldown and turns Q8 off, so the
+  runtime cap holds against a hang with the output latched on.
+- **Fails off:** unpowered, booting, hung-low or reset means Q8 is off.
 
 ## Open questions
 
-- P2's model, its draw and its fuse.
+- P2's fuse, from its manual.
+- P4's model, its draw, its fuse and its feed.
 - What triggers the dry-bilge pump: a schedule, a float, or a manual Signal K
   PUT.
 - Whether P3 has a pressure switch. Check on the bench.
+- Where the stern light goes. This board takes the mast and forward lights;
+  [nav-light-controller.md](nav-light-controller.md) keeps every navigation
+  light on one board, for one bypass block and one failure surface.
 - The nav-light open questions (masthead legs, two legs hot at once, ESP32
   dedicated or shared) carry over from
   [nav-light-controller.md](nav-light-controller.md).

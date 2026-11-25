@@ -24,7 +24,7 @@ LEG = [(RED, "+12 V (lighting feed or always-on bus)"),
        (BLU, "3.3 V logic / I²C"),
        (BLK, "negative / common ground")]
 
-# (id, name, sub) -- CH5 stern goes to the aft node, not this board
+# (id, name, sub) -- CH5 stern is not on this board
 LIGHTS = [("CH1", "Masthead, leg 1", "mode-select"),
           ("CH2", "Masthead, leg 2", "mode-select"),
           ("CH3", "Masthead, leg 3", "mode-select"),
@@ -43,14 +43,14 @@ def diode_v(x, y, color, label):
 
 # ------------------------------------------------------------------ block sheet
 def block():
-    """System block: light channels, the dry-bilge pump channel, three INA226s."""
-    W, H = 1300, 1090
+    """System block: light channels, the dry-bilge pump channel, four INA226s."""
+    W, H = 1420, 1090
     XBUS, XGND = 230.0, 1100.0
     ROWS = [210.0 + 90.0 * i for i in range(6)]
     Y8 = 790.0
     s = [head(W, H, "Midship ESP32 board — system block",
               "Six light channels and the dry-bilge pump switched by opto-driven "
-              "high-side P-MOSFETs; three INA226 monitors on I²C for the pumps.")]
+              "high-side P-MOSFETs; four INA226 monitors on I²C for the pumps.")]
 
     # lighting feed bus and always-on bus
     s.append(poly([(60, 150), (XBUS, 150)], RED, 3.4))
@@ -86,7 +86,7 @@ def block():
     s.append(txt(60, 1012, "monitoring survives the", 11.5, fill=MUTE))
     s.append(txt(60, 1028, "house panel being off", 11.5, fill=MUTE))
 
-    def row(y, cid, name, sub, bypass, tap, fuse_lab, load_col):
+    def row(y, cid, name, sub, bypass, fuse_lab, load_col):
         s.append(dot(XBUS, y - 27, RED))
         s.append(poly([(XBUS, y - 27), (320, y - 27)], RED))
         s.append(box(320, y - 50, 150, 42, "#ffffff", ORA, 2.4, 5))
@@ -118,14 +118,13 @@ def block():
         s.append(txt(885, y + 15, sub, 11.5, anchor="middle", fill=MUTE))
 
     for y, (cid, name, sub) in zip(ROWS, LIGHTS):
-        row(y, cid, name, sub, True, True, "", ORA)
+        row(y, cid, name, sub, True, "", ORA)
         s.append(poly([(990, y), (XGND, y)], BLK))
         s.append(dot(XGND, y, BLK))
 
     # CH8: dry-bilge pump, always-on bus, no bypass, S3 in the return
     row(Y8, "CH8", "P3 dry-bilge pump", "Amarine FLO-2202, 3.5 A max", False,
-        True, "F8 4 A", ORA)
-    s.append(nl.dot(XBUS, Y8 - 27, RED))
+        "F8 4 A", ORA)
     s.append(poly([(990, Y8), (1020, Y8)], BLK))
     s.append(box(1020, Y8 - 12, 36, 24, "#f1f8f1", GRN, 2.2, 3))
     s.append(txt(1038, Y8 - 20, "S3", 12, anchor="middle", weight="bold", fill=GRN))
@@ -137,21 +136,22 @@ def block():
     s.append(box(770, 180, 232, 244, "none", ORA, 2, 8, "7 5"))
     s.append(txt(885, 440, "one fixture, one cable — one leg at a time", 11.5,
                  anchor="middle", fill=ORA, weight="bold"))
-    s.append(txt(320, 148, "CH5 stern light is switched at the aft node, not here",
+    s.append(txt(320, 148, "CH5 stern light is not on this board",
                  11.5, fill=MUTE))
     s.append(box(496, 178, 68, 536, "none", GRN, 2, 8, "7 5"))
     s.append(txt(530, 170, "BYPASS BLOCK", 11.5, anchor="middle",
                  weight="bold", fill=GRN))
 
-    # I²C bus to three INA226s
+    # I²C bus to four INA226s
     YB = 845.0
     s.append(poly([(200, YB), (XBUS - 9, YB)], BLU, 2.2, "6 4"))
     s.append(hop_h(XBUS, YB, BLU, 2.2))
-    s.append(poly([(XBUS + 9, YB), (975, YB)], BLU, 2.2, "6 4"))
+    s.append(poly([(XBUS + 9, YB), (1075, YB)], BLU, 2.2, "6 4"))
     s.append(txt(260, YB - 8, "I²C", 12, fill=BLU, weight="bold"))
-    for x, addr, pump, shunt in [(515, "0x40", "P1 volts + amps", "S1 external, in P1's negative"),
-                                 (745, "0x41", "P2 volts + amps", "S2 external, in P2's negative"),
-                                 (975, "0x44", "P3 volts + amps", "S3 on the board, in P3's return")]:
+    for x, addr, pump, shunt in [(400, "0x40", "P1 volts + amps", "S1 external, in P1's negative"),
+                                 (625, "0x41", "P2 volts + amps", "S2 external, in P2's negative"),
+                                 (850, "0x44", "P3 volts + amps", "S3 on the board, in P3's return"),
+                                 (1075, "0x45", "P4 volts + amps", "S4 external, in P4's negative")]:
         s.append(poly([(x, YB), (x, 880)], BLU, 2.2, "6 4"))
         s.append(dot(x, YB, BLU))
         s.append(box(x - 105, 880, 210, 72, "#f1f8f1", GRN, 2.2, 5))
@@ -159,9 +159,10 @@ def block():
                      weight="bold", fill=GRN))
         s.append(txt(x, 920, pump, 11.5, anchor="middle"))
         s.append(txt(x, 938, shunt, 10.5, anchor="middle", fill=MUTE))
-    s.append(txt(1100, 905, "P1, P2 and P3 run from the", 11.5, fill=MUTE))
-    s.append(txt(1100, 921, "always-on bus; firmware", 11.5, fill=MUTE))
-    s.append(txt(1100, 937, "derives running from amps", 11.5, fill=MUTE))
+    s.append(txt(1200, 897, "P1–P3 run from the always-on", 11.5, fill=MUTE))
+    s.append(txt(1200, 913, "bus; P4's feed is open.", 11.5, fill=MUTE))
+    s.append(txt(1200, 929, "Firmware derives running", 11.5, fill=MUTE))
+    s.append(txt(1200, 945, "from amps.", 11.5, fill=MUTE))
 
     s.append(legend(560, 985, LEG))
     s.append("</svg>")
@@ -170,30 +171,36 @@ def block():
 
 # --------------------------------------------------------------- pump sensing
 def sensing():
-    """Three pump columns: negative-lead shunts, Kelvin pairs, Q8 and D8 on P3."""
-    W, H = 1320, 940
+    """Four pump columns: negative-lead shunts, Kelvin pairs, Q8 and D8 on P3."""
+    W, H = 1740, 940
     TOP, NEG = 140.0, 780.0
-    s = [head(W, H, "Pump sensing — low-side shunts, Kelvin pairs to three INA226s",
-              "Every pump on the always-on bus. The negative lead carries every "
-              "operating mode, so one shunt per pump sees them all.")]
-    s.append(poly([(60, TOP), (1270, TOP)], RED, 5))
+    s = [head(W, H, "Pump sensing — low-side shunts, Kelvin pairs to four INA226s",
+              "P1–P3 on the always-on bus; P4's feed is open. The negative lead "
+              "carries every operating mode, so one shunt per pump sees them all.")]
+    s.append(poly([(60, TOP), (1690, TOP)], RED, 5))
     s.append(txt(60, TOP - 14, "+12 V always-on bus", 12.5, fill=RED, weight="bold"))
-    s.append(poly([(60, NEG), (1270, NEG)], BLK, 5))
+    s.append(poly([(60, NEG), (1690, NEG)], BLK, 5))
     s.append(txt(60, NEG + 22, "to negative bus", 12.5, fill=BLK, weight="bold"))
 
     cols = [(230, "P1", "SEAFLO 06-series", "1100 GPH automatic bilge", "6.0 A max",
              "breaker", "fuse per pump manual", "S1", "20 A / 75 mV", "external, at the pump",
              "0x40", False),
-            (640, "P2", "SEAFLO bilge pump", "model not yet identified", "draw: open",
-             "breaker", "fuse: open", "S2", "20 A / 75 mV", "external, at the pump",
+            (640, "P2", "SEAFLO 13A Series", "2000 GPH bilge, non-auto", "7.5 A max",
+             "breaker", "fuse per pump manual", "S2", "20 A / 75 mV", "external, at the pump",
              "0x41", False),
-            (1030, "P3", "Amarine FLO-2202", "diaphragm, dry-bilge pump", "3.5 A max",
+            (1050, "P3", "Amarine FLO-2202", "diaphragm, dry-bilge pump", "3.5 A max",
              "F8", "4 A", "S3", "15 mΩ, 2512", "on the board",
-             "0x44", True)]
+             "0x44", True),
+            (1460, "P4", "shower sump pump", "model not yet identified", "draw: open",
+             "fuse", "open", "S4", "20 A / 75 mV", "external, at the pump",
+             "0x45", False)]
     for (cx, pid, nm, nm2, draw, fl, fsub, sl, ssub, sloc, addr, board) in cols:
-        # feed: bus -> fuse -> tap node
-        s.append(poly([(cx, TOP), (cx, 166)], RED))
-        s.append(dot(cx, TOP, RED))
+        # feed: bus -> fuse -> tap node; P4's feed is open, so it stops short of the bus
+        if pid == "P4":
+            s.append(txt(cx + 12, 162, "feed: open", 11, fill=MUTE))
+        else:
+            s.append(poly([(cx, TOP), (cx, 166)], RED))
+            s.append(dot(cx, TOP, RED))
         s.append(fuse_v(cx, 190, RED, fl, lx=cx - 24, sub=fsub))
         s.append(poly([(cx, 214), (cx, 245)], RED))
         s.append(dot(cx, 245, RED))
@@ -217,7 +224,8 @@ def sensing():
         else:
             s.append(poly([(cx, 245), (cx, 275)], RED))
             s.append(box(cx - 75, 275, 150, 56, "#ffffff", RED, 2.2, 5))
-            s.append(txt(cx, 297, "Auto / Off / Man", 12.5, anchor="middle"))
+            s.append(txt(cx, 297, "Auto / Off / Man" if pid == "P1"
+                         else "existing switching", 12.5, anchor="middle"))
             s.append(txt(cx, 315, "existing switch / float", 11, anchor="middle",
                          fill=MUTE))
             s.append(poly([(cx, 331), (cx, 380)], RED))
@@ -240,8 +248,14 @@ def sensing():
         # Kelvin pair to the INA226
         s.append(dot(cx, 468, GRN, 3.6))
         s.append(dot(cx, 552, GRN, 3.6))
-        s.append(poly([(cx, 468), (cx + 110, 468)], GRN, 2.2))
-        s.append(poly([(cx, 552), (cx + 110, 552)], GRN, 2.2))
+        if board:
+            s.append(poly([(cx, 468), (cx + 110, 468)], GRN, 2.2))
+            s.append(poly([(cx, 552), (cx + 110, 552)], GRN, 2.2))
+        else:  # a fuse at the shunt end of each lead of an external shunt
+            for yk in (468, 552):
+                s.append(poly([(cx, yk), (cx + 30, yk)], GRN, 2.2))
+                s.append(fuse_h(cx + 54, yk, GRN, ""))
+                s.append(poly([(cx + 78, yk), (cx + 110, yk)], GRN, 2.2))
         s.append(box(cx + 110, 450, 150, 120, "#f1f8f1", GRN, 2.2, 5))
         s.append(txt(cx + 118, 472, "IN+", 11, fill=GRN))
         s.append(txt(cx + 118, 556, "IN−", 11, fill=GRN))
@@ -250,39 +264,42 @@ def sensing():
         s.append(txt(cx + 185, 523, addr, 12, anchor="middle"))
         s.append(txt(cx + 185, 541, "volts + amps", 11.5, anchor="middle",
                      fill=MUTE))
-        # VBUS taps the breaker-side feed through a series resistor
+        # VBUS taps the feed upstream of the switch or Q8, through a series resistor
         s.append(poly([(cx, 245), (cx + 185, 245), (cx + 185, 330)], GRN, 2.2))
         s.append(res_v(cx + 185, 354, GRN, "10 kΩ"))
         s.append(poly([(cx + 185, 378), (cx + 185, 450)], GRN, 2.2))
         s.append(txt(cx + 192, 466, "VBUS", 11, fill=GRN))
-        s.append(txt(cx + 12, 238, "breaker-side feed", 11, fill=MUTE))
+        s.append(txt(cx + 12, 238, "upstream feed", 11, fill=MUTE))
         # I²C drop
         s.append(poly([(cx + 185, 570), (cx + 185, 620)], BLU, 2.2, "6 4"))
         s.append(dot(cx + 185, 620, BLU))
 
     # I²C bus, hopping the pump columns
-    s.append(poly([(415, 620), (631, 620)], BLU, 2.2, "6 4"))
-    s.append(hop_h(640, 620, BLU, 2.2))
-    s.append(poly([(649, 620), (1021, 620)], BLU, 2.2, "6 4"))
-    s.append(hop_h(1030, 620, BLU, 2.2))
-    s.append(poly([(1039, 620), (1215, 620)], BLU, 2.2, "6 4"))
+    xs = [415] + [x for c in (640, 1050, 1460) for x in (c - 9, c + 9)] + [1645]
+    for x0, x1 in zip(xs[0::2], xs[1::2]):
+        s.append(poly([(x0, 620), (x1, 620)], BLU, 2.2, "6 4"))
+    for c in (640, 1050, 1460):
+        s.append(hop_h(c, 620, BLU, 2.2))
     s.append(txt(425, 612, "I²C", 12, fill=BLU, weight="bold"))
-    s.append(poly([(820, 620), (820, 650)], BLU, 2.2, "6 4"))
-    s.append(dot(820, 620, BLU))
-    s.append(box(700, 650, 240, 70, "#f3f7fd", BLU, 2.4, 6))
-    s.append(txt(820, 676, "ESP32", 14, anchor="middle", weight="bold", fill=BLU))
-    s.append(txt(820, 695, "firmware derives running;", 11.5, anchor="middle",
+    s.append(poly([(930, 620), (930, 650)], BLU, 2.2, "6 4"))
+    s.append(dot(930, 620, BLU))
+    s.append(box(810, 650, 240, 70, "#f3f7fd", BLU, 2.4, 6))
+    s.append(txt(930, 676, "ESP32", 14, anchor="middle", weight="bold", fill=BLU))
+    s.append(txt(930, 695, "firmware derives running;", 11.5, anchor="middle",
                  fill=MUTE))
-    s.append(txt(820, 711, "publishes volts and amps to Signal K", 11.5,
+    s.append(txt(930, 711, "publishes volts and amps to Signal K", 11.5,
                  anchor="middle", fill=MUTE))
 
     s.append(legend(40, 835, LEG))
-    s.append(txt(440, 840, "Sense leads on the negative side need no fuse.", 12.5))
-    s.append(txt(440, 860, "A tripped breaker reads as zero volts on that "
-                           "pump's VBUS — an alarm.", 12.5))
-    s.append(txt(440, 880, "P1 and P2 current never crosses the board; P3's "
+    s.append(txt(440, 840, "Each Kelvin lead of an external shunt is fused at the "
+                           "shunt end: an open return downstream would otherwise "
+                           "send motor current down the lead.", 12.5))
+    s.append(txt(440, 860, "A tripped breaker or blown fuse reads as zero volts on "
+                           "that pump's VBUS — an alarm.", 12.5))
+    s.append(txt(440, 880, "P1, P2 and P4 current never crosses the board; P3's "
                            "already does, through Q8.", 12.5))
-    s.append(txt(440, 900, "10 kΩ series resistor is a stand-in.", 12.5, fill=MUTE))
+    s.append(txt(440, 900, "10 kΩ series resistor and 0.5 A sense-lead fuses are "
+                           "stand-ins.", 12.5, fill=MUTE))
     s.append("</svg>")
     return "".join(s)
 
