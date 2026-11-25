@@ -81,8 +81,8 @@ adds no failure path.
 
 | | Full scale | Current LSB | At the pump's draw |
 |---|---|---|---|
-| S1, S2 (3.75 mΩ) | 21.8 A | 0.67 mA | 22.5 mV at 6 A |
-| S3 (15 mΩ) | 5.46 A | 0.17 mA | 0.18 W at 3.5 A |
+| S1, S2 (3.75 mΩ) | 21.8 A | 0.67 mA | 22.5 mV, 0.14 W at 6 A |
+| S3 (15 mΩ) | 5.46 A | 0.17 mA | 52.5 mV, 0.18 W at 3.5 A |
 
 S1 and S2 stay inside two-thirds of the shunt's 20 A rating, the continuous
 derating, up to about 13 A, so they cover P2 whatever its draw turns out to be
