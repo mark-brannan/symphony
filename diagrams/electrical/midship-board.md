@@ -43,8 +43,9 @@ masthead radio-group rule. Lights are fed from the lighting feed.
 | CH7 | Spreader lights | deck work light — not a navigation light |
 | CH8 | Dry-bilge pump (P3) | see below |
 
-CH5, the stern light, is not on this board: it is neither a mast light nor a
-forward light.
+CH5, the stern light, has a reserved footprint on this board, so it can be
+switched here. It may instead go on a dedicated circuit or a separate
+controller.
 
 A future channel is cabin-light switching. It is deferred and has no
 footprint here yet.

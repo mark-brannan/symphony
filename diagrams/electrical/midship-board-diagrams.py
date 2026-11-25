@@ -24,7 +24,7 @@ LEG = [(RED, "+12 V (lighting feed or always-on bus)"),
        (BLU, "3.3 V logic / I²C"),
        (BLK, "negative / common ground")]
 
-# (id, name, sub) -- CH5 stern is not on this board
+# (id, name, sub) -- CH5 stern: footprint reserved, not drawn
 LIGHTS = [("CH1", "Masthead, leg 1", "mode-select"),
           ("CH2", "Masthead, leg 2", "mode-select"),
           ("CH3", "Masthead, leg 3", "mode-select"),
@@ -136,7 +136,7 @@ def block():
     s.append(box(770, 180, 232, 244, "none", ORA, 2, 8, "7 5"))
     s.append(txt(885, 440, "one fixture, one cable — one leg at a time", 11.5,
                  anchor="middle", fill=ORA, weight="bold"))
-    s.append(txt(320, 148, "CH5 stern light is not on this board",
+    s.append(txt(320, 148, "CH5 stern light: footprint reserved on this board",
                  11.5, fill=MUTE))
     s.append(box(496, 178, 68, 536, "none", GRN, 2, 8, "7 5"))
     s.append(txt(530, 170, "BYPASS BLOCK", 11.5, anchor="middle",
