@@ -133,9 +133,6 @@ volts, which is an alarm.
 - What triggers the dry-bilge pump: a schedule, a float, or a manual Signal K
   PUT.
 - Whether P3 has a pressure switch. Check on the bench.
-- Where the stern light goes. This board takes the mast and forward lights;
-  [nav-light-controller.md](nav-light-controller.md) keeps every navigation
-  light on one board, for one bypass block and one failure surface.
 - The nav-light open questions (masthead legs, two legs hot at once, ESP32
   dedicated or shared) carry over from
   [nav-light-controller.md](nav-light-controller.md).

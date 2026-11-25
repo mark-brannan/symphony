@@ -115,6 +115,8 @@ the board's worst-case dissipation and its share of the main run.
 mast, which is a wiring question, not a switching one. Keeping it here means
 one bypass block, one ESP32, one failure surface, and the same failover story
 for every light that COLREGS requires underway.
+The [midship board](midship-board.md) builds this circuit for the mast and
+forward lights only; the stern light is not on it.
 
 ## How one channel switches
 
