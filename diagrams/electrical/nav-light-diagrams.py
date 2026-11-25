@@ -472,10 +472,11 @@ def feedback():
     return "".join(s)
 
 
-out = "diagrams/electrical"
-for name, fn in [("nav-light-block", block), ("nav-light-channel", channel),
-                 ("nav-light-feedback", feedback)]:
-    p = os.path.join(out, name + ".svg")
-    with open(p, "w") as f:
-        f.write(fn())
-    print("wrote", p)
+if __name__ == "__main__":
+    out = "diagrams/electrical"
+    for name, fn in [("nav-light-block", block), ("nav-light-channel", channel),
+                     ("nav-light-feedback", feedback)]:
+        p = os.path.join(out, name + ".svg")
+        with open(p, "w") as f:
+            f.write(fn())
+        print("wrote", p)
