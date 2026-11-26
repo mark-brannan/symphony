@@ -168,6 +168,6 @@ def sheet():
     return "".join(s)
 
 p = os.path.join("diagrams/electrical", "battery-fans.svg")
-with open(p, "w") as f:
+with open(p, "w", encoding="utf-8") as f:
     f.write(sheet())
 print("wrote", p)
