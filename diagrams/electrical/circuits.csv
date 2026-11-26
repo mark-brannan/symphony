@@ -20,3 +20,4 @@ Orion DC-DC output,30,guess,10,guess,3,12,false,1,105,true,installed,Orion 12/12
 IP22 charger to starter battery,30,spec,10,guess,3,12,false,1,105,true,purchased,Blue Smart IP22 12/30; AGM starter charger on shore-only AC branch (bypasses MultiPlus transfer switch)
 MultiPlus DC feed,45,spec,6,guess,3,12,false,1,105,true,purchased,MultiPlus 500VA; ~42A derived from rating; confirm manual fuse rec
 House bank to bus main,95,guess,6,guess,3,12,false,1,105,true,purchased,bank 2x ECO-WORTHY 280Ah = 560Ah; lithium needs Class T type; master switch GOGONFLY 275A
+Battery compartment fans,1.5,guess,6,guess,3,12,false,1,105,true,planned,via Cerbo relay 2 NC on temperature; 5A fuse at unswitched bus
