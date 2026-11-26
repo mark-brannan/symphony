@@ -105,6 +105,7 @@ critical group. *Replaces* is the old breaker it takes over, once decided.
 | Victron Cerbo and SmartShunt | unswitched fused | |
 | ESP32 circuits | unswitched fused | |
 | USB outlets, DC sockets, 9 V bucks, chargers | DC accessory | |
+| Battery compartment fans (Cerbo relay, `battery-fans.svg`) | unswitched fused | |
 | Fans | DC accessory | |
 | Main cabin lights (24 V LED, chart light, overhead) | main cabin lights | |
 | Courtesy lights | individually switched | |

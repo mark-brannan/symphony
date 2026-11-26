@@ -36,6 +36,7 @@ not as-built values.
   measured on the boat's own parts. Dashed = type or part open, planned, or a future battery. Run it from the
   repo root.
 - `house-bank-busbar-board.md` — the requirements that layout has to meet.
+- `battery-fans.svg` — battery-compartment fans on a Cerbo GX relay, switched by temperature; from `battery-fans-diagram.py`.
 - `circuit-inventory.md` — existing breakers, circuits off the panel, and planned circuits.
 - `voltplan/symphony.json` — system description for the VoltPlan API.
 - `voltplan/symphony.png` — diagram generated from it.
